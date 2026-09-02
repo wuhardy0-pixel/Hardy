@@ -665,6 +665,23 @@ validation; [ ] pending.
     measured, not guessed: a fresh F starter wins 11/14 early fights
     button-mashing and 12/14 playing properly (the first cut of this was
     3/12, which is why the starters kept their second move).
+-   2026-09-02 (hosting off the Mac): the whole project now builds into one
+    container (Dockerfile at the repo root): Caddy on the front splitting
+    traffic by hostname — shop.hardywu.com → the Next.js store on :3010,
+    everything else → Flask under gunicorn on :5000. Lasting data lives
+    under a mounted volume (BOOKKEEP_DATA_DIR for the books database,
+    evidence, backups and visitor log; the store's .uploads symlinked to
+    the same volume). server.py became proxy-aware (ProxyFix), boots
+    init_db at import for gunicorn, and the 127.0.0.1 login bypass now
+    also requires the request to really come from the machine (a spoofed
+    Host header through the proxy gets the login page). A one-time
+    import endpoint (/api/admin/import-data, only while
+    ALLOW_DATA_IMPORT=1, bearer = server secret) moves the existing data
+    onto the volume. Built and smoke-tested locally with Docker: every
+    hostname, sign-in, games, store, activity report. Target host:
+    Railway (Hobby), deploying from the GitHub repo; Cloudflare DNS to be
+    repointed from the tunnel once it's up. The Mac setup keeps working
+    unchanged as a fallback.
 -   Earlier prototype history: V7–V14 notes in the repo's *.txt files.
 
 ## Testing

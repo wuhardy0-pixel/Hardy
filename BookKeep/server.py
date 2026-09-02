@@ -2,18 +2,26 @@ from __future__ import annotations
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
 from pathlib import Path
 from datetime import timedelta
-import os, re, sqlite3, json, hashlib, base64, datetime, uuid, hmac, secrets, time, threading, html
+import os, io, re, sqlite3, json, hashlib, base64, datetime, uuid, hmac, secrets, time, threading, html
 
 # Load API keys from .env (server-side only — never sent to the browser).
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 BASE = Path(__file__).resolve().parent
-DB = BASE / "bookkeep_v13.db"
-FILES = BASE / "evidence_files_v13"
+# Lasting data (books, evidence, backups, visitor log). On a hosting service this
+# points at the mounted volume so it survives redeploys; locally it's this folder.
+DATA_DIR = Path(os.environ.get("BOOKKEEP_DATA_DIR") or BASE)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB = DATA_DIR / "bookkeep_v13.db"
+FILES = DATA_DIR / "evidence_files_v13"
 FILES.mkdir(exist_ok=True)
 
 app = Flask(__name__, static_folder=None)
+# Behind Caddy/Railway/Cloudflare the real client address and scheme arrive in
+# X-Forwarded-* headers; without this every visitor would look like 127.0.0.1.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 # ===================== FAMILY LOGIN (name only, no password) =====================
 # Remote visitors (tunnel/public URL) just say WHO they are — no password, by
@@ -25,8 +33,11 @@ def ensure_env_secret(name, make_value):
     if val:
         return val
     val = make_value()
-    with open(BASE / ".env", "a") as f:
-        f.write(f"\n{name}={val}\n")
+    try:
+        with open(BASE / ".env", "a") as f:
+            f.write(f"\n{name}={val}\n")
+    except OSError:
+        pass                      # read-only container: the value lives in the environment
     os.environ[name] = val
     return val
 
@@ -167,7 +178,7 @@ def update_order():
 # (the owner) can then see who came, what they looked at, how long they stayed
 # and what they clicked, at /activity.
 HARDY_EMAIL = "wuhardy0@gmail.com"
-ACT_FILE = BASE / "activity.json"
+ACT_FILE = DATA_DIR / "activity.json"
 _act_lock = threading.Lock()
 
 def _act_load():
@@ -566,10 +577,13 @@ for _s in PORTFOLIO:
     app.add_url_rule(f"/{_s}/<slug>", f"portfolio_item_{_s}", (lambda slug, s=_s: portfolio_item(s, slug)))
 
 
-PUBLIC_PATHS = {"/login", "/api/login", "/api/health", "/logout", "/logo.png", "/favicon.png"}
+PUBLIC_PATHS = {"/login", "/api/login", "/api/health", "/logout", "/logo.png", "/favicon.png",
+                "/api/admin/import-data"}   # checks its own secret
 
 def is_local_request():
-    return (request.host or "").split(":")[0] in ("127.0.0.1", "localhost")
+    on_local_name = (request.host or "").split(":")[0] in ("127.0.0.1", "localhost")
+    from_this_machine = request.remote_addr in ("127.0.0.1", "::1", None)
+    return on_local_name and from_this_machine
 
 @app.before_request
 def require_passcode():
@@ -1290,7 +1304,7 @@ def wipe_evidence():
 # ===================== AUTOMATIC BACKUPS =====================
 # The books live in browser localStorage; these endpoints keep dated JSON
 # copies on disk so a cleared browser is not a lost business.
-BACKUPS = BASE / "backups_v13"
+BACKUPS = DATA_DIR / "backups_v13"
 BACKUPS.mkdir(exist_ok=True)
 
 def safe_slug(s, fallback):
@@ -1344,8 +1358,38 @@ def get_backup(name):
 def evidence_file(name):
     return send_from_directory(FILES,name)
 
+@app.post("/api/admin/import-data")
+def admin_import_data():
+    """Restore a data archive (bookkeep/… and shop-uploads/…) onto this server.
+    Enabled only while ALLOW_DATA_IMPORT=1 is set, and only with the server secret."""
+    import tarfile
+    if os.environ.get("ALLOW_DATA_IMPORT") != "1":
+        return jsonify(error="Import is switched off."), 404
+    if request.headers.get("Authorization", "") != f"Bearer {app.secret_key}":
+        return jsonify(error="Not allowed."), 403
+    roots = {"bookkeep": DATA_DIR,
+             "shop-uploads": Path(os.environ.get("SHOP_UPLOADS_DIR") or (SHOP_DIR / ".uploads"))}
+    written = 0
+    with tarfile.open(fileobj=io.BytesIO(request.get_data()), mode="r:*") as tar:
+        for m in tar.getmembers():
+            parts = Path(m.name).parts
+            if not parts or parts[0] not in roots or ".." in parts or m.name.startswith("/"):
+                continue
+            dest = roots[parts[0]].joinpath(*parts[1:]) if len(parts) > 1 else None
+            if dest is None:
+                continue
+            if m.isdir():
+                dest.mkdir(parents=True, exist_ok=True)
+            elif m.isfile():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with tar.extractfile(m) as src, open(dest, "wb") as out:
+                    out.write(src.read())
+                written += 1
+    return jsonify(ok=True, files=written)
+
+init_db()                      # also under gunicorn, where __main__ never runs
+
 if __name__=="__main__":
-    init_db()
     # second listener so the website itself can be opened on this Mac:
     #   http://127.0.0.1:5000  → BookKeep app      (books.hardywu.com)
     #   http://127.0.0.1:5001  → the website       (hardywu.com)
