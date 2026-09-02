@@ -2,7 +2,7 @@
 /3d            https://shop.hardywu.com  302
 /3d/*          https://shop.hardywu.com/products/:splat  302
 /play/*        https://play.hardywu.com/play/:splat  302
-/go/*          https://hardywu.com/go/:splat  302
-/activity      https://hardywu.com/activity  302
-/signout       https://hardywu.com/signout  302
-/api/*         https://hardywu.com/api/:splat  307
+/go/*          https://play.hardywu.com/go/:splat  302
+/activity      https://play.hardywu.com/activity  302
+/signout       https://play.hardywu.com/signout  302
+/api/*         https://play.hardywu.com/api/:splat  307

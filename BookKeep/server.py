@@ -367,7 +367,7 @@ def visitor_login():
     from urllib.parse import urlparse, parse_qs
     back = parse_qs(urlparse(nxt).query).get("next", [""])[0] if key == "" else ""
     if key == "" and back.startswith("/") and not back.startswith("//"):
-        nxt = "https://hardywu.com" + back                   # back to what they were opening
+        nxt = "https://play.hardywu.com" + back              # back to what they were opening
     elif key is not None and key in login_targets():      # the server decides where a login address leads
         nxt = dest(login_targets()[key])
         track("open", login_targets()[key]["name"], nxt)
@@ -749,7 +749,7 @@ def require_passcode():
             if visitor():                                # already signed in → straight through
                 back = request.args.get("next", "")
                 if key == "" and back.startswith("/") and not back.startswith("//"):
-                    return redirect("https://hardywu.com" + back)   # e.g. Hardy's report
+                    return redirect("https://play.hardywu.com" + back)   # e.g. Hardy's report
                 track("open", tgt["name"], dest(tgt))
                 return redirect(dest(tgt))
             return VISITOR_HTML

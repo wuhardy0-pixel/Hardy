@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / "BookKeep")); os.chdir(ROOT / "BookKeep")
 import server                                                # noqa: E402
 
 BASE = "https://www.hardywu.com"
-LIVE = "https://hardywu.com"
+LIVE = "https://play.hardywu.com"   # the server, on a name Cloudflare never redirects
 c = server.app.test_client()
 
 def clean(html):
