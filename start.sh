@@ -8,5 +8,5 @@ SHOP=$(echo /srv/Hardy*/app)
 rm -rf "$SHOP/.uploads" && ln -s "$DATA/shop-uploads" "$SHOP/.uploads"
 
 ( cd "$SHOP" && exec npx next start -p 3010 ) &
-( cd /srv/BookKeep && exec /srv/venv/bin/gunicorn -w 2 -b 127.0.0.1:5000 --timeout 120 --access-logfile - server:app ) &
+( cd /srv/BookKeep && exec /srv/venv/bin/gunicorn -w 1 --threads 8 -b 127.0.0.1:5000 --timeout 120 --access-logfile - server:app ) &
 exec caddy run --config /srv/Caddyfile --adapter caddyfile

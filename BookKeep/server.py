@@ -2,7 +2,7 @@ from __future__ import annotations
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
 from pathlib import Path
 from datetime import timedelta
-import os, io, re, sqlite3, json, hashlib, base64, datetime, uuid, hmac, secrets, time, threading, html
+import os, io, re, shutil, atexit, sqlite3, json, hashlib, base64, datetime, uuid, hmac, secrets, time, threading, html
 
 # Load API keys from .env (server-side only — never sent to the browser).
 from dotenv import load_dotenv
@@ -15,6 +15,29 @@ DATA_DIR = Path(os.environ.get("BOOKKEEP_DATA_DIR") or BASE)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB = DATA_DIR / "bookkeep_v13.db"
 FILES = DATA_DIR / "evidence_files_v13"
+# On Cloud Run the data folder is a mounted storage bucket: fine for files, not
+# for a live SQLite database. So the database works from local disk and a
+# consistent snapshot is mirrored to the bucket after every change.
+DB_STORE = DB
+if os.environ.get("BOOKKEEP_DB_LOCAL"):
+    DB = Path(os.environ["BOOKKEEP_DB_LOCAL"]); DB.parent.mkdir(parents=True, exist_ok=True)
+    if DB_STORE.exists() and not DB.exists():
+        shutil.copy2(DB_STORE, DB)
+_db_synced = [0.0]
+def sync_db_to_store(force=False):
+    if DB == DB_STORE or not DB.exists():
+        return
+    try:
+        m = DB.stat().st_mtime
+        if m <= _db_synced[0] and not force:
+            return
+        snap = DB.with_suffix(".snap")
+        src = sqlite3.connect(DB); dst = sqlite3.connect(snap); src.backup(dst); dst.close(); src.close()
+        tmp = DB_STORE.with_suffix(".tmp"); shutil.copy2(snap, tmp); os.replace(tmp, DB_STORE)
+        _db_synced[0] = m
+    except Exception as e:
+        print("db sync to store failed:", e, flush=True)
+atexit.register(lambda: sync_db_to_store(force=True))
 FILES.mkdir(exist_ok=True)
 
 app = Flask(__name__, static_folder=None)
@@ -948,6 +971,11 @@ def save_data_url(value,prefix):
     name=f"{prefix}_{digest[:16]}.{ext}"
     (FILES/name).write_bytes(raw)
     return name,digest
+
+@app.after_request
+def _mirror_db(resp):
+    sync_db_to_store()
+    return resp
 
 @app.after_request
 def cors(resp):
