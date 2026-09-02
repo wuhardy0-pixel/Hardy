@@ -14,7 +14,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet" />
-        <link rel="icon" href="https://www.hardywu.com/favicon.png" />
+        <link rel="icon" href="https://hardywu.com/favicon.png" />
       </head>
       <body>
         <div className="wrap">
@@ -23,7 +23,7 @@ export default function RootLayout({ children }) {
             <nav className="nav">
               <Link href="/#products">Products</Link>
               <Link href="/#about">About</Link>
-              <a href="https://www.hardywu.com/">← hardywu.com</a>
+              <a href="https://hardywu.com/">← hardywu.com</a>
             </nav>
           </header>
           {children}

@@ -1,11 +1,19 @@
 {
-  // Cloudflare Worker "hardy" (www.hardywu.com): serve the built front page in www/
-  // as plain files. Regenerate www/ with tools/build_www.py before pushing.
+  // Cloudflare Worker "hardy": hardywu.com is the site. It serves the built front
+  // page in www/ as plain files; worker.js forwards www.hardywu.com to hardywu.com.
+  // Regenerate www/ with tools/build_www.py before pushing.
   "$schema": "https://developers.cloudflare.com/workers/wrangler-configuration",
   "name": "hardy",
+  "main": "./worker.js",
   "compatibility_date": "2026-09-02",
+  "routes": [
+    { "pattern": "hardywu.com", "custom_domain": true },
+    { "pattern": "www.hardywu.com", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./www",
+    "binding": "ASSETS",
+    "run_worker_first": true,
     "not_found_handling": "404-page"
   }
 }

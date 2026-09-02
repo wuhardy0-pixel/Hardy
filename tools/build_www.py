@@ -1,5 +1,5 @@
 """Generate the www/ folder: the hardywu.com front page and sections as plain files,
-so Cloudflare Pages can serve www.hardywu.com straight from GitHub.
+so the Cloudflare Worker can serve hardywu.com straight from GitHub.
 
 It renders the pages with the site's own code (no second copy to maintain), then
 points anything that needs the running server — games, BookKeep, the store,
@@ -17,7 +17,7 @@ os.environ.setdefault("BOOKKEEP_SECRET", "build-only")
 sys.path.insert(0, str(ROOT / "BookKeep")); os.chdir(ROOT / "BookKeep")
 import server                                                # noqa: E402
 
-BASE = "https://www.hardywu.com"
+BASE = "https://hardywu.com"
 LIVE = "https://play.hardywu.com"   # the server, on a name Cloudflare never redirects
 c = server.app.test_client()
 
