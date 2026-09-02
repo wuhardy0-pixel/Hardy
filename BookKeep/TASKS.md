@@ -682,6 +682,21 @@ validation; [ ] pending.
     Railway (Hobby), deploying from the GitHub repo; Cloudflare DNS to be
     repointed from the tunnel once it's up. The Mac setup keeps working
     unchanged as a fallback.
+-   2026-09-02 (open site, login on the way in): the site no longer asks
+    who you are on arrival — home, sections and item pages are open.
+    Every button that leads somewhere (each game, BookKeep, the store)
+    goes through its own login address, login<thing>.hardywu.com
+    (loginnovablast, logincritterquest, loginfootballsim, loginnovastrike,
+    loginpokemonadventure, loginbookkeep, login3d; a *.hardywu.com wildcard
+    record and tunnel ingress route them all to the site). A visitor
+    signs in once with name + email; the cookie is shared across the whole
+    domain (custom session interface sets Domain=.hardywu.com on live
+    hosts only), so the next click goes straight through. BookKeep's own
+    login moved to loginbookkeep.hardywu.com and lands on
+    books.hardywu.com afterwards. On this Mac, where subdomains don't
+    exist, the same flow runs on /go/<thing> and stays local. Hosting
+    decision: Barbara chose to stay with GitHub + Cloudflare rather than
+    Railway; the container files remain in the repo unused.
 -   Earlier prototype history: V7–V14 notes in the repo's *.txt files.
 
 ## Testing

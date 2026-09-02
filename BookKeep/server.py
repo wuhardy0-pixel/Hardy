@@ -22,6 +22,14 @@ app = Flask(__name__, static_folder=None)
 # X-Forwarded-* headers; without this every visitor would look like 127.0.0.1.
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+# Sign in once, anywhere on hardywu.com (login<thing>.hardywu.com, books., the
+# site itself) and stay signed in everywhere: the cookie is shared across the domain.
+from flask.sessions import SecureCookieSessionInterface
+class _SharedCookie(SecureCookieSessionInterface):
+    def get_cookie_domain(self, app):
+        h = (request.host or "").split(":")[0].lower()
+        return ".hardywu.com" if h.endswith("hardywu.com") else None
+app.session_interface = _SharedCookie()
 
 # ===================== FAMILY LOGIN (name only, no password) =====================
 # Remote visitors (tunnel/public URL) just say WHO they are — no password, by
@@ -305,7 +313,12 @@ def visitor_login():
     nxt = (d.get("next") or "/").strip()
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/"
-    track("view", friendly_label(nxt), nxt)
+    key = login_slug_from_host()
+    if key is not None and key in login_targets():        # the server decides where a login address leads
+        nxt = dest(login_targets()[key])
+        track("open", login_targets()[key]["name"], nxt)
+    else:
+        track("view", friendly_label(nxt), nxt)
     return jsonify(ok=True, next=nxt)
 
 @app.get("/signout")
@@ -431,7 +444,49 @@ details ul{margin:10px 0 0;padding-left:18px;font-size:13.5px;line-height:1.7}
 
 SITE_PORT = 5001          # http://127.0.0.1:5001 = the hardywu.com site, locally
 
+SITE_ORIGIN = "https://hardywu.com"
+def _key(slug): return re.sub(r"[^a-z0-9]", "", str(slug).lower())
+
+def login_targets():
+    """Every button that leaves the site gets its own login address:
+    loginnovablast.hardywu.com → /play/nova, loginbookkeep.hardywu.com → BookKeep, …"""
+    t = {}
+    for sec, sdef in PORTFOLIO.items():
+        for slug, it in sdef.get("items", {}).items():
+            if it.get("redirect"): to = it["redirect"]
+            elif it.get("link"):   to = it["link"]          # relative links stay relative (see dest())
+            else: continue
+            t[_key(slug)] = {"name": it["name"], "to": to, "slug": slug}
+    t["3d"] = {"name": "The 3D store", "to": SHOP_HOST, "slug": "3d"}
+    t[""]   = {"name": "hardywu.com", "to": SITE_ORIGIN + "/", "slug": ""}
+    return t
+
+def dest(tgt):
+    """Where a login leads: absolute on the live domain, local on this Mac."""
+    to = tgt["to"]
+    if to.startswith("http"): return to
+    return SITE_ORIGIN + to if on_real_site() else to
+
+def login_slug_from_host():
+    m = re.match(r"^login([a-z0-9]*)\.hardywu\.com$", (request.host or "").split(":")[0].lower())
+    return m.group(1) if m else None
+
+def on_real_site():
+    return (request.host or "").split(":")[0].lower().endswith("hardywu.com")
+
+def login_url_for(key):
+    """The login page for one thing — a real subdomain live, a plain path on this Mac."""
+    return f"https://login{key}.hardywu.com/" if on_real_site() else f"/go/{key or 'home'}"
+
+PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim"}
+def play_key(path):
+    for pre, k in PLAY_KEYS.items():
+        if path == pre or path.startswith(pre + "/"): return k
+    return ""
+
 def is_portfolio_host():
+    if login_slug_from_host() is not None:
+        return True
     host = (request.host or "").lower()
     if host.split(":")[0] in PORTFOLIO_HOSTS:
         return True
@@ -535,7 +590,7 @@ def portfolio_item(section, slug):
     if not it:
         return p_page("Not found", "<h1>Not found</h1>", f'<a href="/{section}">← back</a>'), 404
     if it.get("redirect"):
-        return redirect(it["redirect"])
+        return redirect(login_url_for(_key(slug)))
     crumbs = f'<a href="/">hardywu.com</a> / <a href="/{section}">{sec["title"]}</a> / {it["name"]}'
     if it.get("shop"):
         photo = f'<img src="{it["photo"]}" style="max-width:320px;width:90%;border-radius:14px;margin:10px auto;display:block">' if it.get("photo") else f'<div style="font-size:64px">{it["emoji"]}</div>'
@@ -565,7 +620,7 @@ async function placeOrder(){{
   else{{document.getElementById("oErr").textContent=j.error||"Something went wrong.";}}
 }}
 </script></header>""", crumbs)
-    btn = f'<a class="btn primary" href="{it["link"]}">{it.get("link_label","Open")}</a>' if it.get("link") else ""
+    btn = f'<a class="btn primary" href="{login_url_for(_key(slug))}">{it.get("link_label","Open")}</a>' if it.get("link") else ""
     hero = (f'<img src="{it["img"]}" style="width:200px;height:200px;object-fit:cover;border-radius:24px">'
             if it.get("img") else f'<div style="font-size:64px">{it["emoji"]}</div>')
     return p_page(f'{it["name"]} — Hardy Wu', f"""
@@ -591,26 +646,60 @@ def require_passcode():
         return None
     if is_portfolio_host():
         p = request.path
-        # things a browser needs before anyone has signed in
+        key = login_slug_from_host()
+        if key is not None:                              # login<thing>.hardywu.com
+            if p in ("/api/visitor", "/api/login", "/logo.png", "/favicon.png", "/track.js", "/signout"):
+                return None
+            if p != "/":
+                return redirect("/")
+            tgt = login_targets().get(key)
+            if not tgt:
+                return redirect(SITE_ORIGIN + "/")
+            if key == "bookkeep":                        # BookKeep has real accounts: its own login
+                return redirect(APP_HOST) if session.get("authed") else LOGIN_HTML
+            if visitor():                                # already signed in → straight through
+                track("open", tgt["name"], dest(tgt))
+                return redirect(dest(tgt))
+            return VISITOR_HTML
         open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor",
                             "/api/track", "/signout", "/api/order")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p.startswith("/play/") or open_paths
+        ok = (p == "/" or p == "/activity" or p.startswith("/play/") or p.startswith("/go/")
+              or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
             return redirect(APP_HOST + p)  # app bookmarks saved on hardywu.com
         if open_paths:
             return None
-        if not visitor():                  # sign in with a name and email first
-            return VISITOR_HTML
-        track("view", friendly_label(p), p)  # note that they opened this page
+        # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
+        needs_login = p.startswith("/play/") or p == "/activity"
+        if needs_login and not visitor():
+            return redirect(login_url_for(play_key(p))) if on_real_site() else VISITOR_HTML
+        if visitor():
+            track("view", friendly_label(p), p)  # note that they opened this page
         return None
     if request.path in PUBLIC_PATHS or session.get("authed"):
         return None
     if request.path.startswith("/api/"):
         return jsonify(error="Please log in."), 401
     return redirect("/login")
+
+@app.get("/go/<key>")
+def go_to(key):
+    """Local stand-in for login<thing>.hardywu.com (there are no subdomains on 127.0.0.1)."""
+    key = "" if key == "home" else _key(key)
+    tgt = login_targets().get(key)
+    if not tgt:
+        return redirect("/")
+    if on_real_site():
+        return redirect(login_url_for(key))
+    if key == "bookkeep":
+        return redirect("http://127.0.0.1:5000/")
+    if not visitor():
+        return VISITOR_HTML
+    track("open", tgt["name"], dest(tgt))
+    return redirect(dest(tgt))
 
 LOGIN_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>BookKeep — Who's there?</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -629,15 +718,17 @@ p.small{color:#9aa4bd;font-size:13px}</style></head><body>
 async function go(){
   const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({name:document.getElementById("nm").value,email:document.getElementById("em").value})});
-  if(r.ok){location.href="/";}
-  else{document.getElementById("err").textContent=(await r.json()).error||"Please fill in both fields.";}
+  const j=await r.json();
+  if(r.ok){location.href=j.next||"/";}
+  else{document.getElementById("err").textContent=j.error||"Please fill in both fields.";}
 }
 for(const id of ["nm","em"]) document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 </script></body></html>"""
 
 @app.get("/login")
 def login_page():
-    return LOGIN_HTML
+    # live, BookKeep's login lives at loginbookkeep.hardywu.com
+    return redirect("https://loginbookkeep.hardywu.com/") if on_real_site() else LOGIN_HTML
 
 # The creator (owner) sees the member list, grants discounts, and gets every
 # feature free. Creator = the owner email (BOOKKEEP_OWNER_EMAIL in .env), the
@@ -677,7 +768,8 @@ def do_login():
                      email=excluded.email, visits=visits+1""",
                 (name, email, now_iso(), now_iso()))
     con.commit(); con.close()
-    return jsonify(ok=True, name=name, email=email)
+    return jsonify(ok=True, name=name, email=email,
+                   next=APP_HOST if login_slug_from_host() == "bookkeep" else "/")
 
 @app.get("/api/whoami")
 def whoami():

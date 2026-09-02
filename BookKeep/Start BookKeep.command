@@ -40,6 +40,9 @@ if [ -z "$URL" ] && command -v cloudflared >/dev/null 2>&1; then
   done
 fi
 
+# 2a) Keep the Mac awake while it's serving the site (it sleeps after 1 minute otherwise).
+pgrep -x caffeinate >/dev/null || (nohup caffeinate -i -s >/dev/null 2>&1 &)
+
 # 2b) The live-preview shop (shop.hardywu.com).
 if ! curl -s --max-time 2 http://127.0.0.1:3010 >/dev/null; then
   (cd "../Hardy's 3D Business/app" && PORT=3010 nohup npm run start -- -p 3010 >/tmp/hardyshop.log 2>&1 &)
