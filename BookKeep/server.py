@@ -364,7 +364,11 @@ def visitor_login():
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/"
     key = login_slug_from_host()
-    if key is not None and key in login_targets():        # the server decides where a login address leads
+    from urllib.parse import urlparse, parse_qs
+    back = parse_qs(urlparse(nxt).query).get("next", [""])[0] if key == "" else ""
+    if key == "" and back.startswith("/") and not back.startswith("//"):
+        nxt = "https://hardywu.com" + back                   # back to what they were opening
+    elif key is not None and key in login_targets():      # the server decides where a login address leads
         nxt = dest(login_targets()[key])
         track("open", login_targets()[key]["name"], nxt)
     else:
@@ -743,6 +747,9 @@ def require_passcode():
             if key == "bookkeep":                        # BookKeep has real accounts: its own login
                 return redirect(APP_HOST) if session.get("authed") else LOGIN_HTML
             if visitor():                                # already signed in → straight through
+                back = request.args.get("next", "")
+                if key == "" and back.startswith("/") and not back.startswith("//"):
+                    return redirect("https://hardywu.com" + back)   # e.g. Hardy's report
                 track("open", tgt["name"], dest(tgt))
                 return redirect(dest(tgt))
             return VISITOR_HTML
@@ -763,7 +770,8 @@ def require_passcode():
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
         needs_login = p.startswith("/play/") or p == "/activity"
         if needs_login and not visitor():
-            return redirect(login_url_for(play_key(p))) if on_real_site() else VISITOR_HTML
+            k = play_key(p)
+            return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
         if visitor():
             track("view", friendly_label(p), p)  # note that they opened this page
         return None

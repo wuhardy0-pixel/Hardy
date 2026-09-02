@@ -28,6 +28,8 @@ a{color:#7dd3fc;text-decoration:none;font-weight:700;display:inline-block;margin
 .pick b{display:block;font-style:italic;text-transform:uppercase;font-size:17px}
 .pick .t{font-size:12px;color:rgba(255,255,255,.7);margin-top:3px}
 .tier{display:inline-block;font-weight:900;font-style:italic;padding:2px 8px;border-radius:7px;font-size:13px;margin-top:6px}
+#music{position:fixed;right:12px;top:12px;z-index:6;width:44px;height:44px;border-radius:50%;border:1px solid rgba(96,165,250,.5);
+  background:rgba(12,34,78,.7);color:#fff;font-size:20px;padding:0;margin:0;box-shadow:none;cursor:pointer}
 #pad{position:fixed;left:12px;bottom:14px;display:none;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,62px);gap:7px;z-index:5;opacity:.94}
 #pad button{margin:0;padding:0;font-size:22px;border-radius:14px;background:rgba(12,34,78,.72);
   border:1.5px solid rgba(96,165,250,.5);box-shadow:none;-webkit-user-select:none;user-select:none;
@@ -66,6 +68,7 @@ body.touch #pad{display:grid} body.touch #acts{display:flex}
   <a href="/games">← back to Hardy Wu</a>
 </div></div>
 
+<button id="music" onclick="Music.toggle()">🔊</button>
 <div id="pad">
   <button class="sp"></button><button onpointerdown="press('up')">▲</button><button class="sp"></button>
   <button onpointerdown="press('left')">◀</button><button onpointerdown="press('act')">●</button><button onpointerdown="press('right')">▶</button>
@@ -280,7 +283,37 @@ function genMap(k){
 /* ---------- state ---------- */
 let area,map,player,party,bag,coins,caught,state,battle,msg,msgT,steps,dialog,shopSel,fade=0,starter=0;
 
-function begin(pick){
+/* ---- music: tiny built-in synth loops (no files), with an on/off button ---- */
+const Music=(()=>{
+  const N={C2:65.41,D2:73.42,E2:82.41,F2:87.31,G2:98,A2:110,B2:123.47,C3:130.81,D3:146.83,E3:164.81,F3:174.61,G3:196,A3:220,B3:246.94,
+           C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880};
+  const P={
+    world:{bpm:100,leadWave:"sine",lead:["C5",0,"E5",0,"G5",0,"E5",0,"D5",0,"F4",0,"A4",0,"G4",0],
+           bass:["C3",0,0,0,"G2",0,0,0,"F2",0,0,0,"G2",0,0,0]},
+    battle:{bpm:132,leadWave:"square",lead:["E4","G4","A4","G4","E4","G4","B4","A4","D4","F4","G4","F4","D4","F4","A4","G4"],
+            bass:["E2","E2","E2","E2","C2","C2","C2","C2","D2","D2","D2","D2","G2","G2","G2","G2"]}};
+  let ctx,master,timer,on=localStorage.getItem("music")!=="off",playing=false,step=0,next=0;
+  const M={mode:Object.keys(P)[0],get on(){return on;},get playing(){return playing;}};
+  function tone(f,t,d,type,g){const o=ctx.createOscillator(),a=ctx.createGain();o.type=type;o.frequency.value=f;
+    a.gain.setValueAtTime(0,t);a.gain.linearRampToValueAtTime(g,t+.012);a.gain.exponentialRampToValueAtTime(.0008,t+d);
+    o.connect(a);a.connect(master);o.start(t);o.stop(t+d+.05);}
+  function tick(){const q=P[M.mode]||P[Object.keys(P)[0]],st=60/q.bpm/2;
+    while(next<ctx.currentTime+.3){const i=step%q.lead.length;
+      if(q.lead[i])tone(N[q.lead[i]],next,st*.9,q.leadWave,.045);
+      const b=q.bass[step%q.bass.length]; if(b)tone(N[b],next,st*1.7,"triangle",.08);
+      next+=st;step++;}}
+  function start(){if(!on||playing)return;
+    if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=.55;master.connect(ctx.destination);}
+    if(ctx.state==="suspended")ctx.resume();
+    next=ctx.currentTime+.05;playing=true;timer=setInterval(tick,90);paint();}
+  function stop(){playing=false;clearInterval(timer);paint();}
+  function paint(){const b=document.getElementById("music");if(b){b.textContent=on?"🔊":"🔇";b.title=on?"music on — click to mute":"music off — click to play";}}
+  M.start=start;M.stop=stop;
+  M.toggle=()=>{on=!on;localStorage.setItem("music",on?"on":"off");on?start():stop();paint();};
+  document.addEventListener("DOMContentLoaded",paint);
+  return M;
+})();
+function begin(pick){Music.start();
   starter=pick; area="town";map=genMap(area);
   player={c:8,r:8,dir:"down",step:0,px:8*T+T/2,py:8*T+T/2,walk:0};
   party=[mk(pick,5)];
@@ -980,6 +1013,7 @@ function drawSurround(){
 }
 function frame(){
   frameN++;
+  Music.mode=state==="battle"?"battle":"world";
   if(state==="world"||state==="down")drawSurround();
   else{const bg=x.createLinearGradient(0,0,0,VH);
     bg.addColorStop(0,"#062056");bg.addColorStop(.55,"#03102c");bg.addColorStop(1,"#061a44");
