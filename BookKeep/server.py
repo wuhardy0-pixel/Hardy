@@ -378,7 +378,7 @@ def visitor_login():
 @app.get("/signout")
 def visitor_signout():
     session.pop("v_name", None); session.pop("v_email", None)
-    return redirect("/")
+    return redirect(SITE_ORIGIN + "/" if on_real_site() else "/")
 
 @app.post("/api/track")
 def api_track():
