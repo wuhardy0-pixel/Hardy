@@ -62,7 +62,7 @@ redirects = [
     "/apps/bookkeep  https://logbook.hardywu.com/  302",
     f"/3d            {server.SHOP_HOST}  302",
     f"/3d/*          {server.SHOP_HOST}/products/:splat  302",
-    f"/play/*        {LIVE}/play/:splat  302",
+    f"/play/*        https://play.hardywu.com/play/:splat  302",
     f"/go/*          {LIVE}/go/:splat  302",
     f"/activity      {LIVE}/activity  302",
     f"/signout       {LIVE}/signout  302",

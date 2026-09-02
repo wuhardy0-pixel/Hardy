@@ -57,8 +57,8 @@ app.permanent_session_lifetime = timedelta(days=90)
 # hardywu.com / www = public portfolio (home + sections + product pages).
 # books.hardywu.com = the BookKeep app (login-gated as before).
 # URL pattern: hardywu.com/<section>/<thing>  e.g. /apps/bookkeep, /3d/crab-gauge.
-PORTFOLIO_HOSTS = {"hardywu.com", "www.hardywu.com"}
-APP_HOST = "https://books.hardywu.com"
+PORTFOLIO_HOSTS = {"hardywu.com", "www.hardywu.com", "play.hardywu.com"}   # play. = the games
+APP_HOST = "https://bookkeep.hardywu.com"   # books.hardywu.com still works as an alias
 
 PORTFOLIO = {
     "apps": {"title": "Apps", "emoji": "📱", "blurb": "Software built by Hardy Wu.",
@@ -461,11 +461,13 @@ def login_targets():
     t[""]   = {"name": "hardywu.com", "to": SITE_ORIGIN + "/", "slug": ""}
     return t
 
+PLAY_ORIGIN = "https://play.hardywu.com"     # games live on their own name
 def dest(tgt):
     """Where a login leads: absolute on the live domain, local on this Mac."""
     to = tgt["to"]
     if to.startswith("http"): return to
-    return SITE_ORIGIN + to if on_real_site() else to
+    if not on_real_site(): return to
+    return (PLAY_ORIGIN if to.startswith("/play/") else SITE_ORIGIN) + to
 
 # short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
 LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
