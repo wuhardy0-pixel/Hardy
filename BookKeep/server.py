@@ -741,6 +741,8 @@ def is_local_request():
 def require_passcode():
     if request.method == "OPTIONS" or (is_local_request() and not is_portfolio_host()):
         return None
+    if on_real_site() and request.scheme == "http" and request.method == "GET":
+        return redirect("https://" + request.host + request.full_path.rstrip("?"), code=301)   # always secure
     if is_portfolio_host():
         p = request.path
         key = login_slug_from_host()
