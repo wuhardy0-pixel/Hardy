@@ -1,0 +1,26 @@
+BookKeep Lite v9
+
+Parser fixes:
+- Month-name dates such as August 12.
+- Relative dates: today / yesterday.
+- Mixed messages containing sales AND expenses.
+- 'put both sales there' resolves to the newly created account.
+- Keeps individual sales separate and independently totals them.
+- Shows total sales and total expenses separately.
+- Retains reinforcement-style learning, duplicate checks, edits, and validation.
+
+Reports:
+- Balance Sheet
+- Income Statement
+- Cash Flow Statement
+- Reports use the selected cash/accrual method where applicable.
+- Lightweight balance sheet derives equity as Assets - Liabilities.
+
+Users:
+- Add multiple users.
+- Switch users from the top-right selector.
+- Each user has separate accounts, transactions, investments, settings, and learned-agent preferences.
+
+Important:
+This is a lightweight bookkeeping app, not a replacement for professional accounting software.
+The statements are useful for personal/small-project bookkeeping but do not yet implement a full formal general ledger.

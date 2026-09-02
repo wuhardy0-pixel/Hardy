@@ -1,0 +1,15 @@
+BookKeep Lite v12.1 startup fix
+
+Cause:
+The v12 migration function ensureDbShape() was accidentally empty.
+If you opened v12 with data created by an older version, fields such as
+transcripts, receipts, or journalEntries could be missing. The first render
+then threw a JavaScript error before button click handlers were attached,
+which made every button appear dead.
+
+Fix:
+- Restored full migration/repair logic.
+- Creates missing arrays/settings/learning structures automatically.
+- Makes evidence and journal rendering defensive.
+- Persists repaired user data after switching users.
+- Adds a visible global error message for future startup problems.

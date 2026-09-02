@@ -1,0 +1,16 @@
+BookKeep Lite v10
+
+Fixes:
+- Adds generalized non-sale income parsing.
+- Understands examples such as:
+  - Won a bet for $10. Put it in Earnings.
+  - Got paid $50 for tutoring.
+  - Received a $20 gift.
+  - Made $40 babysitting.
+  - Received $12 interest.
+- Recognizes explicit destination accounts after:
+  - put it in X
+  - put into X
+  - deposit to X
+- If the requested account does not exist, the agent proposes creating it.
+- Keeps existing preview / confirmation / reinforcement-learning workflow.

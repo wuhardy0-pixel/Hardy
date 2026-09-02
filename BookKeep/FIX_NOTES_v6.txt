@@ -1,0 +1,5 @@
+v6 fixes:
+- Parses account name and account type separately.
+- 'Income with type Cash' becomes account name 'Income', type 'Cash'.
+- Prevents duplicate account creation when the same normalized name already exists.
+- Existing accidental duplicate accounts are not automatically deleted, to avoid deleting real data.

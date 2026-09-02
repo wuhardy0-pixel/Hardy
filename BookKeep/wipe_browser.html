@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BookKeep — Wipe Browser Data</title>
+<style>
+  body{font-family:-apple-system,system-ui,sans-serif;max-width:520px;margin:80px auto;padding:0 20px;color:#111}
+  .card{border:1px solid #ddd;border-radius:12px;padding:24px}
+  h1{font-size:1.3rem}
+  ul{color:#555}
+  a.btn{display:inline-block;margin-top:12px;padding:10px 18px;border-radius:8px;background:#2563eb;color:#fff;text-decoration:none}
+  .muted{color:#777;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>BookKeep browser data wiped</h1>
+  <p>Removed from this browser's local storage:</p>
+  <ul id="removed"></ul>
+  <p class="muted">Only BookKeep keys were touched. The backend SQLite database is separate — wipe it with <code>python3 wipe_backend.py</code>.</p>
+  <a class="btn" href="index.html">Open BookKeep (fresh start)</a>
+</div>
+<script>
+  // Companion to wipe_backend.py: clears BookKeep's localStorage keys only.
+  const KEYS=["bookkeep_lite_users_v13","bookkeep_lite_active_user_v13","bookkeep_lite_v13_legacy"];
+  const list=document.getElementById("removed");
+  let any=false;
+  for(const k of KEYS){
+    const li=document.createElement("li");
+    if(localStorage.getItem(k)!==null){
+      localStorage.removeItem(k);
+      li.textContent=k;
+      any=true;
+    }else{
+      li.textContent=k+" (was already empty)";
+    }
+    list.appendChild(li);
+  }
+  if(!any) document.querySelector("h1").textContent="BookKeep browser data was already clean";
+</script>
+</body>
+</html>

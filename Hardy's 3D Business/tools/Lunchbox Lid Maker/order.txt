@@ -1,0 +1,7 @@
+# Fill this in from the order email, then double-click Make_Lunchbox_Lid.command
+
+NAME: Sophia
+NAME_COLOR: Black
+
+# How many filament colors to use for the picture (2-6). Fewer = fewer swaps.
+MAX_COLORS: 4

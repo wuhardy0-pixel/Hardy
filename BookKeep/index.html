@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#111827"/>
+  <title>BookKeep</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>"/>
+  <!-- ?v= busts the browser cache; bump it whenever style.css or app.js change -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260830c"/>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>BookKeep</h1>
+        <p>Speak it, snap it — the agent keeps the books.</p>
+      </div>
+      <div class="topActions">
+        <select id="userSwitcher" aria-label="Switch user"></select>
+        <button id="addUserBtn" class="ghost">+ User</button>
+        <button id="themeBtn" class="ghost">☾</button>
+      </div>
+    </header>
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="agent">Agent</button>
+      <button class="tab" data-tab="transactions">Transactions</button>
+      <button class="tab" data-tab="journal">Journal</button>
+      <button class="tab" data-tab="ledger">Ledger</button>
+      <button class="tab" data-tab="evidence">Evidence</button>
+      <button class="tab" data-tab="reports">Reports</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+    <main>
+      <section id="dashboard" class="view active">
+        <div class="cards">
+          <div class="card"><span>Total cash</span><strong id="cashTotal">$0.00</strong></div>
+          <div class="card"><span>This month income</span><strong id="monthIncome">$0.00</strong></div>
+          <div class="card"><span>This month expenses</span><strong id="monthExpense">$0.00</strong></div>
+          <div class="card"><span>Accounting method</span><strong id="methodLabel">Cash</strong></div>
+          <div class="card"><span>Accounts receivable</span><strong id="arTotal">$0.00</strong></div>
+          <div class="card"><span>Accounts payable</span><strong id="apTotal">$0.00</strong></div>
+          <div class="card"><span>Investments (at cost)</span><strong id="invTotal">$0.00</strong></div>
+        </div>
+        <div class="panel hidden" id="ordersPanel">
+          <h2>🛒 New orders from hardywu.com</h2>
+          <p class="muted">Customers ordered these on the website. Book each as an invoice (they owe you), then collect payment on delivery.</p>
+          <div id="ordersList" class="list"></div>
+        </div>
+        <div class="panel"><h2>Recent transactions</h2><div id="recentList" class="list"></div></div>
+      </section>
+
+
+      <section id="agent" class="view">
+        <div class="panel agentPanel">
+          <div class="panelhead">
+            <div>
+              <h2>Bookkeeping Agent</h2>
+              <p class="muted agentIntro">Tell me what happened in plain English and I will prepare the bookkeeping entry for you.</p>
+            </div>
+            <button id="clearAgent" class="ghost">Clear chat</button>
+          </div>
+
+          <div id="agentChat" class="agentChat">
+            <div class="bubble bot">
+              Try: <b>Sold computer for $100 and put it in Cash.</b><br>
+              Or: <b>Paid $45 for office supplies from Cash.</b>
+            </div>
+          </div>
+
+          <div id="agentPreview" class="agentPreview hidden"></div>
+
+          <div class="agentComposer">
+            <textarea id="agentInput" rows="3" placeholder="Example: Sold computer for $100. Put it in Cash."></textarea>
+            <div class="composerButtons">
+              <button id="micBtn" type="button" class="micBtn">🎤 Speak</button>
+              <button id="agentSend" class="primary">Ask Agent</button>
+            </div>
+          </div>
+          <div id="micStatus" class="muted micStatus">Microphone idle.</div>
+
+          <details class="agentSchema">
+            <summary>How the AI agent works</summary>
+            <p>The AI never writes directly to the books. It returns proposed structured actions. The app validates them, shows a preview, and only saves after you approve.</p>
+          </details>
+          <div class="quickPrompts">
+            <button data-prompt="Sold computer for $100. Put it in Cash.">Income example</button>
+            <button data-prompt="Paid $45 for office supplies from Cash.">Expense example</button>
+            <button data-prompt="Transferred $500 from Cash to Savings.">Transfer example</button>
+            <button data-prompt="Sent customer an invoice for $1200 for consulting, due in 30 days.">Invoice example</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="transactions" class="view">
+        <div class="panel">
+          <div class="panelhead"><h2>Transactions</h2><input id="txSearch" placeholder="Search"></div>
+          <p class="muted">Edits never overwrite history: saving a change stores a new record and keeps the original as an audit trail.</p>
+          <div id="txList" class="list"></div>
+        </div>
+        <div class="panel">
+          <details>
+            <summary><b>Add a transaction manually</b> (the Agent tab is the usual way)</summary>
+            <form id="txForm" class="gridform">
+              <label>Date<input id="txDate" type="date" required></label>
+              <label>Type<select id="txType">
+                <optgroup label="Money out">
+                  <option value="expense">Paid now (expense)</option>
+                  <option value="bill">Will pay later — got a bill (A/P)</option>
+                  <option value="pay_bill">Paying an earlier bill</option>
+                </optgroup>
+                <optgroup label="Money in">
+                  <option value="income">Got paid now (income)</option>
+                  <option value="invoice">Will be paid later — send invoice (A/R)</option>
+                  <option value="receive_invoice">Customer paid an earlier invoice</option>
+                </optgroup>
+                <optgroup label="My own accounts">
+                  <option value="transfer">Move money between my accounts</option>
+                </optgroup>
+                <optgroup label="Adjustments">
+                  <option value="use_supplies">Used up supplies/materials (no money moved)</option>
+                </optgroup>
+                <optgroup label="Investments">
+                  <option value="buy_investment">Bought stock/investment</option>
+                  <option value="sell_investment">Sold stock/investment</option>
+                </optgroup>
+              </select></label>
+              <label>Account<select id="txAccount"></select></label>
+              <label id="toAccountWrap" class="hidden">To account<select id="txToAccount"></select></label>
+              <label>Category<select id="txCategory"></select></label>
+              <label id="tickerWrap" class="hidden">Stock symbol<input id="txTicker" placeholder="AAPL" maxlength="8"></label>
+              <label id="sharesWrap" class="hidden">Shares<input id="txShares" type="number" step="0.0001" min="0"></label>
+              <label>Amount<input id="txAmount" type="number" step="0.01" min="0" required></label>
+              <label>Due date<input id="txDueDate" type="date"></label>
+              <label>Related invoice/bill ID<input id="txRelated" placeholder="Optional"></label>
+              <label class="full">Note<input id="txNote" placeholder="Optional note"></label>
+              <button class="primary full" type="submit">Save transaction</button>
+            </form>
+          </details>
+        </div>
+      </section>
+
+      <section id="journal" class="view">
+        <div class="panel">
+          <div class="panelhead">
+            <div>
+              <h2>Double-Entry Journal</h2>
+              <p class="muted">Every approved transaction as a balanced debit/credit entry, in date order.</p>
+            </div>
+          </div>
+          <div id="journalList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="ledger" class="view">
+        <div class="panel">
+          <div class="panelhead">
+            <div>
+              <h2>General Ledger — T-Accounts</h2>
+              <p class="muted">The same journal entries sorted into one T-account per ledger account: debits left, credits right, ending balance below. Click a posting to see its evidence.</p>
+            </div>
+          </div>
+          <div id="ledgerList" class="ledgerGrid"></div>
+        </div>
+      </section>
+
+      <section id="evidence" class="view">
+        <div class="panel">
+          <div class="panelhead">
+            <div>
+              <h2>Evidence</h2>
+              <p class="muted">Every transcript with its signatures and invoice photos. Open Details for the full trail.</p>
+            </div>
+          </div>
+          <div id="evidenceList" class="list"></div>
+        </div>
+      </section>
+
+
+      <section id="evidenceDetail" class="view">
+        <div class="panel">
+          <div class="panelhead">
+            <div>
+              <h2>Evidence Details</h2>
+              <p class="muted">Exact transcript, journal trail, signature, invoice photo, and integrity information.</p>
+            </div>
+            <button id="backToEvidence">← Back to Evidence</button>
+          </div>
+          <div id="evidenceDetailContent"></div>
+        </div>
+      </section>
+
+      <section id="reports" class="view">
+        <div class="panel">
+          <div class="panelhead">
+            <div>
+              <h2>Financial Statements</h2>
+              <p class="muted">Built from the general ledger, so they always match the T-accounts.</p>
+            </div>
+            <div class="reportControls">
+              <label>As of / Through <input id="reportDate" type="date"></label>
+              <button id="refreshReports" class="primary">Refresh</button>
+            </div>
+          </div>
+          <div class="actions stmtTabs" id="stmtTabs">
+            <button data-stmt="balanceSheetPanel" class="primary">Balance Sheet</button>
+            <button data-stmt="incomeStatementPanel">Income Statement</button>
+            <button data-stmt="cashFlowPanel">Cash Flow</button>
+            <button data-stmt="analysisPanel">📊 Analysis</button>
+          </div>
+        </div>
+
+        <div class="panel stmtPanel" id="balanceSheetPanel">
+          <h2>Balance Sheet</h2>
+          <div id="balanceSheet"></div>
+        </div>
+
+        <div class="panel stmtPanel hidden" id="incomeStatementPanel">
+          <h2>Income Statement</h2>
+          <div id="incomeStatement"></div>
+        </div>
+
+        <div class="panel stmtPanel hidden" id="cashFlowPanel">
+          <h2>Cash Flow Statement</h2>
+          <div id="cashFlowStatement"></div>
+        </div>
+
+        <div class="panel stmtPanel hidden" id="analysisPanel">
+          <div class="panelhead">
+            <h2>Financial Analysis</h2>
+            <div class="reportControls">
+              <label>Shares outstanding <input id="epsShares" type="number" min="1" step="1" value="100"></label>
+              <button id="genAnalysis" class="primary">📊 Generate analysis</button>
+            </div>
+          </div>
+          <div id="analysisOut"><p class="muted">Press Generate to compute every margin, ratio, and per-share number from the statements.</p></div>
+        </div>
+      </section>
+
+      <section id="settings" class="view">
+        <div class="panel">
+          <h2>Profile</h2>
+          <div class="gridform">
+            <label>Your name or business name
+              <input id="userName" placeholder="e.g. Nora's Print Shop">
+            </label>
+            <label>&nbsp;
+              <button id="saveUserName" class="primary">Save name</button>
+            </label>
+          </div>
+          <p class="muted">This name appears as the speaker on transcripts and evidence. Each user profile keeps completely separate books — switching users never mixes data.</p>
+          <div class="actions">
+            <button id="logoutBtn" class="ghost hidden">Log out</button>
+            <button id="deleteUserBtn" class="danger">Delete this user profile…</button>
+          </div>
+          <p class="muted">Deletes the profile shown above and all of its local books and evidence, after asking twice. At least one user profile must remain.</p>
+          <hr>
+          <h2>Plan</h2>
+          <div class="planCards">
+            <div class="planCard" id="planFree">
+              <h3>Free</h3><div class="planPrice">$0<span>/month</span></div>
+              <ul>
+                <li>Full manual bookkeeping — every entry type</li>
+                <li>Journal, ledger, reports &amp; 📊 analysis</li>
+                <li>Evidence, signatures, investments &amp; backups</li>
+              </ul>
+              <button data-plan="free">Choose Free</button>
+            </div>
+            <div class="planCard" id="planStandard">
+              <h3>Standard</h3><div class="planPrice">$10<span>/month</span></div>
+              <ul>
+                <li>Everything in Free</li>
+                <li>🔒 The helper agent — type or speak plain English and it books the entry</li>
+              </ul>
+              <button data-plan="standard">Choose Standard</button>
+            </div>
+            <div class="planCard planProCard" id="planPro">
+              <h3>Pro</h3><div class="planPrice">$50<span>/month</span></div>
+              <ul>
+                <li>Everything in Standard</li>
+                <li>🔒 The AI agent — understands anything, asks questions, remembers the conversation</li>
+              </ul>
+              <button data-plan="pro" class="primary">Upgrade to Pro</button>
+            </div>
+          </div>
+          <p id="planStatus" class="muted"></p>
+          <div id="membersPanel" class="hidden">
+            <hr>
+            <h2>Members <small class="muted">(creator only)</small></h2>
+            <p class="muted">Everyone who has logged in to BookKeep. Give any member a personal discount off the plan prices.</p>
+            <div id="membersList" class="list"></div>
+          </div>
+          <hr>
+          <h2>AI Agent</h2>
+          <div class="gridform">
+            <label>Agent mode
+              <select id="agentMode">
+                <option value="local">Local parser (free, no AI)</option>
+                <option value="api">LLM API (recommended)</option>
+              </select>
+            </label>
+            <label>API endpoint
+              <input id="agentEndpoint" placeholder="Optional — defaults to Backend URL + /api/agent">
+            </label>
+            <label class="full">Model name
+              <input id="agentModel" placeholder="Optional — server default is OPENAI_MODEL from .env">
+            </label>
+          </div>
+          <p class="muted">The API key lives only in the backend's .env file — never in this app.</p>
+          <hr>
+          <h2>Accounting</h2>
+          <div class="gridform methodBox">
+            <label>Accounting method
+              <select id="accountingMethod">
+                <option value="cash">Cash basis</option>
+                <option value="accrual">Accrual basis</option>
+              </select>
+            </label>
+            <div class="methodHelp">
+              <b>Cash:</b> recognize income/expense when money moves.<br>
+              <b>Accrual:</b> recognize when earned/invoiced or incurred/billed.
+            </div>
+          </div>
+          <details class="chartRef">
+            <summary><b>Chart of accounts</b> (the standard account names the agent uses)</summary>
+            <div class="chartGroups">
+              <div><h4>Assets — what you own</h4>
+                <ul>
+                  <li><b>Cash</b> — physical money</li>
+                  <li><b>Accounts Receivable</b> — customers owe you (unpaid invoices)</li>
+                  <li><b>Equipment</b> — things you own to run the business</li>
+                  <li><b>Supplies</b> — materials on hand</li>
+                  <li><b>Investments</b> — stocks you own, at what you paid for them</li>
+                  <li><i>…plus any money accounts you create (e.g. "Earnings", or a bank account like "Checking" someday) — always counted as assets</i></li>
+                </ul>
+              </div>
+              <div><h4>Liabilities — what you owe</h4>
+                <ul><li><b>Accounts Payable</b> — bills you have not paid yet</li></ul>
+              </div>
+              <div><h4>Equity — the owner's stake</h4>
+                <ul><li><b>Owner's Equity</b> — what the owner put in; net income joins it on the balance sheet</li></ul>
+              </div>
+              <div><h4>Revenue — money earned</h4>
+                <ul>
+                  <li><b>Sales Revenue</b> — selling products (rulers, prints…)</li>
+                  <li><b>Service Revenue</b> — doing work (consulting, tutoring, babysitting…)</li>
+                  <li><b>Interest Income</b> — interest earned</li>
+                  <li><b>Other Income</b> — everything else (bets, gifts, prizes, refunds…)</li>
+                  <li><b>Investment Income</b> — dividends and profits from selling stocks</li>
+                </ul>
+              </div>
+              <div><h4>Expenses — money spent</h4>
+                <ul>
+                  <li><b>Cost of Goods Sold</b> — the materials inside the products you sold (e.g. 20g of filament in a ruler)</li>
+                  <li><b>R&D Expense</b> — filament/materials spent on tests, failed prints, and experiments</li>
+                  <li><b>Supplies Expense</b> — materials bought and used</li>
+                  <li><b>Rent Expense</b></li>
+                  <li><b>Utilities Expense</b> — electricity, internet…</li>
+                  <li><b>Wages Expense</b> — paying helpers</li>
+                  <li><b>Other Expense</b> — everything else</li>
+                  <li><b>Investment Loss</b> — selling a stock for less than you paid</li>
+                </ul>
+              </div>
+            </div>
+            <p class="muted">The agent picks from these automatically; details like the item or customer go in the note. Never raw item words — a ruler sale is "Sales Revenue", not "ruler".</p>
+          </details>
+          <hr>
+          <h2>Storage & Backup</h2>
+          <div class="gridform">
+            <label>Backend URL
+              <input id="backendUrl" placeholder="http://127.0.0.1:5000">
+            </label>
+            <label>Storage mode
+              <select id="storageMode">
+                <option value="local">Browser only</option>
+                <option value="backend">Backend + browser cache</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions">
+            <button id="testBackend">Test backend</button>
+            <button id="syncBackend">Sync current user now</button>
+            <button id="backupNow">Back up all profiles to server now</button>
+            <button id="exportJson">Export backup (.json)</button>
+            <button id="exportCsv">Export transactions (.csv)</button>
+            <label class="fileBtn">Import backup<input id="importJson" type="file" accept=".json,application/json"></label>
+          </div>
+          <p id="backendStatus" class="muted">Browser-only storage is currently active. Backend mode also stores evidence with tamper-evident hashes.</p>
+          <p id="backupStatus" class="muted"></p>
+          <hr>
+          <details>
+            <summary><b>Local agent learning</b> (used by the free local parser)</summary>
+            <div class="cards learningCards">
+              <div class="card"><span>Learned category rules</span><strong id="learnedRuleCount">0</strong></div>
+              <div class="card"><span>Known customers/items</span><strong id="knownTermCount">0</strong></div>
+              <div class="card"><span>Approved suggestions</span><strong id="rlApprovalCount">0</strong></div>
+              <div class="card"><span>Corrections learned</span><strong id="rlEditCount">0</strong></div>
+            </div>
+            <div class="actions">
+              <button id="exportLearning">Export learning</button>
+              <button id="clearLearning" class="danger">Clear learned rules</button>
+              <button id="showLearning">View learned preferences</button>
+            </div>
+            <div id="learningDetails" class="learningDetails hidden"></div>
+          </details>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="evidenceModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="panelhead">
+        <h2>Add Evidence</h2>
+        <button id="closeEvidenceModal">✕</button>
+      </div>
+      <label>Signer name
+        <input id="evidencePerson" placeholder="Type the person's name who signed" required>
+      </label>
+      <label>Upload invoice / receipt photo
+        <input id="evidenceImage" type="file" accept="image/*">
+      </label>
+      <label>Signature</label>
+      <canvas id="signatureCanvas" width="520" height="180"></canvas>
+      <div class="actions">
+        <button id="clearSignature">Clear signature</button>
+        <button id="saveEvidence" class="primary">Save evidence</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260830c"></script>
+</body>
+</html>

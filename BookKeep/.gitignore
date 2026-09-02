@@ -1,0 +1,21 @@
+# Secrets — the real key lives here; only .env.example gets committed
+.env
+
+# Local data — evidence and books are personal data, not code
+bookkeep_v13.db
+evidence_files_v13/
+
+# Python
+.venv/
+__pycache__/
+
+# macOS
+.DS_Store
+node_modules
+backups_v13/
+welcome_bookkeep.html
+
+# Visitor log — names and emails of people who signed in to the site
+activity.json
+# scratch test scripts
+_*.js

@@ -1,0 +1,9 @@
+BookKeep Lite v12.2 microphone fix
+
+- Pauses no longer end the user's recording session.
+- If the browser ends speech recognition after silence, the app automatically restarts it.
+- Recording ends only when the user presses Stop or the message reaches 200 approximate tokens.
+- Typed input is also limited to 200 approximate tokens.
+- The UI shows the running token count.
+
+Note: Web Speech API support varies by browser. Chrome generally works best.

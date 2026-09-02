@@ -1,0 +1,20 @@
+BookKeep Lite v8 — Reinforcement-Style Local Learning
+
+This is not neural-network RL. It is an offline preference-learning system tailored to the rule parser.
+
+Rewards:
+- Approve unchanged: small positive reward to category/account/type predictions.
+- Edit: negative reward to the old prediction and larger positive reward to the correction.
+- Reject/cancel: negative reward to the proposed category/account/type.
+
+The agent learns weighted associations between transaction words/items and:
+- categories
+- accounts
+- transaction types
+
+Additional changes:
+- Edit category, account, transaction type, amount, and description before saving.
+- Learned preferences influence future parsing.
+- Confidence increases when reinforced preferences support a prediction.
+- Settings show approval/correction counts and learned weights.
+- Learning remains entirely in browser localStorage and can be exported or cleared.

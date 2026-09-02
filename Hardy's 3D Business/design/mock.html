@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Mock — 3D Print Shop</title>
+<style>
+  :root {
+    --ground: #f2f4f3;
+    --surface: #ffffff;
+    --surface-2: #e8ecea;
+    --ink: #232a33;
+    --ink-soft: #5b6670;
+    --line: #d5dcd9;
+    --accent: #0e7c6b;
+    --accent-ink: #ffffff;
+    --note: #8a6d1f;
+    --note-bg: #faf3dd;
+    --ok: #2e7d46;
+    --chrome: #dfe4e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #10161a;
+      --surface: #1a2228;
+      --surface-2: #232d34;
+      --ink: #e6ecea;
+      --ink-soft: #9aa7a3;
+      --line: #34413f;
+      --accent: #35b89f;
+      --accent-ink: #0c1512;
+      --note: #d9b968;
+      --note-bg: #2a2618;
+      --ok: #5fbf7d;
+      --chrome: #232d34;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10161a; --surface: #1a2228; --surface-2: #232d34;
+    --ink: #e6ecea; --ink-soft: #9aa7a3; --line: #34413f;
+    --accent: #35b89f; --accent-ink: #0c1512;
+    --note: #d9b968; --note-bg: #2a2618; --ok: #5fbf7d; --chrome: #232d34;
+  }
+  :root[data-theme="light"] {
+    --ground: #f2f4f3; --surface: #ffffff; --surface-2: #e8ecea;
+    --ink: #232a33; --ink-soft: #5b6670; --line: #d5dcd9;
+    --accent: #0e7c6b; --accent-ink: #ffffff;
+    --note: #8a6d1f; --note-bg: #faf3dd; --ok: #2e7d46; --chrome: #dfe4e2;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  .display { font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif; }
+  .mono { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- intro ---------- */
+  .intro { padding: 56px 0 40px; }
+  .eyebrow {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 14px;
+  }
+  .intro h1 {
+    font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif;
+    font-weight: 600; font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.15; text-wrap: balance; margin-bottom: 16px;
+  }
+  .intro p { max-width: 62ch; color: var(--ink-soft); margin-bottom: 10px; }
+  .intro strong { color: var(--ink); }
+
+  /* ---------- screen frames ---------- */
+  .screen { margin: 56px 0; }
+  .screen-label {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 6px;
+  }
+  .screen-label b { color: var(--accent); font-weight: 600; }
+  .screen-desc { font-size: 15px; color: var(--ink-soft); max-width: 68ch; margin-bottom: 16px; }
+
+  .browser {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(15, 30, 26, 0.10);
+  }
+  .browser-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--chrome); border-bottom: 1px solid var(--line);
+    padding: 9px 14px;
+  }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-soft); opacity: 0.35; }
+  .urlbar {
+    flex: 1; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 6px; padding: 3px 12px;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 11.5px; color: var(--ink-soft);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .note {
+    display: inline-block; background: var(--note-bg); color: var(--note);
+    border-radius: 4px; padding: 1px 8px;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.02em;
+  }
+
+  /* ---------- shared site ui ---------- */
+  .site-head {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 16px 28px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .brand {
+    font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif;
+    font-weight: 600; font-size: 18px; letter-spacing: 0.01em;
+  }
+  .brand span { color: var(--accent); }
+  .nav { display: flex; gap: 18px; font-size: 14px; color: var(--ink-soft); }
+  .btn {
+    display: inline-block; background: var(--accent); color: var(--accent-ink);
+    border-radius: 8px; padding: 11px 22px; font-weight: 600; font-size: 15px;
+    border: none;
+  }
+  .btn.big { width: 100%; text-align: center; padding: 14px; font-size: 16px; }
+
+  /* hero */
+  .hero {
+    padding: 44px 28px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 7px, rgba(14, 124, 107, 0.06) 7px 8px),
+      var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hero h2 {
+    font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif;
+    font-weight: 600; font-size: clamp(24px, 4vw, 34px);
+    line-height: 1.15; text-wrap: balance; max-width: 22ch; margin-bottom: 10px;
+  }
+  .hero p { color: var(--ink-soft); max-width: 48ch; margin-bottom: 18px; }
+
+  /* product grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; padding: 26px 28px 34px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .thumb { aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; background: var(--surface-2); }
+  .thumb svg { width: 68%; height: auto; display: block; }
+  .card-body { padding: 12px 14px 14px; }
+  .card-body h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 2px; }
+  .card-body .tags { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; }
+  .price { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .from { font-size: 12px; color: var(--ink-soft); font-weight: 400; }
+
+  /* product page */
+  .pdp { display: grid; grid-template-columns: 1fr 1.15fr; gap: 0; }
+  .pdp-photo { background: var(--surface-2); display: flex; align-items: center; justify-content: center; padding: 30px; }
+  .pdp-photo svg { width: 82%; max-width: 300px; height: auto; }
+  .pdp-form { padding: 26px 28px 30px; border-left: 1px solid var(--line); }
+  .pdp-form h2 { font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif; font-weight: 600; font-size: 24px; margin-bottom: 2px; }
+  .pdp-sub { color: var(--ink-soft); font-size: 14px; margin-bottom: 18px; }
+  .field { margin-bottom: 18px; }
+  .field-label {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+  }
+  .req { color: var(--accent); }
+  .swatches { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); }
+  .swatch.sel { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .swatch-name { font-size: 13px; color: var(--ink-soft); }
+  .opts { display: flex; gap: 10px; flex-wrap: wrap; }
+  .opt {
+    border: 1.5px solid var(--line); border-radius: 8px; padding: 9px 14px;
+    font-size: 14px; background: var(--surface); color: var(--ink);
+  }
+  .opt small { display: block; color: var(--ink-soft); font-size: 12px; }
+  .opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+  .textbox {
+    width: 100%; border: 1.5px solid var(--line); border-radius: 8px;
+    padding: 11px 12px; font-size: 15px; background: var(--surface); color: var(--ink);
+  }
+  .hint { font-size: 12px; color: var(--ink-soft); margin-top: 5px; }
+  .drop {
+    border: 2px dashed var(--line); border-radius: 10px; padding: 16px;
+    display: flex; align-items: center; gap: 14px; background: var(--surface);
+  }
+  .drop-thumb {
+    width: 56px; height: 56px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg, #9b8ce0 0 50%, #e4572e 50% 100%);
+  }
+  .drop p { font-size: 13.5px; }
+  .drop .ok-line { color: var(--ok); font-weight: 600; font-size: 13px; }
+  .summary {
+    background: var(--surface-2); border-radius: 10px; padding: 14px 16px; margin: 4px 0 16px;
+    font-size: 14px;
+  }
+  .summary-title {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 8px;
+  }
+  .sline { display: flex; justify-content: space-between; gap: 12px; padding: 2.5px 0; }
+  .sline .v { font-weight: 600; text-align: right; }
+  .sline.total { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 9px; font-size: 16px; }
+  .sline.total .v { font-variant-numeric: tabular-nums; }
+
+  /* checkout (stripe) */
+  .stripe-page { padding: 30px 28px 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .stripe-sum h3, .stripe-form h3 { font-size: 15px; margin-bottom: 12px; }
+  .fake-input {
+    border: 1.5px solid var(--line); border-radius: 7px; padding: 10px 12px;
+    font-size: 13.5px; color: var(--ink-soft); margin-bottom: 10px; background: var(--surface);
+  }
+  .fake-row { display: flex; gap: 10px; }
+  .fake-row .fake-input { flex: 1; }
+
+  /* confirmation */
+  .confirm { padding: 56px 28px; text-align: center; }
+  .confirm .mark {
+    width: 58px; height: 58px; border-radius: 50%; margin: 0 auto 18px;
+    background: color-mix(in srgb, var(--ok) 15%, var(--surface));
+    color: var(--ok); font-size: 28px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .confirm h2 { font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif; font-weight: 600; font-size: 26px; margin-bottom: 8px; }
+  .confirm p { color: var(--ink-soft); max-width: 46ch; margin: 0 auto 6px; }
+
+  /* email preview */
+  .email { padding: 24px 28px 30px; }
+  .email-head { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 14px; font-size: 14px; }
+  .email-head .subject { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+  .email-head .meta { color: var(--ink-soft); font-size: 13px; }
+  .email-body { font-size: 14.5px; }
+  .email-body table { border-collapse: collapse; width: 100%; max-width: 460px; }
+  .email-body td { padding: 5px 14px 5px 0; vertical-align: top; }
+  .email-body td:first-child {
+    color: var(--ink-soft); white-space: nowrap;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+  }
+  .email-body a { color: var(--accent); }
+
+  /* approval footer */
+  .approve { margin: 64px 0 72px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  .approve h2 { font-family: Futura, "Avenir Next", "Trebuchet MS", sans-serif; font-weight: 600; font-size: 22px; margin-bottom: 12px; }
+  .approve ul { margin: 10px 0 18px 20px; color: var(--ink-soft); }
+  .approve li { margin-bottom: 6px; }
+  .approve p { max-width: 64ch; }
+
+  @media (max-width: 640px) {
+    .pdp, .stripe-page { grid-template-columns: 1fr; }
+    .pdp-form { border-left: none; border-top: 1px solid var(--line); }
+    .nav { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="intro">
+    <div class="eyebrow">Design mock · for Barbara's approval · nothing is built yet</div>
+    <h1 class="display">Here's how your 3D print shop will look and work</h1>
+    <p>Scroll through the <strong>5 screens</strong> below — they show a customer's whole journey,
+       from finding a product to your order email. The products shown are <strong>examples</strong>;
+       your real products, photos, prices, and shop name replace them.</p>
+    <p>Yellow tags like this <span class="note">your photo goes here</span> mark placeholder spots.</p>
+  </header>
+
+  <!-- ================= SCREEN 1 ================= -->
+  <section class="screen">
+    <div class="screen-label"><b>Screen 1 / 5</b> — Homepage</div>
+    <p class="screen-desc">What customers see first: your shop name, a short welcome, and all your
+       products with prices. Tapping a product opens Screen 2.</p>
+    <div class="browser">
+      <div class="browser-bar">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="urlbar">yourshop.vercel.app — this is the link you'll share</div>
+      </div>
+      <div class="site-head">
+        <div class="brand">Hardy's <span>3D</span></div>
+        <nav class="nav"><span>Products</span><span>About</span><span>Contact</span></nav>
+      </div>
+      <div class="hero">
+        <h2 class="display">3D-printed pieces, made just for you</h2>
+        <p>Pick a design, choose your colors and size, add a name or your own photo —
+           and I'll print it and ship it to your door.</p>
+        <span class="btn">Browse products</span>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="thumb">
+            <svg viewBox="0 0 120 90" role="img" aria-label="Placeholder drawing of a lamp">
+              <rect x="45" y="14" width="30" height="42" rx="6" fill="#e8a13d" opacity="0.85"/>
+              <rect x="38" y="56" width="44" height="10" rx="3" fill="#5b6670"/>
+              <g stroke="#ffffff" stroke-width="1" opacity="0.5">
+                <line x1="45" y1="24" x2="75" y2="24"/><line x1="45" y1="34" x2="75" y2="34"/><line x1="45" y1="44" x2="75" y2="44"/>
+              </g>
+            </svg>
+          </div>
+          <div class="card-body">
+            <h3>Photo Lithophane Lamp</h3>
+            <div class="tags">Your photo · 2 colors · 2 sizes</div>
+            <div class="price">from $39</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="thumb">
+            <svg viewBox="0 0 120 90" role="img" aria-label="Placeholder drawing of a keychain">
+              <circle cx="46" cy="26" r="9" fill="none" stroke="#5b6670" stroke-width="4"/>
+              <rect x="40" y="34" width="52" height="24" rx="10" fill="#0e7c6b" opacity="0.85"/>
+              <text x="66" y="50" font-size="11" fill="#ffffff" text-anchor="middle" font-family="Menlo, monospace">SOFIA</text>
+            </svg>
+          </div>
+          <div class="card-body">
+            <h3>Custom Name Keychain</h3>
+            <div class="tags">Custom text · 5 colors</div>
+            <div class="price">$12</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="thumb">
+            <svg viewBox="0 0 120 90" role="img" aria-label="Placeholder drawing of a planter">
+              <path d="M38 30 h44 l-6 34 a8 8 0 0 1 -8 6 h-16 a8 8 0 0 1 -8 -6 z" fill="#9b8ce0" opacity="0.85"/>
+              <g stroke="#ffffff" stroke-width="1" opacity="0.5">
+                <line x1="40" y1="40" x2="80" y2="40"/><line x1="41" y1="50" x2="79" y2="50"/><line x1="43" y1="60" x2="77" y2="60"/>
+              </g>
+              <path d="M52 30 c-2 -12 8 -16 8 -16 c0 0 10 4 8 16" fill="none" stroke="#2e7d46" stroke-width="3"/>
+            </svg>
+          </div>
+          <div class="card-body">
+            <h3>Honeycomb Planter</h3>
+            <div class="tags">5 colors · 3 sizes</div>
+            <div class="price">from $24</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="screen-desc" style="margin-top:12px">The drawings are stand-ins —
+       <span class="note">your real product photos go in these boxes</span>. The example products
+       and prices come from your list.</p>
+  </section>
+
+  <!-- ================= SCREEN 2 ================= -->
+  <section class="screen">
+    <div class="screen-label"><b>Screen 2 / 5</b> — Product page with customizer</div>
+    <p class="screen-desc">The heart of the site. Every product offers your full filament color list
+       (via the "All colors" button) plus a box to request a color you don't stock. The photo-upload
+       button appears only on products you mark for it. The price and the "Your order" box update
+       live as choices are made.</p>
+    <div class="browser">
+      <div class="browser-bar">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="urlbar">yourshop.vercel.app/lithophane-lamp</div>
+      </div>
+      <div class="pdp">
+        <div class="pdp-photo">
+          <svg viewBox="0 0 120 120" role="img" aria-label="Placeholder drawing of the lamp, large">
+            <rect x="38" y="8" width="44" height="62" rx="8" fill="#e8a13d" opacity="0.9"/>
+            <rect x="28" y="70" width="64" height="14" rx="4" fill="#5b6670"/>
+            <g stroke="#ffffff" stroke-width="1.2" opacity="0.5">
+              <line x1="38" y1="22" x2="82" y2="22"/><line x1="38" y1="36" x2="82" y2="36"/>
+              <line x1="38" y1="50" x2="82" y2="50"/><line x1="38" y1="64" x2="82" y2="64"/>
+            </g>
+            <text x="60" y="80" font-size="7" fill="#ffffff" text-anchor="middle" font-family="Menlo, monospace">Sofia ♥ 2026</text>
+          </svg>
+        </div>
+        <div class="pdp-form">
+          <h2 class="display">Photo Lithophane Lamp</h2>
+          <p class="pdp-sub">Upload a photo and it appears in the light. <span class="note">your description</span></p>
+
+          <div class="field">
+            <div class="field-label"><span>Color <span class="req">· required</span></span><span class="swatch-name">White</span></div>
+            <div class="swatches">
+              <span class="swatch sel" style="background:#f5f5f5"></span>
+              <span class="swatch" style="background:#2b2b2e"></span>
+              <span class="swatch" style="background:#7c4dbc"></span>
+              <span class="swatch" style="background:#2b6cb0"></span>
+              <span class="swatch" style="background:#e07020"></span>
+              <span class="swatch" style="background:#c53030"></span>
+              <span class="opt">All colors ▾</span>
+              <span class="note">your filament list</span>
+            </div>
+            <div class="textbox" style="margin-top:10px; color: var(--ink-soft); font-size: 13.5px;">Want a color you don't see? Ask here — Barbara will check before printing.</div>
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span>Size <span class="req">· required</span></span></div>
+            <div class="opts">
+              <span class="opt">Small<small>10 cm — $39</small></span>
+              <span class="opt sel">Large<small>16 cm — $55</small></span>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span>Text on the base</span><span>11 / 30</span></div>
+            <div class="textbox">Sofia ♥ 2026</div>
+            <div class="hint">Shown exactly as typed, up to 30 characters. Leave empty for no text.</div>
+          </div>
+
+          <div class="field">
+            <div class="field-label"><span>Your photo <span class="req">· required</span></span></div>
+            <div class="drop">
+              <div class="drop-thumb"></div>
+              <p><span class="ok-line">✓ sofia-beach.jpg uploaded</span><br>JPG, PNG, or iPhone photo, up to 10 MB. <u>Replace</u></p>
+            </div>
+          </div>
+
+          <div class="summary">
+            <div class="summary-title">Your order</div>
+            <div class="sline"><span>Photo Lithophane Lamp</span></div>
+            <div class="sline"><span>Color</span><span class="v">White</span></div>
+            <div class="sline"><span>Size</span><span class="v">Large 16 cm</span></div>
+            <div class="sline"><span>Text</span><span class="v">"Sofia ♥ 2026"</span></div>
+            <div class="sline"><span>Photo</span><span class="v">sofia-beach.jpg ✓</span></div>
+            <div class="sline"><span>Shipping</span><span class="v">$5.00</span></div>
+            <div class="sline total"><span>Total</span><span class="v">$60.00</span></div>
+          </div>
+
+          <span class="btn big">Continue to secure payment →</span>
+          <p class="hint" style="text-align:center; margin-top:8px">If a required choice is missing,
+             this button explains what's needed instead of proceeding.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN 3 ================= -->
+  <section class="screen">
+    <div class="screen-label"><b>Screen 3 / 5</b> — Payment (handled by Stripe)</div>
+    <p class="screen-desc">Card payment happens on a secure page run by <strong>Stripe</strong>, the same
+       company that processes payments for millions of shops. It collects the card, the customer's
+       name, email, and shipping address, then sends them back to your site. Its look is mostly fixed
+       by Stripe — that's a good thing: customers recognize and trust it.</p>
+    <div class="browser">
+      <div class="browser-bar">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="urlbar">checkout.stripe.com — secure payment page</div>
+      </div>
+      <div class="stripe-page">
+        <div class="stripe-sum">
+          <h3>Hardy's 3D</h3>
+          <div class="sline"><span>Photo Lithophane Lamp — Large, White</span></div>
+          <div class="sline"><span>Custom: "Sofia ♥ 2026" + photo</span></div>
+          <div class="sline"><span>Shipping</span><span class="v">$5.00</span></div>
+          <div class="sline total"><span>Total due</span><span class="v">$60.00</span></div>
+        </div>
+        <div class="stripe-form">
+          <h3>Pay with card</h3>
+          <div class="fake-input">Email</div>
+          <div class="fake-input">Card number</div>
+          <div class="fake-row"><div class="fake-input">MM / YY</div><div class="fake-input">CVC</div></div>
+          <div class="fake-input">Name on card</div>
+          <div class="fake-input">Shipping address</div>
+          <span class="btn big">Pay $60.00</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN 4 ================= -->
+  <section class="screen">
+    <div class="screen-label"><b>Screen 4 / 5</b> — Order confirmed</div>
+    <p class="screen-desc">After paying, the customer lands back on your site with a clear confirmation.</p>
+    <div class="browser">
+      <div class="browser-bar">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="urlbar">yourshop.vercel.app/thank-you</div>
+      </div>
+      <div class="confirm">
+        <div class="mark">✓</div>
+        <h2 class="display">Your order is in!</h2>
+        <p>Order <span class="mono">#1042</span> — a confirmation was sent to your email.</p>
+        <p>Barbara will print your piece and ship it to you. Questions? Just reply to the confirmation email.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN 5 ================= -->
+  <section class="screen">
+    <div class="screen-label"><b>Screen 5 / 5</b> — The order email you receive</div>
+    <p class="screen-desc">The moment payment succeeds, this lands in <strong>barbaratao@gmail.com</strong>.
+       It contains everything you need to print and ship — you never have to ask the customer anything.</p>
+    <div class="browser">
+      <div class="browser-bar">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="urlbar">Gmail — inbox</div>
+      </div>
+      <div class="email">
+        <div class="email-head">
+          <div class="subject">New order #1042 — Photo Lithophane Lamp — $60.00</div>
+          <div class="meta">to barbaratao@gmail.com · just now</div>
+        </div>
+        <div class="email-body">
+          <table>
+            <tr><td>ORDER</td><td>#1042 · Aug 14, 2026, 3:12 PM</td></tr>
+            <tr><td>PRODUCT</td><td>Photo Lithophane Lamp × 1</td></tr>
+            <tr><td>COLOR</td><td>White</td></tr>
+            <tr><td>COLOR NOTE</td><td>"could the base be glow-in-the-dark?"</td></tr>
+            <tr><td>SIZE</td><td>Large (16 cm)</td></tr>
+            <tr><td>TEXT</td><td>"Sofia ♥ 2026"</td></tr>
+            <tr><td>PHOTO</td><td><a>Download sofia-beach.jpg</a> (4.2 MB)</td></tr>
+            <tr><td>PAID</td><td>$60.00 ($55.00 + $5.00 shipping)</td></tr>
+            <tr><td>CUSTOMER</td><td>Maya Chen · maya.chen@example.com</td></tr>
+            <tr><td>SHIP TO</td><td>418 Alder Street, Apt 2<br>Portland, OR 97204</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= approval ================= -->
+  <section class="approve">
+    <h2 class="display">Does this look right to you?</h2>
+    <p>Things to check before approving:</p>
+    <ul>
+      <li>The overall look — colors, feel, layout. (The teal accent color and everything else can change.)</li>
+      <li>Screen 2 — is this how you imagined customers customizing a product?</li>
+      <li>Screen 5 — is anything missing from the order email that you'd need to print &amp; ship?</li>
+    </ul>
+    <p>If it's good, just say <strong>"mock approved."</strong> If not, tell me what to change in your own
+       words — "make it warmer," "bigger photos," "I don't like the green" — and I'll revise this mock
+       until it's right. <strong>No real website gets built until you approve.</strong></p>
+  </section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+Journal display updated to T-account style.
+
+Each journal entry now shows:
+- Debit header on the left
+- Credit header on the right
+- Account name and amount below each header
+- Debit and credit totals at the bottom

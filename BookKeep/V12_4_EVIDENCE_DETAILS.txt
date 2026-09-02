@@ -1,0 +1,22 @@
+BookKeep Lite v12.4 — Evidence Detail Page
+
+- "See details" now opens a dedicated page inside the app.
+- Shows:
+  - transcript ID
+  - speaker
+  - source
+  - date/time
+  - exact transcript
+  - linked balanced journal entries
+  - receipt/evidence IDs
+  - signer/person
+  - stored signature image
+  - stored receipt/invoice image
+- Includes "Verify Backend Audit Chain" when backend storage is enabled.
+- Back button returns to Evidence list.
+
+Important:
+Displaying a signature and matching transcript is strong supporting evidence, but by itself
+does not prove that nobody hacked or altered the app. Backend hashes + audit-chain verification
+make later tampering detectable. Stronger production evidence would also use authentication,
+append-only/WORM storage, backups, and external trusted timestamps.

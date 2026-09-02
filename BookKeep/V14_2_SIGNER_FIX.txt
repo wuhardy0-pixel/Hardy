@@ -1,0 +1,6 @@
+BookKeep Lite v14.2 — Signer Name Fix
+
+- Evidence form now asks specifically for "Signer name".
+- Signer field is no longer auto-filled from the app user/business/transcript speaker.
+- The user must type the actual person's name before evidence can be saved.
+- Evidence detail page displays that typed name as "Signer name".

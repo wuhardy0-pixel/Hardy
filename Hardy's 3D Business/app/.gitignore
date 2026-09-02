@@ -1,0 +1,6 @@
+node_modules
+.next
+data/catalog.json
+public/products
+.uploads
+.env*.local

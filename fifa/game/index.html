@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hardy FC — Meridian League</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0f0a; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  canvas { display: block; }
+
+  #hud { position: absolute; inset: 0; pointer-events: none; user-select: none; }
+
+  #scoreboard {
+    position: absolute; top: 18px; left: 22px;
+    display: flex; align-items: stretch; gap: 0;
+    background: linear-gradient(135deg, rgba(10,14,24,.92), rgba(20,28,46,.92));
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0,0,0,.5);
+    font-weight: 700; letter-spacing: .5px;
+  }
+  #scoreboard .team { display: flex; align-items: center; gap: 8px; padding: 8px 14px; color: #fff; font-size: 17px; }
+  #scoreboard .swatch { width: 12px; height: 12px; border-radius: 3px; }
+  #scoreboard .score { padding: 8px 14px; color: #fff; font-size: 20px; background: rgba(255,255,255,.08); }
+  #scoreboard .clock { padding: 8px 14px; color: #ffd54f; font-size: 18px; background: rgba(0,0,0,.35); font-variant-numeric: tabular-nums; display: flex; align-items: center; }
+
+  #menu-button {
+    position: absolute; top: 18px; right: 22px; pointer-events: auto; cursor: pointer;
+    background: linear-gradient(135deg, rgba(10,14,24,.92), rgba(20,28,46,.92));
+    color: #ffd54f; font-weight: 700; font-size: 14px; letter-spacing: 1px;
+    padding: 10px 16px; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.5);
+  }
+  #menu-button:hover { background: rgba(40,55,85,.95); }
+
+  #playerbar {
+    position: absolute; bottom: 20px; left: 22px;
+    background: linear-gradient(135deg, rgba(10,14,24,.9), rgba(20,28,46,.9));
+    border-radius: 8px; padding: 10px 16px; color: #fff;
+    box-shadow: 0 4px 18px rgba(0,0,0,.5); min-width: 250px;
+  }
+  #playerbar .pname { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  #playerbar .pname .num { color: #ffd54f; margin-right: 6px; }
+  #playerbar .pmeta { font-size: 12px; color: #90a4ae; margin-bottom: 6px; }
+  #stamina-wrap { height: 6px; background: rgba(255,255,255,.15); border-radius: 3px; overflow: hidden; }
+  #stamina { height: 100%; width: 100%; background: linear-gradient(90deg, #66bb6a, #9ccc65); border-radius: 3px; }
+  #power-wrap { height: 8px; background: rgba(255,255,255,.15); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  #power { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd54f, #ff7043, #e53935); border-radius: 4px; }
+  #power-label { font-size: 10px; color: #78909c; margin-top: 2px; letter-spacing: 1px; }
+
+  #sim-button {
+    position: absolute; top: 66px; right: 22px; pointer-events: auto; cursor: pointer;
+    background: linear-gradient(135deg, rgba(10,14,24,.92), rgba(20,28,46,.92));
+    color: #80cbc4; font-weight: 700; font-size: 13px; letter-spacing: 1px;
+    padding: 9px 16px; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.5);
+  }
+  #sim-button:hover { background: rgba(40,55,85,.95); color: #fff; }
+
+  #sim-overlay {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; background: rgba(4,8,14,.8); pointer-events: auto;
+  }
+  #sim-overlay .sim-title { color: #ffd54f; font-size: 26px; font-weight: 800; letter-spacing: 2px; }
+  #sim-bar { width: min(420px, 70vw); height: 14px; background: rgba(255,255,255,.15); border-radius: 7px; overflow: hidden; }
+  #sim-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #80cbc4, #ffd54f); border-radius: 7px; transition: width .05s linear; }
+
+  #minimap {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: 210px; height: 136px; border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.5); opacity: .92;
+  }
+
+  #commentary {
+    position: absolute; bottom: 166px; left: 50%; transform: translateX(-50%);
+    color: #e0e0e0; font-size: 15px; font-style: italic; font-weight: 600;
+    text-shadow: 0 2px 10px rgba(0,0,0,.9); opacity: 0; transition: opacity .4s;
+    white-space: nowrap; max-width: 90vw; overflow: hidden;
+  }
+
+  #stats-panel {
+    position: absolute; top: 54%; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(150deg, rgba(10,16,28,.95), rgba(16,26,44,.95));
+    border-radius: 12px; padding: 16px 26px; color: #fff; display: none;
+    box-shadow: 0 10px 50px rgba(0,0,0,.7); min-width: 380px;
+  }
+  #stats-panel h3 { text-align: center; color: #ffd54f; font-size: 14px; letter-spacing: 2px; margin-bottom: 10px; }
+  #stats-panel .row { display: flex; justify-content: space-between; font-size: 14px; padding: 3px 0; font-variant-numeric: tabular-nums; }
+  #stats-panel .row .lab { color: #90a4ae; font-size: 12px; letter-spacing: 1px; align-self: center; }
+  #stats-panel .row b { min-width: 60px; }
+  #stats-panel .row b:last-child { text-align: right; }
+
+  #message {
+    position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 54px; font-weight: 800; letter-spacing: 2px;
+    text-shadow: 0 4px 24px rgba(0,0,0,.8), 0 0 60px rgba(255,213,79,.35);
+    opacity: 0; transition: opacity .25s; text-align: center; white-space: nowrap;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+  }
+  #message .chip { display: inline-block; width: 26px; height: 36px; border-radius: 4px; box-shadow: 0 3px 10px rgba(0,0,0,.6); }
+  #submessage {
+    position: absolute; top: 41%; left: 50%; transform: translateX(-50%);
+    color: #e0e0e0; font-size: 22px; font-weight: 600;
+    text-shadow: 0 2px 12px rgba(0,0,0,.8);
+    opacity: 0; transition: opacity .25s; text-align: center;
+  }
+
+  #controls {
+    position: absolute; bottom: 20px; right: 22px;
+    background: rgba(10,14,24,.85); border-radius: 8px;
+    padding: 12px 16px; color: #cfd8dc; font-size: 13px; line-height: 1.75;
+    box-shadow: 0 4px 18px rgba(0,0,0,.5);
+  }
+  #controls b { color: #ffd54f; font-weight: 700; display: inline-block; min-width: 86px; }
+  #controls .title { color: #fff; font-weight: 700; font-size: 13px; margin-bottom: 4px; letter-spacing: 1px; }
+
+  #league-panel {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: auto; max-height: 86vh; overflow-y: auto;
+    background: linear-gradient(150deg, rgba(10,16,28,.96), rgba(16,26,44,.96));
+    border-radius: 12px; padding: 22px 26px; color: #fff;
+    box-shadow: 0 10px 50px rgba(0,0,0,.7); display: none; min-width: 480px;
+  }
+  #league-panel h2 { font-size: 20px; letter-spacing: 2px; margin-bottom: 4px; color: #ffd54f; text-align: center; }
+  #league-panel .md { text-align: center; color: #90a4ae; font-size: 13px; margin-bottom: 14px; }
+  #league-panel table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  #league-panel th { color: #90a4ae; font-weight: 600; text-align: right; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,.15); font-size: 12px; }
+  #league-panel th:first-child, #league-panel td:first-child { text-align: left; }
+  #league-panel td { padding: 5px 8px; text-align: right; border-bottom: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+  #league-panel td.club { font-weight: 600; }
+  #league-panel tr.me td { color: #ffd54f; font-weight: 700; background: rgba(255,213,79,.07); }
+  #league-panel td.pts { font-weight: 700; color: #fff; }
+  #league-panel .hint { text-align: center; color: #78909c; font-size: 12px; margin-top: 12px; }
+
+  /* ---------- Team menu ---------- */
+  #menu-panel {
+    position: absolute; inset: 0; display: none; pointer-events: auto;
+    background: rgba(4, 8, 14, .78);
+  }
+  #menu-inner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(920px, 94vw); max-height: 88vh; display: flex; flex-direction: column;
+    background: linear-gradient(150deg, rgba(12,18,32,.98), rgba(18,28,48,.98));
+    border-radius: 14px; box-shadow: 0 14px 70px rgba(0,0,0,.8); color: #fff;
+    overflow: hidden;
+  }
+  #menu-head {
+    display: flex; align-items: center; gap: 10px; padding: 16px 22px 0 22px;
+  }
+  #menu-head h2 { font-size: 19px; letter-spacing: 2px; color: #ffd54f; flex: 1; }
+  #menu-budget { font-size: 15px; font-weight: 700; color: #9ccc65; background: rgba(255,255,255,.07); padding: 6px 12px; border-radius: 6px; }
+  #menu-close { cursor: pointer; color: #90a4ae; font-size: 22px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+  #menu-close:hover { background: rgba(255,255,255,.1); color: #fff; }
+  #menu-tabs { display: flex; gap: 6px; padding: 14px 22px 0 22px; }
+  #menu-tabs .tab {
+    cursor: pointer; padding: 8px 18px; border-radius: 8px 8px 0 0; font-weight: 700;
+    font-size: 13px; letter-spacing: 1px; color: #90a4ae; background: rgba(255,255,255,.04);
+  }
+  #menu-tabs .tab.active { color: #ffd54f; background: rgba(255,213,79,.12); }
+  #menu-tabs .tab:hover { color: #fff; }
+  #menu-body { padding: 16px 22px 22px 22px; overflow-y: auto; }
+  #menu-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #menu-body th { color: #90a4ae; font-weight: 600; text-align: right; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.15); font-size: 11px; letter-spacing: .5px; position: sticky; top: 0; background: rgba(14,21,37,.98); }
+  #menu-body th.l, #menu-body td.l { text-align: left; }
+  #menu-body td { padding: 6px 8px; text-align: right; border-bottom: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #menu-body tr.starting td { background: rgba(255,213,79,.06); }
+  #menu-body td.ovr { font-weight: 800; color: #fff; }
+  #menu-body .style { color: #80cbc4; }
+  #menu-body .pos { font-weight: 700; }
+  #menu-body .pos.GK { color: #ffb74d; } #menu-body .pos.DF { color: #64b5f6; }
+  #menu-body .pos.MF { color: #aed581; } #menu-body .pos.FW { color: #f06292; }
+  #menu-body .expiring { color: #ef5350; font-weight: 700; }
+  .btn {
+    display: inline-block; cursor: pointer; padding: 4px 12px; border-radius: 6px;
+    font-weight: 700; font-size: 12px; letter-spacing: .5px;
+    background: rgba(255,213,79,.15); color: #ffd54f;
+  }
+  .btn:hover { background: rgba(255,213,79,.35); color: #fff; }
+  .btn.buy { background: rgba(102,187,106,.18); color: #9ccc65; }
+  .btn.buy:hover { background: rgba(102,187,106,.4); color: #fff; }
+  .btn.sell { background: rgba(239,83,80,.15); color: #ef9a9a; }
+  .btn.sell:hover { background: rgba(239,83,80,.38); color: #fff; }
+  .btn.disabled { opacity: .35; cursor: default; }
+  .btn.disabled:hover { background: rgba(255,213,79,.15); color: #ffd54f; }
+  .btn.big { padding: 10px 20px; font-size: 14px; margin: 6px 8px 6px 0; }
+  .btn.selected { background: rgba(255,213,79,.5); color: #fff; }
+  #menu-body h3 { font-size: 14px; letter-spacing: 1.5px; color: #90a4ae; margin: 14px 0 6px 0; }
+  #menu-body .note { color: #78909c; font-size: 12px; margin-top: 10px; line-height: 1.6; }
+
+  #start-overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px;
+    background: radial-gradient(ellipse at center, rgba(8,20,12,.82) 0%, rgba(4,8,6,.96) 100%);
+    color: #fff; pointer-events: auto; cursor: pointer;
+  }
+  #start-overlay h1 { font-size: 48px; font-weight: 800; letter-spacing: 3px; text-shadow: 0 4px 30px rgba(0,0,0,.9); text-align: center; }
+  #start-overlay h1 .vs { color: #ffd54f; font-size: 32px; margin: 0 14px; }
+  #start-overlay p { font-size: 18px; color: #b0bec5; }
+  #start-overlay .pulse { font-size: 22px; color: #ffd54f; font-weight: 700; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  /* ---------- Touch controls (FIFA-Mobile style) ---------- */
+  #touch-ui { display: none; }
+  #touch-ui.on { display: block; }
+  #joy-zone {
+    position: absolute; left: 0; bottom: 0; width: 45vw; height: 55vh;
+    pointer-events: auto; touch-action: none;
+  }
+  #joy-base {
+    position: absolute; width: 110px; height: 110px; border-radius: 50%;
+    background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.25);
+    display: none; transform: translate(-50%, -50%);
+  }
+  #joy-stick {
+    position: absolute; left: 50%; top: 50%; width: 48px; height: 48px;
+    border-radius: 50%; background: rgba(255,255,255,.45);
+    transform: translate(-50%, -50%);
+  }
+  .tbtn {
+    position: absolute; pointer-events: auto; touch-action: none;
+    width: 74px; height: 74px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px; letter-spacing: 1px; color: #fff;
+    background: rgba(20,30,48,.55); border: 2px solid rgba(255,255,255,.3);
+    user-select: none; -webkit-user-select: none;
+  }
+  .tbtn:active { background: rgba(255,213,79,.5); }
+  #tb-shoot { right: 18px; bottom: 118px; width: 88px; height: 88px; background: rgba(229,57,53,.55); }
+  #tb-pass { right: 118px; bottom: 34px; }
+  #tb-thru { right: 122px; bottom: 138px; }
+  #tb-skill { right: 30px; bottom: 236px; }
+  #tb-tackle { right: 118px; bottom: 34px; background: rgba(30,136,229,.55); }
+  #tb-slide { right: 18px; bottom: 118px; width: 88px; height: 88px; background: rgba(229,57,53,.55); }
+  #tb-switch { right: 122px; bottom: 138px; }
+  #tb-sprint { right: 20px; bottom: 20px; width: 64px; height: 64px; font-size: 11px; background: rgba(102,187,106,.4); }
+
+  #start-overlay .menu-row { display: flex; gap: 16px; margin-top: 8px; }
+  .menu-btn {
+    cursor: pointer; padding: 14px 34px; border-radius: 10px; font-weight: 800;
+    font-size: 17px; letter-spacing: 2px; color: #fff;
+    background: linear-gradient(135deg, rgba(229,57,53,.9), rgba(183,28,28,.9));
+    box-shadow: 0 6px 24px rgba(0,0,0,.6);
+  }
+  .menu-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(229,57,53,.4); }
+  .menu-btn.alt { background: linear-gradient(135deg, rgba(38,50,74,.95), rgba(21,28,44,.95)); }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="scoreboard">
+    <div class="team"><span class="swatch" id="sb-home-swatch" style="background:#e53935"></span><span id="sb-home-name">HFC</span></div>
+    <div class="score"><span id="score-home">0</span> – <span id="score-away">0</span></div>
+    <div class="team"><span class="swatch" id="sb-away-swatch" style="background:#1e88e5"></span><span id="sb-away-name">ATL</span></div>
+    <div class="clock" id="clock">00:00</div>
+  </div>
+
+  <div id="menu-button">☰ TEAM &nbsp;(M)</div>
+  <div id="sim-button">⚡ SIM MATCH</div>
+
+  <div id="playerbar">
+    <div class="pname"><span class="num" id="p-num">#10</span><span id="p-name">Player</span></div>
+    <div class="pmeta" id="p-meta"></div>
+    <div id="stamina-wrap"><div id="stamina"></div></div>
+    <div id="power-wrap"><div id="power"></div></div>
+    <div id="power-label">HOLD K FOR POWER</div>
+  </div>
+
+  <div id="sim-overlay">
+    <div class="sim-title">SIMULATING MATCH…</div>
+    <div id="sim-bar"><div id="sim-fill"></div></div>
+  </div>
+
+  <canvas id="minimap" width="210" height="136"></canvas>
+  <div id="commentary"></div>
+  <div id="stats-panel"></div>
+
+  <div id="touch-ui">
+    <div id="joy-zone"><div id="joy-base"><div id="joy-stick"></div></div></div>
+    <div id="touch-attack">
+      <div class="tbtn" id="tb-shoot" data-key="KeyK">SHOOT</div>
+      <div class="tbtn" id="tb-pass" data-key="Space">PASS</div>
+      <div class="tbtn" id="tb-thru" data-key="KeyL">THRU</div>
+      <div class="tbtn" id="tb-skill" data-key="KeyQ">SKILL</div>
+    </div>
+    <div id="touch-defense">
+      <div class="tbtn" id="tb-slide" data-key="KeyJ">SLIDE</div>
+      <div class="tbtn" id="tb-tackle" data-key="Space">TACKLE</div>
+      <div class="tbtn" id="tb-switch" data-key="KeyC">SWITCH</div>
+    </div>
+    <div class="tbtn" id="tb-sprint" data-key="ShiftLeft">RUN</div>
+  </div>
+
+  <div id="message"></div>
+  <div id="submessage"></div>
+
+  <div id="league-panel">
+    <h2>MERIDIAN LEAGUE</h2>
+    <div class="md" id="league-md"></div>
+    <div id="league-table"></div>
+    <div class="hint">T — table &nbsp;·&nbsp; M — team menu &nbsp;·&nbsp; R — next match</div>
+  </div>
+
+  <div id="menu-panel">
+    <div id="menu-inner">
+      <div id="menu-head">
+        <h2>HARDY FC</h2>
+        <div id="menu-budget"></div>
+        <div id="menu-close">✕</div>
+      </div>
+      <div id="menu-tabs">
+        <div class="tab" data-tab="squad">SQUAD</div>
+        <div class="tab" data-tab="tactics">TACTICS</div>
+        <div class="tab" data-tab="transfers">TRANSFERS</div>
+        <div class="tab" data-tab="club">CLUB</div>
+      </div>
+      <div id="menu-body"></div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="title">CONTROLS &nbsp;<span style="color:#78909c;font-weight:400">(H to hide)</span></div>
+    <b>WASD / Arrows</b> Move<br>
+    <b>Shift</b> Sprint<br>
+    <b>Space</b> Pass / Throw / Tackle<br>
+    <b>K (hold)</b> Shoot — hold for power<br>
+    <b>L</b> Through ball &nbsp; <b>Q</b> Skill move<br>
+    <b>J</b> Sliding tackle &nbsp; <b>V</b> Camera<br>
+    <b>hold 1</b> Low &amp; driven &nbsp; <b>hold 2</b> Lofted<br>
+    <b>M</b> Team menu (subs!) &nbsp; <b>T</b> Table<br>
+    <b>C</b> Switch &nbsp; <b>P</b> Pause &nbsp; <b>6</b> Continue<br>
+    <b>N</b> Commentary voice on/off<br>
+    <b>🎮 Gamepad</b> A pass · B shoot · X skill · Y through
+  </div>
+</div>
+
+<div id="start-overlay">
+  <h1 id="start-title">HARDY FC</h1>
+  <p id="start-sub">Meridian League</p>
+  <p>Ratings · play styles · tactics · transfers — press M in game to manage your team</p>
+  <div class="menu-row">
+    <div class="menu-btn" id="btn-play">▶ &nbsp;PLAY MATCH</div>
+    <div class="menu-btn alt" id="btn-training">🏋 &nbsp;TRAINING</div>
+  </div>
+  <p class="pulse">or press any key to kick off · V cycles cameras · gamepad supported</p>
+</div>
+
+<script src="three.min.js"></script>
+<script src="assets.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

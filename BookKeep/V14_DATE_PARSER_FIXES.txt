@@ -1,0 +1,16 @@
+BookKeep Lite v14 — Date and Relative-Time Fixes
+
+Fixed/added:
+- 2 days ago / two days ago
+- N days ago
+- N days from now / later
+- today / yesterday / tomorrow
+- day before yesterday / day after tomorrow
+- last Monday, next Friday, this Tuesday, etc.
+- numeric dates: 8/11/2026, 2026-08-11
+- month names: August 12, August 12th, August 12, 2026
+- basic date validation to prevent past phrases from resolving into the future and vice versa
+- transaction summaries now show the resolved date
+- Settings includes a Date Parser Test field so relative-date bugs can be checked quickly
+
+The parser still uses the user's local browser date/time as the reference clock.

@@ -1,0 +1,38 @@
+BookKeep Lite v11 — Voice + Evidence + Double Entry
+
+Data flow:
+1. UI microphone or typed message
+2. Transcript table:
+   - Transcript ID (T ID)
+   - date/time
+   - speaker
+   - exact transcript
+   - source (voice/typed)
+3. Receipt/evidence table:
+   - Receipt ID
+   - Transcript ID
+   - signer/person
+   - signature image
+   - optional invoice/receipt image
+   - date/time
+4. Agent 1 / Transform:
+   - transcript -> transaction plan
+   - transaction -> balanced double-entry journal lines
+5. Journal/T-account storage:
+   - Journal ID
+   - Transcript ID
+   - date
+   - description
+   - debit account + amount
+   - credit account + amount
+6. Agent 2 / Sort & Reports:
+   - journal/accounts -> Balance Sheet
+   - Income Statement
+   - Cash Flow Statement
+7. Evidence drill-down:
+   - transcript and evidence can be opened from Evidence tab
+   - each journal entry stores Transcript ID for audit traceability
+
+Browser note:
+Microphone uses the Web Speech API when supported. Chrome generally provides the broadest support.
+All evidence remains in browser localStorage in this prototype.

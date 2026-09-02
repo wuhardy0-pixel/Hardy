@@ -1,0 +1,13 @@
+BookKeep Lite v7 — Free Local Smart Agent
+
+Added:
+- Multiple transaction extraction
+- Word money amounts such as "five dollars"
+- Learning memory for item -> category corrections
+- Edit proposed entries before saving
+- Confidence estimates
+- Duplicate transaction detection
+- Known customer/item memory
+- Export/clear learning memory
+- Arithmetic validation retained
+- No API required
