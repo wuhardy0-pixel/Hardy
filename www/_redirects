@@ -1,0 +1,8 @@
+/apps/bookkeep  https://logbook.hardywu.com/  302
+/3d            https://shop.hardywu.com  302
+/3d/*          https://shop.hardywu.com/products/:splat  302
+/play/*        https://hardywu.com/play/:splat  302
+/go/*          https://hardywu.com/go/:splat  302
+/activity      https://hardywu.com/activity  302
+/signout       https://hardywu.com/signout  302
+/api/*         https://hardywu.com/api/:splat  307
