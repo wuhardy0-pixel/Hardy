@@ -467,8 +467,18 @@ def dest(tgt):
     if to.startswith("http"): return to
     return SITE_ORIGIN + to if on_real_site() else to
 
+# short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
+LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
+               "critterquest": "logquest", "footballsim": "logfoot",
+               "pokemonadventure": "logpoke", "3d": "log3d", "": "log"}
+_SHORT_TO_KEY = {v: k for k, v in LOGIN_SHORT.items()}
+
 def login_slug_from_host():
-    m = re.match(r"^login([a-z0-9]*)\.hardywu\.com$", (request.host or "").split(":")[0].lower())
+    host = (request.host or "").split(":")[0].lower()
+    if not host.endswith(".hardywu.com"): return None
+    label = host[:-len(".hardywu.com")]
+    if label in _SHORT_TO_KEY: return _SHORT_TO_KEY[label]
+    m = re.match(r"^login([a-z0-9]*)$", label)          # the long form still works too
     return m.group(1) if m else None
 
 def on_real_site():
@@ -476,7 +486,8 @@ def on_real_site():
 
 def login_url_for(key):
     """The login page for one thing — a real subdomain live, a plain path on this Mac."""
-    return f"https://login{key}.hardywu.com/" if on_real_site() else f"/go/{key or 'home'}"
+    short = LOGIN_SHORT.get(key, "login" + key)
+    return f"https://{short}.hardywu.com/" if on_real_site() else f"/go/{key or 'home'}"
 
 PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim"}
 def play_key(path):
@@ -728,7 +739,7 @@ for(const id of ["nm","em"]) document.getElementById(id).addEventListener("keydo
 @app.get("/login")
 def login_page():
     # live, BookKeep's login lives at loginbookkeep.hardywu.com
-    return redirect("https://loginbookkeep.hardywu.com/") if on_real_site() else LOGIN_HTML
+    return redirect("https://logbook.hardywu.com/") if on_real_site() else LOGIN_HTML
 
 # The creator (owner) sees the member list, grants discounts, and gets every
 # feature free. Creator = the owner email (BOOKKEEP_OWNER_EMAIL in .env), the
