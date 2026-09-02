@@ -103,6 +103,9 @@ PORTFOLIO = {
             "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.jpg",
                 "desc": "A fast-paced space shooter on itch.io.",
                 "link": "https://hardywu.itch.io/ns", "link_label": "▶ Play on itch.io"},
+            "cmind-freecell": {"name": "C-Mind FreeCell", "emoji": "🃏", "img": "/item/freecell.jpg",
+                "desc": "A calm game of FreeCell — a quiet moment, one deal at a time. On itch.io.",
+                "link": "https://hardywu.itch.io/cmind-freecell", "link_label": "▶ Play on itch.io"},
             "pokemon-adventure": {"name": "Pokémon Adventure", "emoji": "⚡", "img": "/item/pokemonadv.jpg",
                 "desc": "An adventure through a world of creatures to catch and battle, on itch.io.",
                 "link": "https://hardywu.itch.io/pa", "link_label": "▶ Play on itch.io"},
@@ -246,6 +249,27 @@ def visitor():
     em = (session.get("v_email") or "").strip().lower()
     return em or None
 
+from zoneinfo import ZoneInfo
+HOME_TZ = ZoneInfo("America/New_York")
+def now_local():
+    return datetime.datetime.now(HOME_TZ).isoformat(timespec="seconds")
+def when_local(iso):
+    """A stored timestamp → aware datetime in Hardy's time zone (old entries were naive local time)."""
+    try:
+        d = datetime.datetime.fromisoformat(iso)
+    except Exception:
+        return None
+    return d.replace(tzinfo=HOME_TZ) if d.tzinfo is None else d.astimezone(HOME_TZ)
+def fmt_when(iso):
+    d = when_local(iso)
+    if not d: return ""
+    today = datetime.datetime.now(HOME_TZ).date()
+    day = "today" if d.date() == today else "yesterday" if d.date() == today - datetime.timedelta(days=1) \
+          else d.strftime("%b %-d, %Y")
+    return f'{day} · {d.strftime("%-I:%M %p").lower()}'
+def month_key(iso):
+    d = when_local(iso); return d.strftime("%Y-%m") if d else ""
+
 def track(kind, label, path, seconds=0, detail=""):
     em = visitor()
     if not em:
@@ -257,7 +281,10 @@ def track(kind, label, path, seconds=0, detail=""):
             "first_seen": now_iso(), "last_seen": now_iso(),
             "total_seconds": 0, "activities": {}, "clicks": [], "visits": 0})
         who["name"] = session.get("v_name") or who.get("name") or ""
-        who["last_seen"] = now_iso()
+        who["last_seen"] = now_local()
+        day = who.setdefault("days", {}).setdefault(now_local()[:10], {"opens": 0, "seconds": 0})
+        if kind in ("view", "open"): day["opens"] += 1
+        if seconds: day["seconds"] += max(0, min(120, int(seconds)))
         if kind == "view":
             who["visits"] = who.get("visits", 0) + 1
         if seconds:
@@ -268,8 +295,8 @@ def track(kind, label, path, seconds=0, detail=""):
         if kind == "view":
             a = who["activities"].setdefault(label, {"seconds": 0, "opens": 0, "path": path})
             a["opens"] = a.get("opens", 0) + 1
-        if kind == "click":
-            who["clicks"].append({"at": now_iso(), "what": detail or label,
+        if kind in ("click", "open"):
+            who["clicks"].append({"at": now_local(), "what": detail or (f"opened {label}" if kind == "open" else label),
                                   "where": friendly_label(path), "path": path})
             who["clicks"] = who["clicks"][-400:]           # keep the most recent trail
         _act_save(data)
@@ -433,7 +460,7 @@ def activity_page():
             click_rows = "".join(
                 f'<li><b>{html.escape(c.get("what",""))}</b> '
                 f'<span class="muted">on {html.escape(c.get("where",""))} · '
-                f'{html.escape((c.get("at") or "")[:16].replace("T"," "))}</span></li>'
+                f'{html.escape(fmt_when(c.get("at") or ""))}</span></li>'
                 for c in clicks) or '<li class="muted">no clicks recorded yet</li>'
             rows += f"""
 <div class="person">
@@ -445,9 +472,31 @@ def activity_page():
   <table><tr><th>What they did</th><th class="n">Time</th><th class="n">Opens</th></tr>{act_rows}</table>
   <details><summary>Clicks ({len(p.get("clicks", []))})</summary><ul>{click_rows}</ul></details>
 </div>"""
+    # by month: how many different people, how many visit-days, opens and time
+    months = {}
+    for em, p in data.get("people", {}).items():
+        for day, d in (p.get("days") or {}).items():
+            m = months.setdefault(day[:7], {"people": set(), "days": 0, "opens": 0, "seconds": 0})
+            m["people"].add(em); m["days"] += 1; m["opens"] += d.get("opens", 0); m["seconds"] += d.get("seconds", 0)
+    month_rows = "".join(
+        f'<tr><td>{datetime.date(int(k[:4]), int(k[5:]), 1).strftime("%B %Y")}</td>'
+        f'<td class="n">{len(m["people"])}</td><td class="n">{m["days"]}</td>'
+        f'<td class="n">{m["opens"]}</td><td class="n">{fmt_dur(m["seconds"])}</td></tr>'
+        for k, m in sorted(months.items(), reverse=True)) or '<tr><td colspan="5" class="muted">nothing yet</td></tr>'
+    # the latest things anyone did, newest first, with the day
+    feed = sorted(((c.get("at") or "", p.get("name") or em, c) for em, p in data.get("people", {}).items() for c in p.get("clicks", [])),
+                  key=lambda t: t[0], reverse=True)[:30]
+    feed_rows = "".join(
+        f'<li><span class="muted">{html.escape(fmt_when(at))}</span> — <b>{html.escape(name)}</b> '
+        f'{html.escape(c.get("what",""))}</li>' for at, name, c in feed) or '<li class="muted">nothing yet</li>'
     body = f"""<header><h1>Who came to visit</h1>
       <p class="tag">Everyone who signed in, what they did, and how long they stayed.</p></header>
-      <div class="wrap">{rows}</div>"""
+      <div class="wrap">
+        <div class="person"><h3 style="margin:0 0 8px">By month</h3>
+          <table><tr><th>Month</th><th class="n">People</th><th class="n">Visits</th><th class="n">Opens</th><th class="n">Time</th></tr>{month_rows}</table>
+          <p class="muted" style="margin:8px 0 0;font-size:12px">A visit = one person on one day.</p></div>
+        <div class="person"><h3 style="margin:0 0 8px">Latest</h3><ul style="margin:0;padding-left:18px">{feed_rows}</ul></div>
+        {rows}</div>"""
     extra = """<style>
 .wrap{max-width:900px;margin:10px auto 40px;padding:0 18px;text-align:left}
 .person{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;
@@ -495,7 +544,7 @@ def dest(tgt):
 # short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
 LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
                "critterquest": "logquest", "footballsim": "logfoot",
-               "pokemonadventure": "logpoke", "3d": "log3d", "": "log"}
+               "pokemonadventure": "logpoke", "cmindfreecell": "logfreecell", "3d": "log3d", "": "log"}
 _SHORT_TO_KEY = {v: k for k, v in LOGIN_SHORT.items()}
 
 def login_slug_from_host():
@@ -1017,7 +1066,7 @@ def section_image(name):
 @app.get("/item/<name>")
 def item_image(name):
     if name in {"bookkeep.jpg", "footballsim.jpg", "nova.jpg", "quest.jpg",
-                "novastrike.jpg", "pokemonadv.jpg"}:
+                "novastrike.jpg", "pokemonadv.jpg", "freecell.jpg"}:
         return send_from_directory(BASE, "item_" + name)
     return jsonify(error="Not found."), 404
 
