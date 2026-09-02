@@ -25,12 +25,15 @@ a{color:#7dd3fc;text-decoration:none;font-weight:700;display:inline-block;margin
   background:rgba(12,34,78,.72);border:1.5px solid rgba(96,165,250,.55);box-shadow:0 6px 20px rgba(0,0,0,.4);
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #mobile button:active{background:rgba(56,189,248,.55)}
+#music{position:fixed;right:14px;top:100px;z-index:6;width:44px;height:44px;border-radius:50%;border:1px solid rgba(96,165,250,.5);
+  background:rgba(12,34,78,.7);color:#fff;font-size:20px;padding:0;margin:0;box-shadow:none;cursor:pointer}
 #touchHint{position:fixed;left:0;right:0;bottom:120px;text-align:center;z-index:6;display:none;
   font-size:13px;font-weight:700;color:rgba(255,255,255,.75);text-shadow:0 2px 10px #000;pointer-events:none}
 @media (pointer:coarse){#mobile{display:flex}#touchHint{display:block}}
 body.touch #mobile{display:flex} body.touch #touchHint{display:block}
 </style></head><body>
 <canvas id="c"></canvas>
+<button id="music" onclick="Music.toggle()">🔊</button>
 <div id="mobile">
   <button id="fireBtn" title="hold to fire">🔥</button>
   <button id="bombBtn" onpointerdown="useBomb()">💣</button>
@@ -105,7 +108,37 @@ function reset(){
   nebula={y:0};
   score=0;wave=0;waveTimer=40;shake=0;flash=0;banner=0;lastBoss="";lastMini="";
 }
-function startGame(){reset();state="play";
+/* ---- music: tiny built-in synth loops (no files), with an on/off button ---- */
+const Music=(()=>{
+  const N={C2:65.41,D2:73.42,E2:82.41,F2:87.31,G2:98,A2:110,B2:123.47,C3:130.81,D3:146.83,E3:164.81,F3:174.61,G3:196,A3:220,B3:246.94,
+           C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880};
+  const P={
+    main:{bpm:150,leadWave:"square",lead:["A4",0,"C5",0,"E5",0,"C5",0,"G4",0,"B4",0,"D5",0,"B4",0],
+          bass:["A2","A2",0,"A2","A2",0,"A2","A2","G2","G2",0,"G2","G2",0,"G2","G2"]},
+    boss:{bpm:168,leadWave:"sawtooth",lead:["A4","A4","C5","C5","E5","E5","D5","C5","F4","F4","A4","A4","C5","C5","B4","A4"],
+          bass:["A2","A2","A2","A2","F2","F2","F2","F2","G2","G2","G2","G2","E2","E2","E2","E2"]}};
+  let ctx,master,timer,on=localStorage.getItem("music")!=="off",playing=false,step=0,next=0;
+  const M={mode:Object.keys(P)[0],get on(){return on;},get playing(){return playing;}};
+  function tone(f,t,d,type,g){const o=ctx.createOscillator(),a=ctx.createGain();o.type=type;o.frequency.value=f;
+    a.gain.setValueAtTime(0,t);a.gain.linearRampToValueAtTime(g,t+.012);a.gain.exponentialRampToValueAtTime(.0008,t+d);
+    o.connect(a);a.connect(master);o.start(t);o.stop(t+d+.05);}
+  function tick(){const q=P[M.mode]||P[Object.keys(P)[0]],st=60/q.bpm/2;
+    while(next<ctx.currentTime+.3){const i=step%q.lead.length;
+      if(q.lead[i])tone(N[q.lead[i]],next,st*.9,q.leadWave,.045);
+      const b=q.bass[step%q.bass.length]; if(b)tone(N[b],next,st*1.7,"triangle",.08);
+      next+=st;step++;}}
+  function start(){if(!on||playing)return;
+    if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=.55;master.connect(ctx.destination);}
+    if(ctx.state==="suspended")ctx.resume();
+    next=ctx.currentTime+.05;playing=true;timer=setInterval(tick,90);paint();}
+  function stop(){playing=false;clearInterval(timer);paint();}
+  function paint(){const b=document.getElementById("music");if(b){b.textContent=on?"🔊":"🔇";b.title=on?"music on — click to mute":"music off — click to play";}}
+  M.start=start;M.stop=stop;
+  M.toggle=()=>{on=!on;localStorage.setItem("music",on?"on":"off");on?start():stop();paint();};
+  document.addEventListener("DOMContentLoaded",paint);
+  return M;
+})();
+function startGame(){reset();state="play";Music.start();
   document.getElementById("start").classList.add("hidden");
   document.getElementById("over").classList.add("hidden");}
 
@@ -789,6 +822,7 @@ function draw(){
       x.fillStyle=p.col;x.font="900 italic 17px Inter,sans-serif";x.textAlign="center";x.fillText(p.t,p.x,p.y);}
     x.globalAlpha=1;
 
+    Music.mode=(state==="play"&&foes.some(f=>f.boss||f.mini))?"boss":"main";
     const narrow=W<620;                       // phones: stack the HUD instead of crowding one row
     x.fillStyle="rgba(2,8,28,.55)";x.fillRect(0,0,W,narrow?92:74);
     x.fillStyle="#fff";x.font=`900 italic ${narrow?24:30}px Inter,sans-serif`;x.textAlign="left";

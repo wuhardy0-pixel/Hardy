@@ -516,7 +516,7 @@ details ul{margin:10px 0 0;padding-left:18px;font-size:13.5px;line-height:1.7}
 
 SITE_PORT = 5001          # http://127.0.0.1:5001 = the hardywu.com site, locally
 
-SITE_ORIGIN = "https://hardywu.com"
+SITE_ORIGIN = "https://www.hardywu.com"
 def _key(slug): return re.sub(r"[^a-z0-9]", "", str(slug).lower())
 
 def login_targets():
@@ -746,6 +746,9 @@ def require_passcode():
                 track("open", tgt["name"], dest(tgt))
                 return redirect(dest(tgt))
             return VISITOR_HTML
+        bare = (request.host or "").split(":")[0].lower() == "hardywu.com"
+        if bare and request.method == "GET" and (p == "/" or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO)):
+            return redirect("https://www.hardywu.com" + p, code=301)   # typing hardywu.com lands on www
         open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor",
                             "/api/track", "/signout", "/api/order")
                       or p.startswith("/products/") or p.startswith("/sec/")
