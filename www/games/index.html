@@ -37,8 +37,14 @@ footer{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-sp
 </style></head><body>
 <div class="whobar"></div>
 <div class="crumbs"><a href="/">← hardywu.com</a></div>
+<nav><a href="/apps">📱 Apps</a><a href="/games">🎮 Video Games</a><a href="/3d">🖨️ 3D</a><a href="/robotics">🤖 Robotics</a></nav>
 
 <header><img src="/sec/games.jpg" style="width:96px;height:96px;object-fit:cover;border-radius:18px"><h1>Video Games</h1><p class="tag">Games built by Hardy Wu — play them free.</p></header>
 <div class="cards"><a class="card" href="/games/football-sim"><img src="/item/footballsim.jpg" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="Football Sim"><h2>Football Sim</h2><p>An original 3D football simulation — broadcast-style play, fictional clubs and stadiums.</p></a><a class="card" href="/games/nova-blast"><img src="/item/nova.jpg" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="Nova Blast"><h2>Nova Blast</h2><p>A neon space shooter — waves of raiders, asteroids, power-ups and a boss every fifth wave.</p></a><a class="card" href="/games/critter-quest"><img src="/item/quest.jpg" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="Critter Quest"><h2>Critter Quest</h2><p>Four regions, a town with a shop and healer, MP-powered special moves — 32 critters to catch and evolve, ranked F to SSS.</p></a><a class="card" href="/games/nova-strike"><img src="/item/novastrike.jpg" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="Nova Strike"><h2>Nova Strike</h2><p>A fast-paced space shooter on itch.io.</p></a><a class="card" href="/games/cmind-freecell"><img src="/item/freecell.jpg" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="C-Mind FreeCell"><h2>C-Mind FreeCell</h2><p>A calm game of FreeCell — a quiet moment, one deal at a time. On itch.io.</p></a><a class="card" href="/games/pokemon-adventure"><img src="/item/pokemonadv.jpg" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="Pokémon Adventure"><h2>Pokémon Adventure</h2><p>An adventure through a world of creatures to catch and battle, on itch.io.</p></a></div>
 <footer>hardywu.com — Try New Things 🛠️</footer>
-</body></html>
+<script>(async()=>{try{
+ const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
+ if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
+ b.append("signed in as ",n," · ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
+ if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);}
+}catch(e){}})()</script></body></html>

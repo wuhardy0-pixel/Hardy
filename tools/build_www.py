@@ -21,8 +21,16 @@ BASE = "https://www.hardywu.com"
 LIVE = "https://play.hardywu.com"   # the server, on a name Cloudflare never redirects
 c = server.app.test_client()
 
+WHOBAR_JS = """<script>(async()=>{try{
+ const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
+ if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
+ b.append("signed in as ",n," \u00b7 ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
+ if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="\U0001F4CA see who visited";b.append(" \u00b7 ",a);}
+}catch(e){}})()</script>"""
+
 def clean(html):
-    html = html.replace('<script src="/track.js" defer></script>', "")   # no visit tracking on the static copy
+    # no visit tracking on the static copy; the sign-in bar is filled in by asking the server
+    html = html.replace('<script src="/track.js" defer></script>', WHOBAR_JS)
     return html
 
 def page(path, dest):

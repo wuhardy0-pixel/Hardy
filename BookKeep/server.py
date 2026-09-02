@@ -375,6 +375,13 @@ def visitor_login():
         track("view", friendly_label(nxt), nxt)
     return jsonify(ok=True, next=nxt)
 
+@app.get("/api/me")
+def api_me():
+    """Who is signed in — the static www pages ask this to fill their sign-in bar."""
+    if not visitor():
+        return jsonify({})
+    return jsonify(name=session.get("v_name") or "", email=visitor(), hardy=is_hardy())
+
 @app.get("/signout")
 def visitor_signout():
     session.pop("v_name", None); session.pop("v_email", None)
@@ -629,6 +636,7 @@ footer{{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-s
 </style></head><body>
 <div class="whobar">{who}</div>
 <div class="crumbs">{crumbs}</div>
+{f"<nav>{nav}</nav>" if crumbs else ""}
 {body}
 <footer>hardywu.com — Try New Things 🛠️</footer>
 <script src="/track.js" defer></script></body></html>"""
@@ -757,7 +765,7 @@ def require_passcode():
         if bare and request.method == "GET" and (p == "/" or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO)):
             return redirect("https://www.hardywu.com" + p, code=301)   # typing hardywu.com lands on www
         open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor",
-                            "/api/track", "/signout", "/api/order")
+                            "/api/track", "/api/me", "/signout", "/api/order")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
         ok = (p == "/" or p == "/activity" or p.startswith("/play/") or p.startswith("/go/")
@@ -1039,7 +1047,13 @@ def _mirror_db(resp):
 
 @app.after_request
 def cors(resp):
-    resp.headers["Access-Control-Allow-Origin"]="*"
+    origin = request.headers.get("Origin", "")
+    if re.fullmatch(r"https://([a-z0-9-]+\.)?hardywu\.com", origin):
+        resp.headers["Access-Control-Allow-Origin"] = origin      # our own pages may send the cookie
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Vary"] = "Origin"
+    else:
+        resp.headers["Access-Control-Allow-Origin"]="*"
     resp.headers["Access-Control-Allow-Headers"]="Content-Type"
     resp.headers["Access-Control-Allow-Methods"]="GET,POST,OPTIONS"
     return resp

@@ -37,8 +37,14 @@ footer{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-sp
 </style></head><body>
 <div class="whobar"></div>
 <div class="crumbs"><a href="/">hardywu.com</a> / <a href="/games">Video Games</a> / Critter Quest</div>
+<nav><a href="/apps">📱 Apps</a><a href="/games">🎮 Video Games</a><a href="/3d">🖨️ 3D</a><a href="/robotics">🤖 Robotics</a></nav>
 
 <header><img src="/item/quest.jpg" style="width:200px;height:200px;object-fit:cover;border-radius:24px"><h1>Critter Quest</h1>
 <p class="tag" style="max-width:480px;margin:8px auto">Four regions, a town with a shop and healer, MP-powered special moves — 32 critters to catch and evolve, ranked F to SSS.</p><a class="btn primary" href="https://logquest.hardywu.com/">Play</a></header>
 <footer>hardywu.com — Try New Things 🛠️</footer>
-</body></html>
+<script>(async()=>{try{
+ const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
+ if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
+ b.append("signed in as ",n," · ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
+ if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);}
+}catch(e){}})()</script></body></html>

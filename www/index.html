@@ -38,10 +38,16 @@ footer{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-sp
 <div class="whobar"></div>
 <div class="crumbs"></div>
 
+
 <header><img src="/logo.png" alt="Hardy Wu logo" style="width:104px;height:104px;border-radius:22px;margin-top:6px">
 <p style="letter-spacing:.35em;font-weight:700;color:#fff;opacity:.72;font-size:14px;margin:14px 0 0;font-weight:800">HARDY WU</p>
 <h1 style="font-size:clamp(46px,9.5vw,94px);font-weight:900;font-style:italic;letter-spacing:-0.045em;margin:8px 0 12px;line-height:.95;color:#fff">TRY NEW<br>THINGS.</h1>
 <p class="tag">Apps, video games, 3D prints & robots.</p></header>
 <div class="cards"><a class="card" href="/apps"><img src="/sec/apps.jpg" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="Apps"><h2>Apps</h2><p>Software built by Hardy Wu.</p></a><a class="card" href="/games"><img src="/sec/games.jpg" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="Video Games"><h2>Video Games</h2><p>Games built by Hardy Wu — play them free.</p></a><a class="card" href="/3d"><img src="/sec/3d.jpg" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="3D"><h2>3D</h2><p>The 3D print store — pick your colors and see it before you buy.</p></a><a class="card" href="/robotics"><img src="/sec/robotics.jpg" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="Robotics"><h2>Robotics</h2><p>Robot projects. Coming soon.</p></a></div>
 <footer>hardywu.com — Try New Things 🛠️</footer>
-</body></html>
+<script>(async()=>{try{
+ const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
+ if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
+ b.append("signed in as ",n," · ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
+ if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);}
+}catch(e){}})()</script></body></html>
