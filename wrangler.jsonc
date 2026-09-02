@@ -1,0 +1,11 @@
+{
+  // Cloudflare Worker "hardy" (www.hardywu.com): serve the built front page in www/
+  // as plain files. Regenerate www/ with tools/build_www.py before pushing.
+  "$schema": "https://developers.cloudflare.com/workers/wrangler-configuration",
+  "name": "hardy",
+  "compatibility_date": "2026-09-02",
+  "assets": {
+    "directory": "./www",
+    "not_found_handling": "404-page"
+  }
+}

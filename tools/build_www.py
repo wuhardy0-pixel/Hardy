@@ -69,6 +69,7 @@ redirects = [
     f"/api/*         {LIVE}/api/:splat  307",
 ]
 (OUT / "_redirects").write_text("\n".join(redirects) + "\n")
+(OUT / "404.html").write_text((ROOT / "tools" / "404.html").read_text())
 leftovers = [p.name for p in pages if "/track.js" in p.read_text() or 'fetch("/api/' in p.read_text()]
 print(f"www/: {len(pages)} pages, {sum(1 for _ in OUT.rglob('*') if _.is_file())} files"
       + (f"  (still server-bound: {leftovers})" if leftovers else ""))
