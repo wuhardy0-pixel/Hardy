@@ -697,6 +697,17 @@ validation; [ ] pending.
     exist, the same flow runs on /go/<thing> and stays local. Hosting
     decision: Barbara chose to stay with GitHub + Cloudflare rather than
     Railway; the container files remain in the repo unused.
+-   2026-09-02 (later): games moved to play.hardywu.com and BookKeep's
+    home to bookkeep.hardywu.com (books. stays an alias) because the home
+    network blocks the bare name and books.; short login addresses
+    (logbook, lognovab, logquest, logfoot, lognovas, logpoke, logfreecell,
+    log3d); www.hardywu.com is served by Barbara's Cloudflare Worker from
+    the committed www/ folder (tools/build_www.py, wrangler.jsonc); the
+    visitor report gained month totals (people / visit-days / opens /
+    time), a dated "Latest" feed and dated clicks in Hardy's time zone;
+    C-Mind FreeCell added to Video Games. Cloud Run hosting for BookKeep
+    and the store is in progress (project hardywu-site-758a; see the
+    Dockerfile and sync_db_to_store in server.py).
 -   Earlier prototype history: V7–V14 notes in the repo's *.txt files.
 
 ## Testing
