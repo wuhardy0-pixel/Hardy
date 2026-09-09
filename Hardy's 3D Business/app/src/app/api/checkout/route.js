@@ -61,9 +61,11 @@ export async function POST(request) {
     // up on the owner's dashboard and can be booked as an invoice.
     try {
       await fetch("http://127.0.0.1:5000/api/order/from-shop", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        // pass the shopper's sign-in cookie along so the order records who they are
+        headers: { "Content-Type": "application/json", cookie: request.headers.get("cookie") || "" },
         body: JSON.stringify({
-          product: product.slug, product_name: product.name, qty,
+          product: product.slug, product_name: product.name, qty, color: colorStr,
           price_each: unitCents / 100, total: totalCents / 100,
           buyer: "Online customer", details: `${orderNumber} · ${optionSummary}`,
         }),

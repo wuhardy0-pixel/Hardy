@@ -161,9 +161,11 @@ def place_order():
     total = round(float(p["price"]) * qty, 2)
     oid = "O_" + uuid.uuid4().hex[:10]
     con = db()
-    con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,'new',?)""",
-                (oid, slug, p["name"], qty, float(p["price"]), total, color, custom, buyer, now_iso()))
+    con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
+                                      visitor_name,visitor_email,buyer_email,source)
+                   VALUES(?,?,?,?,?,?,?,?,?,'new',?,?,?,?,'site')""",
+                (oid, slug, p["name"], qty, float(p["price"]), total, color, custom, buyer, now_iso(),
+                 session.get("v_name") or "", visitor() or "", str(x.get("email") or "").strip()[:90]))
     con.commit(); con.close()
     return jsonify(ok=True, order=oid, total=total, name=p["name"])
 
@@ -173,21 +175,31 @@ def order_from_shop():
         return jsonify(error="Internal only."), 403
     x = request.get_json(force=True)
     oid = "O_" + uuid.uuid4().hex[:10]
+    # the store forwards the shopper's cookie, so we know who was signed in
+    v_name, v_email = (session.get("v_name") or "").strip(), (visitor() or "")
+    buyer = str(x.get("buyer") or "").strip()[:60]
+    if not buyer or buyer == "Online customer":
+        buyer = v_name or "Online customer"
     con = db()
-    con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,'new',?)""",
+    con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
+                                      visitor_name,visitor_email,buyer_email,source)
+                   VALUES(?,?,?,?,?,?,?,?,?,'new',?,?,?,?,'shop')""",
                 (oid, str(x.get("product") or "")[:60], str(x.get("product_name") or "")[:80],
                  int(x.get("qty") or 1), float(x.get("price_each") or 0), float(x.get("total") or 0),
-                 "", str(x.get("details") or "")[:300], str(x.get("buyer") or "Online customer")[:60], now_iso()))
+                 str(x.get("color") or "")[:60], str(x.get("details") or "")[:300], buyer, now_iso(),
+                 v_name, v_email, str(x.get("email") or "").strip()[:90]))
     con.commit(); con.close()
-    return jsonify(ok=True, order=oid)
+    return jsonify(ok=True, order=oid, signed_in=v_email or None)
 
 @app.get("/api/orders")
 def list_orders():
     if not is_owner():
         return jsonify(error="Only the creator can see orders."), 403
     con = db()
-    rows = [dict(r) for r in con.execute("SELECT * FROM orders WHERE status='new' ORDER BY created_at")]
+    if request.args.get("all"):        # the Orders tab: every order ever placed, newest first
+        rows = [dict(r) for r in con.execute("SELECT * FROM orders ORDER BY created_at DESC")]
+    else:                              # the dashboard box: only what still needs booking
+        rows = [dict(r) for r in con.execute("SELECT * FROM orders WHERE status='new' ORDER BY created_at")]
     con.close()
     return jsonify(orders=rows)
 
@@ -366,8 +378,11 @@ def visitor_login():
     key = login_slug_from_host()
     from urllib.parse import urlparse, parse_qs
     back = parse_qs(urlparse(nxt).query).get("next", [""])[0] if key == "" else ""
+    prod = parse_qs(urlparse(nxt).query).get("p", [""])[0] if key == "3d" else ""
     if key == "" and back.startswith("/") and not back.startswith("//"):
         nxt = "https://play.hardywu.com" + back              # back to what they were opening
+    elif key == "3d" and prod:
+        nxt = shop_product_url(prod); track("open", "The 3D store", nxt)
     elif key is not None and key in login_targets():      # the server decides where a login address leads
         nxt = dest(login_targets()[key])
         track("open", login_targets()[key]["name"], nxt)
@@ -545,6 +560,10 @@ def login_targets():
     return t
 
 PLAY_ORIGIN = "https://play.hardywu.com"     # games live on their own name
+def shop_product_url(p):
+    p = re.sub(r"[^a-z0-9-]", "", str(p or "").lower())[:60]
+    return f"{SHOP_HOST}/products/{p}" if p and p in SHOP_PRODUCTS else SHOP_HOST
+
 def dest(tgt):
     """Where a login leads: absolute on the live domain, local on this Mac."""
     to = tgt["to"]
@@ -655,8 +674,11 @@ def portfolio_home():
 SHOP_HOST = "https://shop.hardywu.com"
 
 def portfolio_section(section):
-    if section == "3d":
-        return redirect(SHOP_HOST)  # the 3D section IS the live-preview store
+    if section == "3d":             # the 3D section IS the live-preview store — sign in on the way
+        if not visitor():
+            return redirect(login_url_for("3d")) if on_real_site() else VISITOR_HTML
+        track("open", "The 3D store", SHOP_HOST)
+        return redirect(SHOP_HOST)
     sec = PORTFOLIO.get(section)
     if not sec:
         return p_page("Not found", "<h1>Section not found</h1>", '<a href="/">← hardywu.com</a>'), 404
@@ -675,6 +697,10 @@ def portfolio_item(section, slug):
     if section == "3d":
         import difflib
         target = slug if slug in SHOP_PRODUCTS else next(iter(difflib.get_close_matches(slug.lower(), list(SHOP_PRODUCTS.keys()), n=1, cutoff=0.5)), None)
+        if not visitor():
+            q = f"?p={target}" if target else ""
+            return redirect(login_url_for("3d") + q) if on_real_site() else VISITOR_HTML
+        track("open", "The 3D store", SHOP_HOST)
         return redirect(f"{SHOP_HOST}/products/{target}") if target else redirect(SHOP_HOST)
     sec = PORTFOLIO.get(section)
     it = (sec or {}).get("items", {}).get(slug)
@@ -760,6 +786,8 @@ def require_passcode():
                 back = request.args.get("next", "")
                 if key == "" and back.startswith("/") and not back.startswith("//"):
                     return redirect("https://play.hardywu.com" + back)   # e.g. Hardy's report
+                if key == "3d" and request.args.get("p"):
+                    track("open", "The 3D store", SHOP_HOST); return redirect(shop_product_url(request.args.get("p")))
                 track("open", tgt["name"], dest(tgt))
                 return redirect(dest(tgt))
             return VISITOR_HTML
@@ -997,6 +1025,13 @@ def init_db():
       status TEXT NOT NULL DEFAULT 'new',
       created_at TEXT NOT NULL
     );
+    """)
+    # orders: who was signed in when they ordered, and where the order came from
+    have = {r[1] for r in con.execute("PRAGMA table_info(orders)")}
+    for col in ("visitor_name", "visitor_email", "buyer_email", "source"):
+        if col not in have:
+            con.execute(f"ALTER TABLE orders ADD COLUMN {col} TEXT")
+    con.executescript("""
     CREATE TABLE IF NOT EXISTS audit_log(
       seq INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id TEXT UNIQUE NOT NULL,

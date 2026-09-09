@@ -708,6 +708,15 @@ validation; [ ] pending.
     C-Mind FreeCell added to Video Games. Cloud Run hosting for BookKeep
     and the store is in progress (project hardywu-site-758a; see the
     Dockerfile and sync_db_to_store in server.py).
+-   2026-09-09 (orders + store sign-in): BookKeep gained an Orders tab
+    (owner only) listing every order ever placed — product, options,
+    total, buyer, and who was signed in (name + email), where it came
+    from (site or 3D store) and its status, with Book/Remove actions.
+    Orders now store visitor_name / visitor_email / buyer_email / source
+    (added by migration); the store forwards the shopper's cookie when it
+    records an order so the sign-in is known. The 3D button (site, www,
+    and direct store visits via Next middleware) now goes through
+    log3d.hardywu.com first, keeping product deep links (?p=slug).
 -   Earlier prototype history: V7–V14 notes in the repo's *.txt files.
 
 ## Testing

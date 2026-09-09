@@ -68,8 +68,8 @@ for m in sorted(set(re.findall(r'"/item/([^"]+)"', "".join(p.read_text() for p i
 # everything that needs the running server lives on hardywu.com
 redirects = [
     "/apps/bookkeep  https://logbook.hardywu.com/  302",
-    f"/3d            {server.SHOP_HOST}  302",
-    f"/3d/*          {server.SHOP_HOST}/products/:splat  302",
+    "/3d            https://log3d.hardywu.com/  302",
+    "/3d/*          https://log3d.hardywu.com/?p=:splat  302",
     f"/play/*        https://play.hardywu.com/play/:splat  302",
     f"/go/*          {LIVE}/go/:splat  302",
     f"/activity      {LIVE}/activity  302",

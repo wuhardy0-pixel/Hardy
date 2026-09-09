@@ -471,6 +471,7 @@ function renderLoginStatus(){
   if(w.name){
     btn.classList.remove("hidden");
     btn.textContent=`Log out ${w.name}${w.owner?" 👑":""}`;
+    if($("#ordersTab")) $("#ordersTab").classList.toggle("hidden",!w.owner);
     btn.title=w.email?`Logged in as ${w.email}`:"";
     btn.onclick=()=>{if(confirm(`Log out ${w.name}?`))location.href="/logout";};
   }else{
@@ -496,15 +497,35 @@ async function renderOrdersPanel(){
         <button class="ghost" data-dismiss-order="${escapeHtml(o.id)}" title="Remove without booking">✕</button></div></div>`).join("");
   }catch{panel.classList.add("hidden");}
 }
-if($("#ordersPanel")) $("#ordersPanel").addEventListener("click",async e=>{
+// ---- Orders tab (creator only): every order ever placed, newest first.
+const ORDER_STATUS={new:["needs booking","#f59e0b"],booked:["booked","#34d399"],dismissed:["removed","#94a3b8"]};
+async function renderOrdersTab(){
+  const box=$("#ordersTable"); if(!box) return;
+  if(!window.__bkId?.owner){box.innerHTML='<p class="muted">Only Hardy can see orders.</p>';return;}
+  try{
+    const data=await backendFetch("/api/orders?all=1");
+    const orders=data.orders||[]; window.__webOrdersAll=orders;
+    if(!orders.length){box.innerHTML='<p class="muted">No orders yet — they appear here the moment someone orders.</p>';return;}
+    box.innerHTML=orders.map(o=>{const st=ORDER_STATUS[o.status]||[o.status,"#94a3b8"];
+      const who=o.visitor_email?`${escapeHtml(o.visitor_name||"")} &lt;${escapeHtml(o.visitor_email)}&gt;`:'<i>not signed in</i>';
+      return `<div class="row"><div><b>${o.qty} × ${escapeHtml(o.product_name||o.product)}</b> — ${money(o.total)}
+        <span style="font-size:11px;font-weight:700;color:${st[1]};margin-left:8px">● ${st[0]}</span><br>
+        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from the ${o.source==="shop"?"3D store":"site"}${o.color?` · ${escapeHtml(o.color)}`:""}${o.custom_text?` · ${escapeHtml(o.custom_text)}`:""}</small><br>
+        <small><b>Buyer:</b> ${escapeHtml(o.buyer||"")}${o.buyer_email?` · ${escapeHtml(o.buyer_email)}`:""} &nbsp; <b>Signed in as:</b> ${who}</small></div>
+        <div class="txRight">${o.status==="new"?`<button class="primary" data-book-order="${escapeHtml(o.id)}">Book as invoice</button>
+        <button class="ghost" data-dismiss-order="${escapeHtml(o.id)}" title="Remove without booking">✕</button>`:""}</div></div>`;}).join("");
+  }catch(err){box.innerHTML=`<p class="muted">Could not load orders: ${escapeHtml(err.message)}</p>`;}
+}
+if($("#ordersTab")) $("#ordersTab").addEventListener("click",renderOrdersTab);
+async function ordersClick(e){
   const dis=e.target.closest("[data-dismiss-order]");
   if(dis){
     if(!confirm("Remove this order without booking it?"))return;
     try{await backendFetch("/api/orders/update",{method:"POST",body:JSON.stringify({id:dis.dataset.dismissOrder,status:"dismissed"})});}catch(err){alert(err.message);return;}
-    renderOrdersPanel();return;
+    renderOrdersPanel();renderOrdersTab();return;
   }
   const btn=e.target.closest("[data-book-order]"); if(!btn) return;
-  const o=(window.__webOrders||[]).find(x=>x.id===btn.dataset.bookOrder); if(!o) return;
+  const o=[...(window.__webOrders||[]),...(window.__webOrdersAll||[])].find(x=>x.id===btn.dataset.bookOrder); if(!o) return;
   const note=`${o.qty} × ${o.product_name||o.product} — web order from ${o.buyer}`+(o.color?` (${o.color}${o.custom_text?`, “${o.custom_text}”`:""})`:(o.custom_text?` (“${o.custom_text}”)`:""));
   const tx={id:crypto.randomUUID(),date:today(),type:"invoice",account:db.accounts[0]?.id||"",toAccount:null,
     category:"Sales Revenue",amount:Number(o.total)||0,note,dueDate:"",related:o.id};
@@ -516,8 +537,9 @@ if($("#ordersPanel")) $("#ordersPanel").addEventListener("click",async e=>{
   generated.forEach(j=>backendSaveJournal(j).catch(err=>console.warn("Backend journal save failed:",err)));
   save();
   try{await backendFetch("/api/orders/update",{method:"POST",body:JSON.stringify({id:o.id,status:"booked"})});}catch{}
-  renderOrdersPanel();
-});
+  renderOrdersPanel();renderOrdersTab();
+}
+for(const id of ["#ordersPanel","#ordersTable"]) if($(id)) $(id).addEventListener("click",ordersClick);
 
 // ---- Creator (owner) tools: member list + personal discounts.
 async function renderMembersPanel(){

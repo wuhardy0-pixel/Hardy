@@ -30,6 +30,7 @@
       <button class="tab" data-tab="ledger">Ledger</button>
       <button class="tab" data-tab="evidence">Evidence</button>
       <button class="tab" data-tab="reports">Reports</button>
+      <button class="tab hidden" data-tab="orders" id="ordersTab">Orders</button>
       <button class="tab" data-tab="settings">Settings</button>
     </nav>
     <main>
@@ -238,6 +239,13 @@
         </div>
       </section>
 
+      <section id="orders" class="view">
+        <div class="panel">
+          <h2>Orders</h2>
+          <p class="muted">Every order placed on hardywu.com or in the 3D store — who bought it, and who they were signed in as.</p>
+          <div id="ordersTable" class="list"></div>
+        </div>
+      </section>
       <section id="settings" class="view">
         <div class="panel">
           <h2>Profile</h2>
