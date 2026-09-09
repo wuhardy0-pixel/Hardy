@@ -3312,6 +3312,7 @@ function download(name,text,type){const a=document.createElement("a");a.href=URL
   try{
     const w=await backendFetch("/api/whoami");
     window.__bkId=w; // {name, owner, discount} — drives the creator panel + discounted prices
+    if($("#ordersTab")) $("#ordersTab").classList.toggle("hidden",!w?.owner);   // Orders tab: creator only
     const name=(w?.name||"").trim();
     if(name){
       const match=Object.entries(users).find(([,u])=>String(u.name||"").trim().toLowerCase()===name.toLowerCase());

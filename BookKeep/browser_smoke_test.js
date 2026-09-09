@@ -10,7 +10,7 @@ const { chromium } = require("playwright-core");
 
 const PORT = 8765;
 const URL = `http://127.0.0.1:${PORT}/index.html`;
-const EXPECTED_TABS = ["Dashboard", "Agent", "Transactions", "Journal", "Ledger", "Evidence", "Reports", "Settings"];
+const EXPECTED_TABS = ["Dashboard", "Agent", "Transactions", "Journal", "Ledger", "Evidence", "Reports", "Orders","Settings"];
 
 let failures = 0;
 function check(name, ok, detail = "") {
@@ -55,7 +55,7 @@ function check(name, ok, detail = "") {
     check("Pro unlocks the agent and AI mode", !proLocks.agentSend && !proLocks.api, JSON.stringify(proLocks));
 
     const tabs = await page.$$eval(".tab", els => els.map(e => e.textContent.trim()));
-    check("Tabs are exactly the 8 expected", JSON.stringify(tabs) === JSON.stringify(EXPECTED_TABS), tabs.join(", "));
+    check("Tabs are exactly the 9 expected", JSON.stringify(tabs) === JSON.stringify(EXPECTED_TABS), tabs.join(", "));
 
     // Local-parser agent flow: the historically broken $1,000 sale.
     await page.click('[data-tab="agent"]');
