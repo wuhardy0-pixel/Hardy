@@ -46,5 +46,6 @@ footer{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-sp
  const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
  if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
  b.append("signed in as ",n," · ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
- if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);}
+ if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);
+   const o=document.createElement("a");o.href="/orders";o.textContent="🧾 orders";b.append(" · ",o);}
 }catch(e){}})()</script></body></html>

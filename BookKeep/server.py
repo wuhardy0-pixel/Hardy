@@ -243,6 +243,8 @@ def friendly_label(path):
     p = (path or "/").split("?")[0].rstrip("/") or "/"
     if p == "/":
         return "Home page"
+    if p == "/orders":
+        return "Orders"
     if p == "/activity":
         return "Activity report"
     if p.startswith("/play/"):
@@ -460,6 +462,49 @@ def fmt_dur(sec):
 def is_hardy():
     return visitor() == HARDY_EMAIL or (session.get("v_email") or "").lower() == HARDY_EMAIL
 
+@app.get("/orders")
+def orders_page():
+    """Every order, for Hardy only — the same idea as the visitor report."""
+    if not is_portfolio_host() and not is_local_request():
+        return redirect("/")
+    if not is_hardy():
+        return p_page("Orders", """<header><h1>Just for Hardy</h1>
+          <p class="tag">Sign in as Hardy Wu to see the orders.</p></header>""",
+          '<a href="/">← hardywu.com</a>'), 403
+    con = db()
+    orders = [dict(r) for r in con.execute("SELECT * FROM orders ORDER BY created_at DESC")]
+    con.close()
+    STATUS = {"new": ("needs booking", "#fbbf24"), "booked": ("booked", "#34d399"), "dismissed": ("removed", "#94a3b8")}
+    def row(o):
+        st = STATUS.get(o.get("status"), (o.get("status") or "", "#94a3b8"))
+        details = o.get("custom_text") or ""
+        colour = o.get("color") or ""
+        if colour and colour in details: colour = ""
+        from_shop = o.get("source") == "shop" or "DEMO-" in details
+        who = (f'{html.escape(o.get("visitor_name") or "")} &lt;{html.escape(o.get("visitor_email") or "")}&gt;'
+               if o.get("visitor_email") else "<i>not signed in</i>")
+        return f"""<div class="person">
+  <div class="top"><div><div class="nm">{o["qty"]} × {html.escape(o.get("product_name") or o["product"])}
+      <span style="font-size:12px;color:{st[1]};margin-left:8px">● {st[0]}</span></div>
+    <div class="muted">{html.escape(fmt_when(o["created_at"]))} · from the {"3D store" if from_shop else "site"}
+      {(" · " + html.escape(colour)) if colour else ""}{(" · " + html.escape(details)) if details else ""}</div></div>
+    <div class="stat"><div class="big">${o["total"]:.2f}</div></div></div>
+  <p style="margin:10px 0 0"><b>Buyer:</b> {html.escape(o.get("buyer") or "")}{(" · " + html.escape(o["buyer_email"])) if o.get("buyer_email") else ""}
+     &nbsp; <b>Signed in as:</b> {who}</p></div>"""
+    rows = "".join(row(o) for o in orders) or '<p class="tag">No orders yet — they appear here the moment someone orders.</p>'
+    body = f"""<header><h1>Orders</h1>
+      <p class="tag">Every order from the site and the 3D store — who bought it, and who they were signed in as.</p></header>
+      <div class="wrap">{rows}</div>"""
+    extra = """<style>
+.wrap{max-width:900px;margin:10px auto 40px;padding:0 18px;text-align:left}
+.person{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px;margin:16px 0;backdrop-filter:blur(10px)}
+.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.nm{font-size:20px;font-weight:900;font-style:italic}
+.muted{color:rgba(255,255,255,.62);font-size:13px;margin-top:4px}
+.stat{text-align:right}.big{font-size:26px;font-weight:900;font-style:italic;color:#7dd3fc}
+</style>"""
+    return p_page("Orders — Hardy Wu", body + extra, '<a href="/">← hardywu.com</a> · <a href="/activity">📊 who visited</a>')
+
 @app.get("/activity")
 def activity_page():
     if not is_portfolio_host() and not is_local_request():
@@ -613,7 +658,7 @@ def p_page(title, body, crumbs=""):
         who = (f'signed in as <b>{html.escape(session.get("v_name") or "")}</b> '
                f'({html.escape(visitor())}) · <a href="/signout">sign out</a>')
         if is_hardy():
-            who += ' · <a href="/activity">📊 see who visited</a>'
+            who += ' · <a href="/activity">📊 see who visited</a> · <a href="/orders">🧾 orders</a>'
     else:
         who = ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>{title}</title>
@@ -798,7 +843,7 @@ def require_passcode():
                             "/api/track", "/api/me", "/signout", "/api/order")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p.startswith("/play/") or p.startswith("/go/")
+        ok = (p == "/" or p == "/activity" or p == "/orders" or p.startswith("/play/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -806,7 +851,7 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p == "/activity"
+        needs_login = p.startswith("/play/") or p in ("/activity", "/orders")
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML

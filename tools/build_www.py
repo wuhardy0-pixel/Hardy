@@ -25,7 +25,8 @@ WHOBAR_JS = """<script>(async()=>{try{
  const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
  if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
  b.append("signed in as ",n," \u00b7 ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
- if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="\U0001F4CA see who visited";b.append(" \u00b7 ",a);}
+ if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="\U0001F4CA see who visited";b.append(" \u00b7 ",a);
+   const o=document.createElement("a");o.href="/orders";o.textContent="\U0001F9FE orders";b.append(" \u00b7 ",o);}
 }catch(e){}})()</script>"""
 
 def clean(html):
@@ -73,6 +74,7 @@ redirects = [
     f"/play/*        https://play.hardywu.com/play/:splat  302",
     f"/go/*          {LIVE}/go/:splat  302",
     f"/activity      {LIVE}/activity  302",
+    f"/orders        {LIVE}/orders  302",
     f"/signout       {LIVE}/signout  302",
     f"/api/*         {LIVE}/api/:splat  307",
 ]

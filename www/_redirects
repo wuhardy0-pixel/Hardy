@@ -4,5 +4,6 @@
 /play/*        https://play.hardywu.com/play/:splat  302
 /go/*          https://play.hardywu.com/go/:splat  302
 /activity      https://play.hardywu.com/activity  302
+/orders        https://play.hardywu.com/orders  302
 /signout       https://play.hardywu.com/signout  302
 /api/*         https://play.hardywu.com/api/:splat  307
