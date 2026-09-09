@@ -507,10 +507,12 @@ async function renderOrdersTab(){
     const orders=data.orders||[]; window.__webOrdersAll=orders;
     if(!orders.length){box.innerHTML='<p class="muted">No orders yet — they appear here the moment someone orders.</p>';return;}
     box.innerHTML=orders.map(o=>{const st=ORDER_STATUS[o.status]||[o.status,"#94a3b8"];
+      const fromShop=o.source==="shop"||/DEMO-\d+/.test(o.custom_text||"");          // older store orders had no source
+      const colour=o.color&&!(o.custom_text||"").includes(o.color)?` · ${escapeHtml(o.color)}`:"";
       const who=o.visitor_email?`${escapeHtml(o.visitor_name||"")} &lt;${escapeHtml(o.visitor_email)}&gt;`:'<i>not signed in</i>';
       return `<div class="row"><div><b>${o.qty} × ${escapeHtml(o.product_name||o.product)}</b> — ${money(o.total)}
         <span style="font-size:11px;font-weight:700;color:${st[1]};margin-left:8px">● ${st[0]}</span><br>
-        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from the ${o.source==="shop"?"3D store":"site"}${o.color?` · ${escapeHtml(o.color)}`:""}${o.custom_text?` · ${escapeHtml(o.custom_text)}`:""}</small><br>
+        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from the ${fromShop?"3D store":"site"}${colour}${o.custom_text?` · ${escapeHtml(o.custom_text)}`:""}</small><br>
         <small><b>Buyer:</b> ${escapeHtml(o.buyer||"")}${o.buyer_email?` · ${escapeHtml(o.buyer_email)}`:""} &nbsp; <b>Signed in as:</b> ${who}</small></div>
         <div class="txRight">${o.status==="new"?`<button class="primary" data-book-order="${escapeHtml(o.id)}">Book as invoice</button>
         <button class="ghost" data-dismiss-order="${escapeHtml(o.id)}" title="Remove without booking">✕</button>`:""}</div></div>`;}).join("");
