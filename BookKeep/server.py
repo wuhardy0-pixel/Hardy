@@ -362,6 +362,18 @@ async function go(){
 for(const el of [nm,em])el.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 </script></body></html>"""
 
+def sign_in(name, email):
+    """One sign-in for the whole of hardywu.com: games, store and BookKeep."""
+    session.permanent = True
+    session["v_name"], session["v_email"] = name, email                     # the site + games + store
+    session["authed"], session["name"], session["email"] = True, name, email   # BookKeep
+    con = db()
+    con.execute("""INSERT INTO members(name,email,first_seen,last_seen,visits) VALUES(?,?,?,?,1)
+                   ON CONFLICT(name) DO UPDATE SET last_seen=excluded.last_seen,
+                     email=excluded.email, visits=visits+1""",
+                (name, email, now_iso(), now_iso()))
+    con.commit(); con.close()
+
 @app.post("/api/visitor")
 def visitor_login():
     d = request.get_json(silent=True) or {}
@@ -371,9 +383,7 @@ def visitor_login():
         return jsonify(error="Please type your name."), 400
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify(error="Please type a real email address."), 400
-    session.permanent = True
-    session["v_name"] = name
-    session["v_email"] = email
+    sign_in(name, email)
     nxt = (d.get("next") or "/").strip()
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/"
@@ -401,7 +411,7 @@ def api_me():
 
 @app.get("/signout")
 def visitor_signout():
-    session.pop("v_name", None); session.pop("v_email", None)
+    session.clear()                                   # signs you out of everything
     return redirect(SITE_ORIGIN + "/" if on_real_site() else "/")
 
 @app.post("/api/track")
@@ -937,16 +947,8 @@ def do_login():
         return jsonify(error="Please type your name."), 400
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify(error="Please type a real email address."), 400
-    session.permanent = True
-    session["authed"] = True
-    session["name"] = name
-    session["email"] = email
-    con = db()
-    con.execute("""INSERT INTO members(name,email,first_seen,last_seen,visits) VALUES(?,?,?,?,1)
-                   ON CONFLICT(name) DO UPDATE SET last_seen=excluded.last_seen,
-                     email=excluded.email, visits=visits+1""",
-                (name, email, now_iso(), now_iso()))
-    con.commit(); con.close()
+    sign_in(name, email)
+    track("open", "BookKeep", APP_HOST)
     return jsonify(ok=True, name=name, email=email,
                    next=APP_HOST if login_slug_from_host() == "bookkeep" else "/")
 
@@ -1001,8 +1003,8 @@ def set_discount():
 
 @app.get("/logout")
 def logout():
-    session.clear()
-    return redirect("/login")
+    session.clear()                                   # signs you out of everything
+    return redirect(SITE_ORIGIN + "/" if on_real_site() else "/login")
 
 def now_iso():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
