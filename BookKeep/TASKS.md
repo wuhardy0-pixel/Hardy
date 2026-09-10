@@ -729,6 +729,13 @@ validation; [ ] pending.
     were re-keyed to his login and his fullest backup (26 transactions,
     2026-09-09) seeded book_wuhardy0_gmail_com; 109 test backup files
     from automated tests were removed.
+-   2026-09-10 (one account for everything): the visitor sign-in (games,
+    store) and BookKeep's login are now the same account — sign_in()
+    sets both identities and the members row, whichever door you use
+    (log<thing>.hardywu.com, logbook, /api/visitor, /api/login).
+    Signing out anywhere (/signout or /logout) clears everything. Books
+    are keyed by that same login email. Note: sign-in is still
+    name + email with no password.
 -   Earlier prototype history: V7–V14 notes in the repo's *.txt files.
 
 ## Testing
