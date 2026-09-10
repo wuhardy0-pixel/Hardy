@@ -745,3 +745,15 @@ TESTING.md is the manual plan (updated 2026-08-22). Automated:
 `browser_smoke_test.js` (run on every UI-facing change: load, tabs,
 $1,000 sale flow through journal+ledger, chat XSS, "Unknown"/console
 sweep).
+
+## 2026-09-10 — print queue + real order statuses
+- Every order (site or 3D store) now automatically creates a print job
+  (`print_jobs` table) for the 3D printer. Orders tab shows the queue on top:
+  Start printing / Printed ✓. Also listed on hardywu.com/orders.
+- Order status is the real journey: ordered → printed → shipped → returned,
+  or cancelled (drop-down on each order). "Booked as invoice" is a separate
+  tick (`orders.booked`). Old new/booked/dismissed rows were converted once.
+- Finishing a print job moves its order to "printed"; setting an order to
+  printed/shipped closes the job; cancelling removes it from the queue.
+- Not done: actually sending the file to a physical printer — needs to know
+  which printer/app Hardy uses.

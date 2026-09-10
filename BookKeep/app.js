@@ -494,37 +494,76 @@ async function renderOrdersPanel(){
       <div class="row"><div><b>${o.qty} × ${escapeHtml(o.product_name||o.product)}</b> — ${money(o.total)}
         <small class="muted">from ${escapeHtml(o.buyer)}${o.color?` • ${escapeHtml(o.color)}`:""}${o.custom_text?` • “${escapeHtml(o.custom_text)}”`:""} • ${fmtDate(String(o.created_at).slice(0,10))}</small></div>
         <div class="txRight"><button class="primary" data-book-order="${escapeHtml(o.id)}">Book as invoice</button>
-        <button class="ghost" data-dismiss-order="${escapeHtml(o.id)}" title="Remove without booking">✕</button></div></div>`).join("");
+        <button class="ghost" data-dismiss-order="${escapeHtml(o.id)}" title="Cancel this order">✕</button></div></div>`).join("");
   }catch{panel.classList.add("hidden");}
 }
-// ---- Orders tab (creator only): every order ever placed, newest first.
-const ORDER_STATUS={new:["needs booking","#f59e0b"],booked:["booked","#34d399"],dismissed:["removed","#94a3b8"]};
+// ---- Orders tab (creator only): the 3D-printer queue on top (one task per
+// order, created automatically), then every order ever placed, newest first.
+// Order status is the real-world journey: ordered → printed → shipped (→ returned), or cancelled.
+const ORDER_STATUS={ordered:["ordered","#f59e0b"],printed:["printed","#60a5fa"],shipped:["shipped","#34d399"],
+  returned:["returned","#f87171"],cancelled:["cancelled","#94a3b8"]};
+const ORDER_FLOW=["ordered","printed","shipped","returned","cancelled"];
+function orderDetails(o){
+  const colour=o.color&&!(o.custom_text||"").includes(o.color)?` · ${escapeHtml(o.color)}`:"";
+  return colour+(o.custom_text?` · ${escapeHtml(o.custom_text)}`:"");
+}
+async function renderPrintQueue(){
+  const box=$("#printQueue"); if(!box) return;
+  try{
+    const data=await backendFetch("/api/print-jobs");
+    const jobs=(data.jobs||[]).filter(j=>j.status!=="done"); window.__printJobs=data.jobs||[];
+    $("#printQueueCount").textContent=jobs.length?`${jobs.length} to print`:"nothing waiting";
+    box.innerHTML=jobs.length?jobs.map(j=>`
+      <div class="row"><div><b>${j.qty} × ${escapeHtml(j.product_name||"")}</b>${orderDetails(j)}
+        ${j.status==="printing"?'<span style="font-size:11px;font-weight:700;color:#60a5fa;margin-left:8px">● printing now</span>':""}<br>
+        <small class="muted">for ${escapeHtml(j.buyer||"")} · ordered ${escapeHtml(String(j.created_at).slice(0,16).replace("T"," "))} · ${escapeHtml(j.order_id)}</small></div>
+        <div class="txRight">${j.status==="printing"?"":`<button class="ghost" data-job="${escapeHtml(j.id)}" data-job-status="printing">Start printing</button>`}
+        <button class="primary" data-job="${escapeHtml(j.id)}" data-job-status="done">Printed ✓</button></div></div>`).join("")
+      :'<p class="muted">Nothing waiting to be printed. New orders land here automatically.</p>';
+  }catch(err){box.innerHTML=`<p class="muted">Could not load the print queue: ${escapeHtml(err.message)}</p>`;}
+}
 async function renderOrdersTab(){
   const box=$("#ordersTable"); if(!box) return;
-  if(!window.__bkId?.owner){box.innerHTML='<p class="muted">Only Hardy can see orders.</p>';return;}
+  if(!window.__bkId?.owner){box.innerHTML='<p class="muted">Only Hardy can see orders.</p>';$("#printQueue").innerHTML="";return;}
+  renderPrintQueue();
   try{
     const data=await backendFetch("/api/orders?all=1");
     const orders=data.orders||[]; window.__webOrdersAll=orders;
     if(!orders.length){box.innerHTML='<p class="muted">No orders yet — they appear here the moment someone orders.</p>';return;}
     box.innerHTML=orders.map(o=>{const st=ORDER_STATUS[o.status]||[o.status,"#94a3b8"];
       const fromShop=o.source==="shop"||/DEMO-\d+/.test(o.custom_text||"");          // older store orders had no source
-      const colour=o.color&&!(o.custom_text||"").includes(o.color)?` · ${escapeHtml(o.color)}`:"";
       const who=o.visitor_email?`${escapeHtml(o.visitor_name||"")} &lt;${escapeHtml(o.visitor_email)}&gt;`:'<i>not signed in</i>';
+      const open=o.status!=="cancelled";
+      const sel=`<select class="orderStatus" data-order-status="${escapeHtml(o.id)}" title="Order status" style="border-color:${st[1]}">${
+        ORDER_FLOW.map(k=>`<option value="${k}" ${k===o.status?"selected":""}>${ORDER_STATUS[k][0]}</option>`).join("")}</select>`;
       return `<div class="row"><div><b>${o.qty} × ${escapeHtml(o.product_name||o.product)}</b> — ${money(o.total)}
-        <span style="font-size:11px;font-weight:700;color:${st[1]};margin-left:8px">● ${st[0]}</span><br>
-        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from the ${fromShop?"3D store":"site"}${colour}${o.custom_text?` · ${escapeHtml(o.custom_text)}`:""}</small><br>
+        <span style="font-size:11px;font-weight:700;color:${st[1]};margin-left:8px">● ${st[0]}</span>${o.booked?'<span style="font-size:11px;font-weight:700;color:#34d399;margin-left:8px">✓ booked</span>':""}
+        ${open&&o.print_status&&o.print_status!=="done"?'<span style="font-size:11px;color:#f59e0b;margin-left:8px">🖨️ in the print queue</span>':""}<br>
+        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from the ${fromShop?"3D store":"site"}${orderDetails(o)} · ${escapeHtml(o.id)}</small><br>
         <small><b>Buyer:</b> ${escapeHtml(o.buyer||"")}${o.buyer_email?` · ${escapeHtml(o.buyer_email)}`:""} &nbsp; <b>Signed in as:</b> ${who}</small></div>
-        <div class="txRight">${o.status==="new"?`<button class="primary" data-book-order="${escapeHtml(o.id)}">Book as invoice</button>
-        <button class="ghost" data-dismiss-order="${escapeHtml(o.id)}" title="Remove without booking">✕</button>`:""}</div></div>`;}).join("");
+        <div class="txRight">${sel}${open&&!o.booked?`<button class="primary" data-book-order="${escapeHtml(o.id)}">Book as invoice</button>`:""}</div></div>`;}).join("");
   }catch(err){box.innerHTML=`<p class="muted">Could not load orders: ${escapeHtml(err.message)}</p>`;}
 }
 if($("#ordersTab")) $("#ordersTab").addEventListener("click",renderOrdersTab);
+async function setOrderStatus(id,status){
+  try{await backendFetch("/api/orders/update",{method:"POST",body:JSON.stringify({id,status})});}catch(err){alert(err.message);}
+  renderOrdersPanel();renderOrdersTab();
+}
+if($("#ordersTable")) $("#ordersTable").addEventListener("change",e=>{
+  const sel=e.target.closest("[data-order-status]"); if(!sel) return;
+  if(sel.value==="cancelled"&&!confirm("Cancel this order? It leaves the print queue.")){renderOrdersTab();return;}
+  setOrderStatus(sel.dataset.orderStatus,sel.value);
+});
+if($("#printQueue")) $("#printQueue").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-job]"); if(!b) return;
+  try{await backendFetch("/api/print-jobs/update",{method:"POST",body:JSON.stringify({id:b.dataset.job,status:b.dataset.jobStatus})});}catch(err){alert(err.message);return;}
+  renderOrdersTab();
+});
 async function ordersClick(e){
   const dis=e.target.closest("[data-dismiss-order]");
   if(dis){
-    if(!confirm("Remove this order without booking it?"))return;
-    try{await backendFetch("/api/orders/update",{method:"POST",body:JSON.stringify({id:dis.dataset.dismissOrder,status:"dismissed"})});}catch(err){alert(err.message);return;}
-    renderOrdersPanel();renderOrdersTab();return;
+    if(!confirm("Cancel this order? It leaves the print queue."))return;
+    setOrderStatus(dis.dataset.dismissOrder,"cancelled");return;
   }
   const btn=e.target.closest("[data-book-order]"); if(!btn) return;
   const o=[...(window.__webOrders||[]),...(window.__webOrdersAll||[])].find(x=>x.id===btn.dataset.bookOrder); if(!o) return;
@@ -538,7 +577,7 @@ async function ordersClick(e){
   db.journalEntries.push(...generated);
   generated.forEach(j=>backendSaveJournal(j).catch(err=>console.warn("Backend journal save failed:",err)));
   save();
-  try{await backendFetch("/api/orders/update",{method:"POST",body:JSON.stringify({id:o.id,status:"booked"})});}catch{}
+  try{await backendFetch("/api/orders/update",{method:"POST",body:JSON.stringify({id:o.id,booked:true})});}catch{}
   renderOrdersPanel();renderOrdersTab();
 }
 for(const id of ["#ordersPanel","#ordersTable"]) if($(id)) $(id).addEventListener("click",ordersClick);

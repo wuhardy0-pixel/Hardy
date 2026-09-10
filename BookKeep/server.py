@@ -163,11 +163,21 @@ def place_order():
     con = db()
     con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
                                       visitor_name,visitor_email,buyer_email,source)
-                   VALUES(?,?,?,?,?,?,?,?,?,'new',?,?,?,?,'site')""",
+                   VALUES(?,?,?,?,?,?,?,?,?,'ordered',?,?,?,?,'site')""",
                 (oid, slug, p["name"], qty, float(p["price"]), total, color, custom, buyer, now_iso(),
                  session.get("v_name") or "", visitor() or "", str(x.get("email") or "").strip()[:90]))
+    add_print_job(con, oid, p["name"], qty, color, custom, buyer)
     con.commit(); con.close()
     return jsonify(ok=True, order=oid, total=total, name=p["name"])
+
+ORDER_STATUSES = ("ordered", "printed", "shipped", "returned", "cancelled")
+JOB_STATUSES = ("todo", "printing", "done")
+
+def add_print_job(con, oid, product_name, qty, color, custom_text, buyer):
+    """Every order automatically becomes a task on the 3D-printer queue."""
+    con.execute("""INSERT INTO print_jobs(id,order_id,product_name,qty,color,custom_text,buyer,status,created_at)
+                   VALUES(?,?,?,?,?,?,?,'todo',?)""",
+                ("PJ_" + uuid.uuid4().hex[:10], oid, product_name, qty, color, custom_text, buyer, now_iso()))
 
 @app.post("/api/order/from-shop")
 def order_from_shop():
@@ -180,14 +190,15 @@ def order_from_shop():
     buyer = str(x.get("buyer") or "").strip()[:60]
     if not buyer or buyer == "Online customer":
         buyer = v_name or "Online customer"
+    pname, qty = str(x.get("product_name") or x.get("product") or "")[:80], int(x.get("qty") or 1)
+    color, details = str(x.get("color") or "")[:60], str(x.get("details") or "")[:300]
     con = db()
     con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
                                       visitor_name,visitor_email,buyer_email,source)
-                   VALUES(?,?,?,?,?,?,?,?,?,'new',?,?,?,?,'shop')""",
-                (oid, str(x.get("product") or "")[:60], str(x.get("product_name") or "")[:80],
-                 int(x.get("qty") or 1), float(x.get("price_each") or 0), float(x.get("total") or 0),
-                 str(x.get("color") or "")[:60], str(x.get("details") or "")[:300], buyer, now_iso(),
-                 v_name, v_email, str(x.get("email") or "").strip()[:90]))
+                   VALUES(?,?,?,?,?,?,?,?,?,'ordered',?,?,?,?,'shop')""",
+                (oid, str(x.get("product") or "")[:60], pname, qty, float(x.get("price_each") or 0), float(x.get("total") or 0),
+                 color, details, buyer, now_iso(), v_name, v_email, str(x.get("email") or "").strip()[:90]))
+    add_print_job(con, oid, pname, qty, color, details, buyer)
     con.commit(); con.close()
     return jsonify(ok=True, order=oid, signed_in=v_email or None)
 
@@ -199,24 +210,79 @@ def list_orders():
     if request.args.get("all"):        # the Orders tab: every order ever placed, newest first
         rows = [dict(r) for r in con.execute("SELECT * FROM orders ORDER BY created_at DESC")]
     else:                              # the dashboard box: only what still needs booking
-        rows = [dict(r) for r in con.execute("SELECT * FROM orders WHERE status='new' ORDER BY created_at")]
+        rows = [dict(r) for r in con.execute("""SELECT * FROM orders WHERE booked=0
+                                                 AND status NOT IN ('cancelled','returned') ORDER BY created_at""")]
+    jobs = {j["order_id"]: dict(j) for j in con.execute("SELECT * FROM print_jobs")}
     con.close()
+    for o in rows:
+        o["print_status"] = (jobs.get(o["id"]) or {}).get("status")
     return jsonify(orders=rows)
 
 @app.post("/api/orders/update")
 def update_order():
+    """Move an order along (ordered → printed → shipped → returned / cancelled) or tick it as booked."""
     if not is_owner():
         return jsonify(error="Only the creator can update orders."), 403
     x = request.get_json(force=True)
     oid = str(x.get("id") or "")
     status = str(x.get("status") or "")
-    if status not in ("booked", "dismissed"):
-        return jsonify(error="Bad status."), 400
+    if status and status not in ORDER_STATUSES:
+        return jsonify(error="Status must be one of: " + ", ".join(ORDER_STATUSES) + "."), 400
     con = db()
-    cur = con.execute("UPDATE orders SET status=? WHERE id=?", (status, oid))
+    if not con.execute("SELECT 1 FROM orders WHERE id=?", (oid,)).fetchone():
+        con.close(); return jsonify(error="No such order."), 404
+    if "booked" in x:
+        con.execute("UPDATE orders SET booked=? WHERE id=?", (1 if x.get("booked") else 0, oid))
+    if status:
+        con.execute("UPDATE orders SET status=? WHERE id=?", (status, oid))
+        # keep the printer queue in step with the order
+        if status in ("printed", "shipped", "returned"):
+            con.execute("UPDATE print_jobs SET status='done', done_at=COALESCE(done_at,?) WHERE order_id=? AND status!='done'",
+                        (now_iso(), oid))
+        elif status == "ordered":
+            con.execute("UPDATE print_jobs SET status='todo', done_at=NULL WHERE order_id=?", (oid,))
+            if not con.execute("SELECT 1 FROM print_jobs WHERE order_id=?", (oid,)).fetchone():
+                o = dict(con.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone())
+                add_print_job(con, oid, o.get("product_name") or o["product"], o["qty"], o.get("color") or "",
+                              o.get("custom_text") or "", o.get("buyer") or "")
+        elif status == "cancelled":
+            con.execute("DELETE FROM print_jobs WHERE order_id=? AND status!='done'", (oid,))
     con.commit(); con.close()
-    if not cur.rowcount:
-        return jsonify(error="No such order."), 404
+    return jsonify(ok=True)
+
+@app.get("/api/print-jobs")
+def list_print_jobs():
+    """The 3D-printer queue: one task per order, oldest first; finished ones last."""
+    if not is_owner():
+        return jsonify(error="Only the creator can see the print queue."), 403
+    con = db()
+    rows = [dict(r) for r in con.execute("""SELECT j.*, o.status AS order_status, o.total, o.buyer_email, o.source
+                                           FROM print_jobs j LEFT JOIN orders o ON o.id=j.order_id
+                                           ORDER BY (j.status='done'), j.created_at""")]
+    con.close()
+    return jsonify(jobs=rows, todo=sum(1 for r in rows if r["status"] != "done"))
+
+@app.post("/api/print-jobs/update")
+def update_print_job():
+    if not is_owner():
+        return jsonify(error="Only the creator can update the print queue."), 403
+    x = request.get_json(force=True)
+    jid, status = str(x.get("id") or ""), str(x.get("status") or "")
+    if status not in JOB_STATUSES:
+        return jsonify(error="Status must be one of: " + ", ".join(JOB_STATUSES) + "."), 400
+    con = db()
+    job = con.execute("SELECT * FROM print_jobs WHERE id=?", (jid,)).fetchone()
+    if not job:
+        con.close(); return jsonify(error="No such print job."), 404
+    now = now_iso()
+    con.execute("UPDATE print_jobs SET status=?, started_at=CASE WHEN ?='printing' THEN COALESCE(started_at,?) ELSE started_at END, "
+                "done_at=CASE WHEN ?='done' THEN ? ELSE NULL END WHERE id=?", (status, status, now, status, now, jid))
+    # a finished print moves its order to "printed" (and re-opening one moves it back)
+    if status == "done":
+        con.execute("UPDATE orders SET status='printed' WHERE id=? AND status='ordered'", (job["order_id"],))
+    else:
+        con.execute("UPDATE orders SET status='ordered' WHERE id=? AND status='printed'", (job["order_id"],))
+    con.commit(); con.close()
     return jsonify(ok=True)
 
 # ============================ visitor sign-in & activity =====================
@@ -483,10 +549,21 @@ def orders_page():
           '<a href="/">← hardywu.com</a>'), 403
     con = db()
     orders = [dict(r) for r in con.execute("SELECT * FROM orders ORDER BY created_at DESC")]
+    jobs = [dict(r) for r in con.execute("SELECT * FROM print_jobs WHERE status!='done' ORDER BY created_at")]
     con.close()
-    STATUS = {"new": ("needs booking", "#fbbf24"), "booked": ("booked", "#34d399"), "dismissed": ("removed", "#94a3b8")}
+    STATUS = {"ordered": ("ordered", "#fbbf24"), "printed": ("printed", "#60a5fa"), "shipped": ("shipped", "#34d399"),
+              "returned": ("returned", "#f87171"), "cancelled": ("cancelled", "#94a3b8")}
+    def job_row(j):
+        bits = [b for b in (j.get("color"), j.get("custom_text")) if b]
+        return f"""<li><b>{j["qty"]} × {html.escape(j.get("product_name") or "")}</b>{(" · " + html.escape(" · ".join(bits))) if bits else ""}
+          <span class="muted">for {html.escape(j.get("buyer") or "")} · {"printing now" if j.get("status")=="printing" else "waiting"}</span></li>"""
+    queue = (f"""<div class="person"><div class="nm">🖨️ To print ({len(jobs)})</div>
+      <p class="muted">Every order automatically lands here. Tick them off in BookKeep → Orders.</p>
+      <ul style="margin:8px 0 0 18px;line-height:1.7">{"".join(job_row(j) for j in jobs)}</ul></div>"""
+             if jobs else '<p class="tag">🖨️ Nothing waiting to be printed.</p>')
     def row(o):
         st = STATUS.get(o.get("status"), (o.get("status") or "", "#94a3b8"))
+        if o.get("booked"): st = (st[0] + " · booked", st[1])
         details = o.get("custom_text") or ""
         colour = o.get("color") or ""
         if colour and colour in details: colour = ""
@@ -504,7 +581,7 @@ def orders_page():
     rows = "".join(row(o) for o in orders) or '<p class="tag">No orders yet — they appear here the moment someone orders.</p>'
     body = f"""<header><h1>Orders</h1>
       <p class="tag">Every order from the site and the 3D store — who bought it, and who they were signed in as.</p></header>
-      <div class="wrap">{rows}</div>"""
+      <div class="wrap">{queue}{rows}</div>"""
     extra = """<style>
 .wrap{max-width:900px;margin:10px auto 40px;padding:0 18px;text-align:left}
 .person{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px;margin:16px 0;backdrop-filter:blur(10px)}
@@ -1078,6 +1155,37 @@ def init_db():
     for col in ("visitor_name", "visitor_email", "buyer_email", "source"):
         if col not in have:
             con.execute(f"ALTER TABLE orders ADD COLUMN {col} TEXT")
+    if "booked" not in have:
+        con.execute("ALTER TABLE orders ADD COLUMN booked INTEGER NOT NULL DEFAULT 0")
+    # Order status is now the real-world journey: ordered → printed → shipped
+    # (→ returned), or cancelled. Whether the order was booked as an invoice is
+    # a separate tick. Older rows used new/booked/dismissed — convert them once.
+    con.execute("UPDATE orders SET booked=1, status='ordered' WHERE status='booked'")
+    con.execute("UPDATE orders SET status='ordered' WHERE status='new'")
+    con.execute("UPDATE orders SET status='cancelled' WHERE status='dismissed'")
+    # Every order automatically becomes a print job for the 3D printer.
+    con.execute("""CREATE TABLE IF NOT EXISTS print_jobs(
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      product_name TEXT,
+      qty INTEGER NOT NULL,
+      color TEXT,
+      custom_text TEXT,
+      buyer TEXT,
+      status TEXT NOT NULL DEFAULT 'todo',
+      created_at TEXT NOT NULL,
+      started_at TEXT,
+      done_at TEXT
+    )""")
+    for o in con.execute("""SELECT * FROM orders WHERE status!='cancelled'
+                            AND id NOT IN (SELECT order_id FROM print_jobs)""").fetchall():
+        o = dict(o)
+        done = o["status"] in ("printed", "shipped", "returned")
+        con.execute("""INSERT INTO print_jobs(id,order_id,product_name,qty,color,custom_text,buyer,status,created_at,done_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    ("PJ_" + uuid.uuid4().hex[:10], o["id"], o.get("product_name") or o["product"], o["qty"],
+                     o.get("color") or "", o.get("custom_text") or "", o.get("buyer") or "",
+                     "done" if done else "todo", o["created_at"], o["created_at"] if done else None))
     con.executescript("""
     CREATE TABLE IF NOT EXISTS audit_log(
       seq INTEGER PRIMARY KEY AUTOINCREMENT,

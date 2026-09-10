@@ -8,7 +8,8 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>"/>
   <!-- ?v= busts the browser cache; bump it whenever style.css or app.js change -->
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260830c"/>
-<style>.login-bound #userSwitcher,.login-bound #addUserBtn,.login-bound #deleteUserBtn{display:none}</style>
+<style>.login-bound #userSwitcher,.login-bound #addUserBtn,.login-bound #deleteUserBtn{display:none}.orderStatus{font-size:12px;padding:4px 6px;border-radius:8px;border:1px solid #94a3b8;margin-right:6px;font-weight:700}
+</style>
 </head>
 <body>
   <div class="app">
@@ -242,8 +243,13 @@
 
       <section id="orders" class="view">
         <div class="panel">
+          <h2>🖨️ Print queue <small id="printQueueCount" class="muted"></small></h2>
+          <p class="muted">Every new order automatically becomes a job for the 3D printer. Press <b>Printed ✓</b> when it comes off the printer — the order moves to “printed”.</p>
+          <div id="printQueue" class="list"></div>
+        </div>
+        <div class="panel">
           <h2>Orders</h2>
-          <p class="muted">Every order placed on hardywu.com or in the 3D store — who bought it, and who they were signed in as.</p>
+          <p class="muted">Every order placed on hardywu.com or in the 3D store — who bought it, and who they were signed in as. Use the drop-down to move an order along: ordered → printed → shipped, or returned / cancelled.</p>
           <div id="ordersTable" class="list"></div>
         </div>
       </section>
