@@ -717,6 +717,18 @@ validation; [ ] pending.
     records an order so the sign-in is known. The 3D button (site, www,
     and direct store visits via Next middleware) now goes through
     log3d.hardywu.com first, keeping product deep links (?p=slug).
+-   2026-09-10 (one book per login): the server now derives the book from
+    the member's login (book_<email>) and ignores any browser-supplied id
+    once someone is logged in: journal/transcript/receipt saves,
+    evidence reads (/api/user/me/evidence), backups (keyed by login,
+    readable only by that login or Hardy). The app binds its local
+    profile to the login (profile key login_<email>), adopts the
+    device's existing same-name books once, and hides the profile
+    switcher / + User / delete-profile while logged in. On the Mac with
+    no login the old profile switcher still works. Hardy's server rows
+    were re-keyed to his login and his fullest backup (26 transactions,
+    2026-09-09) seeded book_wuhardy0_gmail_com; 109 test backup files
+    from automated tests were removed.
 -   Earlier prototype history: V7–V14 notes in the repo's *.txt files.
 
 ## Testing

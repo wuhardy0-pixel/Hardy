@@ -1217,9 +1217,24 @@ def company_favicon():
 def health():
     return jsonify(status="ok",database=str(DB.name),time=now_iso())
 
+def book_key():
+    """The book a logged-in member owns: derived from their login, never from the
+    browser. None on this Mac when nobody is logged in (family device)."""
+    em = (session.get("email") or "").strip().lower()
+    em = re.sub(r"[^a-z0-9@._+-]", "", em)
+    nm = (session.get("name") or "").strip()
+    if not session.get("authed") or not (em or nm):
+        return None
+    return "book_" + re.sub(r"[^a-z0-9]+", "_", (em or nm).lower()).strip("_")[:60]
+
+def owns_book(user_id):
+    k = book_key()
+    return k is None or user_id in (k, "me") or is_owner()
+
 @app.post("/api/transcripts")
 def transcript():
     x=request.get_json(force=True)
+    x["userId"]=book_key() or x.get("userId")
     # Normalize BEFORE hashing so the hash always matches what the row stores
     # (verify() recomputes hashes from row contents).
     date_time=x.get("dateTime") or now_iso()
@@ -1241,6 +1256,7 @@ def transcript():
 @app.post("/api/journal")
 def journal():
     x=request.get_json(force=True)
+    x["userId"]=book_key() or x.get("userId")
     lines=x.get("lines") or []
     obj={"id":x["id"],"userId":x["userId"],"transcriptId":x.get("transcriptId"),
          "date":x.get("date"),"description":x.get("description"),"lines":lines}
@@ -1258,6 +1274,7 @@ def journal():
 @app.post("/api/receipts")
 def receipt():
     x=request.get_json(force=True)
+    x["userId"]=book_key() or x.get("userId")
     sig_file,sig_hash=save_data_url(x.get("signatureData"),"sig")
     img_file,img_hash=save_data_url(x.get("imageData"),"img")
     date_time=x.get("dateTime") or now_iso()
@@ -1277,6 +1294,10 @@ def receipt():
 
 @app.get("/api/user/<user_id>/evidence")
 def evidence(user_id):
+    if not owns_book(user_id):
+        return jsonify(error="That is someone else's book."), 403
+    if user_id == "me" or (book_key() and not is_owner()):
+        user_id = book_key() or user_id
     con=db()
     ts=[dict(r) for r in con.execute("SELECT * FROM transcripts WHERE user_id=? ORDER BY date_time DESC",(user_id,))]
     rs=[dict(r) for r in con.execute("SELECT * FROM receipts WHERE user_id=? ORDER BY date_time DESC",(user_id,))]
@@ -1609,7 +1630,7 @@ def backup():
     raw = canonical(data)
     if len(raw) > 20_000_000:
         return jsonify(error="Backup too large."), 400
-    slug = safe_slug(x.get("profileId"), "profile")
+    slug = book_key() or safe_slug(x.get("profileId"), "profile")
     name = f"{slug}_{datetime.date.today().isoformat()}.json"
     (BACKUPS / name).write_bytes(raw)
     # Keep the newest 14 files per profile.
@@ -1623,16 +1644,23 @@ def latest_backup():
     """Newest backup for a profile name — lets a login restore its books on any
     device or address."""
     prefix = safe_slug(request.args.get("profile"), "")
+    if book_key() and not is_owner():
+        prefix = book_key()                          # your login, your book — nobody else's
     if not prefix:
         return jsonify(error="No profile given."), 400
     files = sorted(BACKUPS.glob(f"{prefix}_*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    if not files and book_key():                     # first login after the change: seed from the old name-based copy
+        legacy = safe_slug((session.get("name") or "").replace(" ", "_"), "")
+        if legacy:
+            files = sorted(BACKUPS.glob(f"{legacy}_*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
     if not files:
         return jsonify(found=False)
     return jsonify(found=True, name=files[0].name, data=json.loads(files[0].read_bytes()))
 
 @app.get("/api/backups")
 def list_backups():
-    files = sorted(BACKUPS.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    pat = f"{book_key()}_*.json" if (book_key() and not is_owner()) else "*.json"
+    files = sorted(BACKUPS.glob(pat), key=lambda f: f.stat().st_mtime, reverse=True)
     return jsonify(files=[{"name": f.name, "bytes": f.stat().st_size,
                            "modified": datetime.datetime.fromtimestamp(f.stat().st_mtime).isoformat(timespec="seconds")}
                           for f in files])
@@ -1641,6 +1669,8 @@ def list_backups():
 def get_backup(name):
     if safe_slug(name.replace(".json", ""), "") + ".json" != name:
         return jsonify(error="Bad name."), 400
+    if book_key() and not is_owner() and not name.startswith(book_key() + "_"):
+        return jsonify(error="That is someone else's book."), 403
     return send_from_directory(BACKUPS, name)
 
 @app.get("/evidence_files/<path:name>")

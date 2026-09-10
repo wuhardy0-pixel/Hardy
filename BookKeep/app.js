@@ -1539,7 +1539,9 @@ async function backupToServer(){
   const base=backendBase();
   if(!base) throw new Error("Backend URL is empty.");
   let saved=0;
+  const bound=document.body.classList.contains("login-bound");
   for(const [uid,u] of Object.entries(users)){
+    if(bound&&uid!==activeUserId) continue;                     // one login, one book
     const res=await fetch(base+"/api/backup",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({profileId:(u.name||"profile").replace(/\s+/g,"_")+"_"+uid.slice(-8),data:u.db})});
     if(!res.ok) throw new Error(`Backup failed (${res.status}).`);
@@ -3317,22 +3319,24 @@ function download(name,text,type){const a=document.createElement("a");a.href=URL
     if($("#ordersTab")) $("#ordersTab").classList.toggle("hidden",!w?.owner);   // Orders tab: creator only
     const name=(w?.name||"").trim();
     if(name){
-      const match=Object.entries(users).find(([,u])=>String(u.name||"").trim().toLowerCase()===name.toLowerCase());
-      if(match){
-        if(match[0]!==activeUserId) switchUser(match[0]);
-      }else{
-        const id="user_"+crypto.randomUUID();
-        users[id]={name,db:newUserDb()};
+      // One book per login: the profile is keyed by the login itself, so the same
+      // person gets the same book on every device and nobody else's.
+      const key="login_"+String(w.email||name).trim().toLowerCase().replace(/[^a-z0-9]+/g,"_");
+      if(!users[key]){
+        const match=Object.entries(users).find(([id,u])=>!id.startsWith("login_")&&String(u.name||"").trim().toLowerCase()===name.toLowerCase());
+        if(match){users[key]=match[1];delete users[match[0]];}       // adopt this device's existing books for that name
+        else users[key]={name,db:newUserDb()};
         localStorage.setItem(USERS_KEY,JSON.stringify(users));
-        switchUser(id);
       }
+      users[key].name=name;
+      document.body.classList.add("login-bound");
+      if(key!==activeUserId) switchUser(key);
       // Books follow the login: if this device has empty books for this name
       // but the server holds a backup, offer to load it (URL changes and new
       // devices no longer mean starting over).
       if(!(db.transactions||[]).length&&!(db.transcripts||[]).length){
         try{
-          const slug=name.replace(/\s+/g,"_").replace(/[^A-Za-z0-9_-]/g,"");
-          const b=await backendFetch("/api/backup/latest?profile="+encodeURIComponent(slug));
+          const b=await backendFetch("/api/backup/latest");      // the server knows whose book this is
           if(b?.found&&b.data&&((b.data.transactions||[]).length||(b.data.transcripts||[]).length)){
             if(confirm(`Found a saved copy of "${name}"'s books on the server (from ${b.name.slice(-15,-5)}). Load it onto this device?`)){
               db=b.data;
