@@ -1601,6 +1601,18 @@ def wipe_evidence():
     if not is_owner():
         return jsonify(error="Only the creator can rebuild the evidence store."), 403
     con = db()
+    k = book_key()
+    if k:                                   # logged in: only this login's book, never anyone else's
+        keep = set()
+        for r in con.execute("SELECT signature_file, image_file FROM receipts WHERE user_id=?", (k,)):
+            keep.update(x for x in r if x)
+        for t in ("transcripts", "receipts", "journal", "audit_log"):
+            con.execute(f"DELETE FROM {t} WHERE user_id=?", (k,))
+        con.commit(); con.close()
+        for name in keep:
+            try: (FILES / name).unlink()
+            except OSError: pass
+        return jsonify(ok=True, book=k)
     for t in ("transcripts", "receipts", "journal", "audit_log"):
         con.execute(f"DELETE FROM {t}")
     con.commit(); con.close()
