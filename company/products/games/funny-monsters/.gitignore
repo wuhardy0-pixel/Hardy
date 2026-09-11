@@ -1,0 +1,10 @@
+# Unity: caches and builds are regenerated, only the project itself is kept
+/Library/
+/Temp/
+/Obj/
+/Logs/
+/Builds/
+/UserSettings/
+/.vs/
+*.csproj
+*.sln

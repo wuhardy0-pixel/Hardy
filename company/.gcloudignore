@@ -1,0 +1,13 @@
+# what never goes into the Cloud Run build (run: gcloud run deploy hardywu --source company)
+.git
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/.DS_Store
+corporate/.env
+corporate/data
+site/shop/.uploads
+site/www
+products/games/funny-monsters
+products/prints
