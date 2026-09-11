@@ -1,6 +1,6 @@
 # House rules for anyone (human or agent) working in company/
 
-1. **Read first.** Open the folder's `README.md`, then `PRD.md`, `TASKS.md`, `TESTING.md` (where they exist) before changing anything. The company map is `company/README.md`.
+1. **Read first.** Start with `company/TODO.md` (the ordered to-do list), then open the folder's `README.md`, then `PRD.md`, `TASKS.md`, `TESTING.md` (where they exist) before changing anything. The company map is `company/README.md`.
 2. **One database, one login.** Only `corporate/` stores customers, orders, sessions or books. Site, shop, games and apps ask corporate through its API. Never copy customer data elsewhere.
 3. **Products are independent.** A game or app must not depend on another product. It may borrow the sign-in bar from hardywu.com with one script line; it never contains sign-in code.
 4. **Never commit** `corporate/data/`, `corporate/.env`, `node_modules`, `.next`, `.venv`, Unity `Library/`, or files over about 10 MB.

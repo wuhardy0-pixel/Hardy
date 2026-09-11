@@ -18,6 +18,9 @@ Everything outside `company/` (the sensor kit, manuals, LLM from Scratch, PCB Ag
 - Internet: the Cloudflare tunnel `bookkeep` forwards hardywu.com addresses to ports 5000 and 3010.
 - Website pages: `python3 site/build.py` regenerates `site/www/`; `cd site && npx wrangler deploy` publishes it.
 
+## What to do next
+The ordered to-do list is `TODO.md`. Start there.
+
 ## Rules
 See `AGENTS.md`. Short version: read a folder's README, PRD, TASKS and TESTING before touching it; update TASKS and run TESTING before you say you are done; never commit `corporate/data/` or `.env`; remove test people and test orders from real data.
 
