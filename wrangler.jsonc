@@ -1,17 +1,18 @@
 {
-  // Cloudflare Worker "hardy": hardywu.com is the site. It serves the built front
-  // page in www/ as plain files; worker.js forwards www.hardywu.com to hardywu.com.
-  // Regenerate www/ with build.py (this folder) before deploying.
+  // Cloudflare Worker "hardy" = hardywu.com. Cloudflare builds and deploys this
+  // Worker itself on every push to GitHub, starting from the repository root —
+  // which is why this file lives here and points into company/site/.
+  // The site's files are built by: python3 company/site/build.py
   "$schema": "https://developers.cloudflare.com/workers/wrangler-configuration",
   "name": "hardy",
-  "main": "./worker.js",
+  "main": "./company/site/worker.js",
   "compatibility_date": "2026-09-02",
   "routes": [
     { "pattern": "hardywu.com", "custom_domain": true },
     { "pattern": "www.hardywu.com", "custom_domain": true }
   ],
   "assets": {
-    "directory": "./www",
+    "directory": "./company/site/www",
     "binding": "ASSETS",
     "run_worker_first": true,
     "not_found_handling": "404-page"

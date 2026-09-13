@@ -16,7 +16,7 @@ Everything outside `company/` (the sensor kit, manuals, LLM from Scratch, PCB Ag
 - Server: double-click `corporate/Start BookKeep.command` (or `cd corporate && .venv/bin/python server.py`). Log: `/private/tmp/bookkeep_server.log`.
 - Shop: `cd site/shop && npx next start -p 3010`. Log: `/private/tmp/hardyshop.log`.
 - Internet: the Cloudflare tunnel `bookkeep` forwards hardywu.com addresses to ports 5000 and 3010.
-- Website pages: `python3 site/build.py` regenerates `site/www/`; `cd site && npx wrangler deploy` publishes it.
+- Website pages: `python3 site/build.py` regenerates `site/www/`; commit and push, and Cloudflare publishes it automatically (Worker config: `wrangler.jsonc` at the repository root).
 
 ## What to do next
 The ordered to-do list is `TODO.md`. Start there.
