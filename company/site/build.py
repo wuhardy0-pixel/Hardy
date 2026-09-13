@@ -63,7 +63,7 @@ for sec, sdef in server.PORTFOLIO.items():
 for img in ("/logo.png", "/favicon.png"):
     file(img, OUT / img.lstrip("/"))
 for name in ("apps", "games", "3d", "robotics"):
-    file(f"/sec/{name}.jpg", OUT / "sec" / f"{name}.jpg")
+    file(f"/sec/{name}.png", OUT / "sec" / f"{name}.png")
 for m in sorted(set(re.findall(r'"/item/([^"]+)"', "".join(p.read_text() for p in pages)))):
     file(f"/item/{m}", OUT / "item" / m)
 

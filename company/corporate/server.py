@@ -92,27 +92,27 @@ APP_HOST = "https://bookkeep.hardywu.com"   # books.hardywu.com still works as a
 PORTFOLIO = {
     "apps": {"title": "Apps", "emoji": "📱", "blurb": "Software built by Hardy Wu.",
         "items": {
-            "bookkeep": {"name": "BookKeep", "emoji": "📒", "redirect": APP_HOST, "img": "/item/bookkeep.jpg",
+            "bookkeep": {"name": "BookKeep", "emoji": "📒", "redirect": APP_HOST, "img": "/item/bookkeep.png",
                 "desc": "An AI bookkeeper you can talk to — double-entry accounting, evidence, statements, and margins."},
         }},
     "games": {"title": "Video Games", "emoji": "🎮", "blurb": "Games built by Hardy Wu — play them free.",
         "items": {
-            "football-sim": {"name": "Football Sim", "emoji": "⚽", "img": "/item/footballsim.jpg",
+            "football-sim": {"name": "Football Sim", "emoji": "⚽", "img": "/item/footballsim.png",
                 "desc": "An original 3D football simulation — broadcast-style play, fictional clubs and stadiums.",
                 "link": "/play/fifa/", "link_label": "Play"},
-            "nova-blast": {"name": "Nova Blast", "emoji": "🚀", "img": "/item/nova.jpg",
+            "nova-blast": {"name": "Nova Blast", "emoji": "🚀", "img": "/item/nova.png",
                 "desc": "A neon space shooter — waves of raiders, asteroids, power-ups and a boss every fifth wave.",
                 "link": "/play/nova", "link_label": "Play"},
-            "critter-quest": {"name": "Critter Quest", "emoji": "⚡", "img": "/item/quest.jpg",
+            "critter-quest": {"name": "Critter Quest", "emoji": "⚡", "img": "/item/quest.png",
                 "desc": "Four regions, a town with a shop and healer, MP-powered special moves — 32 critters to catch and evolve, ranked F to SSS.",
                 "link": "/play/quest", "link_label": "Play"},
-            "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.jpg",
+            "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.png",
                 "desc": "A fast-paced space shooter on itch.io.",
                 "link": "https://hardywu.itch.io/ns", "link_label": "Play"},
-            "cmind-freecell": {"name": "C-Mind FreeCell", "emoji": "🃏", "img": "/item/freecell.jpg",
+            "cmind-freecell": {"name": "C-Mind FreeCell", "emoji": "🃏", "img": "/item/freecell.png",
                 "desc": "A calm game of FreeCell — a quiet moment, one deal at a time. On itch.io.",
                 "link": "https://hardywu.itch.io/cmind-freecell", "link_label": "Play"},
-            "pokemon-adventure": {"name": "Pokémon Adventure", "emoji": "⚡", "img": "/item/pokemonadv.jpg",
+            "pokemon-adventure": {"name": "Pokémon Adventure", "emoji": "⚡", "img": "/item/pokemonadv.png",
                 "desc": "An adventure through a world of creatures to catch and battle, on itch.io.",
                 "link": "https://hardywu.itch.io/pa", "link_label": "Play"},
         }},
@@ -800,7 +800,7 @@ footer{{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-s
 
 def portfolio_home():
     cards = "".join(
-        f'<a class="card" href="/{k}"><img src="/sec/{k}.jpg" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="{v["title"]}"><h2>{v["title"]}</h2><p>{v["blurb"]}</p></a>'
+        f'<a class="card" href="/{k}"><img src="/sec/{k}.png" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="{v["title"]}"><h2>{v["title"]}</h2><p>{v["blurb"]}</p></a>'
         for k, v in PORTFOLIO.items())
     return p_page("Hardy Wu", f"""
 <header><img src="/logo.png" alt="Hardy Wu logo" style="width:104px;height:104px;border-radius:22px;margin-top:6px">
@@ -828,7 +828,7 @@ def portfolio_section(section):
         f'<a class="card" href="/{section}/{slug}">{_thumb(slug, it)}<h2>{it["name"]}</h2><p>{it["desc"]}</p></a>'
         for slug, it in sec["items"].items()) or '<p class="tag">Coming soon.</p>'
     return p_page(f'{sec["title"]} — Hardy Wu', f"""
-<header><img src="/sec/{section}.jpg" style="width:96px;height:96px;object-fit:cover;border-radius:18px"><h1>{sec["title"]}</h1><p class="tag">{sec["blurb"]}</p></header>
+<header><img src="/sec/{section}.png" style="width:96px;height:96px;object-fit:cover;border-radius:18px"><h1>{sec["title"]}</h1><p class="tag">{sec["blurb"]}</p></header>
 <div class="cards">{cards}</div>""", f'<a href="/">← hardywu.com</a>')
 
 def portfolio_item(section, slug):
@@ -1282,14 +1282,14 @@ def frontend(fname):
 
 @app.get("/sec/<name>")
 def section_image(name):
-    if name in {"apps.jpg", "games.jpg", "3d.jpg", "robotics.jpg"}:
+    if name in {"apps.png", "games.png", "3d.png", "robotics.png"}:
         return send_from_directory(IMG_DIR, "sec_" + name)
     return jsonify(error="Not found."), 404
 
 @app.get("/item/<name>")
 def item_image(name):
-    if name in {"bookkeep.jpg", "footballsim.jpg", "nova.jpg", "quest.jpg",
-                "novastrike.jpg", "pokemonadv.jpg", "freecell.jpg"}:
+    if name in {"bookkeep.png", "footballsim.png", "nova.png", "quest.png",
+                "novastrike.png", "pokemonadv.png", "freecell.png"}:
         return send_from_directory(IMG_DIR, "item_" + name)
     return jsonify(error="Not found."), 404
 
