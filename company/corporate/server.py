@@ -422,17 +422,142 @@ button{font:inherit;font-weight:800;font-size:19px;padding:15px 30px;margin-top:
  <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="90">
  <div class="err" id="err"></div>
  <button onclick="go()">Enter the site →</button>
- <p class="small">We keep your name and email so Hardy knows who visited. Nothing is shared with anyone else.</p>
+ <p class="small">We email you a 6-digit code to check it's really you, and keep your name and email so Hardy knows who visited. Nothing is shared with anyone else.</p>
 </div>
 <script>
 async function go(){
   const r=await fetch("/api/visitor",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({name:nm.value,email:em.value,next:location.pathname+location.search})});
   const j=await r.json().catch(()=>({}));
-  if(r.ok){location.href=j.next||"/";}else{err.textContent=j.error||"Please fill in both.";}
+  if(r.ok){if(j.verify)return showCode(j);location.href=j.next||"/";}else{err.textContent=j.error||"Please fill in both.";}
 }
 for(const el of [nm,em])el.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+function showCode(j){
+  const card=document.querySelector(".card");
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it here to come in.</p>
+   <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
+   <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
+   <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
+  document.getElementById("cd").addEventListener("keydown",e=>{if(e.key==="Enter")verify();});
+}
+async function verify(){
+  const r=await fetch("/api/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:document.getElementById("cd").value})});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok){location.href=j.next||"/";}else{document.getElementById("err2").textContent=j.error||"That code didn't work.";}
+}
+async function resend(){
+  const r=await fetch("/api/verify/resend",{method:"POST"});const j=await r.json().catch(()=>({}));
+  document.getElementById("err2").textContent=r.ok?"A new code is on its way.":(j.error||"Could not send a new code.");
+}
 </script></body></html>"""
+
+# ---- Email verification at sign-in ------------------------------------------
+# Typing a name and email is not proof of who you are, so a 6-digit code is
+# emailed and must be typed back before the sign-in counts. Codes are sent with
+# a Gmail app password (MAIL_USER / MAIL_PASSWORD in .env) or Resend
+# (RESEND_API_KEY). With neither configured the code step is skipped on the
+# real site (nobody would receive it) — except from this Mac, where the code is
+# handed back in the API reply so the flow can be tested.
+MAIL_USER = os.environ.get("MAIL_USER", "").strip()
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "").strip().replace(" ", "")
+MAIL_FROM = os.environ.get("MAIL_FROM", "").strip() or (f"Hardy Wu <{MAIL_USER}>" if MAIL_USER else "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
+VERIFY_MINUTES, VERIFY_TRIES = 10, 5
+
+def mail_configured():
+    return bool((MAIL_USER and MAIL_PASSWORD) or RESEND_API_KEY)
+
+def send_mail(to, subject, text):
+    """Send one plain-text email; runs in a thread so the request never waits on Gmail."""
+    def _go():
+        try:
+            if MAIL_USER and MAIL_PASSWORD:
+                import smtplib
+                from email.message import EmailMessage
+                m = EmailMessage(); m["From"], m["To"], m["Subject"] = MAIL_FROM, to, subject; m.set_content(text)
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as srv:
+                    srv.login(MAIL_USER, MAIL_PASSWORD); srv.send_message(m)
+            elif RESEND_API_KEY:
+                import urllib.request
+                body = json.dumps({"from": MAIL_FROM or "Hardy Wu <onboarding@resend.dev>", "to": [to],
+                                   "subject": subject, "text": text}).encode()
+                req = urllib.request.Request("https://api.resend.com/emails", data=body, method="POST",
+                                             headers={"Authorization": "Bearer " + RESEND_API_KEY,
+                                                      "Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=20).read()
+        except Exception as e:                                       # noqa: BLE001
+            print(f"[mail] could not send to {to}: {e}", flush=True)
+    threading.Thread(target=_go, daemon=True).start()
+
+def _from_this_mac():
+    return request.remote_addr in ("127.0.0.1", "::1", None)
+
+def _code_hash(code):
+    import hmac
+    key = app.secret_key if isinstance(app.secret_key, bytes) else str(app.secret_key).encode()
+    return hmac.new(key, code.encode(), hashlib.sha256).hexdigest()
+
+def login_needs_code(email):
+    if os.environ.get("LOGIN_VERIFY", "").lower() == "off":
+        return False
+    if email in (session.get("trusted") or []):                       # already proved on this browser
+        return False
+    return mail_configured() or _from_this_mac()
+
+def start_verification(name, email, flow, nxt):
+    """Remember who is trying to sign in, email them a code, and tell the page to ask for it."""
+    import secrets, time
+    code = f"{secrets.randbelow(10**6):06d}"
+    session.permanent = True
+    session.update(pv_name=name, pv_email=email, pv_flow=flow, pv_next=nxt,
+                   pv_hash=_code_hash(code), pv_exp=time.time() + VERIFY_MINUTES * 60, pv_tries=0)
+    if mail_configured():
+        send_mail(email, f"{code} is your hardywu.com sign-in code",
+                  f"Hi {name},\n\nYour sign-in code for hardywu.com is:\n\n    {code}\n\n"
+                  f"It works for {VERIFY_MINUTES} minutes. If you didn't ask for it, just ignore this email.\n\n— Hardy Wu")
+    out = {"ok": True, "verify": True, "email": email}
+    if not mail_configured() and _from_this_mac():
+        out["code"] = code                                             # test hook, this Mac only
+    return out
+
+def _forget_verification():
+    for k in ("pv_name", "pv_email", "pv_flow", "pv_next", "pv_hash", "pv_exp", "pv_tries"):
+        session.pop(k, None)
+
+def _trust(email):
+    t = [e for e in (session.get("trusted") or []) if e != email][-9:]
+    session["trusted"] = t + [email]
+
+@app.post("/api/verify")
+def verify_code():
+    import time
+    x = request.get_json(silent=True) or {}
+    code = re.sub(r"\D", "", str(x.get("code") or ""))
+    if not session.get("pv_email"):
+        return jsonify(error="Please start again by typing your name and email."), 400
+    if time.time() > float(session.get("pv_exp") or 0):
+        _forget_verification()
+        return jsonify(error="That code has expired. Please start again."), 400
+    tries = int(session.get("pv_tries") or 0) + 1
+    session["pv_tries"] = tries
+    if tries > VERIFY_TRIES:
+        _forget_verification()
+        return jsonify(error="Too many tries. Please start again."), 400
+    if len(code) != 6 or _code_hash(code) != session.get("pv_hash"):
+        return jsonify(error="That code didn't match. Check the email and try again."), 400
+    name, email, flow, nxt = session["pv_name"], session["pv_email"], session.get("pv_flow"), session.get("pv_next") or "/"
+    _forget_verification()
+    _trust(email)
+    sign_in(name, email)
+    if flow == "login":
+        return jsonify(ok=True, name=name, email=email, next=bookkeep_login_next())
+    return jsonify(ok=True, next=visitor_destination(nxt))
+
+@app.post("/api/verify/resend")
+def verify_resend():
+    if not session.get("pv_email"):
+        return jsonify(error="Please start again by typing your name and email."), 400
+    return jsonify(start_verification(session["pv_name"], session["pv_email"], session.get("pv_flow"), session.get("pv_next") or "/"))
 
 def sign_in(name, email):
     """One sign-in for the whole of hardywu.com: games, store and BookKeep."""
@@ -455,10 +580,16 @@ def visitor_login():
         return jsonify(error="Please type your name."), 400
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify(error="Please type a real email address."), 400
-    sign_in(name, email)
     nxt = (d.get("next") or "/").strip()
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/"
+    if login_needs_code(email):
+        return jsonify(start_verification(name, email, "visitor", nxt))
+    sign_in(name, email)
+    return jsonify(ok=True, next=visitor_destination(nxt))
+
+def visitor_destination(nxt):
+    """Where a freshly signed-in visitor goes (and record what they opened)."""
     key = login_slug_from_host()
     from urllib.parse import urlparse, parse_qs
     back = parse_qs(urlparse(nxt).query).get("next", [""])[0] if key == "" else ""
@@ -472,7 +603,7 @@ def visitor_login():
         track("open", login_targets()[key]["name"], nxt)
     else:
         track("view", friendly_label(nxt), nxt)
-    return jsonify(ok=True, next=nxt)
+    return nxt
 
 @app.get("/api/me")
 def api_me():
@@ -483,7 +614,9 @@ def api_me():
 
 @app.get("/signout")
 def visitor_signout():
+    trusted = session.get("trusted")
     session.clear()                                   # signs you out of everything
+    if trusted: session["trusted"] = trusted          # ...but this browser stays trusted for those emails
     return redirect(SITE_ORIGIN + "/" if on_real_site() else "/")
 
 @app.post("/api/track")
@@ -911,7 +1044,7 @@ def require_passcode():
         p = request.path
         key = login_slug_from_host()
         if key is not None:                              # login<thing>.hardywu.com
-            if p in ("/api/visitor", "/api/login", "/logo.png", "/favicon.png", "/track.js", "/signout"):
+            if p in ("/api/visitor", "/api/login", "/api/verify", "/api/verify/resend", "/logo.png", "/favicon.png", "/track.js", "/signout"):
                 return None
             if p != "/":
                 return redirect("/")
@@ -932,7 +1065,7 @@ def require_passcode():
         www = (request.host or "").split(":")[0].lower() == "www.hardywu.com"
         if www and request.method == "GET" and (p == "/" or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO)):
             return redirect(SITE_ORIGIN + p, code=301)   # the site lives on hardywu.com; www forwards to it
-        open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor",
+        open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor", "/api/verify", "/api/verify/resend",
                             "/api/track", "/api/me", "/signout", "/api/order")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
@@ -985,16 +1118,33 @@ p.small{color:#9aa4bd;font-size:13px}</style></head><body>
 <input id="nm" autofocus placeholder="Your name (e.g. Hardy)" autocomplete="name" maxlength="40">
 <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="80">
 <div class="err" id="err"></div><button onclick="go()">Open my books</button>
-<p class="small">Your name opens your own books on this device. You stay logged in for 90 days — closing the tab does not log you out.</p></div>
+<p class="small">We email you a 6-digit code to make sure it's really you. You stay logged in for 90 days — closing the tab does not log you out.</p></div>
 <script>
 async function go(){
   const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({name:document.getElementById("nm").value,email:document.getElementById("em").value})});
   const j=await r.json();
-  if(r.ok){location.href=j.next||"/";}
+  if(r.ok){if(j.verify)return showCode(j);location.href=j.next||"/";}
   else{document.getElementById("err").textContent=j.error||"Please fill in both fields.";}
 }
 for(const id of ["nm","em"]) document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+function showCode(j){
+  const card=document.querySelector(".card");
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it here to come in.</p>
+   <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
+   <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
+   <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
+  document.getElementById("cd").addEventListener("keydown",e=>{if(e.key==="Enter")verify();});
+}
+async function verify(){
+  const r=await fetch("/api/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:document.getElementById("cd").value})});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok){location.href=j.next||"/";}else{document.getElementById("err2").textContent=j.error||"That code didn't work.";}
+}
+async function resend(){
+  const r=await fetch("/api/verify/resend",{method:"POST"});const j=await r.json().catch(()=>({}));
+  document.getElementById("err2").textContent=r.ok?"A new code is on its way.":(j.error||"Could not send a new code.");
+}
 </script></body></html>"""
 
 @app.get("/login")
@@ -1030,10 +1180,14 @@ def do_login():
         return jsonify(error="Please type your name."), 400
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify(error="Please type a real email address."), 400
+    if login_needs_code(email):
+        return jsonify(start_verification(name, email, "login", "/"))
     sign_in(name, email)
+    return jsonify(ok=True, name=name, email=email, next=bookkeep_login_next())
+
+def bookkeep_login_next():
     track("open", "BookKeep", APP_HOST)
-    return jsonify(ok=True, name=name, email=email,
-                   next=APP_HOST if login_slug_from_host() == "bookkeep" else "/")
+    return APP_HOST if login_slug_from_host() == "bookkeep" else "/"
 
 @app.get("/api/whoami")
 def whoami():
@@ -1086,7 +1240,9 @@ def set_discount():
 
 @app.get("/logout")
 def logout():
+    trusted = session.get("trusted")
     session.clear()                                   # signs you out of everything
+    if trusted: session["trusted"] = trusted
     return redirect(SITE_ORIGIN + "/" if on_real_site() else "/login")
 
 def now_iso():

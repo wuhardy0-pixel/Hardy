@@ -15,3 +15,13 @@ Order flow (local = owner): POST `/api/order` with `{"product":"crab-gauge","qty
 Sign-in across products: sign in on logbook.hardywu.com, then bookkeep.hardywu.com/api/whoami must return the name; /logout must sign out of the games too.
 
 Pass = every call above returns 200 and the flow completes; no rows for test people remain.
+
+## Sign-in code (from this Mac, no mail configured → the reply contains the code)
+```
+H='-H Host:logbook.hardywu.com -H X-Forwarded-Proto:https -H Content-Type:application/json'; J=/tmp/j
+curl -s -c $J -b $J $H -X POST $B/api/visitor -d '{"name":"Code Test","email":"codetest@example.com"}'   # {"verify":true,"code":"123456",...}
+curl -s -c $J -b $J $H -X POST $B/api/verify -d '{"code":"000000"}'    # 400, didn't match
+curl -s -c $J -b $J $H -X POST $B/api/verify -d '{"code":"123456"}'    # ok, next=...
+curl -s -b $J $H $B/api/whoami                                          # name = Code Test
+```
+Then delete the test member and its activity entry. With MAIL_USER/MAIL_PASSWORD set, sign in on logbook.hardywu.com with your own email and check the code arrives within a minute.
