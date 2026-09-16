@@ -386,12 +386,12 @@ function update(){
       f.phase++;
       if(f.mtype==="summoner"){
         // calls in escorts and fires the occasional aimed shot
-        if(--f.shoot<=0){ f.shoot=cd(72);
+        if(--f.shoot<=0){ f.shoot=cd(100);
           const live=foes.filter(g=>!g.mini&&!g.boss).length;
-          if(live<13&&f.summons<26){
-            for(let i=0;i<4;i++){
+          if(live<10&&f.summons<18){
+            for(let i=0;i<3;i++){
               const k=Math.floor(Math.random()*4);
-              foes.push({x:f.x+(i-1.5)*54,y:f.y+22,w:38,h:34,hp:1+Math.floor(wave/5),max:1+Math.floor(wave/5),
+              foes.push({x:f.x+(i-1)*54,y:f.y+22,w:38,h:34,hp:1+Math.floor(wave/5),max:1+Math.floor(wave/5),
                 t:Math.random()*90,shoot:120+Math.random()*120,vx:.7,kind:k,flash:0,
                 homeY:250+Math.random()*140,dodge:0,dodgeDir:0,drift:Math.random()*7});
               boom(f.x+(i-1.5)*54,f.y+22,"#a78bfa",14);
@@ -405,25 +405,26 @@ function update(){
         }
       }else if(f.mtype==="pyro"){
         // fire shower: rains down the front and sweeps in from both sides — all burning
-        if(--f.shoot<=0){ f.shoot=cd(13);
-          if(f.phase%150<70){
+        if(--f.shoot<=0){ f.shoot=cd(18);
+          if(f.phase%210>=150){            // breather: the last part of every cycle is quiet
+          }else if(f.phase%210<70){
             for(let r=0;r<wide(1);r++)
               shot(60+Math.random()*(W-120),-10,(Math.random()-.5)*.8,4.4,10,16,2);
-          }else if(f.phase%150<120){
+          }else if(f.phase%210<120){
             const yy=180+Math.random()*(H-320);
             shot(-10,yy,4.6,.5,10,16,2);
             shot(W+10,yy,-4.6,.5,10,16,2);
           }else{
-            const fan=wide(5),fs=Math.min(2.4,.17*(fan-1));
+            const fan=wide(3),fs=Math.min(2.4,.25*(fan-1));
             for(let i=0;i<fan;i++){const a=-fs/2+i*(fs/(fan-1));
               shot(f.x,f.y+30,Math.sin(a)*4,Math.cos(a)*4,10,16,2);}
           }
-          if(f.phase%150===0)pop(f.x,f.y-56,"FIRE SHOWER!","#fb923c");
+          if(f.phase%210===0)pop(f.x,f.y-56,"FIRE SHOWER!","#fb923c");
         }
       }else{ // cryo: it spins, and the ice leaves its arms as it turns
         f.spin+=.055;
-        if(--f.shoot<=0){ f.shoot=cd(10);
-          const arms=4;                                  // wide gaps between the arms: always dodgeable
+        if(--f.shoot<=0 && f.phase%180<110){ f.shoot=cd(14);   // spins in bursts, then a breather
+          const arms=3;                                  // wide gaps between the arms: always dodgeable
           for(let i=0;i<arms;i++){
             const a=f.spin*1.7+(i/arms)*Math.PI*2;
             shot(f.x+Math.cos(a)*40,f.y+10+Math.sin(a)*40,
@@ -439,7 +440,11 @@ function update(){
       if(f.mode!=="laser"){f.x+=f.vx; if(f.x<90||f.x>W-90)f.vx*=-1;}
       if(f.y<148)continue;
       // pick the next attack when the current one runs out
-      if(--f.modeT<=0){
+      if(--f.modeT<=0 && f.mode!=="rest"){
+        // every attack is followed by a breather: the boss stops shooting for a moment
+        f.mode="rest"; f.modeT=cd(f.hp<f.max/2?60:85); f.charge=0; f.burst=0;
+        pop(f.x,f.y-70,"RECHARGING","#94a3b8");
+      }else if(f.modeT<=0){                 // (already counted down above)
         const wounded=f.hp<f.max*.35;
         let pool;
         if(f.btype==="spiker")      pool=wounded?["spikes","spikes","rapid","spikefury"]:["spikes","rapid","spikes","spread"];
@@ -458,21 +463,21 @@ function update(){
         pop(f.x,f.y-70,NAMES[f.mode]||"",/⚠/.test(NAMES[f.mode]||"")?"#fca5a5":"#f9a8d4");
         if(/⚠/.test(NAMES[f.mode]||"")){shake=14;flash=6;}
         if(f.mode==="spikes"||f.mode==="spikefury"){
-          const n=wide(f.mode==="spikefury"?7:4);
+          const n=wide(f.mode==="spikefury"?5:3);
           for(let i=0;i<n;i++)spikes.push({x:60+Math.random()*(W-120),y:H,warn:46,life:150,w:34});
         }
         if(f.mode==="callin"){
-          for(let i=0;i<3;i++){
+          for(let i=0;i<2;i++){
             const k=Math.floor(Math.random()*4);
-            foes.push({x:f.x+(i-1)*60,y:f.y+30,w:38,h:34,hp:1+Math.floor(wave/6),max:1+Math.floor(wave/6),
+            foes.push({x:f.x+(i-.5)*60,y:f.y+30,w:38,h:34,hp:1+Math.floor(wave/6),max:1+Math.floor(wave/6),
               t:Math.random()*90,shoot:130,vx:.7,kind:k,flash:0,homeY:270+i*40,dodge:0,dodgeDir:0,drift:i*2});
             boom(f.x+(i-1)*60,f.y+30,"#a78bfa",12);}
         }
         if(f.hp<f.max/2)f.modeT=Math.round(f.modeT*.8);
       }
       if(f.mode==="spread"){
-        if(--f.shoot<=0){f.shoot=cd(26);
-          const n=wide(f.hp<f.max/2?7:5),span=Math.min(2.5,.16*(n-1));
+        if(--f.shoot<=0){f.shoot=cd(40);
+          const n=wide(f.hp<f.max/2?5:3),span=Math.min(2.5,.2*(n-1));
           for(let i=0;i<n;i++){const a=-span/2+i*(span/(n-1));
             shot(f.x,f.y+42,Math.sin(a)*4.6,Math.cos(a)*4.6,8,14,0);}}
       }else if(f.mode==="laser"){
@@ -480,20 +485,20 @@ function update(){
           if(f.charge===0){ beams.push({x:f.x,life:52,max:52,w:64}); shake=18; flash=8; }
         }
       }else if(f.mode==="rapid"){ // one relentless line, sweeping slowly
-        if(--f.shoot<=0){ f.shoot=cd(5); f.burst++;
+        if(--f.shoot<=0){ f.shoot=cd(9); f.burst++;
           const a=Math.sin(f.t*.045)*.30;
           shot(f.x,f.y+40,Math.sin(a)*6.2,Math.cos(a)*6.2,8,16,0);
-          if(f.burst>34)f.modeT=0;
+          if(f.burst>18)f.modeT=0;
         }
       }else if(f.mode==="frostring"){
-        if(--f.shoot<=0){ f.shoot=cd(34);
-          const ring=wide(8),gap=Math.floor(Math.random()*ring);   // an escape lane, always
+        if(--f.shoot<=0){ f.shoot=cd(50);
+          const ring=wide(6),gap=Math.floor(Math.random()*ring);   // a wide escape lane, always
           for(let i=0;i<ring;i++){
-            if(i===gap||i===(gap+1)%ring)continue;
+            if(i===gap||i===(gap+1)%ring||i===(gap+2)%ring)continue;
             const a=(i/ring)*Math.PI*2+f.t*.03;
             shot(f.x,f.y+10,Math.cos(a)*3.2,Math.sin(a)*3.2+1.1,11,11,3);}}
       }else if(f.mode==="starfall"){   // OVERLORD ultimate: burning rain + escorts
-        if(--f.shoot<=0){ f.shoot=cd(9);
+        if(--f.shoot<=0){ f.shoot=cd(15);
           for(let r=0;r<wide(1);r++)shot(40+Math.random()*(W-80),-10,0,4.8,10,16,2);
           if(f.t%90===0&&foes.length<9){
             const k=Math.floor(Math.random()*4);
@@ -501,9 +506,11 @@ function update(){
               homeY:280,dodge:0,dodgeDir:0,drift:0});}
         }
       }else if(f.mode==="spikes"||f.mode==="spikefury"){
-        if(--f.shoot<=0){ f.shoot=cd(44);
+        if(--f.shoot<=0){ f.shoot=cd(64);
           const dx=ship.x-f.x,dy=ship.y-f.y,d=Math.hypot(dx,dy)||1;
           {const v=aimVec(f,3.6);shot(f.x,f.y+34,v.x,v.y,8,14,0);}}
+      }else if(f.mode==="rest"){
+        // breather: no shots
       }else{ // ULTIMATE: charge, then two beams that bracket the player
         if(f.charge>0){ f.charge--;
           if(f.charge===0){
