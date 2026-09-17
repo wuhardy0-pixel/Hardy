@@ -413,6 +413,7 @@ button{font:inherit;font-weight:800;font-size:19px;padding:15px 30px;margin-top:
  box-shadow:0 10px 28px rgba(56,189,248,.4)}
 .err{color:#fca5a5;min-height:20px;font-size:14px;font-weight:700;margin-top:8px}
 .small{color:rgba(255,255,255,.6);font-size:12.5px;margin-top:16px}
+.devrow{margin:6px 0 4px;font-size:14px;color:#9aa4bd}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #3a4560;background:#111827;color:#fff;cursor:pointer;opacity:.65}.dev.on{opacity:1;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.35)}
 </style></head><body>
 <div class="card">
  <img class="logo" src="/logo.png" alt="Hardy Wu">
@@ -420,14 +421,18 @@ button{font:inherit;font-weight:800;font-size:19px;padding:15px 30px;margin-top:
  <p>Welcome to <b>hardywu.com</b> — apps, video games, 3D prints and robots.<br>Tell us who you are to come in.</p>
  <input id="nm" autofocus placeholder="Your name" autocomplete="name" maxlength="60">
  <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="90">
+ <div class="devrow" id="devrow">Playing on &nbsp;<button type="button" class="dev" data-dev="phone" onclick="pickDev('phone')">📱 Phone</button><button type="button" class="dev" data-dev="computer" onclick="pickDev('computer')">💻 Computer</button></div>
  <div class="err" id="err"></div>
  <button onclick="go()">Enter the site →</button>
  <p class="small">We email you a 6-digit code to check it's really you, and keep your name and email so Hardy knows who visited. Nothing is shared with anyone else.</p>
 </div>
 <script>
+let device=(document.cookie.match(/(?:^|; )hw_device=(phone|computer)/)||[])[1]||((matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)?"phone":"computer");
+function pickDev(v){device=v;for(const b of document.querySelectorAll(".dev"))b.classList.toggle("on",b.dataset.dev===v);}
+pickDev(device);
 async function go(){
   const r=await fetch("/api/visitor",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({name:nm.value,email:em.value,next:location.pathname+location.search})});
+    body:JSON.stringify({name:nm.value,email:em.value,device,next:location.pathname+location.search})});
   const j=await r.json().catch(()=>({}));
   if(r.ok){if(j.verify)return showCode(j);location.href=j.next||"/";}else{err.textContent=j.error||"Please fill in both.";}
 }
@@ -520,6 +525,21 @@ def start_verification(name, email, flow, nxt):
         out["code"] = code                                             # test hook, this Mac only
     return out
 
+def remember_device(x):
+    d = str(x.get("device") or "").strip().lower()
+    if d in ("phone", "computer"):
+        session["device"] = d
+
+def with_device(payload):
+    """Turn a JSON reply into a response that also sets the hw_device cookie (phone / computer)."""
+    resp = jsonify(payload)
+    d = session.get("device")
+    if d in ("phone", "computer"):
+        h = (request.host or "").split(":")[0].lower()
+        resp.set_cookie("hw_device", d, max_age=365 * 24 * 3600, samesite="Lax",
+                        secure=on_real_site(), domain=".hardywu.com" if h.endswith("hardywu.com") else None)
+    return resp
+
 def _forget_verification():
     for k in ("pv_name", "pv_email", "pv_flow", "pv_next", "pv_hash", "pv_exp", "pv_tries"):
         session.pop(k, None)
@@ -550,8 +570,8 @@ def verify_code():
     _trust(email)
     sign_in(name, email)
     if flow == "login":
-        return jsonify(ok=True, name=name, email=email, next=bookkeep_login_next())
-    return jsonify(ok=True, next=visitor_destination(nxt))
+        return with_device(dict(ok=True, name=name, email=email, next=bookkeep_login_next()))
+    return with_device(dict(ok=True, next=visitor_destination(nxt)))
 
 @app.post("/api/verify/resend")
 def verify_resend():
@@ -583,10 +603,11 @@ def visitor_login():
     nxt = (d.get("next") or "/").strip()
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/"
+    remember_device(d)
     if login_needs_code(email):
-        return jsonify(start_verification(name, email, "visitor", nxt))
+        return with_device(start_verification(name, email, "visitor", nxt))
     sign_in(name, email)
-    return jsonify(ok=True, next=visitor_destination(nxt))
+    return with_device(dict(ok=True, next=visitor_destination(nxt)))
 
 def visitor_destination(nxt):
     """Where a freshly signed-in visitor goes (and record what they opened)."""
@@ -614,9 +635,10 @@ def api_me():
 
 @app.get("/signout")
 def visitor_signout():
-    trusted = session.get("trusted")
+    trusted, device = session.get("trusted"), session.get("device")
     session.clear()                                   # signs you out of everything
     if trusted: session["trusted"] = trusted          # ...but this browser stays trusted for those emails
+    if device: session["device"] = device
     return redirect(SITE_ORIGIN + "/" if on_real_site() else "/")
 
 @app.post("/api/track")
@@ -1113,16 +1135,21 @@ LOGIN_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>BookKeep
 input{font-size:20px;padding:12px;border-radius:10px;border:1px solid #3a4560;background:#111827;color:#fff;width:90%;text-align:center;margin:14px 0}
 button{font-size:19px;font-weight:700;padding:12px 34px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}
 .err{color:#ff9d9d;min-height:22px}
-p.small{color:#9aa4bd;font-size:13px}</style></head><body>
+p.small{color:#9aa4bd;font-size:13px}
+.devrow{margin:6px 0 4px;font-size:14px;color:#9aa4bd}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #3a4560;background:#111827;color:#fff;cursor:pointer;opacity:.65}.dev.on{opacity:1;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.35)}</style></head><body>
 <div class="card"><h1>📒 BookKeep</h1><p>Log in to BookKeep</p>
 <input id="nm" autofocus placeholder="Your name (e.g. Hardy)" autocomplete="name" maxlength="40">
 <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="80">
+<div class="devrow" id="devrow">Playing on &nbsp;<button type="button" class="dev" data-dev="phone" onclick="pickDev('phone')">📱 Phone</button><button type="button" class="dev" data-dev="computer" onclick="pickDev('computer')">💻 Computer</button></div>
 <div class="err" id="err"></div><button onclick="go()">Open my books</button>
 <p class="small">We email you a 6-digit code to make sure it's really you. You stay logged in for 90 days — closing the tab does not log you out.</p></div>
 <script>
+let device=(document.cookie.match(/(?:^|; )hw_device=(phone|computer)/)||[])[1]||((matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)?"phone":"computer");
+function pickDev(v){device=v;for(const b of document.querySelectorAll(".dev"))b.classList.toggle("on",b.dataset.dev===v);}
+pickDev(device);
 async function go(){
   const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({name:document.getElementById("nm").value,email:document.getElementById("em").value})});
+    body:JSON.stringify({name:document.getElementById("nm").value,email:document.getElementById("em").value,device})});
   const j=await r.json();
   if(r.ok){if(j.verify)return showCode(j);location.href=j.next||"/";}
   else{document.getElementById("err").textContent=j.error||"Please fill in both fields.";}
@@ -1180,10 +1207,11 @@ def do_login():
         return jsonify(error="Please type your name."), 400
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify(error="Please type a real email address."), 400
+    remember_device(x)
     if login_needs_code(email):
-        return jsonify(start_verification(name, email, "login", "/"))
+        return with_device(start_verification(name, email, "login", "/"))
     sign_in(name, email)
-    return jsonify(ok=True, name=name, email=email, next=bookkeep_login_next())
+    return with_device(dict(ok=True, name=name, email=email, next=bookkeep_login_next()))
 
 def bookkeep_login_next():
     track("open", "BookKeep", APP_HOST)
@@ -1240,9 +1268,10 @@ def set_discount():
 
 @app.get("/logout")
 def logout():
-    trusted = session.get("trusted")
+    trusted, device = session.get("trusted"), session.get("device")
     session.clear()                                   # signs you out of everything
     if trusted: session["trusted"] = trusted
+    if device: session["device"] = device
     return redirect(SITE_ORIGIN + "/" if on_real_site() else "/login")
 
 def now_iso():

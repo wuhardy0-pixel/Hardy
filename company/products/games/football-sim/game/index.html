@@ -31,6 +31,22 @@
     padding: 10px 16px; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.5);
   }
   #menu-button:hover { background: rgba(40,55,85,.95); }
+  #pause-button {
+    position: absolute; top: 18px; right: 150px; pointer-events: auto; cursor: pointer;
+    background: linear-gradient(135deg, rgba(10,14,24,.92), rgba(20,28,46,.92));
+    color: #fff; font-weight: 700; font-size: 14px; letter-spacing: 1px;
+    padding: 10px 16px; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.5);
+  }
+  #pause-button:hover { background: rgba(40,55,85,.95); }
+  #pause-overlay { position: absolute; inset: 0; display: none; place-items: center; background: rgba(4,8,16,.72); z-index: 60; pointer-events: auto; text-align: center; font-family: inherit; }
+  #pause-overlay.on { display: grid; }
+  #pause-overlay .box { background: rgba(12,18,32,.96); border: 1px solid rgba(255,213,79,.35); border-radius: 14px; padding: 28px 34px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #pause-overlay h2 { margin: 0 0 14px; color: #ffd54f; letter-spacing: 3px; }
+  #pause-overlay button { font: inherit; font-weight: 700; font-size: 16px; padding: 12px 26px; margin: 6px; border: 0; border-radius: 10px; cursor: pointer; background: #ffd54f; color: #1a1a1a; }
+  #pause-overlay button.dev { background: rgba(40,55,85,.95); color: #fff; opacity: .7; font-size: 14px; padding: 9px 16px; }
+  #pause-overlay button.dev.on { opacity: 1; outline: 2px solid #ffd54f; }
+  #pause-overlay .small { color: #9fb0cc; font-size: 13px; margin-top: 10px; }
+  body.computer #touch-ui { display: none !important; }
 
   #playerbar {
     position: absolute; bottom: 20px; left: 22px;
@@ -251,7 +267,14 @@
     <div class="clock" id="clock">00:00</div>
   </div>
 
+  <div id="pause-button" onclick="togglePause()">⏸ PAUSE (P)</div>
   <div id="menu-button">☰ TEAM &nbsp;(M)</div>
+  <div id="pause-overlay"><div class="box">
+    <h2>PAUSED</h2>
+    <button onclick="togglePause()">▶ Continue</button>
+    <div class="small">Playing on &nbsp;<button class="dev" id="devPhone" onclick="HW.device='phone'">📱 Phone</button><button class="dev" id="devComp" onclick="HW.device='computer'">💻 Computer</button></div>
+    <div class="small">P or Esc pauses and continues</div>
+  </div></div>
   <div id="sim-button">⚡ SIM MATCH</div>
 
   <div id="playerbar">

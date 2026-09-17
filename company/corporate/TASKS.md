@@ -13,3 +13,7 @@
 - Put the Gmail app password in `corporate/.env` (MAIL_USER, MAIL_PASSWORD) and restart; then codes go out for real.
 
 History before 2026-09-10: see `../products/apps/bookkeep/TASKS.md` (the server and the app shared one file).
+
+## 2026-09-16
+- Sign-in pages ask "Playing on: 📱 Phone / 💻 Computer" (pre-picked by auto-detect); the choice is kept in the session and handed to the browser as the hw_device cookie for all of hardywu.com, so every game starts with the right controls. Changeable in each game's pause menu.
+

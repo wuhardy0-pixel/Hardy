@@ -30,6 +30,10 @@ a{color:#7dd3fc;text-decoration:none;font-weight:700;display:inline-block;margin
 #touchHint{position:fixed;left:0;right:0;bottom:120px;text-align:center;z-index:6;display:none;
   font-size:13px;font-weight:700;color:rgba(255,255,255,.75);text-shadow:0 2px 10px #000;pointer-events:none}
 @media (pointer:coarse){#mobile{display:flex}#touchHint{display:block}}
+body.computer #mobile{display:none!important} body.computer #touchHint{display:none!important}
+#pauseBtn{position:fixed;right:14px;top:150px;z-index:6;width:44px;height:44px;border-radius:50%;border:1px solid rgba(96,165,250,.5);background:rgba(7,22,52,.85);color:#fff;font-size:20px;padding:0;margin:0;display:none}
+body.playing #pauseBtn{display:block}
+.dev{font-size:15px;padding:9px 16px;margin:6px 4px 0;border-radius:12px;background:rgba(12,34,78,.8);box-shadow:none;opacity:.7} .dev.on{opacity:1;outline:2px solid #38bdf8}
 body.touch #mobile{display:flex} body.touch #touchHint{display:block}
 </style></head><body>
 <canvas id="c"></canvas>
@@ -39,6 +43,14 @@ body.touch #mobile{display:flex} body.touch #touchHint{display:block}
   <button id="bombBtn" onpointerdown="useBomb()">💣</button>
 </div>
 <div id="touchHint">drag anywhere to fly · you fire automatically</div>
+<button id="pauseBtn" onclick="pauseGame()" title="Pause (P)">⏸</button>
+<div class="overlay hidden" id="pause"><div>
+  <h1>Paused</h1>
+  <button onclick="resumeGame()">▶ Continue</button>
+  <p class="small">Playing on &nbsp;<button class="dev" id="devPhone" onclick="HW.device='phone'">📱 Phone</button><button class="dev" id="devComp" onclick="HW.device='computer'">💻 Computer</button></p>
+  <p class="small">P or Esc pauses and continues</p>
+  <a href="/games">← back to Hardy Wu</a>
+</div></div>
 
 <div class="overlay" id="start"><div>
   <h1>Nova<br>Blast</h1>
@@ -138,19 +150,38 @@ const Music=(()=>{
   document.addEventListener("DOMContentLoaded",paint);
   return M;
 })();
-function startGame(){reset();state="play";Music.start();
+function startGame(){reset();state="play";Music.start();document.body.classList.add("playing");
   document.getElementById("start").classList.add("hidden");
   document.getElementById("over").classList.add("hidden");}
+// ---- pause / continue
+function pauseGame(){if(state!=="play")return;state="pause";keys={};touching=false;
+  document.getElementById("pause").classList.remove("hidden");}
+function resumeGame(){if(state!=="pause")return;state="play";
+  document.getElementById("pause").classList.add("hidden");}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
+// ---- device choice (phone / computer): the hw_device cookie is shared across hardywu.com —
+// chosen at sign-in, changeable here in the pause menu
+const HW={
+  get device(){const m=document.cookie.match(/(?:^|; )hw_device=(phone|computer)/);
+    return m?m[1]:((matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)?"phone":"computer");},
+  get chosen(){return /(?:^|; )hw_device=/.test(document.cookie);},
+  set device(v){const dom=location.hostname.endsWith("hardywu.com")?";domain=.hardywu.com":"";
+    document.cookie="hw_device="+v+";path=/;max-age=31536000;SameSite=Lax"+dom;applyDevice();}
+};
+function applyDevice(){const d=HW.device;
+  document.body.classList.toggle("touch",d==="phone");document.body.classList.toggle("computer",d==="computer");
+  for(const [id,v] of [["devPhone","phone"],["devComp","computer"]]){const b=document.getElementById(id);if(b)b.classList.toggle("on",d===v);}}
 
 addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;
   if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase()))e.preventDefault();
-  if(state!=="play"&&(e.key===" "||e.key==="Enter"))startGame();});
-c.addEventListener("pointerdown",()=>{if(state!=="play")startGame();});
+  if(e.key==="p"||e.key==="P"||e.key==="Escape"){if(state==="play")pauseGame();else if(state==="pause")resumeGame();return;}
+  if((state==="menu"||state==="over")&&(e.key===" "||e.key==="Enter"))startGame();});
+c.addEventListener("pointerdown",()=>{if(state==="menu"||state==="over")startGame();});
 addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 let touching=false,dragX=0,dragY=0;
-function showTouchControls(){document.body.classList.add("touch");}
-if(matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)showTouchControls();
-addEventListener("touchstart",showTouchControls,{passive:true});   // any real touch turns them on
+function showTouchControls(){if(HW.chosen)return;document.body.classList.add("touch");}   // an explicit choice wins
+applyDevice();
+addEventListener("touchstart",showTouchControls,{passive:true});   // any real touch turns them on (unless you chose Computer)
 const tp=ev=>{const r=c.getBoundingClientRect(),t=ev.touches?ev.touches[0]:ev;
   return{x:(t.clientX-r.left)*(W/r.width),y:(t.clientY-r.top)*(H/r.height)};};
 // remember where the ship sits relative to the finger, so your thumb never hides it
@@ -654,7 +685,7 @@ function update(){
   pows=pows.filter(p=>!p.dead);
 }
 function endGame(){
-  state="over";
+  state="over";document.body.classList.remove("playing");
   if(score>best){best=score;try{localStorage.setItem("nova_best",best);}catch(e){}}
   document.getElementById("overStats").innerHTML=
     `Your hull failed on <b>wave ${wave}</b> with <b>${score}</b> points.<br><span class="small">Best: ${best}</span>`;

@@ -158,3 +158,7 @@
 
 ## 2026-09-10
 - Moved to `company/products/games/football-sim/` (was `fifa/`). No changes to the game.
+
+## 2026-09-16
+- Pause: new ⏸ PAUSE button next to TEAM, Esc as well as P, a proper PAUSED overlay with Continue and the 📱 Phone / 💻 Computer choice (touch joystick and buttons on/off). Auto-pause when the tab is hidden.
+

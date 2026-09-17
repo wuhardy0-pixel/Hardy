@@ -1500,7 +1500,23 @@ function inputDir() {
 }
 
 // ---------- Touch controls (FIFA-Mobile style) ----------
-var touchMode = ('ontouchstart' in window) || location.hash === '#touch';
+// ---- device choice (phone / computer): the hw_device cookie is shared across hardywu.com —
+// chosen at sign-in, changeable in the pause menu. An explicit choice beats auto-detection.
+var HW = {
+  get device() { var m = document.cookie.match(/(?:^|; )hw_device=(phone|computer)/);
+    return m ? m[1] : ((('ontouchstart' in window) || location.hash === '#touch') ? 'phone' : 'computer'); },
+  set device(v) { var dom = location.hostname.endsWith('hardywu.com') ? ';domain=.hardywu.com' : '';
+    document.cookie = 'hw_device=' + v + ';path=/;max-age=31536000;SameSite=Lax' + dom; applyDevice(); }
+};
+function applyDevice() {
+  var d = HW.device;
+  touchMode = (d === 'phone');
+  document.body.classList.toggle('computer', d === 'computer');
+  var ui = document.getElementById('touch-ui'); if (ui) ui.className = touchMode ? 'on' : '';
+  [['devPhone', 'phone'], ['devComp', 'computer']].forEach(function (pair) {
+    var b = document.getElementById(pair[0]); if (b) b.classList.toggle('on', d === pair[1]); });
+}
+var touchMode = (HW.device === 'phone');
 var touchDir = new THREE.Vector3();
 var touchDirActive = false;
 (function () {
@@ -4686,12 +4702,25 @@ function updateHUD(dt) {
   if (justPressed['KeyT'] && !menuOpen) { hideStatsPanel(); toggleLeaguePanel(); }
   if (justPressed['KeyM']) { if (menuOpen) closeMenu(); else openMenu(); }
   if (justPressed['Escape'] && menuOpen) closeMenu();
-  if (justPressed['KeyP'] && !menuOpen && (match.state === 'play' || match.paused)) {
-    match.paused = !match.paused;
-    if (match.paused) showMessage('PAUSED', 'press P to resume', 9999);
-    else { el.message.style.opacity = 0; el.submessage.style.opacity = 0; }
-  }
+  if ((justPressed['KeyP'] || justPressed['Escape']) && !menuOpen && (match.state === 'play' || match.paused)) togglePause();
 }
+
+// ---- pause / continue: the ⏸ button, P or Esc; also when the tab is hidden
+function togglePause() {
+  if (menuOpen || simRunning) return;
+  if (!(match.state === 'play' || match.paused)) return;
+  match.paused = !match.paused;
+  var ov = document.getElementById('pause-overlay');
+  if (ov) ov.className = match.paused ? 'on' : '';
+  if (!match.paused) { el.message.style.opacity = 0; el.submessage.style.opacity = 0; }
+  applyDevice();
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden && match.state === 'play' && !match.paused && !menuOpen) togglePause();
+});
+// the page's buttons live outside this closure
+window.togglePause = togglePause; window.HW = HW; window.__match = match;
+applyDevice();
 
 function updateCrowd(dt) {
   if (!crowdGain) return;

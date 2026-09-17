@@ -760,3 +760,7 @@ sweep).
 
 ## 2026-09-10 — moved
 - App files now in `company/products/apps/bookkeep/`; the server moved to `company/corporate/` and has its own TASKS.md from today. Older version notes are in `docs/`.
+
+## 2026-09-16
+- Barbara: bosses need a cooldown and fewer bullets. Big bosses (Warden, Spike Lord, Overlord) now rest for ~1.4s after every attack ("RECHARGING"), spread shots 5→3 (wounded 7→5) and slower, rapid fire half as long and slower, frost ring 8→6 shots with a 3-shot gap, starfall slower, spike fields 4→3 (fury 7→5), 2 escorts instead of 3. Mini-bosses: Pyro has a quiet part in each cycle and a 3-shot fan, Cryo spins in bursts with 3 arms, Summoner calls 3 escorts less often.
+

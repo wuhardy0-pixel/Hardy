@@ -43,6 +43,10 @@ a{color:#7dd3fc;text-decoration:none;font-weight:700;display:inline-block;margin
 #acts .lbl{font-size:13px;font-weight:900;font-style:italic}
 @media (pointer:coarse){#pad{display:grid}#acts{display:flex}}
 body.touch #pad{display:grid} body.touch #acts{display:flex}
+body.computer #pad{display:none!important} body.computer #acts{display:none!important}
+#pauseBtn{display:none;position:fixed;right:12px;top:64px;z-index:6;width:44px;height:44px;border-radius:50%;border:1px solid rgba(96,165,250,.5);background:rgba(7,22,52,.85);color:#fff;font-size:20px;padding:0;margin:0}
+body.playing #pauseBtn{display:block}
+.dev{font-size:15px;padding:9px 16px;margin:6px 4px 0;border-radius:12px;background:rgba(12,34,78,.8);box-shadow:none;opacity:.7} .dev.on{opacity:1;outline:2px solid #38bdf8}
 </style></head><body>
 <canvas id="c"></canvas>
 
@@ -69,6 +73,14 @@ body.touch #pad{display:grid} body.touch #acts{display:flex}
 </div></div>
 
 <button id="music" onclick="Music.toggle()">🔊</button>
+<button id="pauseBtn" onclick="pauseGame()" title="Pause (P)">⏸</button>
+<div class="overlay hidden" id="pause"><div>
+  <h1>Paused</h1>
+  <button onclick="resumeGame()">▶ Continue</button>
+  <p class="small">Playing on &nbsp;<button class="dev" id="devPhone" onclick="DEV.device='phone'">📱 Phone</button><button class="dev" id="devComp" onclick="DEV.device='computer'">💻 Computer</button></p>
+  <p class="small">P or Esc pauses and continues</p>
+  <a href="/games">← back to Hardy Wu</a>
+</div></div>
 <div id="pad">
   <button class="sp"></button><button onpointerdown="press('up')">▲</button><button class="sp"></button>
   <button onpointerdown="press('left')">◀</button><button onpointerdown="press('act')">●</button><button onpointerdown="press('right')">▶</button>
@@ -321,7 +333,7 @@ function begin(pick){Music.start();
   coins=60;caught=new Set([pick]);steps=0;
   state="world";battle=null;dialog=null;
   say("Riverbend Town — talk to people, then find the tall grass!",260);
-  document.getElementById("start").classList.add("hidden");
+  document.getElementById("start").classList.add("hidden");document.body.classList.add("playing");
   document.getElementById("revive").classList.add("hidden");
   document.getElementById("over").classList.add("hidden");
 }
@@ -606,12 +618,38 @@ const FIELD_ITEMS=[{k:"potion",n:"Potion",d:"+30 HP"},{k:"ether",n:"Ether",d:"+1
                    {k:"cure",n:"Cure",d:"clears status"},{k:"revive",n:"Revive",d:"wakes a fainted critter"}];
 function openMenu(){ if(state!=="world")return; state="menu"; fmTab=0; fmSel=0; fmAsk=-1; }
 function toggleMenu(){ if(state==="menu"){state="world";fmAsk=-1;} else openMenu(); }
+// ---- pause / continue. The world, menus and shop stop; a battle is turn-based and simply waits.
+let pausedFrom=null;
+function pauseGame(){
+  if(!document.body.classList.contains("playing"))return;   // not before you've picked a critter
+  if(state==="pause"||state==="down"||state==="won")return;
+  if(["world","menu","dialog","shop"].includes(state)){pausedFrom=state;state="pause";}else pausedFrom=null;
+  document.getElementById("pause").classList.remove("hidden");}
+function resumeGame(){
+  if(state==="pause")state=pausedFrom||"world";
+  document.getElementById("pause").classList.add("hidden");}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
+// ---- device choice (phone / computer): the hw_device cookie is shared across hardywu.com —
+// chosen at sign-in, changeable in the pause menu
+const DEV={
+  get device(){const m=document.cookie.match(/(?:^|; )hw_device=(phone|computer)/);
+    return m?m[1]:((matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)?"phone":"computer");},
+  get chosen(){return /(?:^|; )hw_device=/.test(document.cookie);},
+  set device(v){const dom=location.hostname.endsWith("hardywu.com")?";domain=.hardywu.com":"";
+    document.cookie="hw_device="+v+";path=/;max-age=31536000;SameSite=Lax"+dom;applyDevice();}
+};
+function applyDevice(){const d=DEV.device;
+  document.body.classList.toggle("touch",d==="phone");document.body.classList.toggle("computer",d==="computer");
+  for(const [id,v] of [["devPhone","phone"],["devComp","computer"]]){const b=document.getElementById(id);if(b)b.classList.toggle("on",d===v);}
+  if(typeof fit==="function")fit();}
 function showTouchControls(){
+  if(DEV.chosen)return;                                  // an explicit choice wins
   if(document.body.classList.contains("touch"))return;
   document.body.classList.add("touch");
   fit();                       // the pad is visible now — re-measure the space it needs
 }
 if(matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)showTouchControls();
+applyDevice();
 // belt and braces: any real finger touch turns the controls on
 addEventListener("touchstart",showTouchControls,{passive:true});
 function menuUse(){
@@ -751,6 +789,7 @@ addEventListener("keydown",e=>{
   else if(k===" "||k==="enter")press("act");
   else if(k==="m"){ if(state==="menu")state="world"; else openMenu(); }
   else if(k==="escape"&&state==="menu")state="world";
+  else if(k==="p"||k==="escape"){if(state==="pause")resumeGame();else pauseGame();}
   else if(state==="battle"&&battle&&battle.turn==="you"&&!battle.ended){
     if(k==="1")battleAct("attack");if(k==="2"){battle.menu="special";battle.sel=0;}
     if(k==="3"){battle.menu="item";battle.sel=0;}if(k==="4")battleAct("catch");if(k==="5")battleAct("run");}
@@ -1014,11 +1053,11 @@ function drawSurround(){
 function frame(){
   frameN++;
   Music.mode=state==="battle"?"battle":"world";
-  if(state==="world"||state==="down")drawSurround();
+  if(state==="world"||state==="down"||state==="pause")drawSurround();
   else{const bg=x.createLinearGradient(0,0,0,VH);
     bg.addColorStop(0,"#062056");bg.addColorStop(.55,"#03102c");bg.addColorStop(1,"#061a44");
     x.fillStyle=bg;x.fillRect(0,0,VW,VH);}
-  if(state==="world"||state==="down"){   // HUD bar runs edge to edge behind the panel
+  if(state==="world"||state==="down"||state==="pause"){   // HUD bar runs edge to edge behind the panel
     const hy=OY+MAPH*SC;
     const hg=x.createLinearGradient(0,hy,0,VH);
     hg.addColorStop(0,"rgba(6,22,58,.97)");hg.addColorStop(1,"rgba(3,16,44,.97)");
@@ -1027,7 +1066,7 @@ function frame(){
     x.beginPath();x.moveTo(0,hy+.75);x.lineTo(VW,hy+.75);x.stroke();}
   x.save();x.translate(OX,OY);x.scale(SC,SC);
   x.fillStyle="#03102c";x.fillRect(0,0,W,MAPH);
-  if(state==="world"||state==="down")drawWorld();
+  if(state==="world"||state==="down"||state==="pause")drawWorld();
   else if(state==="battle")drawBattle();
   else if(state==="menu")drawMenu();
   else if(state==="dialog")drawDialog();
