@@ -25,3 +25,7 @@ curl -s -c $J -b $J $H -X POST $B/api/verify -d '{"code":"123456"}'    # ok, nex
 curl -s -b $J $H $B/api/whoami                                          # name = Code Test
 ```
 Then delete the test member and its activity entry. With MAIL_USER/MAIL_PASSWORD set, sign in on logbook.hardywu.com with your own email and check the code arrives within a minute.
+
+## Feedback
+Sign in (cookie jar) on logbook.hardywu.com, then with Host play.hardywu.com POST `/api/feedback` `{"message":"…","playing":"Nova Blast","path":"/play/nova","opened_at":"<iso>","played_seconds":120,"device":"phone"}` → `{"ok":true}`; not signed in → 401. `GET /api/feedback` from this Mac lists rows; `/feedback` as Hardy shows them. In a browser, the 💬 button must open a box in each game and typing must not steer or pause the game. Delete the test rows afterwards (`DELETE FROM feedback WHERE email='…'`).
+

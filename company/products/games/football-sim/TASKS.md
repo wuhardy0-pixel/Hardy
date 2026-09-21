@@ -162,3 +162,6 @@
 ## 2026-09-16
 - Pause: new ⏸ PAUSE button next to TEAM, Esc as well as P, a proper PAUSED overlay with Continue and the 📱 Phone / 💻 Computer choice (touch joystick and buttons on/off). Auto-pause when the tab is hidden.
 
+## 2026-09-21
+- 💬 feedback button (top right under TEAM); the game now loads /track.js like the others.
+

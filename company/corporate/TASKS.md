@@ -17,3 +17,6 @@ History before 2026-09-10: see `../products/apps/bookkeep/TASKS.md` (the server 
 ## 2026-09-16
 - Sign-in pages ask "Playing on: 📱 Phone / 💻 Computer" (pre-picked by auto-detect); the choice is kept in the session and handed to the browser as the hw_device cookie for all of hardywu.com, so every game starts with the right controls. Changeable in each game's pause menu.
 
+## 2026-09-21
+- Feedback: 💬 button in every game (lives in track.js). Saves to the `feedback` table: name, email, what they were playing, when they opened the game, how long they had played, when they sent it, phone/computer, message. Hardy reads it at hardywu.com/feedback (link in the sign-in bar next to orders) or `/api/feedback`; Barbara also gets an email once the mail sender is configured.
+

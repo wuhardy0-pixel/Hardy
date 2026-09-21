@@ -315,6 +315,7 @@ def friendly_label(path):
     p = (path or "/").split("?")[0].rstrip("/") or "/"
     if p == "/":
         return "Home page"
+    if p == "/feedback": return "Feedback"
     if p == "/orders":
         return "Orders"
     if p == "/activity":
@@ -679,7 +680,118 @@ TRACK_JS = """(function(){
    clicks.push({what:what||href||"(clicked)"});
    if(clicks.length>=6)beat(false);
  },true);
+ // ---- 💬 feedback button: what they type goes to Hardy with who / what / when
+ var opened=new Date().toISOString(), played=0, ptick=Date.now();
+ setInterval(function(){var n=Date.now();if(!document.hidden)played+=Math.min(2,(n-ptick)/1000);ptick=n;},1000);
+ function label(){return (window.FEEDBACK_GAME||document.title||path).replace(/\s*[—|-]\s*Hardy Wu.*$/,"").slice(0,80);}
+ var pos=window.FEEDBACK_POS||{left:"14px",bottom:"14px"};
+ var css="#hwfb{position:fixed;z-index:70;width:44px;height:44px;border-radius:50%;border:1px solid rgba(96,165,250,.5);background:rgba(7,22,52,.85);color:#fff;font-size:20px;cursor:pointer;padding:0;margin:0}"+
+  "#hwfbBox{position:fixed;inset:0;z-index:71;display:none;place-items:center;background:rgba(2,8,28,.7);font-family:-apple-system,Inter,sans-serif;color:#fff;text-align:center;padding:20px}"+
+  "#hwfbBox.on{display:grid}#hwfbBox .c{background:#0b1a3a;border:1px solid rgba(96,165,250,.4);border-radius:18px;padding:22px;max-width:420px;width:100%}"+
+  "#hwfbBox h2{margin:0 0 6px;font-size:22px}#hwfbBox p{margin:0 0 12px;color:rgba(255,255,255,.65);font-size:13px}"+
+  "#hwfbBox textarea{width:100%;box-sizing:border-box;height:120px;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid #3a4560;background:#111827;color:#fff;resize:vertical}"+
+  "#hwfbBox button{font:inherit;font-weight:800;font-size:16px;padding:11px 22px;margin:10px 4px 0;border:0;border-radius:12px;cursor:pointer;background:#2563eb;color:#fff}"+
+  "#hwfbBox button.g{background:rgba(12,34,78,.9)}#hwfbBox .m{min-height:20px;font-size:13px;margin-top:8px;color:#9fe3ff}";
+ function ready(fn){document.readyState==="loading"?document.addEventListener("DOMContentLoaded",fn):fn();}
+ ready(function(){
+   var st=document.createElement("style");st.textContent=css;document.head.appendChild(st);
+   var b=document.createElement("button");b.id="hwfb";b.title="Send Hardy feedback";b.textContent="💬";
+   for(var k in pos)b.style[k]=pos[k];
+   var box=document.createElement("div");box.id="hwfbBox";
+   box.innerHTML='<div class="c"><h2>💬 Tell Hardy</h2><p>What did you like? What went wrong? Ideas? He reads every one, and knows what you were playing.</p>'+
+     '<textarea id="hwfbT" placeholder="Type your feedback…" maxlength="2000"></textarea><div class="m" id="hwfbM"></div>'+
+     '<button id="hwfbS">Send</button><button class="g" id="hwfbC">Cancel</button></div>';
+   document.body.appendChild(b);document.body.appendChild(box);
+   var T=box.querySelector("#hwfbT"),M=box.querySelector("#hwfbM");
+   function close(){box.className="";}
+   b.addEventListener("click",function(){box.className="on";M.textContent="";setTimeout(function(){T.focus();},50);});
+   box.querySelector("#hwfbC").addEventListener("click",close);
+   box.addEventListener("click",function(e){if(e.target===box)close();});
+   T.addEventListener("keydown",function(e){e.stopPropagation();});   // typing must not steer the game
+   T.addEventListener("keyup",function(e){e.stopPropagation();});
+   box.querySelector("#hwfbS").addEventListener("click",function(){
+     var msg=T.value.trim();if(msg.length<2){M.textContent="Type something first.";return;}
+     var dev=(document.cookie.match(/(?:^|; )hw_device=(phone|computer)/)||[])[1]||"";
+     fetch("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({message:msg,path:path,playing:label(),opened_at:opened,played_seconds:Math.round(played),device:dev})})
+     .then(function(r){return r.json().then(function(j){return [r.ok,j];});})
+     .then(function(x){if(x[0]){M.textContent="Sent — thank you!";T.value="";setTimeout(close,900);}else M.textContent=x[1].error||"Could not send.";})
+     .catch(function(){M.textContent="Could not send — are you online?";});
+   });
+ });
 })();"""
+
+# ---- Feedback: the 💬 button in every game. Saved with who sent it, what they
+# were playing, when they started, how long they had played, and when they sent it.
+@app.post("/api/feedback")
+def api_feedback():
+    d = request.get_json(silent=True) or {}
+    msg = str(d.get("message") or "").strip()[:2000]
+    if len(msg) < 2:
+        return jsonify(error="Please type your feedback first."), 400
+    name = (session.get("v_name") or session.get("name") or "").strip()
+    email = visitor() or (session.get("email") or "").strip().lower()
+    if not email and not is_local_request():
+        return jsonify(error="Please sign in first so Hardy knows who wrote this."), 401
+    path = str(d.get("path") or "/")[:200]
+    playing = str(d.get("playing") or "").strip()[:80] or friendly_label(path)
+    opened = str(d.get("opened_at") or "")[:40]
+    try:
+        secs = max(0, min(int(d.get("played_seconds") or 0), 12 * 3600))
+    except (TypeError, ValueError):
+        secs = 0
+    device = str(d.get("device") or "")[:20]
+    con = db()
+    con.execute("""INSERT INTO feedback(name,email,playing,path,opened_at,sent_at,played_seconds,device,message)
+                   VALUES(?,?,?,?,?,?,?,?,?)""", (name, email, playing, path, opened, now_iso(), secs, device, msg))
+    con.commit(); con.close()
+    if mail_configured():
+        send_mail(OWNER_EMAIL, f"Feedback on {playing} from {name or email}",
+                  f"{name} <{email}> wrote while playing {playing}:\n\n{msg}\n\n"
+                  f"Started playing: {fmt_when(opened) if opened else '?'} · played {fmt_dur(secs)} · sent {fmt_when(now_iso())}\n"
+                  f"Read all feedback: {SITE_ORIGIN}/feedback")
+    return jsonify(ok=True)
+
+@app.get("/api/feedback")
+def api_feedback_list():
+    if not is_owner():
+        return jsonify(error="Only the creator can read feedback."), 403
+    con = db()
+    rows = [dict(r) for r in con.execute("SELECT * FROM feedback ORDER BY sent_at DESC")]
+    con.close()
+    return jsonify(feedback=rows)
+
+@app.get("/feedback")
+def feedback_page():
+    if not is_portfolio_host() and not is_local_request():
+        return redirect("/")
+    if not is_hardy():
+        return p_page("Feedback", """<header><h1>Just for Hardy</h1>
+          <p class="tag">Sign in as Hardy Wu to read the feedback.</p></header>""",
+          '<a href="/">← hardywu.com</a>'), 403
+    con = db()
+    rows = [dict(r) for r in con.execute("SELECT * FROM feedback ORDER BY sent_at DESC")]
+    con.close()
+    def row(f):
+        return f"""<div class="person">
+  <div class="top"><div><div class="nm">{html.escape(f.get("name") or "(no name)")}
+      <span class="muted" style="font-size:13px;font-style:normal;font-weight:400">&lt;{html.escape(f.get("email") or "")}&gt;</span></div>
+    <div class="muted">🎮 {html.escape(f.get("playing") or "")}{(" · " + html.escape(f["device"])) if f.get("device") else ""}</div></div>
+    <div class="stat"><div class="muted">sent {html.escape(fmt_when(f["sent_at"]))}</div>
+      <div class="muted">started {html.escape(fmt_when(f["opened_at"])) if f.get("opened_at") else "?"} · played {fmt_dur(f.get("played_seconds"))}</div></div></div>
+  <p style="margin:12px 0 0;white-space:pre-wrap;font-size:16px">{html.escape(f.get("message") or "")}</p></div>"""
+    body = f"""<header><h1>Feedback</h1>
+      <p class="tag">{len(rows)} message{"" if len(rows)==1 else "s"} from the 💬 button in the games — who wrote it, what they were playing, and when.</p></header>
+      <div class="wrap">{"".join(row(f) for f in rows) or '<p class="tag">No feedback yet.</p>'}</div>"""
+    extra = """<style>
+.wrap{max-width:900px;margin:10px auto 40px;padding:0 18px;text-align:left}
+.person{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px;margin:16px 0;backdrop-filter:blur(10px)}
+.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.nm{font-size:20px;font-weight:900;font-style:italic}
+.muted{color:rgba(255,255,255,.62);font-size:13px;margin-top:4px}
+.stat{text-align:right}
+</style>"""
+    return p_page("Feedback — Hardy Wu", body + extra, '<a href="/">← hardywu.com</a> · <a href="/activity">📊 who visited</a> · <a href="/orders">🧾 orders</a>')
 
 @app.get("/track.js")
 def track_js():
@@ -906,7 +1018,7 @@ def p_page(title, body, crumbs=""):
         who = (f'signed in as <b>{html.escape(session.get("v_name") or "")}</b> '
                f'({html.escape(visitor())}) · <a href="/signout">sign out</a>')
         if is_hardy():
-            who += ' · <a href="/activity">📊 see who visited</a> · <a href="/orders">🧾 orders</a>'
+            who += ' · <a href="/activity">📊 see who visited</a> · <a href="/orders">🧾 orders</a> · <a href="/feedback">💬 feedback</a>'
     else:
         who = ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>{title}</title>
@@ -1088,10 +1200,10 @@ def require_passcode():
         if www and request.method == "GET" and (p == "/" or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO)):
             return redirect(SITE_ORIGIN + p, code=301)   # the site lives on hardywu.com; www forwards to it
         open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor", "/api/verify", "/api/verify/resend",
-                            "/api/track", "/api/me", "/signout", "/api/order")
+                            "/api/track", "/api/feedback", "/api/me", "/signout", "/api/order")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p == "/orders" or p.startswith("/play/") or p.startswith("/go/")
+        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -1099,7 +1211,7 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p in ("/activity", "/orders")
+        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback")
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
@@ -1378,6 +1490,14 @@ def init_db():
                      o.get("color") or "", o.get("custom_text") or "", o.get("buyer") or "",
                      "done" if done else "todo", o["created_at"], o["created_at"] if done else None))
     con.executescript("""
+    CREATE TABLE IF NOT EXISTS feedback(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT, email TEXT,
+      playing TEXT, path TEXT,
+      opened_at TEXT, sent_at TEXT NOT NULL,
+      played_seconds INTEGER NOT NULL DEFAULT 0,
+      device TEXT, message TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0
+    );
     CREATE TABLE IF NOT EXISTS audit_log(
       seq INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id TEXT UNIQUE NOT NULL,

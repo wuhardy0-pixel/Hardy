@@ -13,6 +13,7 @@ Run the company behind hardywu.com: one account for every customer, every order 
 - Every new order automatically creates a print job. Finishing the job moves the order to printed.
 - Hardy sees all orders and the print queue (BookKeep → Orders, and hardywu.com/orders) and all visitors (hardywu.com/activity).
 - Each login has its own BookKeep book; nobody can read another person's book.
+- Players can send feedback from inside any game (💬). Each message is stored with who sent it, what they were playing, when they started, how long they had played, and when they sent it. Hardy reads it at /feedback; Barbara is emailed.
 - Test data never stays in real data.
 
 ## Should have (next)
