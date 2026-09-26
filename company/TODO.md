@@ -20,6 +20,8 @@ is done, mark it, date it, and add a line to that folder's TASKS.md.
 
 | 12 | **Get listed where AI agents shop.** The open pieces are live: feed, llms.txt, order API, and since 2026-09-26 a full Universal Commerce Protocol implementation (`/.well-known/ucp` + `/ucp` catalog and checkout), the same standard Shopify, Google, Walmart and Target use. To appear inside Meta's Muse / ChatGPT shopping, the store must also be registered with their programmes: Muse buys through Shopify and Stripe, ChatGPT through the Agentic Commerce Protocol via Stripe. Decide: open a Stripe account (needed anyway for card payments) and apply to ACP, and/or put the catalogue on Shopify. | Barbara decides, AI builds | waiting |
 
+| 13 | **Cloudflare blocks some AI browsers (error 1010).** From this Mac and from a datacenter the site answers fine, but Cloudflare's *Browser Integrity Check* rejects visitors with an unusual browser signature — that is what the other assistant hit on shop.hardywu.com. Fix in the Cloudflare dashboard (Barbara's account): open hardywu.com → **Security → Settings** → turn **Browser Integrity Check** off; while there, under **Security → Bots**, make sure **Bot Fight Mode** is off and AI crawlers are **allowed** (not blocked). Then ask the assistant to try again. | Barbara | waiting |
+
 ## Done
 - 2026-09-26 — Site outage fixed; launchd keeps server/shop/tunnel alive. AI-agent catalogue + order API + llms.txt/robots/sitemap/JSON-LD live.
 - 2026-09-10 — Reorganised into company/ (corporate, site, products) with standard docs; behaviour unchanged. Print queue and real order statuses live. One sign-in for everything. One BookKeep book per login.

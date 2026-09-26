@@ -1670,6 +1670,8 @@ def p_page(title, body, crumbs=""):
     else:
         who = ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>{title}</title>
+<link rel="alternate" type="application/json" title="Product catalogue for AI agents" href="https://hardywu.com/products.json">
+<link rel="help" href="https://hardywu.com/llms.txt"><meta name="ai-agents" content="catalogue and checkout: https://hardywu.com/llms.txt">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1708,6 +1710,7 @@ footer{{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-s
 </style></head><body>
 <div class="whobar">{who}</div>
 <div class="crumbs">{crumbs}</div>
+<p style="font-size:12px;color:rgba(255,255,255,.55);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:#7dd3fc">hardywu.com/llms.txt</a></p>
 {f"<nav>{nav}</nav>" if crumbs else ""}
 {body}
 <footer>hardywu.com — Try New Things 🛠️</footer>

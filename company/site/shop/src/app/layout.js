@@ -15,6 +15,9 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet" />
         <link rel="icon" href="https://hardywu.com/favicon.png" />
+        <link rel="alternate" type="application/json" title="Product catalogue for AI agents" href="https://hardywu.com/products.json" />
+        <link rel="help" href="https://hardywu.com/llms.txt" />
+        <meta name="ai-agents" content="catalogue, cart and checkout for AI assistants: https://hardywu.com/llms.txt" />
       </head>
       <body>
         <div className="wrap">
@@ -30,6 +33,7 @@ export default function RootLayout({ children }) {
           <footer className="site-foot">
             <span>© {new Date().getFullYear()} {shop.shopName}</span>
             <span>Every piece printed to order · Flat $5 shipping (US)</span>
+            <span>🤖 AI assistants: catalogue and checkout at <a href="https://hardywu.com/llms.txt">hardywu.com/llms.txt</a></span>
           </footer>
         </div>
       </body>
