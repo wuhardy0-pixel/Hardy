@@ -102,3 +102,7 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 ## 2026-09-26
 - Store is open to browse without signing in (middleware removed). Ordering asks for the hardywu.com sign-in: /api/checkout answers 401 + login URL when there is no session cookie, the page sends you to log3d.hardywu.com/?p=<product> and back.
 - Customizable Lunchbox marked sold out (`in_stock: false` in data/catalog.json): Sold-out badge on the home grid, notice + disabled order button on its page, checkout API refuses it, JSON-LD says OutOfStock. Flip the flag back to true to sell it again.
+
+## 2026-09-26
+- The shop now speaks the Universal Commerce Protocol on its own domain at the paths Shopify's agent hard-codes: `/.well-known/ucp`, `/api/ucp/mcp`, `/api/mcp` (route handlers in src/app that proxy to corporate via src/lib/ucpProxy.js).
+

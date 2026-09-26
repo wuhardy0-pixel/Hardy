@@ -306,6 +306,8 @@ def robots_route():
 _agent_hits = {}
 def agent_rate_ok(ip, limit=10, window=3600):
     import time
+    if request.headers.get("X-Hardy-Public-Host") and request.headers.get("X-Hardy-Client-IP"):
+        ip = request.headers["X-Hardy-Client-IP"][:64]          # the store's proxy tells us who really asked
     now = time.time()
     hits = [t for t in _agent_hits.get(ip, []) if now - t < window]
     if len(hits) >= limit:
@@ -381,6 +383,11 @@ def agent_order():
 #   3. no card is taken online (payment_handlers is empty): Hardy emails the buyer.
 UCP_VERSION = "2026-08-25"
 UCP_BASE = "https://play.hardywu.com/ucp"
+def ucp_public_base():
+    """Where this profile says its endpoints live. Through the store's proxy (shop.hardywu.com)
+    the paths are the ones Shopify's own agent hard-codes: /api/ucp/mcp and /api/mcp."""
+    h = (request.headers.get("X-Hardy-Public-Host") or "").lower()
+    return ("https://shop.hardywu.com/api/ucp", "https://shop.hardywu.com/api/ucp/mcp") if h == "shop.hardywu.com" else (UCP_BASE, UCP_BASE + "/mcp")
 UCP_LINKS = [{"type": t, "url": "https://hardywu.com/terms"} for t in ("terms_of_service", "refund_policy", "privacy_policy")]
 UCP_CAPS_ALL = ["dev.ucp.shopping.catalog.search", "dev.ucp.shopping.catalog.lookup", "dev.ucp.shopping.cart",
                 "dev.ucp.shopping.checkout", "dev.ucp.shopping.fulfillment"]
@@ -438,9 +445,15 @@ def core_lookup(req):
         if slug in SHOP_PRODUCTS and slug not in seen: seen.add(slug); out.append(ucp_product(slug, SHOP_PRODUCTS[slug]))
     return {"ucp": ucp_env(["dev.ucp.shopping.catalog.lookup"]), "products": out}, 200
 def core_product(req):
-    slug = str((req or {}).get("id") or (req or {}).get("handle") or "").partition("__")[0]
+    vid = str((req or {}).get("id") or (req or {}).get("handle") or "")
+    slug = vid.partition("__")[0]
     if slug not in SHOP_PRODUCTS: return ucp_err("not_found", "No such product.")
-    return {"ucp": ucp_env(["dev.ucp.shopping.catalog.lookup"]), "product": ucp_product(slug, SHOP_PRODUCTS[slug])}, 200
+    prod = ucp_product(slug, SHOP_PRODUCTS[slug])
+    p, colour = ucp_parse_variant(vid)
+    if colour:                                   # asked for one colour: answer as that selected variant
+        v = next(x for x in prod["variants"] if x["id"] == vid)
+        prod = dict(prod, id=vid, title=f"{prod['title']} — {colour}", variants=[v], metadata=dict(prod["metadata"], product_id=slug, selected_variant=vid))
+    return {"ucp": ucp_env(["dev.ucp.shopping.catalog.lookup"]), "product": prod}, 200
 
 # ---- line items (shared by carts and checkouts)
 def ucp_lines(req):
@@ -459,8 +472,9 @@ def ucp_lines(req):
             slug = str(item["id"]).partition("__")[0]
             msgs.append({"type": "error", "code": "invalid", "path": path, "severity": "recoverable",
                          "content": "Pick a colour variant: " + ", ".join(ucp_variant_id(slug, c) for c in SHOP_COLORS)}); continue
-        try: qty = max(1, min(9, int(li.get("quantity") or 1)))
+        try: qty = min(9, int(li.get("quantity") if li.get("quantity") is not None else 1))
         except (TypeError, ValueError): qty = 1
+        if qty <= 0: continue                                   # quantity 0 = remove the line (Shopify's cart convention)
         cents = int(round(float(p["price"]) * 100)); slug = str(item["id"]).partition("__")[0]
         lines.append({"id": li.get("id") or f"li_{i+1}", "item": {"id": item["id"], "title": f"{p['name']} — {colour}", "price": cents,
                       "image_url": (ucp_product(slug, p)["media"] or [{}])[0].get("url")}, "quantity": qty,
@@ -575,7 +589,7 @@ def chk_build(sid, req, prev=None):
     return d
 def _out(d):
     """Hand a checkout back to the agent; if it is waiting for the buyer, mint a fresh 30-second approval link first."""
-    if d["status"] == "requires_escalation":
+    if d["status"] in ("incomplete", "requires_escalation"):
         _fresh_code(d); _chk_save(d)
     return _public(d)
 def core_checkout_create(checkout, agent=""):
@@ -658,9 +672,9 @@ def ucp_profile():
     return jsonify(ucp={
         "version": UCP_VERSION,
         "services": {"dev.ucp.shopping": [
-            {"version": UCP_VERSION, "spec": f"{spec}/specification/overview/", "transport": "rest", "endpoint": UCP_BASE,
+            {"version": UCP_VERSION, "spec": f"{spec}/specification/overview/", "transport": "rest", "endpoint": ucp_public_base()[0],
              "schema": f"{spec}/services/shopping/rest.openapi.json"},
-            {"version": UCP_VERSION, "spec": f"{spec}/specification/overview/", "transport": "mcp", "endpoint": UCP_BASE + "/mcp",
+            {"version": UCP_VERSION, "spec": f"{spec}/specification/overview/", "transport": "mcp", "endpoint": ucp_public_base()[1],
              "schema": f"{spec}/services/shopping/mcp.openrpc.json"}]},
         "capabilities": {
             "dev.ucp.shopping.catalog.search": cap("shopping/catalog/search", "shopping/catalog_search.json"),
@@ -720,7 +734,28 @@ MCP_TOOLS = [
   ("complete_checkout", "Ask to place the order. Hardy's shop answers requires_escalation: the buyer must approve at continue_url first.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id"]}),
   ("cancel_checkout", "Cancel a checkout.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
   ("get_order", "Read a placed order by id.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("search_shop_policies_and_faqs", "Answer questions about the shop: payment, shipping, returns, privacy, custom text and pictures, how AI assistants may order.",
+   {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}),
 ]
+def shop_faq():
+    return [
+      {"id": "payment", "title": "Payment", "body": "Nothing is charged online yet. When you order, Hardy emails you to arrange payment (pay on delivery). No card details are ever asked for on the site."},
+      {"id": "shipping", "title": "Shipping and delivery", "body": f"Every piece is 3D-printed to order by Hardy and shipped within the US for a flat ${SHIPPING_CENTS/100:.2f}. Printing plus shipping usually takes about a week."},
+      {"id": "returns", "title": "Returns and refunds", "body": f"If something arrives broken or wrong, email {OWNER_EMAIL} and we reprint or refund. Custom pieces (your text or picture) cannot be returned for change of mind."},
+      {"id": "customization", "title": "Colours, custom text and pictures", "body": "Every product comes in seven colours: " + ", ".join(SHOP_COLORS) + ". Some products take custom text (up to 30 letters) or your own picture; each extra is $2, and each extra colour is $2. Custom text and pictures are only available on the human store page, not through an assistant."},
+      {"id": "ai", "title": "Ordering through an AI assistant", "body": "An assistant may search, build a cart and prepare a checkout for you, but nothing is ordered until you open the approval link yourself, sign in with your own email and press Approve."},
+      {"id": "privacy", "title": "Privacy", "body": "We keep your name, email and address only to make and ship your order, and never share them."},
+      {"id": "about", "title": "About the shop", "body": "Hardy Wu is a young maker. Hardy's 3D sells small 3D-printed pieces he designs and prints himself: a blue-crab measuring gauge, a dual-unit ruler, and a customizable lunchbox."},
+    ]
+def core_policies(query):
+    q = [w for w in re.findall(r"[a-z]+", str(query or "").lower()) if len(w) > 2]
+    scored = []
+    for f in shop_faq():
+        hay = (f["title"] + " " + f["body"]).lower()
+        score = sum(hay.count(w) for w in q)
+        if score or not q: scored.append((score, f))
+    scored.sort(key=lambda x: -x[0])
+    return {"results": [{"id": f["id"], "title": f["title"], "body": f["body"], "url": "https://hardywu.com/terms"} for _, f in scored[:4]]}, 200
 def mcp_dispatch(name, a):
     a = a or {}; agent = str(((a.get("meta") or {}).get("ucp-agent") or {}).get("profile") or "MCP agent")[:80]
     f = {"search_catalog": lambda: core_search(a.get("catalog")), "lookup_catalog": lambda: core_lookup(a.get("catalog")),
@@ -730,7 +765,8 @@ def mcp_dispatch(name, a):
          "create_checkout": lambda: core_checkout_create(a.get("checkout"), agent), "get_checkout": lambda: core_checkout_get(a.get("id")),
          "update_checkout": lambda: core_checkout_update(a.get("id"), a.get("checkout"), agent),
          "complete_checkout": lambda: core_checkout_complete(a.get("id"), agent), "cancel_checkout": lambda: core_checkout_cancel(a.get("id")),
-         "get_order": lambda: core_order(a.get("id"))}.get(name)
+         "get_order": lambda: core_order(a.get("id")),
+         "search_shop_policies_and_faqs": lambda: core_policies(a.get("query"))}.get(name)
     return f() if f else None
 def _rpc_result(mid, result): return {"jsonrpc": "2.0", "id": mid, "result": result}
 def _rpc_error(mid, code, msg): return {"jsonrpc": "2.0", "id": mid, "error": {"code": code, "message": msg}}
@@ -783,14 +819,27 @@ def approve_page(sid):
           '<a href="/">← hardywu.com</a>'), 403
     me = visitor() or ""
     buyer_email = (d.get("buyer") or {}).get("email", "").lower()
-    allowed = me and (me == buyer_email or is_owner() or is_hardy())
+    allowed = bool(me) and (not buyer_email or me == buyer_email or is_owner() or is_hardy())
     lines = "".join(f"<li><b>{l['quantity']} × {html.escape(l['item']['title'])}</b> — ${l['totals'][0]['amount']/100:.2f}</li>" for l in d["line_items"])
     m = d["fulfillment"]["methods"][0]; dest = next((x for x in m["destinations"] if x["id"] == m["selected_destination_id"]), {})
     addr = ", ".join(v for v in (dest.get("street_address"), dest.get("extended_address"), dest.get("address_locality"), dest.get("address_region"), dest.get("postal_code"), dest.get("address_country")) if v)
     total = d["totals"][-1]["amount"] / 100
-    if request.method == "POST" and allowed and d["status"] == "requires_escalation":
+    if request.method == "POST" and me and d["status"] in ("incomplete", "requires_escalation"):
         if request.form.get("decision") == "approve":
-            d = ucp_place_order(d, me)
+            f = request.form; b0 = d.get("buyer") or {}
+            m0 = d["fulfillment"]["methods"][0]; d0 = next((x for x in m0["destinations"] if x["id"] == m0.get("selected_destination_id")), {})
+            pick = lambda name, old: (f.get(name) or "").strip() or (old or "")   # what the buyer typed wins; blanks keep the assistant's values
+            req = {"line_items": [{"id": l["id"], "item": {"id": l["item"]["id"]}, "quantity": l["quantity"]} for l in d["line_items"]],
+                   "buyer": {"first_name": pick("first_name", b0.get("first_name")), "last_name": pick("last_name", b0.get("last_name")),
+                             "email": me, "phone_number": pick("phone", b0.get("phone_number"))},
+                   "fulfillment": {"methods": [{"type": "shipping", "selected_destination_id": "dest_1", "destinations": [{
+                       "id": "dest_1", "street_address": pick("street", d0.get("street_address")), "extended_address": pick("street2", d0.get("extended_address")),
+                       "address_locality": pick("city", d0.get("address_locality")), "address_region": pick("region", d0.get("address_region")),
+                       "postal_code": pick("postal", d0.get("postal_code")), "address_country": "US"}]}]}}
+            d = chk_build(sid, req, d); d["_agent"] = d.get("_agent"); _chk_save(d)
+            buyer_email = me; allowed = True
+            if d["status"] == "requires_escalation":
+                d = ucp_place_order(d, me)
         else:
             d["status"] = "canceled"; _chk_save(d)
     if d["status"] == "completed":
@@ -798,23 +847,34 @@ def approve_page(sid):
           <p class="tag"><a href="{d['order']['permalink_url']}">See the order</a></p></header>"""
     elif d["status"] == "canceled":
         body = "<header><h1>Cancelled</h1><p class=\"tag\">Nothing was ordered.</p></header>"
-    elif d["status"] != "requires_escalation":
-        body = f"<header><h1>Not ready yet</h1><p class=\"tag\">The assistant still has to fill in: {html.escape('; '.join(x['content'] for x in d['messages'] if x['type']=='error' and x.get('severity')=='recoverable'))}</p></header>"
+    elif d["status"] == "incomplete" and not d["line_items"]:
+        body = "<header><h1>Nothing to order</h1><p class=\"tag\">The cart is empty.</p></header>"
     else:
         from urllib.parse import urlparse as _up
         _ag = d.get("_agent") or ""
         agent = "Your AI assistant" + (f" ({html.escape(_up(_ag).hostname or _ag[:40])})" if _ag else "")
         summary = f"""<header><h1>Approve this order?</h1>
-          <p class="tag">{agent} prepared it for <b>{html.escape(buyer_email)}</b>. Nothing is ordered and nothing is charged until you press Approve.</p></header>
+          <p class="tag">{agent} prepared it{(" for <b>" + html.escape(buyer_email) + "</b>") if buyer_email else ""}. Nothing is ordered and nothing is charged until you press Approve.</p></header>
           <div style="max-width:560px;margin:0 auto;text-align:left;background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px">
           <ul style="margin:0 0 10px 18px;line-height:1.8">{lines}</ul>
           <p style="margin:6px 0">Shipping: ${SHIPPING_CENTS/100:.2f} &nbsp;·&nbsp; <b>Total ${total:.2f}</b></p>
           <p style="margin:6px 0">Ship to: {html.escape(addr) or '<i>missing</i>'}</p>
           <p style="margin:6px 0;color:rgba(255,255,255,.65);font-size:13px">No card is charged online. Hardy emails you to arrange payment (pay on delivery).</p>"""
-        if allowed:
-            body = summary + f"""<form method="post" style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap">
+        if allowed or (me and not buyer_email):
+            b = d.get("buyer") or {}; nm = (session.get("v_name") or "").split(" ", 1)
+            probs = [x["content"] for x in d["messages"] if x["type"] == "error" and x.get("severity") == "recoverable"]
+            I = lambda name, label, val, w="100%": f'<label style="display:block;font-size:13px;color:rgba(255,255,255,.7);margin-top:8px;width:{w}">{label}<br><input name="{name}" value="{html.escape(val or "")}" style="width:100%;box-sizing:border-box;font-size:16px;padding:9px;border-radius:9px;border:1px solid #3a4560;background:#0b1a3a;color:#fff"></label>'
+            body = summary + f"""<form method="post" style="margin-top:14px">
+              <p style="margin:0;font-weight:700">Your details {'' if not probs else '<span style="color:#fca5a5;font-weight:400;font-size:13px">— please fill in: ' + html.escape('; '.join(probs)) + '</span>'}</p>
+              <div style="display:flex;gap:10px">{I("first_name","First name",b.get("first_name") or nm[0],"50%")}{I("last_name","Last name",b.get("last_name") or (nm[1] if len(nm)>1 else ""),"50%")}</div>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,.7)">Email: <b>{html.escape(me)}</b> (your sign-in)</p>
+              {I("phone","Phone (optional)",b.get("phone_number"))}
+              {I("street","Street address",dest.get("street_address"))}{I("street2","Apartment, unit (optional)",dest.get("extended_address"))}
+              <div style="display:flex;gap:10px">{I("city","City",dest.get("address_locality"),"50%")}{I("region","State",dest.get("address_region"),"25%")}{I("postal","ZIP",dest.get("postal_code"),"25%")}</div>
+              <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,.55)">US addresses only for now.</p>
+              <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap">
               <button name="decision" value="approve" style="font-weight:800;font-size:18px;padding:12px 28px;border:0;border-radius:12px;background:#22c55e;color:#04210f;cursor:pointer">✓ Approve and order</button>
-              <button name="decision" value="cancel" style="font-weight:700;font-size:16px;padding:12px 22px;border:1px solid rgba(255,255,255,.4);border-radius:12px;background:transparent;color:#fff;cursor:pointer">Cancel</button></form></div>"""
+              <button name="decision" value="cancel" style="font-weight:700;font-size:16px;padding:12px 22px;border:1px solid rgba(255,255,255,.4);border-radius:12px;background:transparent;color:#fff;cursor:pointer">Cancel</button></div></form></div>"""
         elif me:
             body = summary + f"""<p style="margin-top:14px;color:#fca5a5">You are signed in as <b>{html.escape(me)}</b>, but this order is for <b>{html.escape(buyer_email)}</b>. <a href="/signout" style="color:#fff">Sign out</a> and sign in with that email to approve it.</p></div>"""
         else:

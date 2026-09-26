@@ -18,7 +18,7 @@ ok([s["transport"] for s in prof["services"]["dev.ucp.shopping"]]==["rest","mcp"
 # MCP handshake
 init=rpc("initialize",{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test"}}); ok(init["result"]["serverInfo"]["name"].startswith("Hardy"),"MCP initialize")
 c,raw=http("POST","/ucp/mcp",{"jsonrpc":"2.0","method":"notifications/initialized"}); ok(c==202,"MCP initialized notification → 202")
-tools=rpc("tools/list")["result"]["tools"]; ok(len(tools)==13 and any(t["name"]=="update_cart" for t in tools),f"tools/list has {len(tools)} tools")
+tools=rpc("tools/list")["result"]["tools"]; ok(len(tools)==14 and any(t["name"]=="search_shop_policies_and_faqs" for t in tools),f"tools/list has {len(tools)} tools incl. policies")
 # search + cart add/remove via MCP
 s=tool("search_catalog",{"catalog":{"query":"ruler"}}); ok([p["id"] for p in s["products"]]==["dual-ruler"],"search_catalog 'ruler' → dual-ruler")
 cart=tool("create_cart",{"cart":{"line_items":[{"item":{"id":"crab-gauge__black"},"quantity":2},{"item":{"id":"dual-ruler__blue"},"quantity":1}]}})
