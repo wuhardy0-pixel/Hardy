@@ -264,7 +264,8 @@ def llms_txt():
              "and a small shop of 3D-printed products he prints to order. AI agents are welcome to browse and to buy on behalf of a person.", "",
              "## Shop (AI agents can order here)",
              "- Catalogue (JSON): https://play.hardywu.com/api/products",
-             "- Universal Commerce Protocol (ucp.dev): profile at https://hardywu.com/.well-known/ucp — catalog search/lookup and checkout sessions at https://play.hardywu.com/ucp",
+             "- Universal Commerce Protocol (ucp.dev): profile https://hardywu.com/.well-known/ucp · REST https://play.hardywu.com/ucp · MCP (JSON-RPC tools) https://play.hardywu.com/ucp/mcp",
+             "- Flow for agents: search_catalog → create_cart / update_cart (add, change, remove) → create_checkout with buyer + US address → send the buyer to continue_url to APPROVE → poll get_checkout until completed. Nothing is ordered without the buyer's approval.",
              "- Simpler order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order",
              "- Human storefront: https://shop.hardywu.com (asks for a name and email first)",
              f"- Payment: none taken online. Hardy emails the buyer to arrange payment. Shipping ${SHIPPING_CENTS/100:.2f} flat, US only. Contact {OWNER_EMAIL}.", "",
@@ -360,256 +361,422 @@ def agent_order():
 
 # ============================ Universal Commerce Protocol ====================
 # The open standard Shopify and Google published (ucp.dev) so AI shopping agents
-# can find a store's catalogue and check out. This is Hardy's own implementation
-# of the REST binding: a profile at /.well-known/ucp, catalog search/lookup, and
-# checkout sessions. No card is taken online (payment_handlers is empty): the
-# order is placed and Hardy emails the buyer to arrange payment, as everywhere else.
+# can find a store's catalogue, build a cart and check out. Hardy's own
+# implementation of two transports — REST at /ucp and MCP (JSON-RPC tools) at
+# /ucp/mcp — plus a profile at /.well-known/ucp. Three rules of the house:
+#   1. carts are free to build: add, change, remove, cancel;
+#   2. a checkout never places an order by itself — the buyer (a person) must
+#      open continue_url, see the summary, and press Approve (requires_escalation);
+#   3. no card is taken online (payment_handlers is empty): Hardy emails the buyer.
 UCP_VERSION = "2026-08-25"
 UCP_BASE = "https://play.hardywu.com/ucp"
 UCP_LINKS = [{"type": t, "url": "https://hardywu.com/terms"} for t in ("terms_of_service", "refund_policy", "privacy_policy")]
+UCP_CAPS_ALL = ["dev.ucp.shopping.catalog.search", "dev.ucp.shopping.catalog.lookup", "dev.ucp.shopping.cart",
+                "dev.ucp.shopping.checkout", "dev.ucp.shopping.fulfillment"]
 
 def _cslug(c): return re.sub(r"[^a-z0-9]+", "-", c.lower()).strip("-")
 def ucp_variant_id(slug, colour): return f"{slug}__{_cslug(colour)}"
 def ucp_parse_variant(vid):
     slug, _, cs = str(vid or "").partition("__")
     p = SHOP_PRODUCTS.get(slug)
+    if not p: return None, None
     colour = next((c for c in SHOP_COLORS if _cslug(c) == cs), None)
-    return (p, colour) if p and colour else (p, None) if p and not cs else (None, None)
+    return p, colour
 
 def ucp_product(slug, p):
-    photos = [SITE_ORIGIN.replace("hardywu.com", "play.hardywu.com") + "/products/" + ph.split("/products/")[-1]
-              for ph in (p.get("photos") or [])]
-    cents = int(round(float(p["price"]) * 100))
+    photos = ["https://play.hardywu.com/products/" + ph.split("/products/")[-1] for ph in (p.get("photos") or [])]
+    cents = int(round(float(p["price"]) * 100)); ok = bool(p.get("in_stock", True))
     media = [{"type": "image", "url": u, "alt_text": p["name"]} for u in photos]
-    seller = {"name": "Hardy Wu", "links": UCP_LINKS}
-    variants = [{
-        "id": ucp_variant_id(slug, c), "sku": f"{slug}-{_cslug(c)}".upper(), "title": c,
-        "description": {"plain": f"{p['name']} in {c}"},
-        "price": {"amount": cents, "currency": "USD"},
-        "availability": {"available": bool(p.get("in_stock", True)), "status": "in_stock" if p.get("in_stock", True) else "out_of_stock"},
-        "options": [{"name": "Color", "label": c}], "media": media, "seller": seller,
-    } for c in SHOP_COLORS]
-    return {"id": slug, "handle": slug, "title": p["name"],
-            "description": {"plain": p.get("description", "")},
-            "url": f"https://shop.hardywu.com/products/{slug}",
-            "categories": [{"value": "3D prints", "taxonomy": "merchant"}],
+    avail = {"available": ok, "status": "in_stock" if ok else "out_of_stock"}
+    variants = [{"id": ucp_variant_id(slug, c), "sku": f"{slug}-{_cslug(c)}".upper(), "title": c,
+                 "description": {"plain": f"{p['name']} in {c}"}, "price": {"amount": cents, "currency": "USD"},
+                 "availability": avail, "options": [{"name": "Color", "label": c}], "media": media,
+                 "seller": {"name": "Hardy Wu", "links": UCP_LINKS}} for c in SHOP_COLORS]
+    return {"id": slug, "handle": slug, "title": p["name"], "description": {"plain": p.get("description", "")},
+            "url": f"https://shop.hardywu.com/products/{slug}", "categories": [{"value": "3D prints", "taxonomy": "merchant"}],
             "price_range": {"min": {"amount": cents, "currency": "USD"}, "max": {"amount": cents, "currency": "USD"}},
             "media": media, "options": [{"name": "Color", "values": [{"label": c} for c in SHOP_COLORS]}],
-            "variants": variants, "tags": ["3d-print", "made-to-order"],
-            "metadata": {"made_to_order": True, "custom_text_available": bool(p.get("text")),
+            "variants": variants, "tags": ["3d-print", "made-to-order"] + ([] if ok else ["sold-out"]),
+            "metadata": {"made_to_order": True, "in_stock": ok, "custom_text_available": bool(p.get("text")),
                          "shipping": f"flat ${SHIPPING_CENTS/100:.2f} within the US"}}
 
 def ucp_env(caps):
     return {"version": UCP_VERSION, "capabilities": {c: [{"version": UCP_VERSION}] for c in caps}, "payment_handlers": {}}
+def ucp_err(code, content, status=200):
+    return {"ucp": {"version": UCP_VERSION, "status": "error"},
+            "messages": [{"type": "error", "code": code, "content": content, "severity": "unrecoverable"}],
+            "continue_url": "https://shop.hardywu.com/"}, status
+def _exp(hours):
+    import datetime as _dt
+    return (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=hours)).isoformat()
 
-def ucp_error(code, content, severity="unrecoverable", status=200):
-    return jsonify(ucp={"version": UCP_VERSION, "status": "error"},
-                   messages=[{"type": "error", "code": code, "content": content, "severity": severity}],
-                   continue_url="https://shop.hardywu.com/"), status
-
-@app.get("/.well-known/ucp")
-def ucp_profile():
-    spec = f"https://ucp.dev/{UCP_VERSION}"
-    cap = lambda name, path, schema, extends=None: [dict({"version": UCP_VERSION, "spec": f"{spec}/specification/{path}",
-                                                          "schema": f"{spec}/schemas/{schema}"}, **({"extends": extends} if extends else {}))]
-    return jsonify(ucp={
-        "version": UCP_VERSION,
-        "services": {"dev.ucp.shopping": [{"version": UCP_VERSION, "spec": f"{spec}/specification/overview/",
-                                           "transport": "rest", "endpoint": UCP_BASE,
-                                           "schema": f"{spec}/services/shopping/rest.openapi.json"}]},
-        "capabilities": {
-            "dev.ucp.shopping.catalog.search": cap("search", "shopping/catalog/search", "shopping/catalog_search.json"),
-            "dev.ucp.shopping.catalog.lookup": cap("lookup", "shopping/catalog/lookup", "shopping/catalog_lookup.json"),
-            "dev.ucp.shopping.checkout": cap("checkout", "shopping/checkout", "shopping/checkout.json"),
-            "dev.ucp.shopping.fulfillment": cap("fulfillment", "shopping/extensions/fulfillment", "shopping/fulfillment.json", "dev.ucp.shopping.checkout"),
-        },
-        "payment_handlers": {},
-    }, business={"name": "Hardy Wu", "url": SITE_ORIGIN, "contact": OWNER_EMAIL,
-                 "note": "No card is taken online yet: complete the checkout and Hardy emails the buyer to arrange payment."})
-
-@app.post("/ucp/catalog/search")
-def ucp_search():
-    x = request.get_json(silent=True) or {}
-    q = str(x.get("query") or "").lower().split()
-    items = []
-    for slug, p in SHOP_PRODUCTS.items():
-        hay = f"{p['name']} {p.get('description','')} 3d print".lower()
-        if not q or all(w in hay for w in q) or any(w in hay for w in q):
-            items.append(ucp_product(slug, p))
-    pf = (x.get("filters") or {}).get("price") or {}
+# ---- catalogue
+def core_search(req):
+    q = str((req or {}).get("query") or "").lower().split()
+    items = [ucp_product(s, p) for s, p in SHOP_PRODUCTS.items()
+             if not q or any(w in f"{p['name']} {p.get('description','')} 3d print".lower() for w in q)]
+    pf = ((req or {}).get("filters") or {}).get("price") or {}
     if pf.get("max") is not None: items = [i for i in items if i["price_range"]["min"]["amount"] <= int(pf["max"])]
     if pf.get("min") is not None: items = [i for i in items if i["price_range"]["max"]["amount"] >= int(pf["min"])]
-    return jsonify(ucp=ucp_env(["dev.ucp.shopping.catalog.search"]), products=items,
-                   pagination={"has_next_page": False, "total_count": len(items)})
+    return {"ucp": ucp_env(["dev.ucp.shopping.catalog.search"]), "products": items,
+            "pagination": {"has_next_page": False, "total_count": len(items)}}, 200
+def core_lookup(req):
+    out, seen = [], set()
+    for vid in ((req or {}).get("ids") or [])[:50]:
+        slug = str(vid).partition("__")[0]
+        if slug in SHOP_PRODUCTS and slug not in seen: seen.add(slug); out.append(ucp_product(slug, SHOP_PRODUCTS[slug]))
+    return {"ucp": ucp_env(["dev.ucp.shopping.catalog.lookup"]), "products": out}, 200
+def core_product(req):
+    slug = str((req or {}).get("id") or (req or {}).get("handle") or "").partition("__")[0]
+    if slug not in SHOP_PRODUCTS: return ucp_err("not_found", "No such product.")
+    return {"ucp": ucp_env(["dev.ucp.shopping.catalog.lookup"]), "product": ucp_product(slug, SHOP_PRODUCTS[slug])}, 200
 
-@app.post("/ucp/catalog/lookup")
-def ucp_lookup():
-    x = request.get_json(silent=True) or {}
-    out = []
-    for vid in (x.get("ids") or [])[:50]:
-        p, colour = ucp_parse_variant(vid)
-        if p: out.append(ucp_product(str(vid).partition("__")[0], p))
-    return jsonify(ucp=ucp_env(["dev.ucp.shopping.catalog.lookup"]), products=out)
-
-@app.post("/ucp/catalog/product")
-def ucp_product_detail():
-    x = request.get_json(silent=True) or {}
-    p, _ = ucp_parse_variant(x.get("id") or x.get("handle"))
-    if not p: return ucp_error("not_found", "No such product.")
-    return jsonify(ucp=ucp_env(["dev.ucp.shopping.catalog.lookup"]), product=ucp_product(str(x.get("id") or x.get("handle")).partition("__")[0], p))
-
-# ---- checkout sessions
-def _ucp_load(sid):
-    con = db(); r = con.execute("SELECT data, expires_at FROM ucp_sessions WHERE id=?", (sid,)).fetchone(); con.close()
-    if not r: return None
-    if r["expires_at"] < now_iso():
-        d = json.loads(r["data"]); d["status"] = "canceled"; return d
-    return json.loads(r["data"])
-def _ucp_save(d):
-    con = db()
-    con.execute("INSERT OR REPLACE INTO ucp_sessions(id,data,created_at,expires_at) VALUES(?,?,?,?)",
-                (d["id"], json.dumps(d), d.get("created_at") or now_iso(), d["expires_at"]))
-    con.commit(); con.close()
-
-def ucp_build(sid, req, prev=None):
-    """Turn a platform request (create or full-replacement update) into the authoritative checkout."""
-    import datetime as _dt
+# ---- line items (shared by carts and checkouts)
+def ucp_lines(req):
     msgs, lines = [], []
-    for i, li in enumerate((req.get("line_items") or [])[:20]):
+    for i, li in enumerate(((req or {}).get("line_items") or [])[:20]):
         item = li.get("item") or {}
         p, colour = ucp_parse_variant(item.get("id"))
+        path = f"$.line_items[{i}].item.id"
         if not p:
-            msgs.append({"type": "error", "code": "invalid", "path": f"$.line_items[{i}].item.id",
-                         "content": f"Unknown item {item.get('id')!r}. Use a variant id from catalog search (e.g. crab-gauge__black).", "severity": "recoverable"}); continue
+            msgs.append({"type": "error", "code": "invalid", "path": path, "severity": "recoverable",
+                         "content": f"Unknown item {item.get('id')!r}. Use a variant id from catalog search, e.g. crab-gauge__black."}); continue
         if not p.get("in_stock", True):
-            msgs.append({"type": "error", "code": "out_of_stock", "path": f"$.line_items[{i}].item.id",
-                         "content": f"{p['name']} is sold out right now.", "severity": "recoverable"}); continue
+            msgs.append({"type": "error", "code": "out_of_stock", "path": path, "severity": "recoverable",
+                         "content": f"{p['name']} is sold out right now."}); continue
         if not colour:
-            msgs.append({"type": "error", "code": "invalid", "path": f"$.line_items[{i}].item.id",
-                         "content": "Pick a colour variant: " + ", ".join(ucp_variant_id(item["id"].partition("__")[0], c) for c in SHOP_COLORS), "severity": "recoverable"}); continue
+            slug = str(item["id"]).partition("__")[0]
+            msgs.append({"type": "error", "code": "invalid", "path": path, "severity": "recoverable",
+                         "content": "Pick a colour variant: " + ", ".join(ucp_variant_id(slug, c) for c in SHOP_COLORS)}); continue
         try: qty = max(1, min(9, int(li.get("quantity") or 1)))
         except (TypeError, ValueError): qty = 1
-        cents = int(round(float(p["price"]) * 100))
+        cents = int(round(float(p["price"]) * 100)); slug = str(item["id"]).partition("__")[0]
         lines.append({"id": li.get("id") or f"li_{i+1}", "item": {"id": item["id"], "title": f"{p['name']} — {colour}", "price": cents,
-                      "image_url": ucp_product(item["id"].partition("__")[0], p)["media"][0]["url"] if p.get("photos") else None},
-                      "quantity": qty, "totals": [{"type": "subtotal", "amount": cents * qty}, {"type": "total", "amount": cents * qty}],
-                      "_slug": item["id"].partition("__")[0], "_colour": colour})
-    if not lines and not msgs:
-        msgs.append({"type": "error", "code": "missing", "path": "$.line_items", "content": "Add at least one line item.", "severity": "recoverable"})
-    subtotal = sum(l["totals"][0]["amount"] for l in lines)
-    ship = SHIPPING_CENTS if lines else 0
-    buyer = {k: str(v)[:80] for k, v in (req.get("buyer") or {}).items() if k in ("first_name", "last_name", "email", "phone_number") and v}
-    if not buyer.get("email"):
-        msgs.append({"type": "error", "code": "missing", "path": "$.buyer.email", "content": "Buyer email is required so Hardy can arrange payment.", "severity": "recoverable"})
-    # fulfillment: one shipping method for everything, the platform supplies the address
-    f_req = ((req.get("fulfillment") or {}).get("methods") or [{}])[0]
-    dests = []
-    for j, d in enumerate((f_req.get("destinations") or [])[:5]):
-        dests.append({k: str(d.get(k) or "")[:120] for k in ("street_address", "extended_address", "address_locality", "address_region", "postal_code", "address_country")}
-                     | {"type": "shipping_address", "id": d.get("id") or f"dest_{j+1}"})
-    sel = f_req.get("selected_destination_id") or (dests[0]["id"] if dests else None)
-    dest = next((d for d in dests if d["id"] == sel), None)
-    if not dest or not all(dest.get(k) for k in ("street_address", "address_locality", "address_region", "postal_code", "address_country")):
-        msgs.append({"type": "error", "code": "missing", "path": "$.fulfillment.methods[0].selected_destination_id",
-                     "content": "A full US shipping address is required (street, city, state, postal code, country).", "severity": "recoverable"})
-    elif dest.get("address_country", "").upper() not in ("US", "USA", "UNITED STATES"):
-        msgs.append({"type": "error", "code": "invalid", "path": "$.fulfillment.methods[0].destinations", "content": "We only ship within the US for now.", "severity": "recoverable"})
-    fulfillment = {"methods": [{"id": "shipping", "type": "shipping", "line_item_ids": [l["id"] for l in lines],
-                                "destinations": dests, "selected_destination_id": sel,
-                                "groups": [{"id": "package_1", "line_item_ids": [l["id"] for l in lines], "selected_option_id": "flat",
-                                            "options": [{"id": "flat", "title": "Flat shipping", "description": {"plain": "Printed to order, then shipped within the US"},
-                                                         "totals": [{"type": "fulfillment", "amount": ship}, {"type": "total", "amount": ship}]}]}]}]}
-    errors = [m for m in msgs if m["type"] == "error"]
-    status = "incomplete" if errors else "ready_for_complete"
-    if prev and prev.get("status") in ("completed", "canceled"): status = prev["status"]
-    msgs.append({"type": "info", "code": "payment_offline", "content": "No card is charged online. After completion Hardy emails the buyer to arrange payment (pay on delivery)."})
-    exp = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=6)).isoformat()
-    return {"ucp": ucp_env(["dev.ucp.shopping.checkout", "dev.ucp.shopping.fulfillment"]),
-            "id": sid, "status": status, "currency": "USD", "line_items": lines, "buyer": buyer,
-            "fulfillment": fulfillment, "messages": msgs, "links": UCP_LINKS,
-            "totals": [{"type": "subtotal", "amount": subtotal}, {"type": "fulfillment", "display_text": "Shipping", "amount": ship},
-                       {"type": "total", "amount": subtotal + ship}],
-            "expires_at": (prev or {}).get("expires_at") or exp, "created_at": (prev or {}).get("created_at") or now_iso(),
-            "order": (prev or {}).get("order"), "continue_url": "https://shop.hardywu.com/"}
-
-def ucp_public(d):
-    out = {k: v for k, v in d.items() if k not in ("created_at",) and v is not None}
+                      "image_url": (ucp_product(slug, p)["media"] or [{}])[0].get("url")}, "quantity": qty,
+                      "totals": [{"type": "subtotal", "amount": cents * qty}, {"type": "total", "amount": cents * qty}],
+                      "_slug": slug, "_colour": colour})
+    return lines, msgs
+def _public(d):
+    out = {k: v for k, v in d.items() if not k.startswith("_") and v is not None}
     out["line_items"] = [{k: v for k, v in l.items() if not k.startswith("_")} for l in d["line_items"]]
     return out
 
-@app.post("/ucp/checkout-sessions")
-def ucp_create():
-    if not agent_rate_ok(request.remote_addr or "?", limit=30):
-        return ucp_error("rate_limited", "Too many checkouts from this address; try later.", status=429)
-    d = ucp_build("chk_" + uuid.uuid4().hex[:12], request.get_json(silent=True) or {})
-    _ucp_save(d)
-    return jsonify(ucp_public(d)), 201
+# ---- carts (table ucp_carts: id, data, expires_at)
+def _cart_load(cid):
+    con = db(); r = con.execute("SELECT data FROM ucp_carts WHERE id=?", (cid,)).fetchone(); con.close()
+    return json.loads(r["data"]) if r else None
+def _cart_save(d):
+    con = db(); con.execute("INSERT OR REPLACE INTO ucp_carts(id,data,expires_at) VALUES(?,?,?)", (d["id"], json.dumps(d), d["expires_at"])); con.commit(); con.close()
+def cart_build(cid, req, prev=None):
+    lines, msgs = ucp_lines(req)
+    sub = sum(l["totals"][0]["amount"] for l in lines); ship = SHIPPING_CENTS if lines else 0
+    buyer = {k: str(v)[:80] for k, v in ((req or {}).get("buyer") or {}).items() if k in ("first_name", "last_name", "email", "phone_number") and v}
+    return {"ucp": ucp_env(["dev.ucp.shopping.checkout", "dev.ucp.shopping.cart"]), "id": cid, "line_items": lines,
+            "buyer": buyer or None, "currency": "USD", "messages": msgs, "links": UCP_LINKS,
+            "totals": [{"type": "subtotal", "amount": sub}, {"type": "fulfillment", "display_text": "Shipping (US, flat)", "amount": ship},
+                       {"type": "total", "amount": sub + ship, "display_text": "Estimated total"}],
+            "continue_url": f"https://shop.hardywu.com/?cart={cid}", "expires_at": (prev or {}).get("expires_at") or _exp(24 * 7),
+            "_status": (prev or {}).get("_status", "open")}
+def core_cart_create(cart):
+    d = cart_build("cart_" + uuid.uuid4().hex[:12], cart); _cart_save(d); return _public(d), 201
+def core_cart_get(cid):
+    d = _cart_load(cid); return (_public(d), 200) if d else ucp_err("not_found", "No such cart.")
+def core_cart_update(cid, cart):
+    prev = _cart_load(cid)
+    if not prev: return ucp_err("not_found", "No such cart.")
+    if prev.get("_status") == "canceled": return ucp_err("invalid", "This cart was cancelled. Create a new one.")
+    d = cart_build(cid, cart, prev); _cart_save(d); return _public(d), 200
+def core_cart_cancel(cid):
+    d = _cart_load(cid)
+    if not d: return ucp_err("not_found", "No such cart.")
+    d["_status"] = "canceled"; d["line_items"] = []; d["totals"] = [{"type": "subtotal", "amount": 0}, {"type": "total", "amount": 0}]
+    d["messages"] = [{"type": "info", "code": "canceled", "content": "Cart cancelled."}]; _cart_save(d); return _public(d), 200
 
-@app.get("/ucp/checkout-sessions/<sid>")
-def ucp_get(sid):
-    d = _ucp_load(sid)
-    return (jsonify(ucp_public(d)) if d else ucp_error("not_found", "No such checkout session."))
+# ---- checkout sessions (table ucp_sessions)
+def _chk_load(sid):
+    con = db(); r = con.execute("SELECT data, expires_at FROM ucp_sessions WHERE id=?", (sid,)).fetchone(); con.close()
+    if not r: return None
+    d = json.loads(r["data"])
+    if r["expires_at"] < now_iso() and d["status"] not in ("completed",): d["status"] = "canceled"
+    return d
+def _chk_save(d):
+    con = db(); con.execute("INSERT OR REPLACE INTO ucp_sessions(id,data,created_at,expires_at) VALUES(?,?,?,?)",
+                            (d["id"], json.dumps(d), d.get("_created") or now_iso(), d["expires_at"])); con.commit(); con.close()
+APPROVAL_MSG = {"type": "error", "code": "buyer_approval_required", "path": "$", "severity": "requires_buyer_review",
+                "content": "Hardy's shop never places an order without the buyer. Send the buyer to continue_url to review the summary and press Approve; then poll this checkout until status is completed."}
 
-@app.put("/ucp/checkout-sessions/<sid>")
-def ucp_update(sid):
-    prev = _ucp_load(sid)
-    if not prev: return ucp_error("not_found", "No such checkout session.")
-    if prev["status"] in ("completed", "canceled"):
-        return jsonify(ucp_public(prev))
-    d = ucp_build(sid, request.get_json(silent=True) or {}, prev)
-    _ucp_save(d)
-    return jsonify(ucp_public(d))
-
-@app.post("/ucp/checkout-sessions/<sid>/complete")
-def ucp_complete(sid):
-    d = _ucp_load(sid)
-    if not d: return ucp_error("not_found", "No such checkout session.")
-    if d["status"] == "completed": return jsonify(ucp_public(d))
-    if d["status"] != "ready_for_complete":
-        return jsonify(ucp_public(d))            # still incomplete: the messages say what is missing
-    b = d["buyer"]; dest = next(x for x in d["fulfillment"]["methods"][0]["destinations"] if x["id"] == d["fulfillment"]["methods"][0]["selected_destination_id"])
+def chk_build(sid, req, prev=None):
+    req = dict(req or {})
+    if req.get("cart_id"):
+        cart = _cart_load(req["cart_id"])
+        if cart:
+            req["line_items"] = [{"id": l["id"], "item": {"id": l["item"]["id"]}, "quantity": l["quantity"]} for l in cart["line_items"]]
+            if cart.get("buyer") and not req.get("buyer"): req["buyer"] = cart["buyer"]
+    lines, msgs = ucp_lines(req)
+    if not lines and not msgs:
+        msgs.append({"type": "error", "code": "missing", "path": "$.line_items", "content": "Add at least one line item.", "severity": "recoverable"})
+    sub = sum(l["totals"][0]["amount"] for l in lines); ship = SHIPPING_CENTS if lines else 0
+    buyer = {k: str(v)[:80] for k, v in (req.get("buyer") or {}).items() if k in ("first_name", "last_name", "email", "phone_number") and v}
+    if not buyer.get("email"):
+        msgs.append({"type": "error", "code": "missing", "path": "$.buyer.email", "content": "Buyer email is required so Hardy can arrange payment.", "severity": "recoverable"})
+    f_req = ((req.get("fulfillment") or {}).get("methods") or [{}])[0]
+    dests = [{k: str(d.get(k) or "")[:120] for k in ("street_address", "extended_address", "address_locality", "address_region", "postal_code", "address_country")}
+             | {"type": "shipping_address", "id": d.get("id") or f"dest_{j+1}"} for j, d in enumerate((f_req.get("destinations") or [])[:5])]
+    sel = f_req.get("selected_destination_id") or (dests[0]["id"] if dests else None)
+    dest = next((d for d in dests if d["id"] == sel), None)
+    if not dest or not all(dest.get(k) for k in ("street_address", "address_locality", "address_region", "postal_code", "address_country")):
+        msgs.append({"type": "error", "code": "missing", "path": "$.fulfillment.methods[0].selected_destination_id", "severity": "recoverable",
+                     "content": "A full US shipping address is required (street, city, state, postal code, country)."})
+    elif dest.get("address_country", "").upper() not in ("US", "USA", "UNITED STATES"):
+        msgs.append({"type": "error", "code": "invalid", "path": "$.fulfillment.methods[0].destinations", "content": "We only ship within the US for now.", "severity": "recoverable"})
+    ids = [l["id"] for l in lines]
+    fulfillment = {"methods": [{"id": "shipping", "type": "shipping", "line_item_ids": ids, "destinations": dests, "selected_destination_id": sel,
+                                "groups": [{"id": "package_1", "line_item_ids": ids, "selected_option_id": "flat",
+                                            "options": [{"id": "flat", "title": "Flat shipping", "description": {"plain": "Printed to order, then shipped within the US"},
+                                                         "totals": [{"type": "fulfillment", "amount": ship}, {"type": "total", "amount": ship}]}]}]}]}
+    recoverable = [m for m in msgs if m["type"] == "error"]
+    if prev and prev.get("status") in ("completed", "canceled"): status = prev["status"]
+    elif recoverable: status = "incomplete"
+    else: status = "requires_escalation"; msgs.append(APPROVAL_MSG)
+    msgs.append({"type": "info", "code": "payment_offline", "content": "No card is charged online. After the buyer approves, Hardy emails them to arrange payment (pay on delivery)."})
+    d = {"ucp": ucp_env(["dev.ucp.shopping.checkout", "dev.ucp.shopping.fulfillment"]), "id": sid, "status": status, "currency": "USD",
+         "line_items": lines, "buyer": buyer, "fulfillment": fulfillment, "messages": msgs, "links": UCP_LINKS,
+         "totals": [{"type": "subtotal", "amount": sub}, {"type": "fulfillment", "display_text": "Shipping", "amount": ship}, {"type": "total", "amount": sub + ship}],
+         "expires_at": (prev or {}).get("expires_at") or _exp(6), "order": (prev or {}).get("order"),
+         "continue_url": f"https://play.hardywu.com/approve/{sid}",
+         "_created": (prev or {}).get("_created") or now_iso(), "_cart_id": req.get("cart_id") or (prev or {}).get("_cart_id"),
+         "_agent": (prev or {}).get("_agent")}
+    return d
+def core_checkout_create(checkout, agent=""):
+    cid = (checkout or {}).get("cart_id")
+    if cid:                                              # one active checkout per cart
+        con = db(); rows = con.execute("SELECT data FROM ucp_sessions WHERE expires_at>?", (now_iso(),)).fetchall(); con.close()
+        for r in rows:
+            d = json.loads(r["data"])
+            if d.get("_cart_id") == cid and d["status"] in ("incomplete", "requires_escalation"): return _public(d), 200
+    d = chk_build("chk_" + uuid.uuid4().hex[:12], checkout); d["_agent"] = agent; _chk_save(d); return _public(d), 201
+def core_checkout_get(sid):
+    d = _chk_load(sid); return (_public(d), 200) if d else ucp_err("not_found", "No such checkout session.")
+def core_checkout_update(sid, checkout, agent=""):
+    prev = _chk_load(sid)
+    if not prev: return ucp_err("not_found", "No such checkout session.")
+    if prev["status"] in ("completed", "canceled"): return _public(prev), 200
+    d = chk_build(sid, checkout, prev); d["_agent"] = agent or prev.get("_agent"); _chk_save(d); return _public(d), 200
+def core_checkout_complete(sid, agent=""):
+    """The platform asks to place the order. We never do that alone: the buyer must approve at continue_url."""
+    d = _chk_load(sid)
+    if not d: return ucp_err("not_found", "No such checkout session.")
+    if d["status"] == "completed": return _public(d), 200
+    if agent: d["_agent"] = agent; _chk_save(d)
+    return _public(d), 200
+def core_checkout_cancel(sid):
+    d = _chk_load(sid)
+    if not d: return ucp_err("not_found", "No such checkout session.")
+    if d["status"] != "completed": d["status"] = "canceled"; _chk_save(d)
+    return _public(d), 200
+def ucp_place_order(d, approved_by):
+    """Called only from the approval page, by a signed-in person."""
+    b = d["buyer"]; m = d["fulfillment"]["methods"][0]
+    dest = next(x for x in m["destinations"] if x["id"] == m["selected_destination_id"])
     ship_to = ", ".join(v for v in (dest.get("street_address"), dest.get("extended_address"), dest.get("address_locality"),
                                     dest.get("address_region"), dest.get("postal_code"), dest.get("address_country")) if v)
-    agent = (request.headers.get("UCP-Agent") or request.headers.get("User-Agent") or "")[:80]
     name = (b.get("first_name", "") + " " + b.get("last_name", "")).strip() or b["email"]
+    agent = (d.get("_agent") or "AI agent")[:80]
     con = db(); ids = []
     for l in d["line_items"]:
-        oid = "O_" + uuid.uuid4().hex[:10]; ids.append(oid)
-        unit = l["item"]["price"] / 100; total = round(unit * l["quantity"] + (SHIPPING_CENTS / 100 if not ids[:-1] else 0), 2)
+        oid = "O_" + uuid.uuid4().hex[:10]; unit = l["item"]["price"] / 100
+        total = round(unit * l["quantity"] + (SHIPPING_CENTS / 100 if not ids else 0), 2); ids.append(oid)
         con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
                                           visitor_name,visitor_email,buyer_email,source,ship_to,phone,agent)
                        VALUES(?,?,?,?,?,?,?,?,?,'ordered',?,?,?,?,'agent',?,?,?)""",
                     (oid, l["_slug"], SHOP_PRODUCTS[l["_slug"]]["name"], l["quantity"], unit, total, l["_colour"],
-                     f"UCP {sid}", name, now_iso(), "", "", b["email"], ship_to, b.get("phone_number", ""), agent))
+                     f"UCP {d['id']} · approved by {approved_by}", name, now_iso(), "", "", b["email"], ship_to, b.get("phone_number", ""), agent))
         add_print_job(con, oid, SHOP_PRODUCTS[l["_slug"]]["name"], l["quantity"], l["_colour"], "", name)
     con.commit(); con.close()
-    d["status"] = "completed"
-    d["order"] = {"id": ids[0], "label": "Order " + ids[0], "permalink_url": f"{SITE_ORIGIN}/order/{ids[0]}"}
-    d["_order_ids"] = ids
-    _ucp_save(d)
+    d["status"] = "completed"; d["messages"] = [m for m in d["messages"] if m.get("code") != "buyer_approval_required"]
+    d["order"] = {"id": ids[0], "label": "Order " + ids[0], "permalink_url": f"https://hardywu.com/order/{ids[0]}"}
+    d["_order_ids"] = ids; d["_approved_by"] = approved_by; d["_approved_at"] = now_iso(); _chk_save(d)
+    if d.get("_cart_id"):
+        c = _cart_load(d["_cart_id"])
+        if c: c["_status"] = "converted"; _cart_save(c)
     if mail_configured():
-        send_mail(OWNER_EMAIL, f"New UCP order from {agent or 'an AI agent'}: {name}",
+        send_mail(OWNER_EMAIL, f"New order via {agent}, approved by {approved_by}: {name}",
                   f"{name} <{b['email']}> {b.get('phone_number','')}\nShip to: {ship_to}\n\n" +
                   "\n".join(f"{l['quantity']} × {l['item']['title']}" for l in d["line_items"]) +
-                  f"\n\nTotal ${d['totals'][-1]['amount']/100:.2f}. No payment taken — email the buyer.\n{SITE_ORIGIN}/orders")
-    return jsonify(ucp_public(d))
-
-@app.post("/ucp/checkout-sessions/<sid>/cancel")
-def ucp_cancel(sid):
-    d = _ucp_load(sid)
-    if not d: return ucp_error("not_found", "No such checkout session.")
-    if d["status"] != "completed": d["status"] = "canceled"; _ucp_save(d)
-    return jsonify(ucp_public(d))
-
-@app.get("/ucp/orders/<oid>")
-def ucp_order(oid):
+                  f"\n\nTotal ${d['totals'][-1]['amount']/100:.2f}. No payment taken — email the buyer.\nhttps://hardywu.com/orders")
+    return d
+def core_order(oid):
     con = db(); o = con.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone(); con.close()
-    if not o: return ucp_error("not_found", "No such order.")
+    if not o: return ucp_err("not_found", "No such order.")
     o = dict(o)
-    return jsonify(ucp=ucp_env(["dev.ucp.shopping.order"]), id=oid, status=o["status"], currency="USD",
-                   line_items=[{"id": "li_1", "item": {"id": ucp_variant_id(o["product"], o.get("color") or ""), "title": o.get("product_name"), "price": int(round(o["price_each"] * 100))},
-                                "quantity": o["qty"], "totals": [{"type": "total", "amount": int(round(o["price_each"] * o["qty"] * 100))}]}],
-                   totals=[{"type": "total", "amount": int(round(o["total"] * 100))}], permalink_url=f"{SITE_ORIGIN}/order/{oid}")
+    return {"ucp": ucp_env(["dev.ucp.shopping.order"]), "id": oid, "status": o["status"], "currency": "USD",
+            "line_items": [{"id": "li_1", "item": {"id": ucp_variant_id(o["product"], o.get("color") or ""), "title": o.get("product_name"), "price": int(round(o["price_each"] * 100))},
+                            "quantity": o["qty"], "totals": [{"type": "total", "amount": int(round(o["price_each"] * o["qty"] * 100))}]}],
+            "totals": [{"type": "total", "amount": int(round(o["total"] * 100))}], "permalink_url": f"https://hardywu.com/order/{oid}"}, 200
+
+# ---- REST binding
+def _agent_hdr(): return (request.headers.get("UCP-Agent") or request.headers.get("User-Agent") or "")[:80]
+def _J(pair): body, status = pair; return jsonify(body), status
+@app.get("/.well-known/ucp")
+def ucp_profile():
+    spec = f"https://ucp.dev/{UCP_VERSION}"
+    def cap(path, schema, extends=None):
+        c = {"version": UCP_VERSION, "spec": f"{spec}/specification/{path}", "schema": f"{spec}/schemas/{schema}"}
+        if extends: c["extends"] = extends
+        return [c]
+    return jsonify(ucp={
+        "version": UCP_VERSION,
+        "services": {"dev.ucp.shopping": [
+            {"version": UCP_VERSION, "spec": f"{spec}/specification/overview/", "transport": "rest", "endpoint": UCP_BASE,
+             "schema": f"{spec}/services/shopping/rest.openapi.json"},
+            {"version": UCP_VERSION, "spec": f"{spec}/specification/overview/", "transport": "mcp", "endpoint": UCP_BASE + "/mcp",
+             "schema": f"{spec}/services/shopping/mcp.openrpc.json"}]},
+        "capabilities": {
+            "dev.ucp.shopping.catalog.search": cap("shopping/catalog/search", "shopping/catalog_search.json"),
+            "dev.ucp.shopping.catalog.lookup": cap("shopping/catalog/lookup", "shopping/catalog_lookup.json"),
+            "dev.ucp.shopping.cart": cap("shopping/cart", "shopping/cart.json"),
+            "dev.ucp.shopping.checkout": cap("shopping/checkout", "shopping/checkout.json"),
+            "dev.ucp.shopping.fulfillment": cap("shopping/extensions/fulfillment", "shopping/fulfillment.json", "dev.ucp.shopping.checkout")},
+        "payment_handlers": {}},
+        business={"name": "Hardy Wu", "url": "https://hardywu.com", "contact": OWNER_EMAIL,
+                  "note": "Carts are free to build. A checkout is only placed after the buyer approves it at continue_url; no card is taken online — Hardy emails the buyer to arrange payment."})
+@app.post("/ucp/catalog/search")
+def r_search(): return _J(core_search(request.get_json(silent=True)))
+@app.post("/ucp/catalog/lookup")
+def r_lookup(): return _J(core_lookup(request.get_json(silent=True)))
+@app.post("/ucp/catalog/product")
+def r_product(): return _J(core_product(request.get_json(silent=True)))
+@app.post("/ucp/carts")
+def r_cart_create():
+    if not agent_rate_ok(request.remote_addr or "?", limit=60): return _J(ucp_err("rate_limited", "Too many carts from this address; try later.", 429))
+    return _J(core_cart_create(request.get_json(silent=True)))
+@app.get("/ucp/carts/<cid>")
+def r_cart_get(cid): return _J(core_cart_get(cid))
+@app.put("/ucp/carts/<cid>")
+def r_cart_update(cid): return _J(core_cart_update(cid, request.get_json(silent=True)))
+@app.post("/ucp/carts/<cid>/cancel")
+def r_cart_cancel(cid): return _J(core_cart_cancel(cid))
+@app.post("/ucp/checkout-sessions")
+def r_chk_create():
+    if not agent_rate_ok(request.remote_addr or "?", limit=30): return _J(ucp_err("rate_limited", "Too many checkouts from this address; try later.", 429))
+    return _J(core_checkout_create(request.get_json(silent=True), _agent_hdr()))
+@app.get("/ucp/checkout-sessions/<sid>")
+def r_chk_get(sid): return _J(core_checkout_get(sid))
+@app.put("/ucp/checkout-sessions/<sid>")
+def r_chk_update(sid): return _J(core_checkout_update(sid, request.get_json(silent=True), _agent_hdr()))
+@app.post("/ucp/checkout-sessions/<sid>/complete")
+def r_chk_complete(sid): return _J(core_checkout_complete(sid, _agent_hdr()))
+@app.post("/ucp/checkout-sessions/<sid>/cancel")
+def r_chk_cancel(sid): return _J(core_checkout_cancel(sid))
+@app.get("/ucp/orders/<oid>")
+def r_order(oid): return _J(core_order(oid))
+
+# ---- MCP binding: JSON-RPC 2.0 over HTTP (Streamable HTTP, JSON responses).
+# UCP capabilities map 1:1 to tools; the same names also work as bare JSON-RPC methods.
+MCP_TOOLS = [
+  ("search_catalog", "Search Hardy's 3D-printed products by words and optional price filter (amounts in cents). Returns products with colour variants; use a variant id (e.g. crab-gauge__black) as line_items[].item.id.",
+   {"type": "object", "properties": {"meta": {"type": "object"}, "catalog": {"type": "object", "properties": {"query": {"type": "string"}, "filters": {"type": "object"}}}}}),
+  ("lookup_catalog", "Look up products by product or variant ids.", {"type": "object", "properties": {"meta": {"type": "object"}, "catalog": {"type": "object", "properties": {"ids": {"type": "array", "items": {"type": "string"}}}, "required": ["ids"]}}, "required": ["catalog"]}),
+  ("get_product", "Full details of one product by id or handle.", {"type": "object", "properties": {"meta": {"type": "object"}, "catalog": {"type": "object", "properties": {"id": {"type": "string"}}}}}),
+  ("create_cart", "Start a cart with line items [{item:{id:variant_id}, quantity}]. Free to change later.", {"type": "object", "properties": {"meta": {"type": "object"}, "cart": {"type": "object"}}, "required": ["cart"]}),
+  ("get_cart", "Read a cart.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("update_cart", "Replace the cart's line items with the full new list: add an item by including it, change a quantity, remove an item by leaving it out.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "cart": {"type": "object"}}, "required": ["id", "cart"]}),
+  ("cancel_cart", "Empty and cancel a cart.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("create_checkout", "Turn a cart into a checkout (pass cart_id) or start one from line items. Add buyer {first_name,last_name,email,phone_number} and fulfillment.methods[0].destinations[0] (US postal address). The order is NOT placed until the buyer opens continue_url and presses Approve.",
+   {"type": "object", "properties": {"meta": {"type": "object"}, "checkout": {"type": "object"}}, "required": ["checkout"]}),
+  ("get_checkout", "Read a checkout. Poll this after sending the buyer to continue_url; status becomes completed with order once they approve.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("update_checkout", "Full replacement update of a checkout (buyer, line items, address).", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id", "checkout"]}),
+  ("complete_checkout", "Ask to place the order. Hardy's shop answers requires_escalation: the buyer must approve at continue_url first.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id"]}),
+  ("cancel_checkout", "Cancel a checkout.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("get_order", "Read a placed order by id.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+]
+def mcp_dispatch(name, a):
+    a = a or {}; agent = str(((a.get("meta") or {}).get("ucp-agent") or {}).get("profile") or "MCP agent")[:80]
+    f = {"search_catalog": lambda: core_search(a.get("catalog")), "lookup_catalog": lambda: core_lookup(a.get("catalog")),
+         "get_product": lambda: core_product(a.get("catalog")),
+         "create_cart": lambda: core_cart_create(a.get("cart")), "get_cart": lambda: core_cart_get(a.get("id")),
+         "update_cart": lambda: core_cart_update(a.get("id"), a.get("cart")), "cancel_cart": lambda: core_cart_cancel(a.get("id")),
+         "create_checkout": lambda: core_checkout_create(a.get("checkout"), agent), "get_checkout": lambda: core_checkout_get(a.get("id")),
+         "update_checkout": lambda: core_checkout_update(a.get("id"), a.get("checkout"), agent),
+         "complete_checkout": lambda: core_checkout_complete(a.get("id"), agent), "cancel_checkout": lambda: core_checkout_cancel(a.get("id")),
+         "get_order": lambda: core_order(a.get("id"))}.get(name)
+    return f() if f else None
+def _rpc_result(mid, result): return {"jsonrpc": "2.0", "id": mid, "result": result}
+def _rpc_error(mid, code, msg): return {"jsonrpc": "2.0", "id": mid, "error": {"code": code, "message": msg}}
+def mcp_handle(msg):
+    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0": return _rpc_error(None, -32600, "Invalid request")
+    mid, method, params = msg.get("id"), msg.get("method"), msg.get("params") or {}
+    if method == "initialize":
+        return _rpc_result(mid, {"protocolVersion": params.get("protocolVersion") or "2025-06-18", "capabilities": {"tools": {"listChanged": False}},
+                                 "serverInfo": {"name": "Hardy Wu shop (UCP)", "version": UCP_VERSION},
+                                 "instructions": "Search the catalogue, build a cart, create a checkout with buyer + US address, then send the buyer to continue_url to approve. Poll get_checkout until status is completed. No card is taken; Hardy emails the buyer."})
+    if method in ("notifications/initialized", "notifications/cancelled"): return None
+    if method == "ping": return _rpc_result(mid, {})
+    if method == "tools/list":
+        return _rpc_result(mid, {"tools": [{"name": n, "description": d, "inputSchema": s} for n, d, s in MCP_TOOLS]})
+    if method == "tools/call":
+        name = params.get("name"); out = mcp_dispatch(name, params.get("arguments"))
+        if out is None: return _rpc_error(mid, -32602, f"Unknown tool {name!r}")
+        body, status = out
+        return _rpc_result(mid, {"content": [{"type": "text", "text": json.dumps(body)}], "structuredContent": body, "isError": status >= 400})
+    out = mcp_dispatch(method, params)              # bare UCP method names (OpenRPC style)
+    if out is not None: return _rpc_result(mid, out[0])
+    return _rpc_error(mid, -32601, f"Method not found: {method}")
+@app.route("/ucp/mcp", methods=["POST", "GET", "DELETE"])
+def mcp_endpoint():
+    if request.method != "POST":
+        return jsonify(error="This MCP server answers JSON-RPC over POST only (no server-sent stream)."), 405
+    if not agent_rate_ok(request.remote_addr or "?", limit=600): return jsonify(_rpc_error(None, -32000, "Too many requests")), 429
+    msg = request.get_json(silent=True)
+    if isinstance(msg, list):
+        out = [r for r in (mcp_handle(m) for m in msg) if r is not None]
+        return (jsonify(out), 200) if out else ("", 202)
+    out = mcp_handle(msg)
+    return (jsonify(out), 200) if out is not None else ("", 202)
+
+# ---- the human approval page: the buyer (signed in on hardywu.com) reviews and approves
+@app.route("/approve/<sid>", methods=["GET", "POST"])
+def approve_page(sid):
+    d = _chk_load(sid)
+    if not d:
+        return p_page("Approve order", "<header><h1>No such checkout</h1><p class=\"tag\">It may have expired. Ask your assistant to start again.</p></header>", '<a href="/">← hardywu.com</a>'), 404
+    me = visitor() or ""
+    buyer_email = (d.get("buyer") or {}).get("email", "").lower()
+    allowed = me and (me == buyer_email or is_owner() or is_hardy())
+    lines = "".join(f"<li><b>{l['quantity']} × {html.escape(l['item']['title'])}</b> — ${l['totals'][0]['amount']/100:.2f}</li>" for l in d["line_items"])
+    m = d["fulfillment"]["methods"][0]; dest = next((x for x in m["destinations"] if x["id"] == m["selected_destination_id"]), {})
+    addr = ", ".join(v for v in (dest.get("street_address"), dest.get("extended_address"), dest.get("address_locality"), dest.get("address_region"), dest.get("postal_code"), dest.get("address_country")) if v)
+    total = d["totals"][-1]["amount"] / 100
+    if request.method == "POST" and allowed and d["status"] == "requires_escalation":
+        if request.form.get("decision") == "approve":
+            d = ucp_place_order(d, me)
+        else:
+            d["status"] = "canceled"; _chk_save(d)
+    if d["status"] == "completed":
+        body = f"""<header><h1>Approved ✓</h1><p class="tag">Order <b>{html.escape(d['order']['id'])}</b> is placed. Hardy will email <b>{html.escape(buyer_email)}</b> to arrange payment and shipping.</p>
+          <p class="tag"><a href="{d['order']['permalink_url']}">See the order</a></p></header>"""
+    elif d["status"] == "canceled":
+        body = "<header><h1>Cancelled</h1><p class=\"tag\">Nothing was ordered.</p></header>"
+    elif d["status"] != "requires_escalation":
+        body = f"<header><h1>Not ready yet</h1><p class=\"tag\">The assistant still has to fill in: {html.escape('; '.join(x['content'] for x in d['messages'] if x['type']=='error' and x.get('severity')=='recoverable'))}</p></header>"
+    else:
+        agent = html.escape(d.get("_agent") or "an AI assistant")
+        summary = f"""<header><h1>Approve this order?</h1>
+          <p class="tag">{agent} prepared it for <b>{html.escape(buyer_email)}</b>. Nothing is ordered and nothing is charged until you press Approve.</p></header>
+          <div style="max-width:560px;margin:0 auto;text-align:left;background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px">
+          <ul style="margin:0 0 10px 18px;line-height:1.8">{lines}</ul>
+          <p style="margin:6px 0">Shipping: ${SHIPPING_CENTS/100:.2f} &nbsp;·&nbsp; <b>Total ${total:.2f}</b></p>
+          <p style="margin:6px 0">Ship to: {html.escape(addr) or '<i>missing</i>'}</p>
+          <p style="margin:6px 0;color:rgba(255,255,255,.65);font-size:13px">No card is charged online. Hardy emails you to arrange payment (pay on delivery).</p>"""
+        if allowed:
+            body = summary + f"""<form method="post" style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap">
+              <button name="decision" value="approve" style="font-weight:800;font-size:18px;padding:12px 28px;border:0;border-radius:12px;background:#22c55e;color:#04210f;cursor:pointer">✓ Approve and order</button>
+              <button name="decision" value="cancel" style="font-weight:700;font-size:16px;padding:12px 22px;border:1px solid rgba(255,255,255,.4);border-radius:12px;background:transparent;color:#fff;cursor:pointer">Cancel</button></form></div>"""
+        elif me:
+            body = summary + f"""<p style="margin-top:14px;color:#fca5a5">You are signed in as <b>{html.escape(me)}</b>, but this order is for <b>{html.escape(buyer_email)}</b>. <a href="/signout" style="color:#fff">Sign out</a> and sign in with that email to approve it.</p></div>"""
+        else:
+            body = summary + f"""<p style="margin-top:14px"><a href="{login_url_for('') if on_real_site() else '/'}?next=/approve/{html.escape(sid)}" style="color:#fff;font-weight:700">Sign in as {html.escape(buyer_email)} to approve →</a></p></div>"""
+    return p_page("Approve order — Hardy Wu", body, '<a href="/">← hardywu.com</a>')
 
 @app.get("/order/<oid>")
 def order_permalink(oid):
@@ -627,6 +794,7 @@ def terms_page():
     return p_page("Terms", f"""<header><h1>Terms, shipping &amp; returns</h1>
       <p class="tag"><b>Payment.</b> Nothing is charged online yet. When you order, Hardy emails you to arrange payment (pay on delivery).</p>
       <p class="tag"><b>Shipping.</b> Everything is 3D-printed to order and shipped within the US for a flat ${SHIPPING_CENTS/100:.2f}.</p>
+      <p class="tag"><b>AI assistants.</b> An assistant may build a cart and prepare a checkout for you, but nothing is ordered until you approve it yourself on hardywu.com.</p>
       <p class="tag"><b>Returns.</b> If something arrives broken or wrong, email {html.escape(OWNER_EMAIL)} and we will reprint or refund.</p>
       <p class="tag"><b>Privacy.</b> We keep your name, email and address only to make and ship your order, and never share them.</p></header>""",
       '<a href="/">← hardywu.com</a>')
@@ -1649,7 +1817,7 @@ def require_passcode():
                       or p.startswith("/ucp/") or p.startswith("/order/")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/go/")
+        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/approve/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -1657,7 +1825,7 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback")
+        needs_login = p.startswith("/play/") or p.startswith("/approve/") or p in ("/activity", "/orders", "/feedback")
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
@@ -1939,6 +2107,9 @@ def init_db():
                      o.get("color") or "", o.get("custom_text") or "", o.get("buyer") or "",
                      "done" if done else "todo", o["created_at"], o["created_at"] if done else None))
     con.executescript("""
+    CREATE TABLE IF NOT EXISTS ucp_carts(
+      id TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS ucp_sessions(
       id TEXT PRIMARY KEY, data TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
     );
