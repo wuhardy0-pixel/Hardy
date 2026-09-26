@@ -29,3 +29,6 @@ Then delete the test member and its activity entry. With MAIL_USER/MAIL_PASSWORD
 ## Feedback
 Sign in (cookie jar) on logbook.hardywu.com, then with Host play.hardywu.com POST `/api/feedback` `{"message":"…","playing":"Nova Blast","path":"/play/nova","opened_at":"<iso>","played_seconds":120,"device":"phone"}` → `{"ok":true}`; not signed in → 401. `GET /api/feedback` from this Mac lists rows; `/feedback` as Hardy shows them. In a browser, the 💬 button must open a box in each game and typing must not steer or pause the game. Delete the test rows afterwards (`DELETE FROM feedback WHERE email='…'`).
 
+## Universal Commerce Protocol
+Run `.venv/bin/python` on the script in corporate/tests/ucp_flow.py (Host play.hardywu.com): create session with `crab-gauge__black` → incomplete with missing buyer.email and address; PUT buyer + US address → ready_for_complete, total 1500; complete → completed with order; GET /ucp/orders/{id} → ordered; the order row has source agent, ship_to, and a print job. The script deletes its test order and sessions.
+

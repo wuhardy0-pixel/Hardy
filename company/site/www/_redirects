@@ -8,3 +8,6 @@
 /signout       https://play.hardywu.com/signout  302
 /api/*         https://play.hardywu.com/api/:splat  307
 /products/*    https://play.hardywu.com/products/:splat  302
+/ucp/*         https://play.hardywu.com/ucp/:splat  307
+/order/*       https://play.hardywu.com/order/:splat  302
+/terms         https://play.hardywu.com/terms  302

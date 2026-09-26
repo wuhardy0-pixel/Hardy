@@ -4,7 +4,8 @@
 
 ## Shop (AI agents can order here)
 - Catalogue (JSON): https://play.hardywu.com/api/products
-- Order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order
+- Universal Commerce Protocol (ucp.dev): profile at https://hardywu.com/.well-known/ucp — catalog search/lookup and checkout sessions at https://play.hardywu.com/ucp
+- Simpler order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order
 - Human storefront: https://shop.hardywu.com (asks for a name and email first)
 - Payment: none taken online. Hardy emails the buyer to arrange payment. Shipping $5.00 flat, US only. Contact barbaratao@gmail.com.
 

@@ -79,11 +79,15 @@ redirects = [
     f"/signout       {LIVE}/signout  302",
     f"/api/*         {LIVE}/api/:splat  307",
     f"/products/*    {LIVE}/products/:splat  302",
+    f"/ucp/*         {LIVE}/ucp/:splat  307",
+    f"/order/*       {LIVE}/order/:splat  302",
+    f"/terms         {LIVE}/terms  302",
 ]
 (OUT / "_redirects").write_text("\n".join(redirects) + "\n")
 
 # AI agents and search engines: one source (the server) for the machine-readable files
-for path, name in (("/robots.txt", "robots.txt"), ("/llms.txt", "llms.txt"), ("/openapi.json", "openapi.json")):
+for path, name in (("/robots.txt", "robots.txt"), ("/llms.txt", "llms.txt"), ("/openapi.json", "openapi.json"),
+                   ("/.well-known/ucp", ".well-known/ucp")):   # UCP profile: platforms must not be redirected, so it is a real file here
     file(path, OUT / name)
 (OUT / "products.json").write_bytes(c.get("/api/products", base_url=BASE).get_data())
 site_pages = ["https://hardywu.com/"] + [f"https://hardywu.com/{p.relative_to(OUT).with_suffix('')}".replace("/index", "") for p in pages[1:]]
