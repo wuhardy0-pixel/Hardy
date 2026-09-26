@@ -764,7 +764,7 @@ def approve_page(sid):
         if not visitor():                                   # sign in first; the unlock survives in the cookie
             return redirect((login_url_for("") if on_real_site() else "/") + "?next=/approve/" + sid)
         return redirect("/approve/" + sid)                  # drop the code from the address bar
-    if sid not in unlocked and d["status"] not in ("completed", "canceled"):
+    if sid not in unlocked:                                 # no fresh code and never unlocked here: show nothing at all
         return p_page("Approve order", f"""<header><h1>This link has expired</h1>
           <p class="tag">Approval links only work for {APPROVE_SECONDS} seconds, to keep your details private.<br>Ask your assistant for a fresh link and open it straight away.</p></header>""",
           '<a href="/">← hardywu.com</a>'), 403
@@ -788,7 +788,9 @@ def approve_page(sid):
     elif d["status"] != "requires_escalation":
         body = f"<header><h1>Not ready yet</h1><p class=\"tag\">The assistant still has to fill in: {html.escape('; '.join(x['content'] for x in d['messages'] if x['type']=='error' and x.get('severity')=='recoverable'))}</p></header>"
     else:
-        agent = html.escape(d.get("_agent") or "an AI assistant")
+        from urllib.parse import urlparse as _up
+        _ag = d.get("_agent") or ""
+        agent = "Your AI assistant" + (f" ({html.escape(_up(_ag).hostname or _ag[:40])})" if _ag else "")
         summary = f"""<header><h1>Approve this order?</h1>
           <p class="tag">{agent} prepared it for <b>{html.escape(buyer_email)}</b>. Nothing is ordered and nothing is charged until you press Approve.</p></header>
           <div style="max-width:560px;margin:0 auto;text-align:left;background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px">
