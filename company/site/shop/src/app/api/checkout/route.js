@@ -8,6 +8,7 @@ export async function POST(request) {
   const body = await request.json();
   const product = getProduct(body.slug);
   if (!product) return NextResponse.json({ error: "unknown product" }, { status: 400 });
+  if (product.in_stock === false) return NextResponse.json({ error: "sorry, this product is sold out right now" }, { status: 400 });
 
   const qty = Math.min(9, Math.max(1, Number(body.qty) || 1));
   const text = product.text && body.text ? String(body.text).slice(0, 30) : null;

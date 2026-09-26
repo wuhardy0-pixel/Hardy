@@ -98,3 +98,7 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 - [ ] Update README status to Launched
 
 **Done when:** the PRD §2 success sentence is true on the live link.
+
+## 2026-09-26
+- Customizable Lunchbox marked sold out (`in_stock: false` in data/catalog.json): Sold-out badge on the home grid, notice + disabled order button on its page, checkout API refuses it, JSON-LD says OutOfStock. Flip the flag back to true to sell it again.
+

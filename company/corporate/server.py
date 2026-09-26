@@ -135,7 +135,7 @@ _EMOJI = {"crab-gauge": "🦀", "customizable-lunchbox": "🍱", "dual-ruler": "
 for _slug, _p in SHOP_PRODUCTS.items():
     PORTFOLIO["3d"]["items"][_slug] = {
         "name": _p["name"], "emoji": _EMOJI.get(_slug, "🖨️"),
-        "desc": f'{_p.get("description","")} — ${_p["price"]:.2f}',
+        "desc": f'{_p.get("description","")} — ${_p["price"]:.2f}' + ("" if _p.get("in_stock", True) else " · SOLD OUT"),
         "shop": True, "price": float(_p["price"]),
         "photo": (_p.get("photos") or [None])[0],
     }
@@ -151,6 +151,8 @@ def place_order():
     p = SHOP_PRODUCTS.get(slug)
     if not p:
         return jsonify(error="Unknown product."), 400
+    if not p.get("in_stock", True):
+        return jsonify(error="Sorry, this product is sold out right now."), 400
     try:
         qty = int(x.get("qty") or 0)
     except (TypeError, ValueError):
@@ -204,7 +206,7 @@ def product_feed():
             "link": f"https://shop.hardywu.com/products/{slug}",
             "image_link": photos[0] if photos else None, "additional_image_link": photos[1:],
             "price": f"{float(p['price']):.2f} {_cat.get('currency','usd').upper()}",
-            "availability": "in_stock", "condition": "new", "brand": "Hardy Wu",
+            "availability": "in_stock" if p.get("in_stock", True) else "out_of_stock", "condition": "new", "brand": "Hardy Wu",
             "made_to_order": True, "product_type": "3D print",
             "variant_attributes": {"color": SHOP_COLORS, "zones": p.get("zones") or ["Color"]},
             "customizations": {"custom_text": bool(p.get("text")), "custom_image": bool(p.get("image")),
@@ -268,7 +270,7 @@ def llms_txt():
              f"- Payment: none taken online. Hardy emails the buyer to arrange payment. Shipping ${SHIPPING_CENTS/100:.2f} flat, US only. Contact {OWNER_EMAIL}.", "",
              "## Products"]
     for p in product_feed():
-        lines.append(f"- {p['title']} — {p['price']}: {p['description']} (colours: {', '.join(p['variant_attributes']['color'])}) → {p['link']}")
+        lines.append(f"- {p['title']} — {p['price']}{' — SOLD OUT' if p['availability'] != 'in_stock' else ''}: {p['description']} (colours: {', '.join(p['variant_attributes']['color'])}) → {p['link']}")
     lines += ["", "## Games (free, in the browser, sign in with a name and email)",
               "- https://hardywu.com/games", "", "## Apps", "- BookKeep: https://bookkeep.hardywu.com — speak-it, snap-it bookkeeping", "",
               "## Robotics", "- https://hardywu.com/robotics"]
@@ -307,6 +309,8 @@ def agent_order():
     p = SHOP_PRODUCTS.get(slug)
     if not p:
         return jsonify(error="Unknown product. Use an id from https://play.hardywu.com/api/products."), 400
+    if not p.get("in_stock", True):
+        return jsonify(error="Sorry, this product is sold out right now."), 400
     try:
         qty = int(x.get("qty") or 1)
     except (TypeError, ValueError):
@@ -382,7 +386,7 @@ def ucp_product(slug, p):
         "id": ucp_variant_id(slug, c), "sku": f"{slug}-{_cslug(c)}".upper(), "title": c,
         "description": {"plain": f"{p['name']} in {c}"},
         "price": {"amount": cents, "currency": "USD"},
-        "availability": {"available": True, "status": "in_stock"},
+        "availability": {"available": bool(p.get("in_stock", True)), "status": "in_stock" if p.get("in_stock", True) else "out_of_stock"},
         "options": [{"name": "Color", "label": c}], "media": media, "seller": seller,
     } for c in SHOP_COLORS]
     return {"id": slug, "handle": slug, "title": p["name"],
@@ -477,6 +481,9 @@ def ucp_build(sid, req, prev=None):
         if not p:
             msgs.append({"type": "error", "code": "invalid", "path": f"$.line_items[{i}].item.id",
                          "content": f"Unknown item {item.get('id')!r}. Use a variant id from catalog search (e.g. crab-gauge__black).", "severity": "recoverable"}); continue
+        if not p.get("in_stock", True):
+            msgs.append({"type": "error", "code": "out_of_stock", "path": f"$.line_items[{i}].item.id",
+                         "content": f"{p['name']} is sold out right now.", "severity": "recoverable"}); continue
         if not colour:
             msgs.append({"type": "error", "code": "invalid", "path": f"$.line_items[{i}].item.id",
                          "content": "Pick a colour variant: " + ", ".join(ucp_variant_id(item["id"].partition("__")[0], c) for c in SHOP_COLORS), "severity": "recoverable"}); continue

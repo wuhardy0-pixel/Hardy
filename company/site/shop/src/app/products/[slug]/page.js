@@ -19,7 +19,7 @@ export default function ProductPage({ params }) {
     "@context": "https://schema.org", "@type": "Product", name: product.name, description: product.description,
     image: (product.photos || []).map((ph) => `https://shop.hardywu.com${ph}`), brand: { "@type": "Brand", name: "Hardy Wu" },
     offers: { "@type": "Offer", price: product.price.toFixed(2), priceCurrency: shop.currency.toUpperCase(),
-      availability: "https://schema.org/InStock", url: `https://shop.hardywu.com/products/${product.slug}`,
+      availability: product.in_stock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock", url: `https://shop.hardywu.com/products/${product.slug}`,
       shippingDetails: { "@type": "OfferShippingDetails", shippingRate: { "@type": "MonetaryAmount", value: (shop.shippingCents / 100).toFixed(2), currency: "USD" } } },
     additionalProperty: [{ "@type": "PropertyValue", name: "colors", value: shop.colors.map((c) => c.name).join(", ") },
       { "@type": "PropertyValue", name: "agent_checkout", value: "https://play.hardywu.com/openapi.json" }],

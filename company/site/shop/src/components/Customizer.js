@@ -497,7 +497,12 @@ export default function Customizer({ product, colors, shippingCents }) {
         </div>
 
         {error && <div className="error" role="alert">{error}</div>}
-        <button className="btn big" style={{ marginTop: 10 }} onClick={checkout} disabled={busy || uploading}>
+        {product.in_stock === false && (
+          <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: "#fee2e2", color: "#7f1d1d", fontWeight: 700 }}>
+            Sold out for now — check back soon.
+          </div>
+        )}
+        <button className="btn big" style={{ marginTop: 10 }} onClick={checkout} disabled={busy || uploading || product.in_stock === false}>
           {busy ? "One moment…" : "Continue to secure payment →"}
         </button>
         <p className="hint" style={{ textAlign: "center", marginTop: 8 }}>

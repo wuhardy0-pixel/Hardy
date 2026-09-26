@@ -100,7 +100,7 @@ feed = json.loads((OUT / "products.json").read_text())
 lst = {"@context": "https://schema.org", "@type": "ItemList", "name": "Hardy's 3D prints",
        "itemListElement": [{"@type": "ListItem", "position": i + 1, "item": {"@type": "Product", "name": it["title"], "url": it["link"],
           "image": it["image_link"], "description": it["description"],
-          "offers": {"@type": "Offer", "price": it["price"].split()[0], "priceCurrency": it["price"].split()[1], "availability": "https://schema.org/InStock"}}}
+          "offers": {"@type": "Offer", "price": it["price"].split()[0], "priceCurrency": it["price"].split()[1], "availability": "https://schema.org/InStock" if it["availability"] == "in_stock" else "https://schema.org/OutOfStock"}}}
          for i, it in enumerate(feed["products"])]}
 idx = OUT / "index.html"
 idx.write_text(idx.read_text().replace("</head>", f'<script type="application/ld+json">{json.dumps(org)}</script>\n<script type="application/ld+json">{json.dumps(lst)}</script>\n</head>', 1))

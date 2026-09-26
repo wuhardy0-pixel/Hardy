@@ -30,7 +30,7 @@ export default function Home() {
             <div className="card-body">
               <h3>{p.name}</h3>
               <div className="tags">{tagline(p)}</div>
-              <div className="price">${p.price}</div>
+              <div className="price">${p.price}{p.in_stock === false && <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 700, color: "#b91c1c", background: "#fee2e2", padding: "2px 8px", borderRadius: 999 }}>Sold out</span>}</div>
             </div>
           </Link>
         ))}
