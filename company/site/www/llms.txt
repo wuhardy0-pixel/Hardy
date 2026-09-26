@@ -1,0 +1,23 @@
+# Hardy Wu — hardywu.com
+
+> Hardy Wu is a young maker. hardywu.com has his free browser games, the BookKeep bookkeeping app, and a small shop of 3D-printed products he prints to order. AI agents are welcome to browse and to buy on behalf of a person.
+
+## Shop (AI agents can order here)
+- Catalogue (JSON): https://play.hardywu.com/api/products
+- Order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order
+- Human storefront: https://shop.hardywu.com (asks for a name and email first)
+- Payment: none taken online. Hardy emails the buyer to arrange payment. Shipping $5.00 flat, US only. Contact barbaratao@gmail.com.
+
+## Products
+- Blue Crab Gauge — 5.00 USD: A handy blue-crab measuring gauge with an embossed scale — check your catch in seconds, then hang it back on its hook. (colours: Purple, White, Black, Blue, Orange, Red, Transparent (clear)) → https://shop.hardywu.com/products/crab-gauge
+- Customizable Lunchbox — 30.00 USD: A hinged, printed lunchbox with a carry handle — pick your colors, add a name, and send a picture your kid loves to get it printed right on the front. Made to order, one of a kind. (colours: Purple, White, Black, Blue, Orange, Red, Transparent (clear)) → https://shop.hardywu.com/products/customizable-lunchbox
+- Dual Ruler — 5.00 USD: A sturdy ruler with centimeters along one edge and inches along the other, with crisp raised markings. (colours: Purple, White, Black, Blue, Orange, Red, Transparent (clear)) → https://shop.hardywu.com/products/dual-ruler
+
+## Games (free, in the browser, sign in with a name and email)
+- https://hardywu.com/games
+
+## Apps
+- BookKeep: https://bookkeep.hardywu.com — speak-it, snap-it bookkeeping
+
+## Robotics
+- https://hardywu.com/robotics

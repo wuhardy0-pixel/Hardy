@@ -1,0 +1,6 @@
+# hardywu.com welcomes people and AI agents alike.
+User-agent: *
+Allow: /
+# AI agents: the catalogue and an order API are described here
+# https://hardywu.com/llms.txt
+Sitemap: https://hardywu.com/sitemap.txt

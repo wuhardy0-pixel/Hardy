@@ -13,6 +13,7 @@ Everything that runs hardywu.com and what it sells. One folder per kind of thing
 Everything outside `company/` (the sensor kit, manuals, LLM from Scratch, PCB Agent, One Man Tower, Card game leftovers) is the workshop: learning and R&D, never on GitHub.
 
 ## How to start things on this Mac
+They start by themselves: three launchd jobs (`com.hardywu.server`, `com.hardywu.shop`, `com.hardywu.tunnel` in ~/Library/LaunchAgents) run at login and restart on crash. To restart one by hand: `launchctl kickstart -k gui/$(id -u)/com.hardywu.server`. Logs: /tmp/com.hardywu.*.log. The manual ways below still work if launchd is not loaded.
 - Server: double-click `corporate/Start BookKeep.command` (or `cd corporate && .venv/bin/python server.py`). Log: `/private/tmp/bookkeep_server.log`.
 - Shop: `cd site/shop && npx next start -p 3010`. Log: `/private/tmp/hardyshop.log`.
 - Internet: the Cloudflare tunnel `bookkeep` forwards hardywu.com addresses to ports 5000 and 3010.

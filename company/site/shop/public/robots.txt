@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+# AI agents: catalogue and order API at https://hardywu.com/llms.txt

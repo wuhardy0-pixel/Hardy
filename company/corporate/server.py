@@ -185,6 +185,174 @@ def add_print_job(con, oid, product_name, qty, color, custom_text, buyer):
                    VALUES(?,?,?,?,?,?,?,'todo',?)""",
                 ("PJ_" + uuid.uuid4().hex[:10], oid, product_name, qty, color, custom_text, buyer, now_iso()))
 
+# ============================ AI shopping agents =============================
+# Machine-readable catalogue + a checkout an AI agent (ChatGPT, Meta's Muse, Claude…)
+# can call without a browser or a sign-in. Orders land in the same orders table and
+# print queue as everything else, marked source='agent'. No card is taken: Barbara
+# emails the buyer to arrange payment and shipping, exactly like site orders today.
+SHIPPING_CENTS = int(_cat.get("shippingCents") or 0)
+ADDON = 2.00                                    # $2 per custom text / extra colour, same as the shop
+
+def product_feed():
+    items = []
+    for slug, p in SHOP_PRODUCTS.items():
+        photos = [SITE_ORIGIN.replace("hardywu.com", "play.hardywu.com") + "/products/" + ph.split("/products/")[-1]
+                  if not ph.startswith("http") else ph for ph in (p.get("photos") or [])]
+        items.append({
+            "id": slug, "offer_id": slug, "title": p["name"],
+            "description": p.get("description", ""),
+            "link": f"https://shop.hardywu.com/products/{slug}",
+            "image_link": photos[0] if photos else None, "additional_image_link": photos[1:],
+            "price": f"{float(p['price']):.2f} {_cat.get('currency','usd').upper()}",
+            "availability": "in_stock", "condition": "new", "brand": "Hardy Wu",
+            "made_to_order": True, "product_type": "3D print",
+            "variant_attributes": {"color": SHOP_COLORS, "zones": p.get("zones") or ["Color"]},
+            "customizations": {"custom_text": bool(p.get("text")), "custom_image": bool(p.get("image")),
+                               "addon_price": f"{ADDON:.2f} USD each (text, image, each extra colour)"},
+            "shipping": {"price": f"{SHIPPING_CENTS/100:.2f} USD", "countries": ["US"]},
+            "seller": {"name": "Hardy Wu", "url": SITE_ORIGIN, "contact": OWNER_EMAIL},
+            "checkout": {"method": "POST", "url": "https://play.hardywu.com/api/agent/order",
+                         "spec": "https://play.hardywu.com/openapi.json"},
+        })
+    return items
+
+@app.get("/api/products")
+def api_products():
+    return jsonify(shop="Hardy's 3D", currency=_cat.get("currency", "usd"), updated=now_iso(),
+                   products=product_feed(),
+                   policies={"payment": "No card is taken online. Hardy emails the buyer to arrange payment (pay on delivery).",
+                             "shipping": f"Flat ${SHIPPING_CENTS/100:.2f} within the US, made to order.",
+                             "returns": "Contact " + OWNER_EMAIL + "."})
+
+OPENAPI = None
+def openapi_doc():
+    global OPENAPI
+    if OPENAPI is None:
+        OPENAPI = {
+          "openapi": "3.1.0",
+          "info": {"title": "Hardy Wu shop — agent checkout", "version": "1.0",
+                   "description": "Buy Hardy Wu's 3D-printed products on behalf of a person. List products with GET /api/products, then place the order with POST /api/agent/order. No payment is taken online; Hardy emails the buyer to arrange payment and shipping. Be honest about who the buyer is."},
+          "servers": [{"url": "https://play.hardywu.com"}],
+          "paths": {
+            "/api/products": {"get": {"summary": "Product catalogue with prices, colours and customisation options", "responses": {"200": {"description": "JSON list of products"}}}},
+            "/api/agent/order": {"post": {"summary": "Place an order for a person",
+              "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object",
+                "required": ["product", "buyer_name", "buyer_email"],
+                "properties": {
+                  "product": {"type": "string", "description": "product id from /api/products"},
+                  "qty": {"type": "integer", "minimum": 1, "maximum": 9, "default": 1},
+                  "color": {"type": "string", "description": "one of the colours in /api/products (or one per zone: 'Body: Black · Markings: Purple')"},
+                  "custom_text": {"type": "string", "maxLength": 30, "description": "engraved text, only for products with custom_text"},
+                  "buyer_name": {"type": "string"}, "buyer_email": {"type": "string", "format": "email"},
+                  "phone": {"type": "string"}, "ship_to": {"type": "string", "description": "full postal address, US only"},
+                  "note": {"type": "string", "maxLength": 300},
+                  "agent": {"type": "string", "description": "which AI agent is ordering, e.g. 'Meta Muse' or 'ChatGPT'"}}}}}},
+              "responses": {"200": {"description": "{ok, order (id), total, status:'ordered', next:'Hardy will email the buyer to arrange payment'}"},
+                            "400": {"description": "{error} — what is missing or wrong"}, "429": {"description": "too many orders from this address; try later"}}}}}}
+    return OPENAPI
+
+@app.get("/openapi.json")
+def openapi_json():
+    return jsonify(openapi_doc())
+
+LLMS_TXT = None
+def llms_txt():
+    lines = ["# Hardy Wu — hardywu.com", "",
+             "> Hardy Wu is a young maker. hardywu.com has his free browser games, the BookKeep bookkeeping app, "
+             "and a small shop of 3D-printed products he prints to order. AI agents are welcome to browse and to buy on behalf of a person.", "",
+             "## Shop (AI agents can order here)",
+             "- Catalogue (JSON): https://play.hardywu.com/api/products",
+             "- Order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order",
+             "- Human storefront: https://shop.hardywu.com (asks for a name and email first)",
+             f"- Payment: none taken online. Hardy emails the buyer to arrange payment. Shipping ${SHIPPING_CENTS/100:.2f} flat, US only. Contact {OWNER_EMAIL}.", "",
+             "## Products"]
+    for p in product_feed():
+        lines.append(f"- {p['title']} — {p['price']}: {p['description']} (colours: {', '.join(p['variant_attributes']['color'])}) → {p['link']}")
+    lines += ["", "## Games (free, in the browser, sign in with a name and email)",
+              "- https://hardywu.com/games", "", "## Apps", "- BookKeep: https://bookkeep.hardywu.com — speak-it, snap-it bookkeeping", "",
+              "## Robotics", "- https://hardywu.com/robotics"]
+    return "\n".join(lines) + "\n"
+
+@app.get("/llms.txt")
+def llms_route():
+    return app.response_class(llms_txt(), mimetype="text/plain")
+
+ROBOTS_TXT = """# hardywu.com welcomes people and AI agents alike.
+User-agent: *
+Allow: /
+# AI agents: the catalogue and an order API are described here
+# https://hardywu.com/llms.txt
+Sitemap: https://hardywu.com/sitemap.txt
+"""
+@app.get("/robots.txt")
+def robots_route():
+    return app.response_class(ROBOTS_TXT, mimetype="text/plain")
+
+_agent_hits = {}
+def agent_rate_ok(ip, limit=10, window=3600):
+    import time
+    now = time.time()
+    hits = [t for t in _agent_hits.get(ip, []) if now - t < window]
+    if len(hits) >= limit:
+        _agent_hits[ip] = hits; return False
+    hits.append(now); _agent_hits[ip] = hits; return True
+
+@app.post("/api/agent/order")
+def agent_order():
+    if not agent_rate_ok(request.remote_addr or "?"):
+        return jsonify(error="Too many orders from this address. Please try again later."), 429
+    x = request.get_json(silent=True) or {}
+    slug = str(x.get("product") or "").strip()
+    p = SHOP_PRODUCTS.get(slug)
+    if not p:
+        return jsonify(error="Unknown product. Use an id from https://play.hardywu.com/api/products."), 400
+    try:
+        qty = int(x.get("qty") or 1)
+    except (TypeError, ValueError):
+        qty = 0
+    if not (1 <= qty <= 9):
+        return jsonify(error="qty must be between 1 and 9."), 400
+    buyer = str(x.get("buyer_name") or "").strip()[:60]
+    email = str(x.get("buyer_email") or "").strip().lower()[:90]
+    if not buyer or "@" not in email or "." not in email.split("@")[-1]:
+        return jsonify(error="buyer_name and a real buyer_email are required so Hardy can reach the buyer."), 400
+    color = str(x.get("color") or "").strip()[:80]
+    if not color:
+        return jsonify(error="Pick a color: " + ", ".join(SHOP_COLORS) + "."), 400
+    zones = p.get("zones") or ["Color"]
+    parts = [c.strip() for c in re.split(r"[·,;]", color)] if len(zones) > 1 else [color]
+    names = [(c.split(":", 1)[1] if ":" in c else c).strip() for c in parts]
+    bad = [n for n in names if n not in SHOP_COLORS]
+    if bad:
+        return jsonify(error=f"Unknown color {bad[0]!r}. Choose from: " + ", ".join(SHOP_COLORS) + "."), 400
+    custom = str(x.get("custom_text") or "").strip()[:30]
+    if custom and not p.get("text"):
+        return jsonify(error="This product does not take custom text."), 400
+    extra_colours = max(0, len(set(names)) - 1)
+    unit = round(float(p["price"]) + ADDON * ((1 if custom else 0) + extra_colours), 2)
+    total = round(unit * qty + SHIPPING_CENTS / 100, 2)
+    ship_to = str(x.get("ship_to") or "").strip()[:300]
+    phone = str(x.get("phone") or "").strip()[:40]
+    agent = (str(x.get("agent") or "").strip() or (request.headers.get("User-Agent") or ""))[:80]
+    note = str(x.get("note") or "").strip()[:300]
+    details = " · ".join(b for b in ([f"Text: “{custom}”"] if custom else []) + ([f"Note: {note}"] if note else []))[:300]
+    oid = "O_" + uuid.uuid4().hex[:10]
+    con = db()
+    con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
+                                      visitor_name,visitor_email,buyer_email,source,ship_to,phone,agent)
+                   VALUES(?,?,?,?,?,?,?,?,?,'ordered',?,?,?,?,'agent',?,?,?)""",
+                (oid, slug, p["name"], qty, unit, total, color, details, buyer, now_iso(),
+                 "", "", email, ship_to, phone, agent))
+    add_print_job(con, oid, p["name"], qty, color, details, buyer)
+    con.commit(); con.close()
+    if mail_configured():
+        send_mail(OWNER_EMAIL, f"New order {oid} from an AI agent ({agent or 'unknown'}): {qty} × {p['name']}",
+                  f"{buyer} <{email}> {phone}\nShip to: {ship_to or '(not given)'}\n\n{qty} × {p['name']} · {color}{(' · ' + details) if details else ''}\n"
+                  f"Total ${total:.2f} (incl. ${SHIPPING_CENTS/100:.2f} shipping). No payment taken — email the buyer.\n\n{SITE_ORIGIN}/orders")
+    return jsonify(ok=True, order=oid, product=p["name"], qty=qty, color=color, price_each=unit,
+                   shipping=SHIPPING_CENTS / 100, total=total, currency=_cat.get("currency", "usd").upper(),
+                   status="ordered", next=f"Hardy will email {email} to arrange payment and shipping. Questions: {OWNER_EMAIL}.")
+
 @app.post("/api/order/from-shop")
 def order_from_shop():
     if not is_local_request():
@@ -841,16 +1009,18 @@ def orders_page():
         colour = o.get("color") or ""
         if colour and colour in details: colour = ""
         from_shop = o.get("source") == "shop" or "DEMO-" in details
+        src = f'an AI agent ({html.escape(o.get("agent") or "unknown")})' if o.get("source") == "agent" else ("3D store" if from_shop else "site")
         who = (f'{html.escape(o.get("visitor_name") or "")} &lt;{html.escape(o.get("visitor_email") or "")}&gt;'
-               if o.get("visitor_email") else "<i>not signed in</i>")
+               if o.get("visitor_email") else ("<i>via the agent, not signed in</i>" if o.get("source") == "agent" else "<i>not signed in</i>"))
+        ship = (f'<br><b>Ship to:</b> {html.escape(o["ship_to"])}' if o.get("ship_to") else "") + (f' · <b>Phone:</b> {html.escape(o["phone"])}' if o.get("phone") else "")
         return f"""<div class="person">
   <div class="top"><div><div class="nm">{o["qty"]} × {html.escape(o.get("product_name") or o["product"])}
       <span style="font-size:12px;color:{st[1]};margin-left:8px">● {st[0]}</span></div>
-    <div class="muted">{html.escape(fmt_when(o["created_at"]))} · from the {"3D store" if from_shop else "site"}
+    <div class="muted">{html.escape(fmt_when(o["created_at"]))} · from {src}
       {(" · " + html.escape(colour)) if colour else ""}{(" · " + html.escape(details)) if details else ""}</div></div>
     <div class="stat"><div class="big">${o["total"]:.2f}</div></div></div>
   <p style="margin:10px 0 0"><b>Buyer:</b> {html.escape(o.get("buyer") or "")}{(" · " + html.escape(o["buyer_email"])) if o.get("buyer_email") else ""}
-     &nbsp; <b>Signed in as:</b> {who}</p></div>"""
+     &nbsp; <b>Signed in as:</b> {who}{ship}</p></div>"""
     rows = "".join(row(o) for o in orders) or '<p class="tag">No orders yet — they appear here the moment someone orders.</p>'
     body = f"""<header><h1>Orders</h1>
       <p class="tag">Every order from the site and the 3D store — who bought it, and who they were signed in as.</p></header>
@@ -1200,7 +1370,8 @@ def require_passcode():
         if www and request.method == "GET" and (p == "/" or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO)):
             return redirect(SITE_ORIGIN + p, code=301)   # the site lives on hardywu.com; www forwards to it
         open_paths = (p in ("/logo.png", "/favicon.png", "/track.js", "/api/visitor", "/api/verify", "/api/verify/resend",
-                            "/api/track", "/api/feedback", "/api/me", "/signout", "/api/order")
+                            "/api/track", "/api/feedback", "/api/me", "/signout", "/api/order",
+                            "/api/products", "/api/agent/order", "/openapi.json", "/llms.txt", "/robots.txt")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
         ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/go/")
@@ -1456,6 +1627,9 @@ def init_db():
     # orders: who was signed in when they ordered, and where the order came from
     have = {r[1] for r in con.execute("PRAGMA table_info(orders)")}
     for col in ("visitor_name", "visitor_email", "buyer_email", "source"):
+        if col not in have:
+            con.execute(f"ALTER TABLE orders ADD COLUMN {col} TEXT")
+    for col in ("ship_to", "phone", "agent"):
         if col not in have:
             con.execute(f"ALTER TABLE orders ADD COLUMN {col} TEXT")
     if "booked" not in have:

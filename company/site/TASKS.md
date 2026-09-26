@@ -6,3 +6,7 @@
 ## Next
 - Move the page text out of the server into files here.
 - Serve the games and the BookKeep front-end from Cloudflare as well, so only corporate needs a server.
+
+## 2026-09-26
+- Static site now publishes robots.txt, llms.txt, products.json, openapi.json, sitemap.txt (all generated from the server by build.py) and schema.org Organization + product list JSON-LD on the front page. /products/* and /api/* forward to play.hardywu.com. Shop product pages carry schema.org Product JSON-LD; shop has a robots.txt.
+

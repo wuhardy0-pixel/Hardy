@@ -7,3 +7,4 @@
 /orders        https://play.hardywu.com/orders  302
 /signout       https://play.hardywu.com/signout  302
 /api/*         https://play.hardywu.com/api/:splat  307
+/products/*    https://play.hardywu.com/products/:splat  302

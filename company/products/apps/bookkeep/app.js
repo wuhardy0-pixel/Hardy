@@ -539,8 +539,8 @@ async function renderOrdersTab(){
       return `<div class="row"><div><b>${o.qty} × ${escapeHtml(o.product_name||o.product)}</b> — ${money(o.total)}
         <span style="font-size:11px;font-weight:700;color:${st[1]};margin-left:8px">● ${st[0]}</span>${o.booked?'<span style="font-size:11px;font-weight:700;color:#34d399;margin-left:8px">✓ booked</span>':""}
         ${open&&o.print_status&&o.print_status!=="done"?'<span style="font-size:11px;color:#f59e0b;margin-left:8px">🖨️ in the print queue</span>':""}<br>
-        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from the ${fromShop?"3D store":"site"}${orderDetails(o)} · ${escapeHtml(o.id)}</small><br>
-        <small><b>Buyer:</b> ${escapeHtml(o.buyer||"")}${o.buyer_email?` · ${escapeHtml(o.buyer_email)}`:""} &nbsp; <b>Signed in as:</b> ${who}</small></div>
+        <small class="muted">${escapeHtml(String(o.created_at).slice(0,16).replace("T"," "))} · from ${o.source==="agent"?`an AI agent (${escapeHtml(o.agent||"unknown")})`:fromShop?"the 3D store":"the site"}${orderDetails(o)} · ${escapeHtml(o.id)}</small><br>
+        <small><b>Buyer:</b> ${escapeHtml(o.buyer||"")}${o.buyer_email?` · ${escapeHtml(o.buyer_email)}`:""}${o.phone?` · ${escapeHtml(o.phone)}`:""} &nbsp; <b>Signed in as:</b> ${who}${o.ship_to?`<br><b>Ship to:</b> ${escapeHtml(o.ship_to)}`:""}</small></div>
         <div class="txRight">${sel}${open&&!o.booked?`<button class="primary" data-book-order="${escapeHtml(o.id)}">Book as invoice</button>`:""}</div></div>`;}).join("");
   }catch(err){box.innerHTML=`<p class="muted">Could not load orders: ${escapeHtml(err.message)}</p>`;}
 }

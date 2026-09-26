@@ -78,8 +78,28 @@ redirects = [
     f"/orders        {LIVE}/orders  302",
     f"/signout       {LIVE}/signout  302",
     f"/api/*         {LIVE}/api/:splat  307",
+    f"/products/*    {LIVE}/products/:splat  302",
 ]
 (OUT / "_redirects").write_text("\n".join(redirects) + "\n")
+
+# AI agents and search engines: one source (the server) for the machine-readable files
+for path, name in (("/robots.txt", "robots.txt"), ("/llms.txt", "llms.txt"), ("/openapi.json", "openapi.json")):
+    file(path, OUT / name)
+(OUT / "products.json").write_bytes(c.get("/api/products", base_url=BASE).get_data())
+site_pages = ["https://hardywu.com/"] + [f"https://hardywu.com/{p.relative_to(OUT).with_suffix('')}".replace("/index", "") for p in pages[1:]]
+(OUT / "sitemap.txt").write_text("\n".join(site_pages + ["https://hardywu.com/llms.txt", "https://hardywu.com/products.json"]) + "\n")
+# schema.org Organization + the product list on the front page
+import json
+org = {"@context": "https://schema.org", "@type": "Organization", "name": "Hardy Wu", "url": BASE,
+       "logo": BASE + "/logo.png", "sameAs": ["https://shop.hardywu.com", "https://bookkeep.hardywu.com"]}
+feed = json.loads((OUT / "products.json").read_text())
+lst = {"@context": "https://schema.org", "@type": "ItemList", "name": "Hardy's 3D prints",
+       "itemListElement": [{"@type": "ListItem", "position": i + 1, "item": {"@type": "Product", "name": it["title"], "url": it["link"],
+          "image": it["image_link"], "description": it["description"],
+          "offers": {"@type": "Offer", "price": it["price"].split()[0], "priceCurrency": it["price"].split()[1], "availability": "https://schema.org/InStock"}}}
+         for i, it in enumerate(feed["products"])]}
+idx = OUT / "index.html"
+idx.write_text(idx.read_text().replace("</head>", f'<script type="application/ld+json">{json.dumps(org)}</script>\n<script type="application/ld+json">{json.dumps(lst)}</script>\n</head>', 1))
 (OUT / "404.html").write_text((ROOT / "404.html").read_text())
 leftovers = [p.name for p in pages if "/track.js" in p.read_text() or 'fetch("/api/' in p.read_text()]
 print(f"www/: {len(pages)} pages, {sum(1 for _ in OUT.rglob('*') if _.is_file())} files"
