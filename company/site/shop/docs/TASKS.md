@@ -100,5 +100,5 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 **Done when:** the PRD §2 success sentence is true on the live link.
 
 ## 2026-09-26
+- Store is open to browse without signing in (middleware removed). Ordering asks for the hardywu.com sign-in: /api/checkout answers 401 + login URL when there is no session cookie, the page sends you to log3d.hardywu.com/?p=<product> and back.
 - Customizable Lunchbox marked sold out (`in_stock: false` in data/catalog.json): Sold-out badge on the home grid, notice + disabled order button on its page, checkout API refuses it, JSON-LD says OutOfStock. Flip the flag back to true to sell it again.
-

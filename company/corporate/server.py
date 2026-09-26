@@ -1527,10 +1527,8 @@ def portfolio_home():
 SHOP_HOST = "https://shop.hardywu.com"
 
 def portfolio_section(section):
-    if section == "3d":             # the 3D section IS the live-preview store — sign in on the way
-        if not visitor():
-            return redirect(login_url_for("3d")) if on_real_site() else VISITOR_HTML
-        track("open", "The 3D store", SHOP_HOST)
+    if section == "3d":             # the 3D section IS the live-preview store — browse freely, sign in at checkout
+        if visitor(): track("open", "The 3D store", SHOP_HOST)
         return redirect(SHOP_HOST)
     sec = PORTFOLIO.get(section)
     if not sec:
@@ -1550,10 +1548,7 @@ def portfolio_item(section, slug):
     if section == "3d":
         import difflib
         target = slug if slug in SHOP_PRODUCTS else next(iter(difflib.get_close_matches(slug.lower(), list(SHOP_PRODUCTS.keys()), n=1, cutoff=0.5)), None)
-        if not visitor():
-            q = f"?p={target}" if target else ""
-            return redirect(login_url_for("3d") + q) if on_real_site() else VISITOR_HTML
-        track("open", "The 3D store", SHOP_HOST)
+        if visitor(): track("open", "The 3D store", SHOP_HOST)
         return redirect(f"{SHOP_HOST}/products/{target}") if target else redirect(SHOP_HOST)
     sec = PORTFOLIO.get(section)
     it = (sec or {}).get("items", {}).get(slug)

@@ -333,10 +333,11 @@ export default function Customizer({ product, colors, shippingCents }) {
         }),
       });
       const data = await res.json();
+      if (res.status === 401 && data.login) { window.location.href = data.login; return; }   // sign in, then come back here
       if (!res.ok) throw new Error(data.error || "checkout failed");
       window.location.href = data.url;
-    } catch {
-      setError("Something went wrong starting the payment — please try again.");
+    } catch (e) {
+      setError(e.message && e.message !== "checkout failed" ? e.message : "Something went wrong starting the payment — please try again.");
       setBusy(false);
     }
   };
@@ -502,6 +503,7 @@ export default function Customizer({ product, colors, shippingCents }) {
             Sold out for now — check back soon.
           </div>
         )}
+        <p style={{ margin: "10px 0 0", fontSize: 13, color: "#6b7280" }}>You'll sign in with your name and email when you order, so Hardy knows who it's for.</p>
         <button className="btn big" style={{ marginTop: 10 }} onClick={checkout} disabled={busy || uploading || product.in_stock === false}>
           {busy ? "One moment…" : "Continue to secure payment →"}
         </button>

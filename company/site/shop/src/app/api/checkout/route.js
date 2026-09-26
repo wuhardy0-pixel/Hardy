@@ -9,6 +9,12 @@ export async function POST(request) {
   const product = getProduct(body.slug);
   if (!product) return NextResponse.json({ error: "unknown product" }, { status: 400 });
   if (product.in_stock === false) return NextResponse.json({ error: "sorry, this product is sold out right now" }, { status: 400 });
+  // Browsing is open to everyone; ordering asks who you are (one sign-in for all of hardywu.com).
+  const host = request.headers.get("host") || "";
+  const signedIn = /(?:^|;\s*)session=/.test(request.headers.get("cookie") || "");
+  if (host === "shop.hardywu.com" && !signedIn) {
+    return NextResponse.json({ error: "please sign in to order", login: `https://log3d.hardywu.com/?p=${product.slug}` }, { status: 401 });
+  }
 
   const qty = Math.min(9, Math.max(1, Number(body.qty) || 1));
   const text = product.text && body.text ? String(body.text).slice(0, 30) : null;
