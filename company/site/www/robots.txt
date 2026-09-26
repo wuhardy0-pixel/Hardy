@@ -3,4 +3,15 @@ User-agent: *
 Allow: /
 # AI agents: the catalogue and an order API are described here
 # https://hardywu.com/llms.txt
+Sitemap: https://hardywu.com/sitemap.xml
 Sitemap: https://hardywu.com/sitemap.txt
+# AI agents are welcome (OpenAI, Anthropic, Google, Meta, Perplexity …)
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: Google-Extended
+User-agent: Meta-ExternalAgent
+User-agent: PerplexityBot
+Allow: /

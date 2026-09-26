@@ -90,8 +90,12 @@ for path, name in (("/robots.txt", "robots.txt"), ("/llms.txt", "llms.txt"), ("/
                    ("/.well-known/ucp", ".well-known/ucp")):   # UCP profile: platforms must not be redirected, so it is a real file here
     file(path, OUT / name)
 (OUT / "products.json").write_bytes(c.get("/api/products", base_url=BASE).get_data())
+import json
 site_pages = ["https://hardywu.com/"] + [f"https://hardywu.com/{p.relative_to(OUT).with_suffix('')}".replace("/index", "") for p in pages[1:]]
 (OUT / "sitemap.txt").write_text("\n".join(site_pages + ["https://hardywu.com/llms.txt", "https://hardywu.com/products.json"]) + "\n")
+shop_pages = [it["link"] for it in json.loads(c.get("/api/products", base_url=BASE).get_data())["products"]]
+(OUT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    + "".join(f"  <url><loc>{u}</loc></url>\n" for u in site_pages + shop_pages + ["https://hardywu.com/llms.txt", "https://hardywu.com/products.json"]) + "</urlset>\n")
 # schema.org Organization + the product list on the front page
 import json
 org = {"@context": "https://schema.org", "@type": "Organization", "name": "Hardy Wu", "url": BASE,
