@@ -30,30 +30,38 @@ ok(any(m["code"]=="out_of_stock" for m in c2["messages"]) and len(c2["line_items
 # checkout from the cart
 chk=tool("create_checkout",{"checkout":{"cart_id":cart["id"],"buyer":{"first_name":"Jane","last_name":"Doe","email":"jane@example.com","phone_number":"+16175550100"},
       "fulfillment":{"methods":[{"type":"shipping","destinations":[{"street_address":"1 Main St","address_locality":"Boston","address_region":"MA","postal_code":"02101","address_country":"US"}]}]}}})
-ok(chk["status"]=="requires_escalation" and chk["continue_url"].endswith("/approve/"+chk["id"]) and any(m.get("severity")=="requires_buyer_review" for m in chk["messages"]),
+ok(chk["status"]=="requires_escalation" and ("/approve/"+chk["id"]+"?code=") in chk["continue_url"] and any(m.get("severity")=="requires_buyer_review" for m in chk["messages"]),
    "create_checkout from cart → requires_escalation with continue_url (buyer must approve)")
 ok(chk["line_items"][0]["quantity"]==3 and chk["totals"][-1]["amount"]==2000,"checkout took the cart's lines: 3 × crab gauge + shipping = 2000")
 same=tool("create_checkout",{"checkout":{"cart_id":cart["id"]}}); ok(same["id"]==chk["id"],"second create_checkout for the same cart returns the same session")
 done=tool("complete_checkout",{"id":chk["id"]}); ok(done["status"]=="requires_escalation" and not done.get("order"),"complete_checkout does NOT place the order by itself")
-# the human side: a stranger, then the buyer (cookies handled by hand: the session cookie is for .hardywu.com)
+# the human side. The link carries a 30-second code; the buyer must also be signed in with the buyer email.
 HA={"Host":"play.hardywu.com","X-Forwarded-Proto":"https"}
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*a,**k): return None
 _nr=urllib.request.build_opener(_NoRedirect)
-try: resp=_nr.open(urllib.request.Request(B+"/approve/"+chk["id"],headers=HA)); c,loc=resp.status,""
-except urllib.error.HTTPError as e: c,loc=e.code,e.headers.get("Location","")
-ok(c==302 and "next=/approve/" in loc,f"approval page without sign-in → sent to sign in and back (HTTP {c})")
+def get(path,cookie=""):
+    try: r=_nr.open(urllib.request.Request(B+path,headers={**HA,**({"Cookie":cookie} if cookie else {})})); return r.status,r.headers,r.read()
+    except urllib.error.HTTPError as e: return e.code,e.headers,e.read()
+ok("?code=" in chk["continue_url"],"continue_url carries a code")
+c,h,raw=get("/approve/"+chk["id"]); ok(c==403 and b"expired" in raw,"link without the code shows nothing (403, 'expired')")
+fresh=tool("get_checkout",{"id":chk["id"]}); ok(fresh["continue_url"]!=chk["continue_url"],"get_checkout mints a fresh link")
+c,h,raw=get(fresh["continue_url"].replace("https://play.hardywu.com","")); setc="; ".join(x.split(";")[0] for x in (h.get_all("Set-Cookie") or []))
+ok(c==302 and "next=/approve/" in h.get("Location",""),"fresh link, not signed in → sent to sign in, unlock remembered")
 HL={"Host":"logbook.hardywu.com","X-Forwarded-Proto":"https","Content-Type":"application/json"}
-def login():
-    r=urllib.request.Request(B+"/api/visitor",data=json.dumps({"name":"Jane Doe","email":"jane@example.com","next":"/"}).encode(),headers=HL,method="POST")
-    resp=urllib.request.urlopen(r); ck=resp.headers.get_all("Set-Cookie") or []; j=json.loads(resp.read())
-    cookie="; ".join(x.split(";")[0] for x in ck)
+def login(cookie):
+    r=urllib.request.Request(B+"/api/visitor",data=json.dumps({"name":"Jane Doe","email":"jane@example.com","next":"/"}).encode(),headers={**HL,"Cookie":cookie},method="POST")
+    resp=urllib.request.urlopen(r); ck="; ".join(x.split(";")[0] for x in (resp.headers.get_all("Set-Cookie") or [])) or cookie; j=json.loads(resp.read())
     if j.get("code"):
-        r=urllib.request.Request(B+"/api/verify",data=json.dumps({"code":j["code"]}).encode(),headers={**HL,"Cookie":cookie},method="POST")
-        resp=urllib.request.urlopen(r); ck=resp.headers.get_all("Set-Cookie") or []; cookie="; ".join(x.split(";")[0] for x in ck) or cookie
-    return cookie
-COOKIE=login()
-c,raw=http("GET","/approve/"+chk["id"],headers={**HA,"Cookie":COOKIE}); ok(b"Approve and order" in raw and "3 × Blue Crab Gauge".encode() in raw,f"buyer sees the summary and the Approve button (HTTP {c})")
+        r=urllib.request.Request(B+"/api/verify",data=json.dumps({"code":j["code"]}).encode(),headers={**HL,"Cookie":ck},method="POST")
+        resp=urllib.request.urlopen(r); ck="; ".join(x.split(";")[0] for x in (resp.headers.get_all("Set-Cookie") or [])) or ck
+    return ck
+COOKIE=login(setc)
+c,h,raw=get("/approve/"+chk["id"],COOKIE); ok(c==200 and b"Approve and order" in raw and "3 × Blue Crab Gauge".encode() in raw,"signed-in buyer, unlocked earlier → sees summary + Approve (no code needed now)")
+# an expired code must not unlock a different browser
+import time; con0=sqlite3.connect(DB); d0=json.loads(con0.execute("select data from ucp_sessions where id=?",(chk["id"],)).fetchone()[0]); d0["_code"]["exp"]=time.time()-1
+con0.execute("update ucp_sessions set data=? where id=?",(json.dumps(d0),chk["id"])); con0.commit(); con0.close()
+c,h,raw=get("/approve/%s?code=%s"%(chk["id"],d0["_code"]["code"])); ok(c==403,"a 31-second-old code is refused")
 r=urllib.request.Request(B+"/approve/"+chk["id"],data=b"decision=approve",headers={**HA,"Cookie":COOKIE,"Content-Type":"application/x-www-form-urlencoded"},method="POST")
 try: resp=urllib.request.urlopen(r); raw=resp.read()
 except urllib.error.HTTPError as e: raw=e.read(); print("   approve POST failed:",e.code,raw[:200])

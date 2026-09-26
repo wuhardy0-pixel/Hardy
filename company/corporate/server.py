@@ -502,8 +502,21 @@ def _chk_load(sid):
 def _chk_save(d):
     con = db(); con.execute("INSERT OR REPLACE INTO ucp_sessions(id,data,created_at,expires_at) VALUES(?,?,?,?)",
                             (d["id"], json.dumps(d), d.get("_created") or now_iso(), d["expires_at"])); con.commit(); con.close()
+APPROVE_SECONDS = 30
 APPROVAL_MSG = {"type": "error", "code": "buyer_approval_required", "path": "$", "severity": "requires_buyer_review",
-                "content": "Hardy's shop never places an order without the buyer. Send the buyer to continue_url to review the summary and press Approve; then poll this checkout until status is completed."}
+                "content": "Hardy's shop never places an order without the buyer. Give the buyer continue_url RIGHT AWAY — the code in it stops working "
+                           f"{APPROVE_SECONDS} seconds after you received it (call get_checkout for a fresh link). The buyer opens it, signs in with their own email, "
+                           "reviews the summary and presses Approve; then poll this checkout until status is completed."}
+def _fresh_code(d):
+    """A one-time code in the approval link, good for APPROVE_SECONDS. Refreshed every time the agent reads the checkout."""
+    import secrets, time
+    d["_code"] = {"code": f"{secrets.randbelow(10**6):06d}", "exp": time.time() + APPROVE_SECONDS}
+    d["continue_url"] = f"https://play.hardywu.com/approve/{d['id']}?code={d['_code']['code']}"
+    return d
+def _code_valid(d, code):
+    import time, hmac
+    c = d.get("_code") or {}
+    return bool(code) and time.time() <= float(c.get("exp") or 0) and hmac.compare_digest(str(c.get("code")), str(code))
 
 def chk_build(sid, req, prev=None):
     req = dict(req or {})
@@ -545,30 +558,35 @@ def chk_build(sid, req, prev=None):
          "expires_at": (prev or {}).get("expires_at") or _exp(6), "order": (prev or {}).get("order"),
          "continue_url": f"https://play.hardywu.com/approve/{sid}",
          "_created": (prev or {}).get("_created") or now_iso(), "_cart_id": req.get("cart_id") or (prev or {}).get("_cart_id"),
-         "_agent": (prev or {}).get("_agent")}
+         "_agent": (prev or {}).get("_agent"), "_code": (prev or {}).get("_code")}
     return d
+def _out(d):
+    """Hand a checkout back to the agent; if it is waiting for the buyer, mint a fresh 30-second approval link first."""
+    if d["status"] == "requires_escalation":
+        _fresh_code(d); _chk_save(d)
+    return _public(d)
 def core_checkout_create(checkout, agent=""):
     cid = (checkout or {}).get("cart_id")
     if cid:                                              # one active checkout per cart
         con = db(); rows = con.execute("SELECT data FROM ucp_sessions WHERE expires_at>?", (now_iso(),)).fetchall(); con.close()
         for r in rows:
             d = json.loads(r["data"])
-            if d.get("_cart_id") == cid and d["status"] in ("incomplete", "requires_escalation"): return _public(d), 200
-    d = chk_build("chk_" + uuid.uuid4().hex[:12], checkout); d["_agent"] = agent; _chk_save(d); return _public(d), 201
+            if d.get("_cart_id") == cid and d["status"] in ("incomplete", "requires_escalation"): return _out(d), 200
+    d = chk_build("chk_" + uuid.uuid4().hex[:12], checkout); d["_agent"] = agent; _chk_save(d); return _out(d), 201
 def core_checkout_get(sid):
-    d = _chk_load(sid); return (_public(d), 200) if d else ucp_err("not_found", "No such checkout session.")
+    d = _chk_load(sid); return (_out(d), 200) if d else ucp_err("not_found", "No such checkout session.")
 def core_checkout_update(sid, checkout, agent=""):
     prev = _chk_load(sid)
     if not prev: return ucp_err("not_found", "No such checkout session.")
     if prev["status"] in ("completed", "canceled"): return _public(prev), 200
-    d = chk_build(sid, checkout, prev); d["_agent"] = agent or prev.get("_agent"); _chk_save(d); return _public(d), 200
+    d = chk_build(sid, checkout, prev); d["_agent"] = agent or prev.get("_agent"); _chk_save(d); return _out(d), 200
 def core_checkout_complete(sid, agent=""):
     """The platform asks to place the order. We never do that alone: the buyer must approve at continue_url."""
     d = _chk_load(sid)
     if not d: return ucp_err("not_found", "No such checkout session.")
     if d["status"] == "completed": return _public(d), 200
-    if agent: d["_agent"] = agent; _chk_save(d)
-    return _public(d), 200
+    if agent: d["_agent"] = agent
+    _chk_save(d); return _out(d), 200
 def core_checkout_cancel(sid):
     d = _chk_load(sid)
     if not d: return ucp_err("not_found", "No such checkout session.")
@@ -682,9 +700,9 @@ MCP_TOOLS = [
   ("get_cart", "Read a cart.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
   ("update_cart", "Replace the cart's line items with the full new list: add an item by including it, change a quantity, remove an item by leaving it out.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "cart": {"type": "object"}}, "required": ["id", "cart"]}),
   ("cancel_cart", "Empty and cancel a cart.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
-  ("create_checkout", "Turn a cart into a checkout (pass cart_id) or start one from line items. Add buyer {first_name,last_name,email,phone_number} and fulfillment.methods[0].destinations[0] (US postal address). The order is NOT placed until the buyer opens continue_url and presses Approve.",
+  ("create_checkout", "Turn a cart into a checkout (pass cart_id) or start one from line items. Add buyer {first_name,last_name,email,phone_number} and fulfillment.methods[0].destinations[0] (US postal address). The order is NOT placed until the buyer opens continue_url and presses Approve. Give the buyer continue_url immediately: its code expires in 30 seconds (get_checkout returns a fresh one).",
    {"type": "object", "properties": {"meta": {"type": "object"}, "checkout": {"type": "object"}}, "required": ["checkout"]}),
-  ("get_checkout", "Read a checkout. Poll this after sending the buyer to continue_url; status becomes completed with order once they approve.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("get_checkout", "Read a checkout. Returns a fresh continue_url (valid 30 seconds) while the buyer's approval is pending; status becomes completed with order once they approve.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
   ("update_checkout", "Full replacement update of a checkout (buyer, line items, address).", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id", "checkout"]}),
   ("complete_checkout", "Ask to place the order. Hardy's shop answers requires_escalation: the buyer must approve at continue_url first.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id"]}),
   ("cancel_checkout", "Cancel a checkout.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
@@ -709,7 +727,7 @@ def mcp_handle(msg):
     if method == "initialize":
         return _rpc_result(mid, {"protocolVersion": params.get("protocolVersion") or "2025-06-18", "capabilities": {"tools": {"listChanged": False}},
                                  "serverInfo": {"name": "Hardy Wu shop (UCP)", "version": UCP_VERSION},
-                                 "instructions": "Search the catalogue, build a cart, create a checkout with buyer + US address, then send the buyer to continue_url to approve. Poll get_checkout until status is completed. No card is taken; Hardy emails the buyer."})
+                                 "instructions": "Search the catalogue, build a cart, create a checkout with buyer + US address, then hand the buyer the continue_url immediately (its code expires in 30 seconds; get_checkout gives a fresh one). The buyer signs in and presses Approve; poll get_checkout until status is completed. No card is taken; Hardy emails the buyer."})
     if method in ("notifications/initialized", "notifications/cancelled"): return None
     if method == "ping": return _rpc_result(mid, {})
     if method == "tools/list":
@@ -740,6 +758,16 @@ def approve_page(sid):
     d = _chk_load(sid)
     if not d:
         return p_page("Approve order", "<header><h1>No such checkout</h1><p class=\"tag\">It may have expired. Ask your assistant to start again.</p></header>", '<a href="/">← hardywu.com</a>'), 404
+    unlocked = set(session.get("approve_ok") or [])
+    if request.args.get("code") and _code_valid(d, request.args.get("code")):
+        unlocked.add(sid); session["approve_ok"] = sorted(unlocked)[-20:]; session.permanent = True
+        if not visitor():                                   # sign in first; the unlock survives in the cookie
+            return redirect((login_url_for("") if on_real_site() else "/") + "?next=/approve/" + sid)
+        return redirect("/approve/" + sid)                  # drop the code from the address bar
+    if sid not in unlocked and d["status"] not in ("completed", "canceled"):
+        return p_page("Approve order", f"""<header><h1>This link has expired</h1>
+          <p class="tag">Approval links only work for {APPROVE_SECONDS} seconds, to keep your details private.<br>Ask your assistant for a fresh link and open it straight away.</p></header>""",
+          '<a href="/">← hardywu.com</a>'), 403
     me = visitor() or ""
     buyer_email = (d.get("buyer") or {}).get("email", "").lower()
     allowed = me and (me == buyer_email or is_owner() or is_hardy())
@@ -1825,7 +1853,7 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p.startswith("/approve/") or p in ("/activity", "/orders", "/feedback")
+        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback")   # /approve/ checks its own code first
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
