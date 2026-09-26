@@ -7,13 +7,13 @@ Run the company behind hardywu.com: one account for every customer, every order 
 
 ## Must have (in place)
 - One sign-in used by the site, the games, the shop, BookKeep and the office pages. Signing out anywhere signs out everywhere.
-- Sign-in proves the email: a 6-digit code is emailed and must be typed back (10 minutes, 5 tries). A browser that has proved an email once is not asked again for that email. Needs a mail sender in `.env` (Gmail app password or Resend); without one the code step is skipped on the real site.
+- Sign-in proves the email: a 6-digit code is emailed and must be typed back within 30 seconds (5 tries; 'Send a new code' available). A browser that has proved an email once is not asked again for that email. Needs a mail sender in `.env` (Gmail app password or Resend); without one the code step is skipped on the real site.
 - Every order (site or shop) is saved with product, quantity, colour, custom text, buyer, the signed-in person, and source.
 - Order status follows the real journey: ordered → printed → shipped → returned, or cancelled. Booking as an invoice is a separate tick.
 - Every new order automatically creates a print job. Finishing the job moves the order to printed.
 - Hardy sees all orders and the print queue (BookKeep → Orders, and hardywu.com/orders) and all visitors (hardywu.com/activity).
 - Each login has its own BookKeep book; nobody can read another person's book.
-- AI shopping agents can read the catalogue, build and edit a cart, and prepare a checkout (REST or MCP, Universal Commerce Protocol). An order is only placed after the buyer approves it on hardywu.com; the approval link carries a code that expires after 30 seconds so the order details stay private (Barbara, 2026-09-26: human approval before any payment, temporary code).
+- AI shopping agents can read the catalogue, build and edit a cart, and prepare a checkout (REST or MCP, Universal Commerce Protocol). An order is only placed after the buyer approves it on hardywu.com; the approval link carries a private code so a guessed link shows nothing (Barbara, 2026-09-26: human approval before any payment).
 - Players can send feedback from inside any game (💬). Each message is stored with who sent it, what they were playing, when they started, how long they had played, and when they sent it. Hardy reads it at /feedback; Barbara is emailed.
 - Test data never stays in real data.
 

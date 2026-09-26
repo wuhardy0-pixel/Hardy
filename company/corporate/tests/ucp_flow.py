@@ -35,7 +35,7 @@ ok(chk["status"]=="requires_escalation" and ("/approve/"+chk["id"]+"?code=") in 
 ok(chk["line_items"][0]["quantity"]==3 and chk["totals"][-1]["amount"]==2000,"checkout took the cart's lines: 3 × crab gauge + shipping = 2000")
 same=tool("create_checkout",{"checkout":{"cart_id":cart["id"]}}); ok(same["id"]==chk["id"],"second create_checkout for the same cart returns the same session")
 done=tool("complete_checkout",{"id":chk["id"]}); ok(done["status"]=="requires_escalation" and not done.get("order"),"complete_checkout does NOT place the order by itself")
-# the human side. The link carries a 30-second code; the buyer must also be signed in with the buyer email.
+# the human side. The link carries a private code (lives with the checkout); the buyer must also be signed in with the buyer email.
 HA={"Host":"play.hardywu.com","X-Forwarded-Proto":"https"}
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*a,**k): return None
@@ -45,7 +45,7 @@ def get(path,cookie=""):
     except urllib.error.HTTPError as e: return e.code,e.headers,e.read()
 ok("?code=" in chk["continue_url"],"continue_url carries a code")
 c,h,raw=get("/approve/"+chk["id"]); ok(c==403 and b"expired" in raw,"link without the code shows nothing (403, 'expired')")
-fresh=tool("get_checkout",{"id":chk["id"]}); ok(fresh["continue_url"]!=chk["continue_url"],"get_checkout mints a fresh link")
+fresh=tool("get_checkout",{"id":chk["id"]}); ok(fresh["continue_url"]==chk["continue_url"],"get_checkout returns the same private link")
 c,h,raw=get(fresh["continue_url"].replace("https://play.hardywu.com","")); setc="; ".join(x.split(";")[0] for x in (h.get_all("Set-Cookie") or []))
 ok(c==302 and "next=/approve/" in h.get("Location",""),"fresh link, not signed in → sent to sign in, unlock remembered")
 HL={"Host":"logbook.hardywu.com","X-Forwarded-Proto":"https","Content-Type":"application/json"}
@@ -61,7 +61,7 @@ c,h,raw=get("/approve/"+chk["id"],COOKIE); ok(c==200 and b"Approve and order" in
 # an expired code must not unlock a different browser
 import time; con0=sqlite3.connect(DB); d0=json.loads(con0.execute("select data from ucp_sessions where id=?",(chk["id"],)).fetchone()[0]); d0["_code"]["exp"]=time.time()-1
 con0.execute("update ucp_sessions set data=? where id=?",(json.dumps(d0),chk["id"])); con0.commit(); con0.close()
-c,h,raw=get("/approve/%s?code=%s"%(chk["id"],d0["_code"]["code"])); ok(c==403,"a 31-second-old code is refused")
+c,h,raw=get("/approve/%s?code=%s"%(chk["id"],d0["_code"]["code"])); ok(c==403,"an expired code is refused")
 r=urllib.request.Request(B+"/approve/"+chk["id"],data=b"decision=approve",headers={**HA,"Cookie":COOKIE,"Content-Type":"application/x-www-form-urlencoded"},method="POST")
 try: resp=urllib.request.urlopen(r); raw=resp.read()
 except urllib.error.HTTPError as e: raw=e.read(); print("   approve POST failed:",e.code,raw[:200])

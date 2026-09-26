@@ -502,14 +502,16 @@ def _chk_load(sid):
 def _chk_save(d):
     con = db(); con.execute("INSERT OR REPLACE INTO ucp_sessions(id,data,created_at,expires_at) VALUES(?,?,?,?)",
                             (d["id"], json.dumps(d), d.get("_created") or now_iso(), d["expires_at"])); con.commit(); con.close()
-APPROVE_SECONDS = 30
+APPROVE_SECONDS = 6 * 3600                 # the approval link's code lives as long as the checkout
 APPROVAL_MSG = {"type": "error", "code": "buyer_approval_required", "path": "$", "severity": "requires_buyer_review",
-                "content": "Hardy's shop never places an order without the buyer. Give the buyer continue_url RIGHT AWAY — the code in it stops working "
-                           f"{APPROVE_SECONDS} seconds after you received it (call get_checkout for a fresh link). The buyer opens it, signs in with their own email, "
-                           "reviews the summary and presses Approve; then poll this checkout until status is completed."}
+                "content": "Hardy's shop never places an order without the buyer. Give the buyer continue_url (it is private to this checkout and works until the "
+                           "checkout expires). The buyer opens it, signs in with their own email, reviews the summary and presses Approve; "
+                           "then poll this checkout until status is completed."}
 def _fresh_code(d):
-    """A one-time code in the approval link, good for APPROVE_SECONDS. Refreshed every time the agent reads the checkout."""
+    """A private code in the approval link, good for the life of the checkout. Minted once; reads keep it."""
     import secrets, time
+    if d.get("_code") and time.time() <= float(d["_code"].get("exp") or 0):
+        d["continue_url"] = f"https://play.hardywu.com/approve/{d['id']}?code={d['_code']['code']}"; return d
     d["_code"] = {"code": f"{secrets.randbelow(10**6):06d}", "exp": time.time() + APPROVE_SECONDS}
     d["continue_url"] = f"https://play.hardywu.com/approve/{d['id']}?code={d['_code']['code']}"
     return d
@@ -700,9 +702,9 @@ MCP_TOOLS = [
   ("get_cart", "Read a cart.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
   ("update_cart", "Replace the cart's line items with the full new list: add an item by including it, change a quantity, remove an item by leaving it out.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "cart": {"type": "object"}}, "required": ["id", "cart"]}),
   ("cancel_cart", "Empty and cancel a cart.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
-  ("create_checkout", "Turn a cart into a checkout (pass cart_id) or start one from line items. Add buyer {first_name,last_name,email,phone_number} and fulfillment.methods[0].destinations[0] (US postal address). The order is NOT placed until the buyer opens continue_url and presses Approve. Give the buyer continue_url immediately: its code expires in 30 seconds (get_checkout returns a fresh one).",
+  ("create_checkout", "Turn a cart into a checkout (pass cart_id) or start one from line items. Add buyer {first_name,last_name,email,phone_number} and fulfillment.methods[0].destinations[0] (US postal address). The order is NOT placed until the buyer opens continue_url and presses Approve. Give the buyer continue_url.",
    {"type": "object", "properties": {"meta": {"type": "object"}, "checkout": {"type": "object"}}, "required": ["checkout"]}),
-  ("get_checkout", "Read a checkout. Returns a fresh continue_url (valid 30 seconds) while the buyer's approval is pending; status becomes completed with order once they approve.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
+  ("get_checkout", "Read a checkout. While the buyer's approval is pending it returns continue_url for them; status becomes completed with order once they approve.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
   ("update_checkout", "Full replacement update of a checkout (buyer, line items, address).", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id", "checkout"]}),
   ("complete_checkout", "Ask to place the order. Hardy's shop answers requires_escalation: the buyer must approve at continue_url first.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}, "checkout": {"type": "object"}}, "required": ["id"]}),
   ("cancel_checkout", "Cancel a checkout.", {"type": "object", "properties": {"meta": {"type": "object"}, "id": {"type": "string"}}, "required": ["id"]}),
@@ -727,7 +729,7 @@ def mcp_handle(msg):
     if method == "initialize":
         return _rpc_result(mid, {"protocolVersion": params.get("protocolVersion") or "2025-06-18", "capabilities": {"tools": {"listChanged": False}},
                                  "serverInfo": {"name": "Hardy Wu shop (UCP)", "version": UCP_VERSION},
-                                 "instructions": "Search the catalogue, build a cart, create a checkout with buyer + US address, then hand the buyer the continue_url immediately (its code expires in 30 seconds; get_checkout gives a fresh one). The buyer signs in and presses Approve; poll get_checkout until status is completed. No card is taken; Hardy emails the buyer."})
+                                 "instructions": "Search the catalogue, build a cart, create a checkout with buyer + US address, then hand the buyer the continue_url. The buyer signs in and presses Approve; poll get_checkout until status is completed. No card is taken; Hardy emails the buyer."})
     if method in ("notifications/initialized", "notifications/cancelled"): return None
     if method == "ping": return _rpc_result(mid, {})
     if method == "tools/list":
@@ -766,7 +768,7 @@ def approve_page(sid):
         return redirect("/approve/" + sid)                  # drop the code from the address bar
     if sid not in unlocked:                                 # no fresh code and never unlocked here: show nothing at all
         return p_page("Approve order", f"""<header><h1>This link has expired</h1>
-          <p class="tag">Approval links only work for {APPROVE_SECONDS} seconds, to keep your details private.<br>Ask your assistant for a fresh link and open it straight away.</p></header>""",
+          <p class="tag">Approval links are private to one checkout and stop working when it expires.<br>Ask your assistant for a fresh link.</p></header>""",
           '<a href="/">← hardywu.com</a>'), 403
     me = visitor() or ""
     buyer_email = (d.get("buyer") or {}).get("email", "").lower()
@@ -1084,7 +1086,7 @@ async function go(){
 for(const el of [nm,em])el.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 function showCode(j){
   const card=document.querySelector(".card");
-  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it here to come in.</p>
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>30 seconds</b> to come in.</p>
    <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
    <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
    <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
@@ -1112,7 +1114,7 @@ MAIL_USER = os.environ.get("MAIL_USER", "").strip()
 MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "").strip().replace(" ", "")
 MAIL_FROM = os.environ.get("MAIL_FROM", "").strip() or (f"Hardy Wu <{MAIL_USER}>" if MAIL_USER else "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
-VERIFY_MINUTES, VERIFY_TRIES = 10, 5
+VERIFY_SECONDS, VERIFY_TRIES = 30, 5      # the emailed code dies after 30 seconds (Barbara, 2026-09-26)
 
 def mail_configured():
     return bool((MAIL_USER and MAIL_PASSWORD) or RESEND_API_KEY)
@@ -1160,11 +1162,12 @@ def start_verification(name, email, flow, nxt):
     code = f"{secrets.randbelow(10**6):06d}"
     session.permanent = True
     session.update(pv_name=name, pv_email=email, pv_flow=flow, pv_next=nxt,
-                   pv_hash=_code_hash(code), pv_exp=time.time() + VERIFY_MINUTES * 60, pv_tries=0)
+                   pv_hash=_code_hash(code), pv_exp=time.time() + VERIFY_SECONDS, pv_tries=0)
     if mail_configured():
         send_mail(email, f"{code} is your hardywu.com sign-in code",
                   f"Hi {name},\n\nYour sign-in code for hardywu.com is:\n\n    {code}\n\n"
-                  f"It works for {VERIFY_MINUTES} minutes. If you didn't ask for it, just ignore this email.\n\n— Hardy Wu")
+                  f"It works for {VERIFY_SECONDS} seconds — type it in straight away (there is a 'Send a new code' link if it runs out). "
+                  f"If you didn't ask for it, just ignore this email.\n\n— Hardy Wu")
     out = {"ok": True, "verify": True, "email": email}
     if not mail_configured() and _from_this_mac():
         out["code"] = code                                             # test hook, this Mac only
@@ -1201,8 +1204,7 @@ def verify_code():
     if not session.get("pv_email"):
         return jsonify(error="Please start again by typing your name and email."), 400
     if time.time() > float(session.get("pv_exp") or 0):
-        _forget_verification()
-        return jsonify(error="That code has expired. Please start again."), 400
+        return jsonify(error="That code has expired (codes last 30 seconds). Press 'Send a new code' and type it straight away."), 400
     tries = int(session.get("pv_tries") or 0) + 1
     session["pv_tries"] = tries
     if tries > VERIFY_TRIES:
@@ -1913,7 +1915,7 @@ async function go(){
 for(const id of ["nm","em"]) document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 function showCode(j){
   const card=document.querySelector(".card");
-  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it here to come in.</p>
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>30 seconds</b> to come in.</p>
    <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
    <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
    <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
