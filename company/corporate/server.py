@@ -106,6 +106,9 @@ PORTFOLIO = {
             "critter-quest": {"name": "Critter Quest", "emoji": "⚡", "img": "/item/quest.png",
                 "desc": "Four regions, a town with a shop and healer, MP-powered special moves — 32 critters to catch and evolve, ranked F to SSS.",
                 "link": "/play/quest", "link_label": "Play"},
+            "zheng-shang-you": {"name": "争上游 Zheng Shang You", "emoji": "🀄",
+                "desc": "The family card game: singles, pairs, three-of-a-kind bombs, four-of-a-kind bigger bombs, and the two jokers beat all. 2–5 players, on your phone.",
+                "link": "/play/zsy", "link_label": "Play"},
             "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.png",
                 "desc": "A fast-paced space shooter on itch.io.",
                 "link": "https://hardywu.itch.io/ns", "link_label": "Play"},
@@ -1040,7 +1043,7 @@ def friendly_label(path):
     if p.startswith("/play/"):
         slug = p.split("/play/")[1].strip("/")
         return {"nova": "Playing Nova Blast", "quest": "Playing Critter Quest",
-                "fifa": "Playing Football Sim"}.get(slug, "Playing " + slug)
+                "fifa": "Playing Football Sim", "zsy": "Playing 争上游"}.get(slug, "Playing " + slug)
     parts = [x for x in p.split("/") if x]
     if len(parts) == 1 and parts[0] in PORTFOLIO:
         return PORTFOLIO[parts[0]]["title"]
@@ -1697,7 +1700,7 @@ def dest(tgt):
 
 # short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
 LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
-               "critterquest": "logquest", "footballsim": "logfoot",
+               "critterquest": "logquest", "footballsim": "logfoot", "zhengshangyou": "logzsy",
                "pokemonadventure": "logpoke", "cmindfreecell": "logfreecell", "3d": "log3d", "": "log"}
 _SHORT_TO_KEY = {v: k for k, v in LOGIN_SHORT.items()}
 
@@ -1717,7 +1720,7 @@ def login_url_for(key):
     short = LOGIN_SHORT.get(key, "login" + key)
     return f"https://{short}.hardywu.com/" if on_real_site() else f"/go/{key or 'home'}"
 
-PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim"}
+PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim", "/play/zsy": "zhengshangyou"}
 def play_key(path):
     for pre, k in PLAY_KEYS.items():
         if path == pre or path.startswith(pre + "/"): return k
@@ -2344,6 +2347,10 @@ def play_fifa():
 @app.get("/play/nova")
 def play_nova():
     return _nocache(send_from_directory(GAMES_DIR / "nova-blast", "index.html", max_age=0))
+
+@app.get("/play/zsy")
+def play_zsy():
+    return _nocache(send_from_directory(GAMES_DIR / "zheng-shang-you", "index.html", max_age=0))
 
 @app.get("/play/quest")
 def play_quest():

@@ -1,0 +1,280 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>争上游 Zheng Shang You — Hardy Wu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<link rel="icon" href="/favicon.png">
+<style>
+:root{--felt:#0f5132;--felt2:#0b3d26;--gold:#fbbf24;--ink:#0b1220;--card:#fffdf7}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:radial-gradient(900px 600px at 50% 30%,var(--felt) 0%,var(--felt2) 70%,#07281a 100%);color:#fff;font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);max-width:520px;margin:0 auto}
+/* top bar */
+#bar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 4px;font-size:13px;color:rgba(255,255,255,.75)}
+#bar b{color:#fff;font-size:15px}
+#bar button{font:inherit;font-size:18px;width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.25);color:#fff;padding:0}
+/* opponents */
+#opps{display:flex;justify-content:space-around;padding:6px 8px 0;gap:6px}
+.opp{flex:1;max-width:150px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:8px 8px 6px;text-align:center;position:relative;transition:box-shadow .2s}
+.opp.turn{box-shadow:0 0 0 2px var(--gold),0 0 18px rgba(251,191,36,.5)}
+.opp .av{font-size:26px;line-height:1}
+.opp .nm{font-size:12px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp .ct{font-size:11px;color:rgba(255,255,255,.7)}
+.opp .ct b{color:#fff;font-size:14px}
+.opp .say{position:absolute;left:50%;transform:translateX(-50%);bottom:-14px;background:#fff;color:var(--ink);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;opacity:0;transition:opacity .2s}
+.opp .say.on{opacity:1}
+.opp.done{opacity:.55}
+.opp .rank{position:absolute;top:-8px;right:-6px;background:var(--gold);color:var(--ink);font-size:11px;font-weight:900;padding:2px 7px;border-radius:999px}
+/* table */
+#table{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;min-height:150px}
+#pile{display:flex;gap:4px;min-height:92px;align-items:center}
+#pileWho{font-size:13px;color:rgba(255,255,255,.75);min-height:18px}
+#msg{font-size:15px;font-weight:700;min-height:22px;text-align:center}
+/* cards */
+.card{width:54px;height:78px;border-radius:7px;background:var(--card);color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.4);position:relative;font-weight:800;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+.card.red{color:#c81e1e}
+.card .r{position:absolute;top:4px;left:6px;font-size:16px;line-height:1}
+.card .s{position:absolute;top:21px;left:6px;font-size:13px;line-height:1}
+.card .c{position:absolute;inset:0;display:grid;place-items:center;font-size:26px}
+.card .r2{position:absolute;bottom:4px;right:6px;font-size:16px;transform:rotate(180deg);line-height:1}
+.card.joker .c{font-size:30px}
+.card.joker .r{font-size:11px;letter-spacing:.5px}
+.card.sm{width:44px;height:64px}.card.sm .r{font-size:13px}.card.sm .s{top:18px;font-size:11px}.card.sm .c{font-size:20px}.card.sm .r2{font-size:13px}
+/* hand */
+#handWrap{padding:4px 0 8px;background:rgba(0,0,0,.18);border-top:1px solid rgba(255,255,255,.1)}
+#hand{display:flex;overflow-x:auto;padding:22px 16px 8px;gap:0;scrollbar-width:none;min-height:124px}
+#hand::-webkit-scrollbar{display:none}
+#hand .card{margin-left:-22px;transition:transform .12s}
+#hand .card:first-child{margin-left:0}
+#hand .card.sel{transform:translateY(-18px);box-shadow:0 0 0 2px var(--gold),0 6px 14px rgba(0,0,0,.5)}
+#hand .card.hint{outline:2px dashed rgba(251,191,36,.6)}
+#actions{display:flex;gap:10px;justify-content:center;padding:0 14px}
+#actions button{font:inherit;font-weight:800;font-size:17px;padding:12px 0;flex:1;border:0;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.15);color:#fff}
+#actions button.go{background:var(--gold);color:var(--ink)}
+#actions button:disabled{opacity:.35}
+#me{display:flex;justify-content:space-between;padding:0 16px 2px;font-size:12px;color:rgba(255,255,255,.75)}
+#me.turn b{color:var(--gold)}
+/* overlays */
+.overlay{position:fixed;inset:0;background:rgba(3,16,10,.9);display:grid;place-items:center;text-align:center;padding:24px;z-index:9;overflow:auto}
+.overlay.hidden{display:none}
+.overlay h1{font-size:34px;margin:0;line-height:1.1}
+.overlay h1 small{display:block;font-size:16px;font-weight:600;color:var(--gold);margin-top:6px}
+.overlay p{color:rgba(255,255,255,.75);font-size:14px;max-width:360px;margin:12px auto}
+.overlay button{font:inherit;font-weight:800;font-size:18px;padding:14px 30px;margin-top:10px;border:0;border-radius:14px;cursor:pointer;background:var(--gold);color:var(--ink)}
+.overlay button.g{background:rgba(255,255,255,.14);color:#fff}
+.pick{display:flex;gap:8px;justify-content:center;margin:8px 0 4px}
+.pick button{width:58px;height:58px;padding:0;border-radius:14px;background:rgba(255,255,255,.14);color:#fff;opacity:.7;margin:0}
+.pick button.on{background:var(--gold);color:var(--ink);opacity:1}
+.rules{text-align:left;font-size:13px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.08);border-radius:14px;padding:12px 16px;max-width:360px;margin:10px auto;line-height:1.55}
+.standings{text-align:left;max-width:300px;margin:10px auto;font-size:17px;line-height:1.9}
+.standings .me{color:var(--gold);font-weight:800}
+a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top:14px}
+</style></head><body>
+<div id="app">
+  <div id="bar"><div>🀄 <b>争上游</b> · Zheng Shang You</div><div><button id="pauseBtn" title="Menu">☰</button></div></div>
+  <div id="opps"></div>
+  <div id="table"><div id="pileWho"></div><div id="pile"></div><div id="msg"></div></div>
+  <div id="handWrap">
+    <div id="me"><span><b>You</b> · <span id="myCount">0</span> cards</span><span id="turnHint"></span></div>
+    <div id="hand"></div>
+    <div id="actions"><button id="passBtn">Pass</button><button id="hintBtn">Hint</button><button id="playBtn" class="go">Play</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="start"><div>
+  <h1>争上游<small>Zheng Shang You · "jun shong yo"</small></h1>
+  <p>Get rid of all your cards first. House rules, the family way.</p>
+  <div style="font-size:13px;color:rgba(255,255,255,.7)">How many players?</div>
+  <div class="pick" id="pick"><button data-n="2">2</button><button data-n="3">3</button><button data-n="4" class="on">4</button><button data-n="5">5</button></div>
+  <div class="rules">
+    <b>Ranks:</b> 3 &lt; 4 … &lt; 10 &lt; J &lt; Q &lt; K &lt; A &lt; 2 &lt; small joker &lt; big joker<br>
+    <b>Single</b> beats a lower single · <b>Pair</b> beats a lower pair<br>
+    <b>Three of a kind</b> is a bomb: beats any single or pair<br>
+    <b>Four of a kind</b> is a bigger bomb · <b>both jokers</b> beat everything<br>
+    Can't beat it? Pass. When everyone passes, the last player leads again.
+  </div>
+  <button id="startBtn">Deal the cards</button><br>
+  <a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+
+<div class="overlay hidden" id="over"><div>
+  <h1 id="overTitle">Game over</h1>
+  <div class="standings" id="standings"></div>
+  <button id="againBtn">Play again</button><br>
+  <a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+
+<div class="overlay hidden" id="pause"><div>
+  <h1>Paused</h1>
+  <button id="resumeBtn">▶ Continue</button><br>
+  <button class="g" id="newBtn">New game</button>
+  <p>P or Esc pauses and continues</p>
+  <a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+
+<script>
+// ---------- cards ----------
+const RANKS={3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A",15:"2",16:"JOKER",17:"JOKER"};
+const SUITS=["♠","♥","♣","♦"];
+function makeDeck(){const d=[];let id=0;for(let r=3;r<=15;r++)for(const s of SUITS)d.push({id:id++,r,s});d.push({id:id++,r:16,s:"sj"});d.push({id:id++,r:17,s:"bj"});return d;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const byRank=(a,b)=>a.r-b.r||SUITS.indexOf(a.s)-SUITS.indexOf(b.s);
+// a play = {type:'single'|'pair'|'bomb3'|'bomb4'|'jokers', r, cards}
+function classify(cards){
+  if(!cards.length)return null;
+  const rs=cards.map(c=>c.r);
+  if(cards.length===2&&rs.includes(16)&&rs.includes(17))return{type:"jokers",r:99,cards};
+  if(!rs.every(r=>r===rs[0]))return null;
+  const t={1:"single",2:"pair",3:"bomb3",4:"bomb4"}[cards.length];
+  return t?{type:t,r:rs[0],cards}:null;
+}
+const POWER={single:0,pair:0,bomb3:1,bomb4:2,jokers:3};
+function beats(p,pileTop){
+  if(!pileTop)return true;
+  if(p.type==="jokers")return true;
+  if(POWER[p.type]>POWER[pileTop.type])return POWER[pileTop.type]<POWER[p.type];
+  if(p.type===pileTop.type)return p.r>pileTop.r;
+  return false;
+}
+function describe(p){
+  const n=RANKS[p.r]||"";
+  return p.type==="jokers"?"🃏🃏 Joker bomb!":p.type==="bomb4"?`💣 Four ${n}s — bomb!`:p.type==="bomb3"?`💣 Three ${n}s — bomb!`:p.type==="pair"?`Pair of ${n}s`:(p.r>=16?(p.r===17?"Big joker":"Small joker"):`${n}`);
+}
+// ---------- state ----------
+let N=4,players=[],turn=0,pileTop=null,topBy=-1,passes=0,finished=[],sel=new Set(),paused=false,timer=null,state="menu",roundLeader=0;
+const AI_NAMES=["Grandma 🧓","Uncle 👨","Cousin 🧒","Auntie 👩"];
+const $=s=>document.querySelector(s);
+function newGame(){
+  players=[{name:"You",human:true,hand:[],rank:null}];
+  for(let i=1;i<N;i++)players.push({name:AI_NAMES[i-1],human:false,hand:[],rank:null});
+  const deck=shuffle(makeDeck());
+  deck.forEach((c,i)=>players[i%N].hand.push(c));
+  players.forEach(p=>p.hand.sort(byRank));
+  finished=[];pileTop=null;topBy=-1;passes=0;sel.clear();state="play";
+  turn=roundLeader%N;
+  $("#start").classList.add("hidden");$("#over").classList.add("hidden");
+  say(turn===0?"You lead. Play anything.":`${players[turn].name} leads.`);
+  render();scheduleAI();
+}
+const active=()=>players.filter(p=>p.rank===null).length;
+function next(){do{turn=(turn+1)%N;}while(players[turn].rank!==null);}
+function play(i,p){
+  const pl=players[i];
+  pl.hand=pl.hand.filter(c=>!p.cards.includes(c));
+  pileTop=p;topBy=i;passes=0;
+  bubble(i,describe(p));
+  if(!pl.hand.length){pl.rank=finished.length+1;finished.push(i);
+    if(active()===1){const last=players.find(x=>x.rank===null);last.rank=finished.length+1;finished.push(players.indexOf(last));return endGame();}
+  }
+  next();
+  // if the player who played the pile is out, and the pile comes back round to the next active player, they lead
+  render();scheduleAI();
+}
+function pass(i){
+  bubble(i,"Pass");passes++;
+  next();
+  if(turn===topBy||passes>=active()-((players[topBy]&&players[topBy].rank===null)?1:0)){
+    // everyone still in has passed → the pile clears; the last player (or the next in line if they are out) leads
+    pileTop=null;passes=0;
+    if(players[topBy].rank!==null){/* they finished: whoever's turn it is leads */}else turn=topBy;
+    say(turn===0?"Everyone passed — you lead.":`${players[turn].name} leads.`);
+  }
+  render();scheduleAI();
+}
+function endGame(){
+  state="over";clearTimeout(timer);
+  const order=finished.map(i=>players[i]);
+  const names=["上游 Champion 🏆","2nd","3rd","4th","5th"];
+  $("#overTitle").textContent=players[0].rank===1?"You win! 上游":players[0].rank===N?"下游 — last this time":"Game over";
+  $("#standings").innerHTML=order.map((p,k)=>`<div class="${p.human?"me":""}">${names[k]||k+1+"th"} — ${p.name}</div>`).join("");
+  roundLeader=finished[0];
+  $("#over").classList.remove("hidden");render();
+}
+// ---------- AI ----------
+function groups(hand){const g={};for(const c of hand)(g[c.r]=g[c.r]||[]).push(c);return Object.entries(g).map(([r,cs])=>({r:+r,cards:cs})).sort((a,b)=>a.r-b.r);}
+function aiChoose(pl){
+  const hand=pl.hand,gs=groups(hand),jok=hand.filter(c=>c.r>=16);
+  const threat=players.some((p,i)=>i!==players.indexOf(pl)&&p.rank===null&&p.hand.length<=2);
+  const options=[];
+  for(const g of gs){const n=g.cards.length;
+    if(n>=3)options.push({type:n>=4?"bomb4":"bomb3",r:g.r,cards:g.cards.slice(0,n>=4?4:3),bomb:true});
+    if(n>=2&&g.r<16)options.push({type:"pair",r:g.r,cards:g.cards.slice(0,2),breaks:n>2});
+    options.push({type:"single",r:g.r,cards:[g.cards[0]],breaks:n>1});}
+  if(jok.length===2)options.push({type:"jokers",r:99,cards:jok,bomb:true});
+  if(!pileTop){ // lead: shed low cards; prefer whole groups; if one group left, play it all
+    if(gs.length===1){const g=gs[0];return classify(g.cards)||{type:"single",r:g.r,cards:[g.cards[0]]};}
+    const whole=options.filter(o=>!o.breaks&&!o.bomb).sort((a,b)=>a.r-b.r||b.cards.length-a.cards.length);
+    if(whole.length)return whole[0];
+    return options.filter(o=>!o.bomb).sort((a,b)=>a.r-b.r)[0]||options[0];
+  }
+  const same=options.filter(o=>o.type===pileTop.type&&!o.bomb&&o.r>pileTop.r).sort((a,b)=>a.r-b.r||(a.breaks?1:0)-(b.breaks?1:0));
+  const nonBreaking=same.filter(o=>!o.breaks);
+  let pick=nonBreaking[0]||(hand.length<=4||threat?same[0]:null);
+  if(pick&&pick.r>=15&&hand.length>6&&!threat&&Math.random()<.5)pick=null;   // hold the big ones early
+  if(!pick){const bombs=options.filter(o=>o.bomb&&beats(o,pileTop)).sort((a,b)=>POWER[a.type]-POWER[b.type]||a.r-b.r);
+    if(bombs.length&&(threat||hand.length<=5||(pileTop.r>=15&&Math.random()<.35)))pick=bombs[0];}
+  return pick||null;
+}
+function scheduleAI(){
+  clearTimeout(timer);
+  if(state!=="play"||paused||players[turn].human)return;
+  timer=setTimeout(()=>{const pl=players[turn];const p=aiChoose(pl);
+    if(p)play(turn,{type:p.type,r:p.r,cards:p.cards});else pass(turn);},900+Math.random()*700);
+}
+// ---------- human ----------
+function mySelection(){return players[0].hand.filter(c=>sel.has(c.id));}
+function tryPlay(){
+  if(state!=="play"||turn!==0)return;
+  const cards=mySelection();const p=classify(cards);
+  if(!p){say(cards.length?"That's not a valid set: a single, a pair, three or four of a kind, or both jokers.":"Pick some cards first.");return;}
+  if(!beats(p,pileTop)){say("That doesn't beat "+describe(pileTop)+".");return;}
+  sel.clear();play(0,p);
+}
+function tryPass(){if(state!=="play"||turn!==0)return;if(!pileTop){say("You lead — you have to play something.");return;}sel.clear();pass(0);}
+function hint(){
+  if(turn!==0||state!=="play")return;const p=aiChoose(players[0]);sel.clear();
+  if(!p){say(pileTop?"Nothing beats it — pass.":"Play your lowest card.");render();return;}
+  p.cards.forEach(c=>sel.add(c.id));say("Suggestion: "+describe(p));render();
+}
+// ---------- render ----------
+function cardEl(c,small){
+  const red=c.s==="♥"||c.s==="♦"||c.s==="bj";const el=document.createElement("div");
+  el.className="card"+(red?" red":"")+(c.r>=16?" joker":"")+(small?" sm":"");el.dataset.id=c.id;
+  if(c.r>=16)el.innerHTML=`<div class="r">${c.r===17?"BIG":"small"}</div><div class="c">🃏</div>`;
+  else el.innerHTML=`<div class="r">${RANKS[c.r]}</div><div class="s">${c.s}</div><div class="c">${c.s}</div><div class="r2">${RANKS[c.r]}</div>`;
+  return el;
+}
+function render(){
+  const opps=$("#opps");opps.innerHTML="";
+  players.slice(1).forEach((p,k)=>{const i=k+1;const d=document.createElement("div");
+    d.className="opp"+(turn===i&&state==="play"?" turn":"")+(p.rank?" done":"");d.id="opp"+i;
+    d.innerHTML=`<div class="av">${p.name.split(" ").pop()}</div><div class="nm">${p.name.split(" ")[0]}</div><div class="ct"><b>${p.hand.length}</b> cards</div><div class="say" id="say${i}"></div>${p.rank?`<div class="rank">#${p.rank}</div>`:""}`;
+    opps.appendChild(d);});
+  const pile=$("#pile");pile.innerHTML="";
+  if(pileTop){pileTop.cards.forEach(c=>pile.appendChild(cardEl(c,true)));$("#pileWho").textContent=`${players[topBy].name} played ${describe(pileTop)}`;}
+  else $("#pileWho").textContent=state==="play"?"New round — anything goes":"";
+  const hand=$("#hand");hand.innerHTML="";
+  players[0].hand.forEach(c=>{const el=cardEl(c);if(sel.has(c.id))el.classList.add("sel");
+    el.addEventListener("click",()=>{if(turn!==0||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});hand.appendChild(el);});
+  $("#myCount").textContent=players[0].hand.length;
+  const mine=turn===0&&state==="play";
+  $("#me").classList.toggle("turn",mine);$("#turnHint").innerHTML=mine?"<b>Your turn</b>":players[0].rank?`You finished #${players[0].rank}`:`${players[turn]?players[turn].name.split(" ")[0]:""}'s turn`;
+  $("#playBtn").disabled=!mine;$("#passBtn").disabled=!mine||!pileTop;$("#hintBtn").disabled=!mine;
+}
+function say(t){$("#msg").textContent=t;}
+function bubble(i,t){if(i===0){say("You: "+t);return;}const el=document.getElementById("say"+i);if(!el)return;el.textContent=t;el.classList.add("on");setTimeout(()=>el.classList.remove("on"),1400);}
+// ---------- menu / pause ----------
+$("#pick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;N=+b.dataset.n;[...$("#pick").children].forEach(x=>x.classList.toggle("on",x===b));});
+$("#startBtn").onclick=()=>{roundLeader=Math.floor(Math.random()*N);newGame();};
+$("#againBtn").onclick=newGame;
+$("#playBtn").onclick=tryPlay;$("#passBtn").onclick=tryPass;$("#hintBtn").onclick=hint;
+function pauseGame(){if(state!=="play"||paused)return;paused=true;clearTimeout(timer);$("#pause").classList.remove("hidden");}
+function resumeGame(){if(!paused)return;paused=false;$("#pause").classList.add("hidden");scheduleAI();}
+$("#pauseBtn").onclick=()=>paused?resumeGame():pauseGame();$("#resumeBtn").onclick=resumeGame;
+$("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");state="menu";clearTimeout(timer);$("#start").classList.remove("hidden");};
+addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}
+  else if(e.key==="Enter"&&state==="play")tryPlay();else if(e.key===" "&&state==="play"){e.preventDefault();tryPass();}});
+document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
+window.__zsy={get state(){return{state,turn,pileTop,N,hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[0]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;}};
+</script>
+<script>window.FEEDBACK_GAME="争上游 Zheng Shang You";window.FEEDBACK_POS={left:"12px",bottom:"150px"};</script>
+<script src="/track.js" defer></script>
+</body></html>

@@ -7,6 +7,7 @@ One folder per game. Live ones are served by corporate at play.hardywu.com today
 | nova-blast | live | play.hardywu.com/play/nova |
 | critter-quest | live | play.hardywu.com/play/quest |
 | football-sim | live | play.hardywu.com/play/fifa/ |
+| zheng-shang-you | live | play.hardywu.com/play/zsy |
 | funny-monsters | building | Unity project, not online |
 | dodge, math-game | building | Arduino boards |
 
