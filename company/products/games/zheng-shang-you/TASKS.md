@@ -11,6 +11,8 @@
 
 - Barbara: 'people on separate devices should also be able to play — choose one device or a room; create or join'. Start screen now has 📱 One phone / 🌐 Online room. Online: name + Create (2–5 seats) → 4-letter code and share link (?room=CODE); Join with a code; lobby lists seats, host starts, empty seats become computers; the table updates live (long-poll); host gets Play again; a reload returns you to your seat. Server: `/api/zsy/rooms…` in corporate/server.py (rules engine ported to Python; rooms in memory, 2 h idle expiry).
 
+- Barbara: 'make the cards bigger so it doesn't make my eyes hurt'. Cards are now 68×98 px with 22 px ranks (were 54×78 / 16 px); rows of up to 9 keep all 18 on screen; the pile cards grew too. Checked at 360×640, 390×844, 430×932.
+
 ## Next
 - Ask Hardy: should the champion's rank carry over as points across games? Any regional extras (e.g. 2s as wild)?
 - Sound and card-deal animation.

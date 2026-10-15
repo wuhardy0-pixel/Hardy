@@ -29,22 +29,22 @@ html,body{height:100%;margin:0;background:radial-gradient(900px 600px at 50% 30%
 #pileWho{font-size:13px;color:rgba(255,255,255,.75);min-height:18px}
 #msg{font-size:15px;font-weight:700;min-height:22px;text-align:center}
 /* cards */
-.card{width:54px;height:78px;border-radius:7px;background:var(--card);color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.4);position:relative;font-weight:800;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+.card{width:68px;height:98px;border-radius:9px;background:var(--card);color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.4);position:relative;font-weight:800;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
 .card.red{color:#c81e1e}
-.card .r{position:absolute;top:4px;left:6px;font-size:16px;line-height:1}
-.card .s{position:absolute;top:21px;left:6px;font-size:13px;line-height:1}
-.card .c{position:absolute;inset:0;display:grid;place-items:center;font-size:26px}
-.card .r2{position:absolute;bottom:4px;right:6px;font-size:16px;transform:rotate(180deg);line-height:1}
-.card.joker .c{font-size:30px}
-.card.joker .r{font-size:11px;letter-spacing:.5px}
-.card.sm{width:44px;height:64px}.card.sm .r{font-size:13px}.card.sm .s{top:18px;font-size:11px}.card.sm .c{font-size:20px}.card.sm .r2{font-size:13px}
+.card .r{position:absolute;top:5px;left:7px;font-size:22px;line-height:1}
+.card .s{position:absolute;top:29px;left:7px;font-size:18px;line-height:1}
+.card .c{position:absolute;inset:0;display:grid;place-items:center;font-size:34px}
+.card .r2{position:absolute;bottom:5px;right:7px;font-size:22px;transform:rotate(180deg);line-height:1}
+.card.joker .c{font-size:38px}
+.card.joker .r{font-size:13px;letter-spacing:.5px}
+.card.sm{width:54px;height:78px}.card.sm .r{font-size:16px}.card.sm .s{top:22px;font-size:13px}.card.sm .c{font-size:26px}.card.sm .r2{font-size:16px}
 /* hand */
 #handWrap{padding:4px 0 8px;background:rgba(0,0,0,.18);border-top:1px solid rgba(255,255,255,.1)}
-#hand{display:flex;flex-direction:column;gap:6px;padding:20px 16px 6px;min-height:124px}
+#hand{display:flex;flex-direction:column;gap:8px;padding:24px 12px 6px;min-height:124px}
 #hand .row{display:flex;justify-content:center}
 #hand .card{transition:transform .12s}
 #hand .row .card:first-child{margin-left:0!important}
-#hand .card.sel{transform:translateY(-18px);box-shadow:0 0 0 2px var(--gold),0 6px 14px rgba(0,0,0,.5)}
+#hand .card.sel{transform:translateY(-22px);box-shadow:0 0 0 2px var(--gold),0 6px 14px rgba(0,0,0,.5)}
 #hand .card.hint{outline:2px dashed rgba(251,191,36,.6)}
 #actions{display:flex;gap:10px;justify-content:center;padding:0 14px}
 #actions button{font:inherit;font-weight:800;font-size:17px;padding:12px 0;flex:1;border:0;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.15);color:#fff}
@@ -323,10 +323,10 @@ function render(){
   else $("#pileWho").textContent=state==="play"?"New round — anything goes"+(setAside?` · ${setAside} cards sit out`:""):"";
   // every card stays on screen: up to 10 per row, rows overlap just enough to fit the width
   const hand=$("#hand");hand.innerHTML="";
-  const cards=me().hand,perRow=cards.length>10?Math.ceil(cards.length/Math.ceil(cards.length/10)):cards.length;
-  const W=hand.clientWidth-32||340,step=perRow>1?Math.max(16,Math.min(36,(W-54)/(perRow-1))):0;
+  const cards=me().hand,perRow=cards.length>9?Math.ceil(cards.length/Math.ceil(cards.length/9)):cards.length;
+  const W=hand.clientWidth-24||350,step=perRow>1?Math.max(22,Math.min(44,(W-68)/(perRow-1))):0;
   for(let i=0;i<cards.length;i+=perRow){const row=document.createElement("div");row.className="row";
-    cards.slice(i,i+perRow).forEach(c=>{const el=cardEl(c);el.style.marginLeft=(step-54)+"px";if(sel.has(c.id))el.classList.add("sel");
+    cards.slice(i,i+perRow).forEach(c=>{const el=cardEl(c);el.style.marginLeft=(step-68)+"px";if(sel.has(c.id))el.classList.add("sel");
       el.addEventListener("click",()=>{if(turn!==viewer||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});row.appendChild(el);});
     hand.appendChild(row);}
   $("#myCount").textContent=me().hand.length;$("#meName").textContent=me().name;
