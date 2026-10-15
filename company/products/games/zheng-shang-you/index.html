@@ -40,10 +40,10 @@ html,body{height:100%;margin:0;background:radial-gradient(900px 600px at 50% 30%
 .card.sm{width:44px;height:64px}.card.sm .r{font-size:13px}.card.sm .s{top:18px;font-size:11px}.card.sm .c{font-size:20px}.card.sm .r2{font-size:13px}
 /* hand */
 #handWrap{padding:4px 0 8px;background:rgba(0,0,0,.18);border-top:1px solid rgba(255,255,255,.1)}
-#hand{display:flex;overflow-x:auto;padding:22px 16px 8px;gap:0;scrollbar-width:none;min-height:124px}
-#hand::-webkit-scrollbar{display:none}
-#hand .card{margin-left:-22px;transition:transform .12s}
-#hand .card:first-child{margin-left:0}
+#hand{display:flex;flex-direction:column;gap:6px;padding:20px 16px 6px;min-height:124px}
+#hand .row{display:flex;justify-content:center}
+#hand .card{transition:transform .12s}
+#hand .row .card:first-child{margin-left:0!important}
 #hand .card.sel{transform:translateY(-18px);box-shadow:0 0 0 2px var(--gold),0 6px 14px rgba(0,0,0,.5)}
 #hand .card.hint{outline:2px dashed rgba(251,191,36,.6)}
 #actions{display:flex;gap:10px;justify-content:center;padding:0 14px}
@@ -259,9 +259,14 @@ function render(){
   const pile=$("#pile");pile.innerHTML="";
   if(pileTop){pileTop.cards.forEach(c=>pile.appendChild(cardEl(c,true)));$("#pileWho").textContent=`${players[topBy].name} played ${describe(pileTop)}`;}
   else $("#pileWho").textContent=state==="play"?"New round — anything goes"+(setAside?` · ${setAside} cards sit out`:""):"";
+  // every card stays on screen: up to 10 per row, rows overlap just enough to fit the width
   const hand=$("#hand");hand.innerHTML="";
-  players[0].hand.forEach(c=>{const el=cardEl(c);if(sel.has(c.id))el.classList.add("sel");
-    el.addEventListener("click",()=>{if(turn!==0||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});hand.appendChild(el);});
+  const cards=players[0].hand,perRow=cards.length>10?Math.ceil(cards.length/Math.ceil(cards.length/10)):cards.length;
+  const W=hand.clientWidth-32||340,step=perRow>1?Math.max(16,Math.min(36,(W-54)/(perRow-1))):0;
+  for(let i=0;i<cards.length;i+=perRow){const row=document.createElement("div");row.className="row";
+    cards.slice(i,i+perRow).forEach(c=>{const el=cardEl(c);el.style.marginLeft=(step-54)+"px";if(sel.has(c.id))el.classList.add("sel");
+      el.addEventListener("click",()=>{if(turn!==0||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});row.appendChild(el);});
+    hand.appendChild(row);}
   $("#myCount").textContent=players[0].hand.length;
   const mine=turn===0&&state==="play";
   $("#me").classList.toggle("turn",mine);$("#turnHint").innerHTML=mine?"<b>Your turn</b>":players[0].rank?`You finished #${players[0].rank}`:`${players[turn]?players[turn].name.split(" ")[0]:""}'s turn`;
