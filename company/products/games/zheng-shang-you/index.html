@@ -81,7 +81,7 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
 
 <div class="overlay" id="start"><div>
   <h1>争上游<small>Zheng Shang You · "jun shong yo"</small></h1>
-  <p>Get rid of all your cards first. House rules, the family way.</p>
+  <p>Get rid of all your cards first. House rules, the family way.<br><span style="color:rgba(255,255,255,.55)">18 cards each, dealt truly at random; extra cards sit out.</span></p>
   <div style="font-size:13px;color:rgba(255,255,255,.7)">How many players?</div>
   <div class="pick" id="pick"><button data-n="2">2</button><button data-n="3">3</button><button data-n="4" class="on">4</button><button data-n="5">5</button></div>
   <div class="rules">
@@ -115,7 +115,10 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
 const RANKS={3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A",15:"2",16:"JOKER",17:"JOKER"};
 const SUITS=["♠","♥","♣","♦"];
 function makeDeck(){const d=[];let id=0;for(let r=3;r<=15;r++)for(const s of SUITS)d.push({id:id++,r,s});d.push({id:id++,r:16,s:"sj"});d.push({id:id++,r:17,s:"bj"});return d;}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function rnd(n){const u=new Uint32Array(1);crypto.getRandomValues(u);return u[0]%n;}     // true random, not Math.random
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+const HAND=18;                                   // everyone gets 18 cards, never more; extra cards sit out
+function bombsIn(hand){const g={};for(const c of hand)g[c.r]=(g[c.r]||0)+1;return Object.values(g).filter(n=>n>=3).length+((g[16]&&g[17])?1:0);}
 const byRank=(a,b)=>a.r-b.r||SUITS.indexOf(a.s)-SUITS.indexOf(b.s);
 // a play = {type:'single'|'pair'|'bomb3'|'bomb4'|'jokers', r, cards}
 function classify(cards){
@@ -139,14 +142,19 @@ function describe(p){
   return p.type==="jokers"?"🃏🃏 Joker bomb!":p.type==="bomb4"?`💣 Four ${n}s — bomb!`:p.type==="bomb3"?`💣 Three ${n}s — bomb!`:p.type==="pair"?`Pair of ${n}s`:(p.r>=16?(p.r===17?"Big joker":"Small joker"):`${n}`);
 }
 // ---------- state ----------
-let N=4,players=[],turn=0,pileTop=null,topBy=-1,passes=0,finished=[],sel=new Set(),paused=false,timer=null,state="menu",roundLeader=0;
+let N=4,setAside=0,players=[],turn=0,pileTop=null,topBy=-1,passes=0,finished=[],sel=new Set(),paused=false,timer=null,state="menu",roundLeader=0;
 const AI_NAMES=["Grandma 🧓","Uncle 👨","Cousin 🧒","Auntie 👩"];
 const $=s=>document.querySelector(s);
 function newGame(){
   players=[{name:"You",human:true,hand:[],rank:null}];
   for(let i=1;i<N;i++)players.push({name:AI_NAMES[i-1],human:false,hand:[],rank:null});
-  const deck=shuffle(makeDeck());
-  deck.forEach((c,i)=>players[i%N].hand.push(c));
+  // deal: 18 each (fewer only when the deck runs out, e.g. 4 players → 13/14); reshuffle if any hand is stacked with bombs
+  let deck,tries=0;
+  do{deck=shuffle(makeDeck());players.forEach(p=>p.hand=[]);
+     const each=Math.min(HAND,Math.floor(deck.length/N)),extra=Math.min(HAND*N,deck.length)-each*N;
+     let k=0;for(let i=0;i<N;i++){const n=each+(i<extra?1:0);players[i].hand=deck.slice(k,k+n);k+=n;}
+  }while(players.some(p=>bombsIn(p.hand)>=3)&&++tries<40);
+  setAside=deck.length-players.reduce((a,p)=>a+p.hand.length,0);
   players.forEach(p=>p.hand.sort(byRank));
   finished=[];pileTop=null;topBy=-1;passes=0;sel.clear();state="play";
   turn=roundLeader%N;
@@ -250,7 +258,7 @@ function render(){
     opps.appendChild(d);});
   const pile=$("#pile");pile.innerHTML="";
   if(pileTop){pileTop.cards.forEach(c=>pile.appendChild(cardEl(c,true)));$("#pileWho").textContent=`${players[topBy].name} played ${describe(pileTop)}`;}
-  else $("#pileWho").textContent=state==="play"?"New round — anything goes":"";
+  else $("#pileWho").textContent=state==="play"?"New round — anything goes"+(setAside?` · ${setAside} cards sit out`:""):"";
   const hand=$("#hand");hand.innerHTML="";
   players[0].hand.forEach(c=>{const el=cardEl(c);if(sel.has(c.id))el.classList.add("sel");
     el.addEventListener("click",()=>{if(turn!==0||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});hand.appendChild(el);});
@@ -273,7 +281,7 @@ $("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");state
 addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}
   else if(e.key==="Enter"&&state==="play")tryPlay();else if(e.key===" "&&state==="play"){e.preventDefault();tryPass();}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
-window.__zsy={get state(){return{state,turn,pileTop,N,hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[0]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;}};
+window.__zsy={hands:()=>players.map(p=>p.hand),bombsIn,get state(){return{state,turn,pileTop,N,hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[0]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;}};
 </script>
 <script>window.FEEDBACK_GAME="争上游 Zheng Shang You";window.FEEDBACK_POS={right:"60px",top:"calc(env(safe-area-inset-top,0px) + 8px)"};</script>
 <script src="/track.js" defer></script>
