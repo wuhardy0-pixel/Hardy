@@ -2,7 +2,7 @@
 
 Status: **live** at play.hardywu.com/play/zsy (sign-in at logzsy.hardywu.com).
 
-The family card game, "jun shong yo", for a phone screen. One file, `index.html`. 2–5 players: you against the house (Grandma, Uncle, Cousin, Auntie).
+The family card game, "jun shong yo", for a phone screen. One file, `index.html`. 2–5 seats, each a named person or a computer (Grandma, Uncle, Cousin, Auntie). Several people can play on one phone: a cover screen hides the cards while the phone is passed.
 
 House rules (Barbara's family version, 2026-10-14):
 - Ranks 3 < 4 … < 10 < J < Q < K < A < 2 < small joker < big joker. 54-card deck, dealt out fully.

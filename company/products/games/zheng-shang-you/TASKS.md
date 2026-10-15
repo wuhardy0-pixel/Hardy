@@ -7,6 +7,9 @@
 
 - Barbara: 'make sure player can see all of their cards'. The hand no longer scrolls: cards lay out in rows of up to 10 that overlap just enough to fit the screen width, so all 18 are visible at once with every rank readable (checked at 360, 390 and 430 px wide).
 
+- Barbara: 'name the people and multiple people play'. Start screen now lists the seats: type each name and tap 🧑 Person / 🤖 Computer. Several people share one phone: before another person's turn a cover screen says '<name>, your turn — pass the phone', and their cards appear only after they tap. Opponent panels and standings use the names. Tested: Hardy + Mom + Grandma(computer) to the end; solo game unchanged.
+
 ## Next
+- Online play across different phones (each person on their own device) is the natural next step — needs rooms on the server.
 - Ask Hardy: should the champion's rank carry over as points across games? Any regional extras (e.g. 2s as wild)?
 - Sound and card-deal animation.

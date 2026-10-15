@@ -66,6 +66,16 @@ html,body{height:100%;margin:0;background:radial-gradient(900px 600px at 50% 30%
 .rules{text-align:left;font-size:13px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.08);border-radius:14px;padding:12px 16px;max-width:360px;margin:10px auto;line-height:1.55}
 .standings{text-align:left;max-width:300px;margin:10px auto;font-size:17px;line-height:1.9}
 .standings .me{color:var(--gold);font-weight:800}
+#seats{display:grid;gap:6px;max-width:340px;margin:10px auto 0}
+.seat{display:flex;gap:6px;align-items:center}
+.seat input{flex:1;font:inherit;font-size:15px;padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;min-width:0}
+.seat button{font:inherit;font-size:14px;font-weight:700;padding:8px 10px;margin:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;white-space:nowrap}
+.seat button.h{background:var(--gold);color:var(--ink)}
+#curtain{position:fixed;inset:0;background:#07281a;display:grid;place-items:center;text-align:center;z-index:8;padding:24px}
+#curtain.hidden{display:none}
+#curtain h2{font-size:28px;margin:0 0 6px}
+#curtain p{color:rgba(255,255,255,.7)}
+#curtain button{font:inherit;font-weight:800;font-size:18px;padding:14px 30px;border:0;border-radius:14px;background:var(--gold);color:var(--ink)}
 a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top:14px}
 </style></head><body>
 <div id="app">
@@ -73,7 +83,7 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
   <div id="opps"></div>
   <div id="table"><div id="pileWho"></div><div id="pile"></div><div id="msg"></div></div>
   <div id="handWrap">
-    <div id="me"><span><b>You</b> · <span id="myCount">0</span> cards</span><span id="turnHint"></span></div>
+    <div id="me"><span><b id="meName">You</b> · <span id="myCount">0</span> cards</span><span id="turnHint"></span></div>
     <div id="hand"></div>
     <div id="actions"><button id="passBtn">Pass</button><button id="hintBtn">Hint</button><button id="playBtn" class="go">Play</button></div>
   </div>
@@ -84,6 +94,8 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
   <p>Get rid of all your cards first. House rules, the family way.<br><span style="color:rgba(255,255,255,.55)">18 cards each, dealt truly at random; extra cards sit out.</span></p>
   <div style="font-size:13px;color:rgba(255,255,255,.7)">How many players?</div>
   <div class="pick" id="pick"><button data-n="2">2</button><button data-n="3">3</button><button data-n="4" class="on">4</button><button data-n="5">5</button></div>
+  <div id="seats"></div>
+  <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:4px">Several people on one phone? Set their seats to 🧑 and pass the phone around — a cover hides the cards between turns.</div>
   <div class="rules">
     <b>Ranks:</b> 3 &lt; 4 … &lt; 10 &lt; J &lt; Q &lt; K &lt; A &lt; 2 &lt; small joker &lt; big joker<br>
     <b>Single</b> beats a lower single · <b>Pair</b> beats a lower pair<br>
@@ -101,6 +113,8 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
   <button id="againBtn">Play again</button><br>
   <a class="back" href="/games">← back to Hardy Wu</a>
 </div></div>
+
+<div id="curtain" class="hidden"><div><h2 id="curtainName"></h2><p>Pass the phone over. Nobody else should be looking.</p><button id="curtainBtn">Show my cards</button></div></div>
 
 <div class="overlay hidden" id="pause"><div>
   <h1>Paused</h1>
@@ -142,12 +156,22 @@ function describe(p){
   return p.type==="jokers"?"🃏🃏 Joker bomb!":p.type==="bomb4"?`💣 Four ${n}s — bomb!`:p.type==="bomb3"?`💣 Three ${n}s — bomb!`:p.type==="pair"?`Pair of ${n}s`:(p.r>=16?(p.r===17?"Big joker":"Small joker"):`${n}`);
 }
 // ---------- state ----------
-let N=4,setAside=0,players=[],turn=0,pileTop=null,topBy=-1,passes=0,finished=[],sel=new Set(),paused=false,timer=null,state="menu",roundLeader=0;
+let N=4,setAside=0,players=[],turn=0,pileTop=null,topBy=-1,passes=0,finished=[],sel=new Set(),paused=false,timer=null,state="menu",roundLeader=0,viewer=0;
 const AI_NAMES=["Grandma 🧓","Uncle 👨","Cousin 🧒","Auntie 👩"];
+let seats=[{name:"You",human:true},{name:"Grandma",human:false},{name:"Uncle",human:false},{name:"Cousin",human:false},{name:"Auntie",human:false}];
+const AV=["🧓","👨","🧒","👩"];
+function renderSeats(){const box=$("#seats");box.innerHTML="";
+  for(let i=0;i<N;i++){const st=seats[i];const d=document.createElement("div");d.className="seat";
+    d.innerHTML=`<input maxlength="14" value="${st.name.replace(/"/g,"&quot;")}" placeholder="Player ${i+1}" aria-label="Name of player ${i+1}"><button class="${st.human?"h":""}">${st.human?"🧑 Person":"🤖 Computer"}</button>`;
+    d.querySelector("input").addEventListener("input",e=>{st.name=e.target.value;});
+    d.querySelector("button").addEventListener("click",()=>{st.human=!st.human;renderSeats();});box.appendChild(d);}}
 const $=s=>document.querySelector(s);
 function newGame(){
-  players=[{name:"You",human:true,hand:[],rank:null}];
-  for(let i=1;i<N;i++)players.push({name:AI_NAMES[i-1],human:false,hand:[],rank:null});
+  players=[];
+  for(let i=0;i<N;i++){const st=seats[i];const nm=(st.name||"").trim()||(st.human?`Player ${i+1}`:AI_NAMES[i-1]||`Robot ${i}`);
+    players.push({name:nm,icon:st.human?"🧑":AV[(i-1+AV.length)%AV.length],human:st.human,hand:[],rank:null});}
+  if(!players.some(p=>p.human))players[0].human=true,players[0].icon="🧑";
+  viewer=players.findIndex(p=>p.human);
   // deal: 18 each (fewer only when the deck runs out, e.g. 4 players → 13/14); reshuffle if any hand is stacked with bombs
   let deck,tries=0;
   do{deck=shuffle(makeDeck());players.forEach(p=>p.hand=[]);
@@ -159,7 +183,7 @@ function newGame(){
   finished=[];pileTop=null;topBy=-1;passes=0;sel.clear();state="play";
   turn=roundLeader%N;
   $("#start").classList.add("hidden");$("#over").classList.add("hidden");
-  say(turn===0?"You lead. Play anything.":`${players[turn].name} leads.`);
+  say(`${players[turn].name} leads. Play anything.`);
   render();scheduleAI();
 }
 const active=()=>players.filter(p=>p.rank===null).length;
@@ -173,7 +197,6 @@ function play(i,p){
     if(active()===1){const last=players.find(x=>x.rank===null);last.rank=finished.length+1;finished.push(players.indexOf(last));return endGame();}
   }
   next();
-  // if the player who played the pile is out, and the pile comes back round to the next active player, they lead
   render();scheduleAI();
 }
 function pass(i){
@@ -183,7 +206,7 @@ function pass(i){
     // everyone still in has passed → the pile clears; the last player (or the next in line if they are out) leads
     pileTop=null;passes=0;
     if(players[topBy].rank!==null){/* they finished: whoever's turn it is leads */}else turn=topBy;
-    say(turn===0?"Everyone passed — you lead.":`${players[turn].name} leads.`);
+    say(`Everyone passed — ${players[turn].name} leads.`);
   }
   render();scheduleAI();
 }
@@ -191,8 +214,9 @@ function endGame(){
   state="over";clearTimeout(timer);
   const order=finished.map(i=>players[i]);
   const names=["上游 Champion 🏆","2nd","3rd","4th","5th"];
-  $("#overTitle").textContent=players[0].rank===1?"You win! 上游":players[0].rank===N?"下游 — last this time":"Game over";
-  $("#standings").innerHTML=order.map((p,k)=>`<div class="${p.human?"me":""}">${names[k]||k+1+"th"} — ${p.name}</div>`).join("");
+  const champ=order[0];$("#overTitle").textContent=champ.human?`${champ.name} wins! 上游`:"Game over";
+  $("#standings").innerHTML=order.map((p,k)=>`<div class="${p.human?"me":""}">${names[k]||k+1+"th"} — ${p.icon} ${p.name}</div>`).join("");
+  $("#curtain").classList.add("hidden");
   roundLeader=finished[0];
   $("#over").classList.remove("hidden");render();
 }
@@ -228,17 +252,18 @@ function scheduleAI(){
     if(p)play(turn,{type:p.type,r:p.r,cards:p.cards});else pass(turn);},900+Math.random()*700);
 }
 // ---------- human ----------
-function mySelection(){return players[0].hand.filter(c=>sel.has(c.id));}
+const me=()=>players[viewer];
+function mySelection(){return me().hand.filter(c=>sel.has(c.id));}
 function tryPlay(){
-  if(state!=="play"||turn!==0)return;
+  if(state!=="play"||turn!==viewer||!players[turn].human)return;
   const cards=mySelection();const p=classify(cards);
   if(!p){say(cards.length?"That's not a valid set: a single, a pair, three or four of a kind, or both jokers.":"Pick some cards first.");return;}
   if(!beats(p,pileTop)){say("That doesn't beat "+describe(pileTop)+".");return;}
-  sel.clear();play(0,p);
+  sel.clear();play(viewer,p);
 }
-function tryPass(){if(state!=="play"||turn!==0)return;if(!pileTop){say("You lead — you have to play something.");return;}sel.clear();pass(0);}
+function tryPass(){if(state!=="play"||turn!==viewer)return;if(!pileTop){say("You lead — you have to play something.");return;}sel.clear();pass(viewer);}
 function hint(){
-  if(turn!==0||state!=="play")return;const p=aiChoose(players[0]);sel.clear();
+  if(turn!==viewer||state!=="play")return;const p=aiChoose(me());sel.clear();
   if(!p){say(pileTop?"Nothing beats it — pass.":"Play your lowest card.");render();return;}
   p.cards.forEach(c=>sel.add(c.id));say("Suggestion: "+describe(p));render();
 }
@@ -251,32 +276,36 @@ function cardEl(c,small){
   return el;
 }
 function render(){
+  // another person's turn on this phone? hand it over behind the curtain first
+  if(state==="play"&&players[turn].human&&turn!==viewer){const cur=$("#curtain");
+    if(cur.classList.contains("hidden")){$("#curtainName").textContent=`${players[turn].name}, your turn`;cur.classList.remove("hidden");}}
   const opps=$("#opps");opps.innerHTML="";
-  players.slice(1).forEach((p,k)=>{const i=k+1;const d=document.createElement("div");
+  players.forEach((p,i)=>{if(i===viewer)return;const d=document.createElement("div");
     d.className="opp"+(turn===i&&state==="play"?" turn":"")+(p.rank?" done":"");d.id="opp"+i;
-    d.innerHTML=`<div class="av">${p.name.split(" ").pop()}</div><div class="nm">${p.name.split(" ")[0]}</div><div class="ct"><b>${p.hand.length}</b> cards</div><div class="say" id="say${i}"></div>${p.rank?`<div class="rank">#${p.rank}</div>`:""}`;
+    d.innerHTML=`<div class="av">${p.icon}</div><div class="nm">${p.name}</div><div class="ct"><b>${p.hand.length}</b> cards</div><div class="say" id="say${i}"></div>${p.rank?`<div class="rank">#${p.rank}</div>`:""}`;
     opps.appendChild(d);});
   const pile=$("#pile");pile.innerHTML="";
   if(pileTop){pileTop.cards.forEach(c=>pile.appendChild(cardEl(c,true)));$("#pileWho").textContent=`${players[topBy].name} played ${describe(pileTop)}`;}
   else $("#pileWho").textContent=state==="play"?"New round — anything goes"+(setAside?` · ${setAside} cards sit out`:""):"";
   // every card stays on screen: up to 10 per row, rows overlap just enough to fit the width
   const hand=$("#hand");hand.innerHTML="";
-  const cards=players[0].hand,perRow=cards.length>10?Math.ceil(cards.length/Math.ceil(cards.length/10)):cards.length;
+  const cards=me().hand,perRow=cards.length>10?Math.ceil(cards.length/Math.ceil(cards.length/10)):cards.length;
   const W=hand.clientWidth-32||340,step=perRow>1?Math.max(16,Math.min(36,(W-54)/(perRow-1))):0;
   for(let i=0;i<cards.length;i+=perRow){const row=document.createElement("div");row.className="row";
     cards.slice(i,i+perRow).forEach(c=>{const el=cardEl(c);el.style.marginLeft=(step-54)+"px";if(sel.has(c.id))el.classList.add("sel");
-      el.addEventListener("click",()=>{if(turn!==0||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});row.appendChild(el);});
+      el.addEventListener("click",()=>{if(turn!==viewer||state!=="play")return;sel.has(c.id)?sel.delete(c.id):sel.add(c.id);el.classList.toggle("sel");});row.appendChild(el);});
     hand.appendChild(row);}
-  $("#myCount").textContent=players[0].hand.length;
-  const mine=turn===0&&state==="play";
-  $("#me").classList.toggle("turn",mine);$("#turnHint").innerHTML=mine?"<b>Your turn</b>":players[0].rank?`You finished #${players[0].rank}`:`${players[turn]?players[turn].name.split(" ")[0]:""}'s turn`;
+  $("#myCount").textContent=me().hand.length;$("#meName").textContent=me().name;
+  const mine=turn===viewer&&state==="play";
+  $("#me").classList.toggle("turn",mine);$("#turnHint").innerHTML=mine?"<b>Your turn</b>":me().rank?`Finished #${me().rank}`:`${players[turn]?players[turn].name:""}'s turn`;
   $("#playBtn").disabled=!mine;$("#passBtn").disabled=!mine||!pileTop;$("#hintBtn").disabled=!mine;
 }
 function say(t){$("#msg").textContent=t;}
-function bubble(i,t){if(i===0){say("You: "+t);return;}const el=document.getElementById("say"+i);if(!el)return;el.textContent=t;el.classList.add("on");setTimeout(()=>el.classList.remove("on"),1400);}
+function bubble(i,t){if(i===viewer){say(players[i].name+": "+t);return;}const el=document.getElementById("say"+i);if(!el)return;el.textContent=t;el.classList.add("on");setTimeout(()=>el.classList.remove("on"),1400);}
 // ---------- menu / pause ----------
-$("#pick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;N=+b.dataset.n;[...$("#pick").children].forEach(x=>x.classList.toggle("on",x===b));});
+$("#pick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;N=+b.dataset.n;[...$("#pick").children].forEach(x=>x.classList.toggle("on",x===b));renderSeats();});
 $("#startBtn").onclick=()=>{roundLeader=Math.floor(Math.random()*N);newGame();};
+$("#curtainBtn").onclick=()=>{viewer=turn;sel.clear();$("#curtain").classList.add("hidden");render();};
 $("#againBtn").onclick=newGame;
 $("#playBtn").onclick=tryPlay;$("#passBtn").onclick=tryPass;$("#hintBtn").onclick=hint;
 function pauseGame(){if(state!=="play"||paused)return;paused=true;clearTimeout(timer);$("#pause").classList.remove("hidden");}
@@ -286,7 +315,8 @@ $("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");state
 addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}
   else if(e.key==="Enter"&&state==="play")tryPlay();else if(e.key===" "&&state==="play"){e.preventDefault();tryPass();}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
-window.__zsy={hands:()=>players.map(p=>p.hand),bombsIn,get state(){return{state,turn,pileTop,N,hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[0]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;}};
+renderSeats();
+window.__zsy={hands:()=>players.map(p=>p.hand),bombsIn,get state(){return{state,turn,viewer,pileTop,N,names:players.map(p=>p.name),humans:players.map(p=>p.human),hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[turn]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;renderSeats();},seats,renderSeats,reveal:()=>$("#curtainBtn").click()};
 </script>
 <script>window.FEEDBACK_GAME="争上游 Zheng Shang You";window.FEEDBACK_POS={right:"60px",top:"calc(env(safe-area-inset-top,0px) + 8px)"};</script>
 <script src="/track.js" defer></script>
