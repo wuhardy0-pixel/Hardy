@@ -275,6 +275,6 @@ addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){pa
 document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
 window.__zsy={get state(){return{state,turn,pileTop,N,hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[0]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;}};
 </script>
-<script>window.FEEDBACK_GAME="争上游 Zheng Shang You";window.FEEDBACK_POS={left:"12px",bottom:"150px"};</script>
+<script>window.FEEDBACK_GAME="争上游 Zheng Shang You";window.FEEDBACK_POS={right:"60px",top:"calc(env(safe-area-inset-top,0px) + 8px)"};</script>
 <script src="/track.js" defer></script>
 </body></html>
