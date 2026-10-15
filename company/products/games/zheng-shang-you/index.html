@@ -332,7 +332,7 @@ function render(){
   $("#myCount").textContent=me().hand.length;$("#meName").textContent=me().name;
   const mine=turn===viewer&&state==="play";
   $("#me").classList.toggle("turn",mine);$("#turnHint").innerHTML=mine?"<b>Your turn</b>":me().rank?`Finished #${me().rank}`:`${players[turn]?players[turn].name:""}'s turn`;
-  if(online)$("#bar b").textContent="争上游 · room "+online.code;
+  if(online)$("#bar div").innerHTML="🀄 <b>争上游</b> · room <b style=\"letter-spacing:2px\">"+online.code+"</b>";
   $("#playBtn").disabled=!mine;$("#passBtn").disabled=!mine||!pileTop;$("#hintBtn").disabled=!mine;
 }
 function say(t){$("#msg").textContent=t;}
