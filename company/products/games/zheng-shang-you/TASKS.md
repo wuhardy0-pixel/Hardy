@@ -9,7 +9,8 @@
 
 - Barbara: 'name the people and multiple people play'. Start screen now lists the seats: type each name and tap 🧑 Person / 🤖 Computer. Several people share one phone: before another person's turn a cover screen says '<name>, your turn — pass the phone', and their cards appear only after they tap. Opponent panels and standings use the names. Tested: Hardy + Mom + Grandma(computer) to the end; solo game unchanged.
 
+- Barbara: 'people on separate devices should also be able to play — choose one device or a room; create or join'. Start screen now has 📱 One phone / 🌐 Online room. Online: name + Create (2–5 seats) → 4-letter code and share link (?room=CODE); Join with a code; lobby lists seats, host starts, empty seats become computers; the table updates live (long-poll); host gets Play again; a reload returns you to your seat. Server: `/api/zsy/rooms…` in corporate/server.py (rules engine ported to Python; rooms in memory, 2 h idle expiry).
+
 ## Next
-- Online play across different phones (each person on their own device) is the natural next step — needs rooms on the server.
 - Ask Hardy: should the champion's rank carry over as points across games? Any regional extras (e.g. 2s as wild)?
 - Sound and card-deal animation.

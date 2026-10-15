@@ -33,4 +33,5 @@ History before 2026-09-10: see `../products/apps/bookkeep/TASKS.md` (the server 
 
 ## 2026-10-14
 - New game 争上游 (products/games/zheng-shang-you) registered: games section entry, `/play/zsy`, sign-in host logzsy.hardywu.com, activity label.
+- 争上游 online rooms: POST /api/zsy/rooms (create), /join, /start (host; computers fill seats), /play, /pass, GET /state?v= (long-poll ≤20 s; computers move during polls). Rooms in memory (`ZSY_ROOMS`), tokens per seat, 2 h idle expiry, 200-room cap. Rules engine duplicated in Python (zsy_classify/zsy_beats/zsy_ai) — keep in step with the page.
 

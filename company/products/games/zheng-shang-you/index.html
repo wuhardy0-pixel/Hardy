@@ -67,6 +67,16 @@ html,body{height:100%;margin:0;background:radial-gradient(900px 600px at 50% 30%
 .standings{text-align:left;max-width:300px;margin:10px auto;font-size:17px;line-height:1.9}
 .standings .me{color:var(--gold);font-weight:800}
 #seats{display:grid;gap:6px;max-width:340px;margin:10px auto 0}
+.mode{display:flex;gap:8px;justify-content:center;margin:6px 0 10px}
+.mode button{font-size:15px;padding:10px 16px;margin:0;border-radius:12px;background:rgba(255,255,255,.14);color:#fff;opacity:.75}
+.mode button.on{background:var(--gold);color:var(--ink);opacity:1}
+.hidden{display:none!important}
+.txt{width:100%;max-width:340px;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;box-sizing:border-box;display:block;margin:0 auto}
+.two{display:flex;gap:10px;max-width:340px;margin:10px auto 0}
+.box{flex:1;background:rgba(255,255,255,.08);border-radius:14px;padding:12px 10px;display:flex;flex-direction:column}
+.box .act{font-size:16px;padding:10px 0;margin-top:auto;width:100%}
+.pick.small button{width:40px;height:40px;font-size:15px;border-radius:10px}
+.standings .off{opacity:.5}
 .seat{display:flex;gap:6px;align-items:center}
 .seat input{flex:1;font:inherit;font-size:15px;padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.3);color:#fff;min-width:0}
 .seat button{font:inherit;font-size:14px;font-weight:700;padding:8px 10px;margin:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;white-space:nowrap}
@@ -92,10 +102,24 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
 <div class="overlay" id="start"><div>
   <h1>争上游<small>Zheng Shang You · "jun shong yo"</small></h1>
   <p>Get rid of all your cards first. House rules, the family way.<br><span style="color:rgba(255,255,255,.55)">18 cards each, dealt truly at random; extra cards sit out.</span></p>
+  <div class="mode"><button id="modeLocal" class="on">📱 One phone</button><button id="modeOnline">🌐 Online room</button></div>
+  <div id="localPanel">
   <div style="font-size:13px;color:rgba(255,255,255,.7)">How many players?</div>
   <div class="pick" id="pick"><button data-n="2">2</button><button data-n="3">3</button><button data-n="4" class="on">4</button><button data-n="5">5</button></div>
   <div id="seats"></div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:4px">Several people on one phone? Set their seats to 🧑 and pass the phone around — a cover hides the cards between turns.</div>
+  </div>
+  <div id="onlinePanel" class="hidden">
+    <input id="olName" class="txt" maxlength="14" placeholder="Your name">
+    <div class="two">
+      <div class="box"><b>Create a room</b><div style="font-size:12px;color:rgba(255,255,255,.6);margin:4px 0">Seats at the table</div>
+        <div class="pick small" id="olPick"><button data-n="2">2</button><button data-n="3">3</button><button data-n="4" class="on">4</button><button data-n="5">5</button></div>
+        <button class="act" id="createBtn">Create</button></div>
+      <div class="box"><b>Join a room</b><input id="olCode" class="txt" maxlength="4" placeholder="CODE" style="text-transform:uppercase;letter-spacing:4px;text-align:center;margin-top:8px"><button class="act" id="joinBtn">Join</button></div>
+    </div>
+    <div id="olErr" style="color:#fca5a5;font-size:13px;min-height:18px;margin-top:6px"></div>
+    <div style="font-size:12px;color:rgba(255,255,255,.55)">Everyone on their own phone. Empty seats are filled by computers when the host starts.</div>
+  </div>
   <div class="rules">
     <b>Ranks:</b> 3 &lt; 4 … &lt; 10 &lt; J &lt; Q &lt; K &lt; A &lt; 2 &lt; small joker &lt; big joker<br>
     <b>Single</b> beats a lower single · <b>Pair</b> beats a lower pair<br>
@@ -105,6 +129,16 @@ a.back{color:rgba(255,255,255,.7);font-size:13px;display:inline-block;margin-top
   </div>
   <button id="startBtn">Deal the cards</button><br>
   <a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+
+<div class="overlay hidden" id="lobby"><div>
+  <h1>Room <span id="lobbyCode" style="letter-spacing:6px;color:var(--gold)"></span><small>Tell your friends the code, or send the link</small></h1>
+  <p id="lobbyLink" style="font-size:13px;word-break:break-all"></p>
+  <button class="g" id="copyBtn" style="font-size:14px;padding:10px 18px">Copy link</button>
+  <div class="standings" id="lobbySeats"></div>
+  <p id="lobbyNote"></p>
+  <button id="lobbyStart" class="hidden">Start the game</button><br>
+  <button class="g" id="lobbyLeave" style="font-size:14px;padding:10px 18px">Leave</button>
 </div></div>
 
 <div class="overlay hidden" id="over"><div>
@@ -254,14 +288,14 @@ function scheduleAI(){
 // ---------- human ----------
 const me=()=>players[viewer];
 function mySelection(){return me().hand.filter(c=>sel.has(c.id));}
-function tryPlay(){
+let tryPlay=function(){
   if(state!=="play"||turn!==viewer||!players[turn].human)return;
   const cards=mySelection();const p=classify(cards);
   if(!p){say(cards.length?"That's not a valid set: a single, a pair, three or four of a kind, or both jokers.":"Pick some cards first.");return;}
   if(!beats(p,pileTop)){say("That doesn't beat "+describe(pileTop)+".");return;}
   sel.clear();play(viewer,p);
-}
-function tryPass(){if(state!=="play"||turn!==viewer)return;if(!pileTop){say("You lead — you have to play something.");return;}sel.clear();pass(viewer);}
+};
+let tryPass=function(){if(state!=="play"||turn!==viewer)return;if(!pileTop){say("You lead — you have to play something.");return;}sel.clear();pass(viewer);};
 function hint(){
   if(turn!==viewer||state!=="play")return;const p=aiChoose(me());sel.clear();
   if(!p){say(pileTop?"Nothing beats it — pass.":"Play your lowest card.");render();return;}
@@ -277,7 +311,7 @@ function cardEl(c,small){
 }
 function render(){
   // another person's turn on this phone? hand it over behind the curtain first
-  if(state==="play"&&players[turn].human&&turn!==viewer){const cur=$("#curtain");
+  if(!online&&state==="play"&&players[turn].human&&turn!==viewer){const cur=$("#curtain");
     if(cur.classList.contains("hidden")){$("#curtainName").textContent=`${players[turn].name}, your turn`;cur.classList.remove("hidden");}}
   const opps=$("#opps");opps.innerHTML="";
   players.forEach((p,i)=>{if(i===viewer)return;const d=document.createElement("div");
@@ -298,24 +332,82 @@ function render(){
   $("#myCount").textContent=me().hand.length;$("#meName").textContent=me().name;
   const mine=turn===viewer&&state==="play";
   $("#me").classList.toggle("turn",mine);$("#turnHint").innerHTML=mine?"<b>Your turn</b>":me().rank?`Finished #${me().rank}`:`${players[turn]?players[turn].name:""}'s turn`;
+  if(online)$("#bar b").textContent="争上游 · room "+online.code;
   $("#playBtn").disabled=!mine;$("#passBtn").disabled=!mine||!pileTop;$("#hintBtn").disabled=!mine;
 }
 function say(t){$("#msg").textContent=t;}
 function bubble(i,t){if(i===viewer){say(players[i].name+": "+t);return;}const el=document.getElementById("say"+i);if(!el)return;el.textContent=t;el.classList.add("on");setTimeout(()=>el.classList.remove("on"),1400);}
+// ---------- online rooms ----------
+let online=null;   // {code,player,token,version,polling}
+const OL=s=>document.querySelector(s);
+let olSeats=4;
+async function api(path,body){const r=await fetch("/api/zsy"+path,{method:body!==undefined?"POST":"GET",headers:{"Content-Type":"application/json"},body:body!==undefined?JSON.stringify(body):undefined});const j=await r.json().catch(()=>({error:"Lost the connection."}));if(!r.ok)throw new Error(j.error||"Something went wrong.");return j;}
+function olSave(){try{localStorage.setItem("zsy_room",JSON.stringify(online&&{code:online.code,player:online.player,token:online.token}));}catch(e){}}
+function applyView(v){
+  online.version=v.version;
+  players=v.players.map((p,i)=>({name:p.name,icon:p.human?(p.online||i===v.you?"🧑":"💤"):AV[i%AV.length],human:p.human,rank:p.rank,
+    hand:i===v.you?(p.hand||[]):Array.from({length:p.count},(_,k)=>({id:"x"+i+"_"+k,r:0,s:""}))}));
+  viewer=v.you;turn=v.turn;pileTop=v.top?{type:v.top.type,r:v.top.r,cards:v.top.cards}:null;topBy=v.top_by;setAside=v.set_aside||0;N=players.length;
+  if(v.status==="lobby"){state="lobby";showLobby(v);return;}
+  OL("#lobby").classList.add("hidden");$("#start").classList.add("hidden");
+  if(v.status==="over"&&state!=="over"){state="over";finished=players.map((p,i)=>i).sort((a,b)=>players[a].rank-players[b].rank);
+    const order=finished.map(i=>players[i]);const names=["上游 Champion 🏆","2nd","3rd","4th","5th"];const champ=order[0];
+    $("#overTitle").textContent=champ.name===players[viewer].name?"You win! 上游":`${champ.name} wins`;
+    $("#standings").innerHTML=order.map((p,k)=>`<div class="${k===0?"me":""}">${names[k]||k+1+"th"} — ${p.icon} ${p.name}</div>`).join("");
+    $("#againBtn").classList.toggle("hidden",!v.host);$("#over").classList.remove("hidden");}
+  else if(v.status==="play"){state="play";$("#over").classList.add("hidden");}
+  if(v.log.length)say(v.log[v.log.length-1]);
+  render();
+}
+function showLobby(v){
+  state="lobby";$("#start").classList.add("hidden");OL("#lobby").classList.remove("hidden");
+  OL("#lobbyCode").textContent=v.code;const link=location.origin+location.pathname+"?room="+v.code;OL("#lobbyLink").textContent=link;
+  OL("#lobbySeats").innerHTML=Array.from({length:v.seats},(_,i)=>{const p=v.players[i];return p?`<div class="${i===v.you?"me":""}">🧑 ${p.name}${p.online||i===v.you?"":" (away)"}</div>`:`<div class="off">🤖 empty seat → computer</div>`;}).join("");
+  OL("#lobbyNote").textContent=v.host?"You are the host. Start whenever you like — empty seats become computers.":`Waiting for ${v.players[0].name} to start…`;
+  OL("#lobbyStart").classList.toggle("hidden",!v.host);
+}
+async function olPoll(){
+  if(!online)return;const my=online;
+  try{const j=await api(`/rooms/${my.code}/state?player=${my.player}&token=${encodeURIComponent(my.token)}&v=${my.version||0}`);
+    if(online!==my)return;applyView(j.view);}
+  catch(e){if(online!==my)return;if(/gone|yours|Join/.test(e.message)){olLeave();say(e.message);return;}await new Promise(r=>setTimeout(r,1500));}
+  if(online===my)olPoll();
+}
+function olEnter(j){online={code:j.code,player:j.player,token:j.token,version:0};olSave();applyView(j.view);olPoll();}
+async function olCreate(){OL("#olErr").textContent="";try{olEnter(await api("/rooms",{name:OL("#olName").value,seats:olSeats}));}catch(e){OL("#olErr").textContent=e.message;}}
+async function olJoin(code){OL("#olErr").textContent="";code=(code||OL("#olCode").value).trim().toUpperCase();if(code.length!==4){OL("#olErr").textContent="Type the 4-letter room code.";return;}
+  try{olEnter(await api(`/rooms/${code}/join`,{name:OL("#olName").value}));}catch(e){OL("#olErr").textContent=e.message;}}
+function olLeave(){online=null;olSave();state="menu";OL("#lobby").classList.add("hidden");$("#over").classList.add("hidden");$("#start").classList.remove("hidden");}
+async function olSend(kind,body){const my=online;try{const j=await api(`/rooms/${my.code}/${kind}`,{player:my.player,token:my.token,...body});applyView(j.view);}catch(e){say(e.message);}}
+// hook the human actions
+const _tryPlay=tryPlay,_tryPass=tryPass;
+tryPlay=function(){if(!online)return _tryPlay();if(state!=="play"||turn!==viewer)return;const cards=mySelection();const p=classify(cards);
+  if(!p){say(cards.length?"That's not a valid set: a single, a pair, three or four of a kind, or both jokers.":"Pick some cards first.");return;}
+  if(!beats(p,pileTop)){say("That doesn't beat "+describe(pileTop)+".");return;}sel.clear();olSend("play",{cards:cards.map(c=>c.id)});};
+tryPass=function(){if(!online)return _tryPass();if(state!=="play"||turn!==viewer)return;if(!pileTop){say("You lead — you have to play something.");return;}sel.clear();olSend("pass",{});};
+OL("#modeLocal").onclick=()=>{OL("#modeLocal").classList.add("on");OL("#modeOnline").classList.remove("on");OL("#localPanel").classList.remove("hidden");OL("#onlinePanel").classList.add("hidden");$("#startBtn").classList.remove("hidden");};
+OL("#modeOnline").onclick=()=>{OL("#modeOnline").classList.add("on");OL("#modeLocal").classList.remove("on");OL("#onlinePanel").classList.remove("hidden");OL("#localPanel").classList.add("hidden");$("#startBtn").classList.add("hidden");};
+OL("#olPick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;olSeats=+b.dataset.n;[...OL("#olPick").children].forEach(x=>x.classList.toggle("on",x===b));});
+OL("#createBtn").onclick=olCreate;OL("#joinBtn").onclick=()=>olJoin();OL("#lobbyStart").onclick=()=>olSend("start",{});OL("#lobbyLeave").onclick=olLeave;
+OL("#copyBtn").onclick=async()=>{try{await navigator.clipboard.writeText(OL("#lobbyLink").textContent);OL("#copyBtn").textContent="Copied ✓";}catch(e){}};
+(function(){const q=new URLSearchParams(location.search).get("room");
+  try{const saved=JSON.parse(localStorage.getItem("zsy_room")||"null");if(saved&&saved.code){online={...saved,version:0};olPoll();return;}}catch(e){}
+  if(q){OL("#modeOnline").click();OL("#olCode").value=q.toUpperCase();}})();
 // ---------- menu / pause ----------
 $("#pick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;N=+b.dataset.n;[...$("#pick").children].forEach(x=>x.classList.toggle("on",x===b));renderSeats();});
 $("#startBtn").onclick=()=>{roundLeader=Math.floor(Math.random()*N);newGame();};
 $("#curtainBtn").onclick=()=>{viewer=turn;sel.clear();$("#curtain").classList.add("hidden");render();};
-$("#againBtn").onclick=newGame;
-$("#playBtn").onclick=tryPlay;$("#passBtn").onclick=tryPass;$("#hintBtn").onclick=hint;
-function pauseGame(){if(state!=="play"||paused)return;paused=true;clearTimeout(timer);$("#pause").classList.remove("hidden");}
+$("#againBtn").onclick=()=>online?olSend("start",{}):newGame();
+$("#playBtn").onclick=()=>tryPlay();$("#passBtn").onclick=()=>tryPass();$("#hintBtn").onclick=hint;
+function pauseGame(){if((state!=="play"&&state!=="lobby")||paused)return;paused=true;clearTimeout(timer);$("#pause").classList.remove("hidden");}
 function resumeGame(){if(!paused)return;paused=false;$("#pause").classList.add("hidden");scheduleAI();}
 $("#pauseBtn").onclick=()=>paused?resumeGame():pauseGame();$("#resumeBtn").onclick=resumeGame;
-$("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");state="menu";clearTimeout(timer);$("#start").classList.remove("hidden");};
+$("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");clearTimeout(timer);if(online)olLeave();else{state="menu";$("#start").classList.remove("hidden");}};
 addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}
   else if(e.key==="Enter"&&state==="play")tryPlay();else if(e.key===" "&&state==="play"){e.preventDefault();tryPass();}});
-document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&!online)pauseGame();});
 renderSeats();
+window.__zsy_online={create:olCreate,join:olJoin,leave:olLeave,get room(){return online;}};
 window.__zsy={hands:()=>players.map(p=>p.hand),bombsIn,get state(){return{state,turn,viewer,pileTop,N,names:players.map(p=>p.name),humans:players.map(p=>p.human),hands:players.map(p=>p.hand.length),ranks:players.map(p=>p.rank)}},classify,beats,aiChoose:()=>aiChoose(players[turn]),play:(p)=>{sel.clear();p.cards.forEach(c=>sel.add(c.id));tryPlay();},pass:tryPass,newGame,setN:n=>{N=n;renderSeats();},seats,renderSeats,reveal:()=>$("#curtainBtn").click()};
 </script>
 <script>window.FEEDBACK_GAME="争上游 Zheng Shang You";window.FEEDBACK_POS={right:"60px",top:"calc(env(safe-area-inset-top,0px) + 8px)"};</script>

@@ -1923,7 +1923,7 @@ def require_passcode():
                             "/api/track", "/api/feedback", "/api/me", "/signout", "/api/order",
                             "/api/products", "/api/agent/order", "/openapi.json", "/llms.txt", "/robots.txt",
                             "/.well-known/ucp", "/terms")
-                      or p.startswith("/ucp/") or p.startswith("/order/")
+                      or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
         ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/approve/") or p.startswith("/go/")
@@ -2347,6 +2347,218 @@ def play_fifa():
 @app.get("/play/nova")
 def play_nova():
     return _nocache(send_from_directory(GAMES_DIR / "nova-blast", "index.html", max_age=0))
+
+# ============================ 争上游 online rooms ============================
+# Several phones at one table: the server holds the game and runs the house rules
+# (same engine as the page: singles vs singles, pairs vs pairs, three-of-a-kind bomb,
+# four-of-a-kind bigger bomb, both jokers beat all). Empty seats are computers.
+# Rooms live in memory and vanish after two quiet hours.
+import secrets as _secrets, time as _time, random as _random
+ZSY_ROOMS, _zsy_lock = {}, threading.Lock()
+ZSY_AI_NAMES = ["Grandma 🧓", "Uncle 👨", "Cousin 🧒", "Auntie 👩"]
+ZSY_RANK = {3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A",15:"2",16:"small joker",17:"big joker"}
+ZSY_POWER = {"single":0,"pair":0,"bomb3":1,"bomb4":2,"jokers":3}
+
+def zsy_deck():
+    d, i = [], 0
+    for r in range(3, 16):
+        for s in "♠♥♣♦": d.append({"id": i, "r": r, "s": s}); i += 1
+    d += [{"id": i, "r": 16, "s": "sj"}, {"id": i + 1, "r": 17, "s": "bj"}]
+    return d
+def zsy_classify(cards):
+    if not cards: return None
+    rs = [c["r"] for c in cards]
+    if len(cards) == 2 and 16 in rs and 17 in rs: return {"type": "jokers", "r": 99, "cards": cards}
+    if any(r != rs[0] for r in rs): return None
+    t = {1: "single", 2: "pair", 3: "bomb3", 4: "bomb4"}.get(len(cards))
+    return {"type": t, "r": rs[0], "cards": cards} if t else None
+def zsy_beats(p, top):
+    if not top or p["type"] == "jokers": return True
+    if ZSY_POWER[p["type"]] > ZSY_POWER[top["type"]]: return True
+    return p["type"] == top["type"] and p["r"] > top["r"]
+def zsy_describe(p):
+    n = ZSY_RANK.get(p["r"], "")
+    return {"jokers": "🃏🃏 Joker bomb!", "bomb4": f"💣 Four {n}s — bomb!", "bomb3": f"💣 Three {n}s — bomb!", "pair": f"Pair of {n}s"}.get(p["type"], n)
+def zsy_bombs_in(hand):
+    g = {}
+    for c in hand: g[c["r"]] = g.get(c["r"], 0) + 1
+    return sum(1 for n in g.values() if n >= 3) + (1 if g.get(16) and g.get(17) else 0)
+def zsy_groups(hand):
+    g = {}
+    for c in sorted(hand, key=lambda c: c["r"]): g.setdefault(c["r"], []).append(c)
+    return [{"r": r, "cards": cs} for r, cs in sorted(g.items())]
+def zsy_ai(hand, top, threat):
+    gs = zsy_groups(hand); jok = [c for c in hand if c["r"] >= 16]; opts = []
+    for g in gs:
+        n = len(g["cards"])
+        if n >= 3: opts.append({"type": "bomb4" if n >= 4 else "bomb3", "r": g["r"], "cards": g["cards"][:4 if n >= 4 else 3], "bomb": True})
+        if n >= 2 and g["r"] < 16: opts.append({"type": "pair", "r": g["r"], "cards": g["cards"][:2], "breaks": n > 2})
+        opts.append({"type": "single", "r": g["r"], "cards": [g["cards"][0]], "breaks": n > 1})
+    if len(jok) == 2: opts.append({"type": "jokers", "r": 99, "cards": jok, "bomb": True})
+    if not top:
+        if len(gs) == 1: return zsy_classify(gs[0]["cards"]) or {"type": "single", "r": gs[0]["r"], "cards": gs[0]["cards"][:1]}
+        whole = sorted([o for o in opts if not o.get("breaks") and not o.get("bomb")], key=lambda o: (o["r"], -len(o["cards"])))
+        return whole[0] if whole else sorted([o for o in opts if not o.get("bomb")], key=lambda o: o["r"])[0] if any(not o.get("bomb") for o in opts) else opts[0]
+    same = sorted([o for o in opts if o["type"] == top["type"] and not o.get("bomb") and o["r"] > top["r"]], key=lambda o: (o["r"], 1 if o.get("breaks") else 0))
+    nb = [o for o in same if not o.get("breaks")]
+    pick = nb[0] if nb else (same[0] if same and (len(hand) <= 4 or threat) else None)
+    if pick and pick["r"] >= 15 and len(hand) > 6 and not threat and _random.random() < .5: pick = None
+    if not pick:
+        bombs = sorted([o for o in opts if o.get("bomb") and zsy_beats(o, top)], key=lambda o: (ZSY_POWER[o["type"]], o["r"]))
+        if bombs and (threat or len(hand) <= 5 or (top["r"] >= 15 and _random.random() < .35)): pick = bombs[0]
+    return pick
+
+def _zsy_code():
+    while True:
+        c = "".join(_secrets.choice("ABCDEFGHJKMNPQRSTUVWXYZ23456789") for _ in range(4))
+        if c not in ZSY_ROOMS: return c
+def _zsy_room(code):
+    r = ZSY_ROOMS.get((code or "").upper())
+    if r and _time.time() - r["touched"] > 2 * 3600: ZSY_ROOMS.pop(code.upper(), None); return None
+    return r
+def _zsy_bump(r, msg=None):
+    r["version"] += 1; r["touched"] = _time.time()
+    if msg: r["log"] = (r["log"] + [msg])[-8:]
+def _zsy_active(r): return [i for i, p in enumerate(r["players"]) if p["rank"] is None]
+def _zsy_next(r):
+    while True:
+        r["turn"] = (r["turn"] + 1) % len(r["players"])
+        if r["players"][r["turn"]]["rank"] is None: return
+def zsy_deal(r):
+    n = len(r["players"]); tries = 0
+    while True:
+        deck = zsy_deck(); _random.SystemRandom().shuffle(deck)
+        each = min(18, len(deck) // n); extra = min(18 * n, len(deck)) - each * n; k = 0
+        for i, p in enumerate(r["players"]):
+            m = each + (1 if i < extra else 0); p["hand"] = sorted(deck[k:k + m], key=lambda c: (c["r"], c["s"])); k += m; p["rank"] = None
+        tries += 1
+        if not any(zsy_bombs_in(p["hand"]) >= 3 for p in r["players"]) or tries >= 40: break
+    r["set_aside"] = len(deck) - k
+    r.update(top=None, top_by=-1, passes=0, finished=[], status="play", turn=r.get("round_leader", 0) % n, ai_due=_time.time() + 1.2)
+    _zsy_bump(r, f"{r['players'][r['turn']]['name']} leads.")
+def zsy_apply_play(r, i, p):
+    pl = r["players"][i]; ids = {c["id"] for c in p["cards"]}
+    pl["hand"] = [c for c in pl["hand"] if c["id"] not in ids]
+    r["top"], r["top_by"], r["passes"] = {"type": p["type"], "r": p["r"], "cards": p["cards"]}, i, 0
+    msg = f"{pl['name']}: {zsy_describe(p)}"
+    if not pl["hand"]:
+        pl["rank"] = len(r["finished"]) + 1; r["finished"].append(i); msg += f" — out, #{pl['rank']}!"
+        if len(_zsy_active(r)) == 1:
+            last = _zsy_active(r)[0]; r["players"][last]["rank"] = len(r["finished"]) + 1; r["finished"].append(last)
+            r["status"] = "over"; r["round_leader"] = r["finished"][0]; _zsy_bump(r, msg); return
+    _zsy_next(r); r["ai_due"] = _time.time() + 1.0; _zsy_bump(r, msg)
+def zsy_apply_pass(r, i):
+    r["passes"] += 1; _zsy_next(r); msg = f"{r['players'][i]['name']}: pass"
+    still_in = r["players"][r["top_by"]]["rank"] is None
+    if r["turn"] == r["top_by"] or r["passes"] >= len(_zsy_active(r)) - (1 if still_in else 0):
+        r["top"], r["passes"] = None, 0
+        if still_in: r["turn"] = r["top_by"]
+        msg += f" · {r['players'][r['turn']]['name']} leads."
+    r["ai_due"] = _time.time() + 1.0; _zsy_bump(r, msg)
+def zsy_run_ai(r):
+    """Computers move on their own clock; called whenever anyone looks at the room."""
+    moved = False
+    while r["status"] == "play" and not r["players"][r["turn"]]["human"] and _time.time() >= r.get("ai_due", 0):
+        i = r["turn"]; pl = r["players"][i]
+        threat = any(p["rank"] is None and len(p["hand"]) <= 2 for j, p in enumerate(r["players"]) if j != i)
+        p = zsy_ai(pl["hand"], r["top"], threat)
+        if p: zsy_apply_play(r, i, {"type": p["type"], "r": p["r"], "cards": p["cards"]})
+        else: zsy_apply_pass(r, i)
+        moved = True
+    return moved
+def zsy_view(r, me):
+    return {"code": r["code"], "status": r["status"], "version": r["version"], "turn": r["turn"], "you": me, "host": r["host"] == me,
+            "seats": r["seats"], "set_aside": r.get("set_aside", 0), "log": r["log"],
+            "players": [{"name": p["name"], "human": p["human"], "online": p["human"] and _time.time() - p.get("seen", 0) < 25,
+                         "count": len(p["hand"]), "rank": p["rank"], "hand": p["hand"] if i == me else None} for i, p in enumerate(r["players"])],
+            "top": r["top"], "top_by": r["top_by"]}
+
+def _zsy_auth(code):
+    r = _zsy_room(code)
+    if not r: return None, None, (jsonify(error="That room is gone. Make a new one."), 404)
+    x = request.get_json(silent=True) or {}
+    pid, tok = request.args.get("player", x.get("player")), request.args.get("token", x.get("token"))
+    try: i = int(pid)
+    except (TypeError, ValueError): return r, None, (jsonify(error="Who are you? Join the room first."), 401)
+    if not (0 <= i < len(r["players"])) or r["players"][i].get("token") != tok: return r, None, (jsonify(error="That seat isn't yours."), 403)
+    r["players"][i]["seen"] = _time.time(); return r, i, None
+
+@app.post("/api/zsy/rooms")
+def zsy_create():
+    x = request.get_json(silent=True) or {}
+    name = (str(x.get("name") or "").strip() or session.get("v_name") or "Host")[:14]
+    try: seats = max(2, min(5, int(x.get("seats") or 4)))
+    except (TypeError, ValueError): seats = 4
+    with _zsy_lock:
+        if sum(1 for r in ZSY_ROOMS.values() if _time.time() - r["touched"] < 2 * 3600) > 200: return jsonify(error="Too many tables open right now."), 429
+        code = _zsy_code(); tok = _secrets.token_urlsafe(12)
+        ZSY_ROOMS[code] = {"code": code, "seats": seats, "host": 0, "status": "lobby", "version": 1, "touched": _time.time(), "log": [],
+                           "players": [{"name": name, "human": True, "token": tok, "hand": [], "rank": None, "seen": _time.time()}],
+                           "turn": 0, "top": None, "top_by": -1, "passes": 0, "finished": [], "round_leader": 0}
+        r = ZSY_ROOMS[code]
+    return jsonify(ok=True, code=code, player=0, token=tok, view=zsy_view(r, 0))
+@app.post("/api/zsy/rooms/<code>/join")
+def zsy_join(code):
+    x = request.get_json(silent=True) or {}
+    name = (str(x.get("name") or "").strip() or session.get("v_name") or "Player")[:14]
+    with _zsy_lock:
+        r = _zsy_room(code)
+        if not r: return jsonify(error="No room with that code. Check the letters."), 404
+        if r["status"] != "lobby": return jsonify(error="That game has already started. Ask the host for a new room."), 409
+        if len(r["players"]) >= r["seats"]: return jsonify(error="That table is full."), 409
+        tok = _secrets.token_urlsafe(12); i = len(r["players"])
+        r["players"].append({"name": name, "human": True, "token": tok, "hand": [], "rank": None, "seen": _time.time()}); _zsy_bump(r, f"{name} joined.")
+    return jsonify(ok=True, code=r["code"], player=i, token=tok, view=zsy_view(r, i))
+@app.post("/api/zsy/rooms/<code>/start")
+def zsy_start(code):
+    with _zsy_lock:
+        r, me, err = _zsy_auth(code)
+        if err: return err
+        if r["host"] != me: return jsonify(error="Only the host can start."), 403
+        if r["status"] == "play": return jsonify(error="Already playing."), 409
+        k = 0
+        for p in r["players"]: p["hand"], p["rank"] = [], None
+        while len(r["players"]) < r["seats"]:
+            r["players"].append({"name": ZSY_AI_NAMES[k % 4], "human": False, "token": None, "hand": [], "rank": None}); k += 1
+        zsy_deal(r)
+    return jsonify(ok=True, view=zsy_view(r, me))
+@app.post("/api/zsy/rooms/<code>/play")
+def zsy_play(code):
+    x = request.get_json(silent=True) or {}
+    with _zsy_lock:
+        r, me, err = _zsy_auth(code)
+        if err: return err
+        if r["status"] != "play" or r["turn"] != me: return jsonify(error="Not your turn."), 409
+        ids = set(x.get("cards") or []); cards = [c for c in r["players"][me]["hand"] if c["id"] in ids]
+        if len(cards) != len(ids): return jsonify(error="Those cards aren't in your hand."), 400
+        p = zsy_classify(cards)
+        if not p: return jsonify(error="Not a valid set: a single, a pair, three or four of a kind, or both jokers."), 400
+        if not zsy_beats(p, r["top"]): return jsonify(error=f"That doesn't beat {zsy_describe(r['top'])}."), 400
+        zsy_apply_play(r, me, p)
+    return jsonify(ok=True, view=zsy_view(r, me))
+@app.post("/api/zsy/rooms/<code>/pass")
+def zsy_pass(code):
+    with _zsy_lock:
+        r, me, err = _zsy_auth(code)
+        if err: return err
+        if r["status"] != "play" or r["turn"] != me: return jsonify(error="Not your turn."), 409
+        if not r["top"]: return jsonify(error="You lead — you have to play something."), 400
+        zsy_apply_pass(r, me)
+    return jsonify(ok=True, view=zsy_view(r, me))
+@app.get("/api/zsy/rooms/<code>/state")
+def zsy_state(code):
+    """Long-poll: answers as soon as the room changes (or after 20 s). Computers move here."""
+    try: since = int(request.args.get("v") or 0)
+    except ValueError: since = 0
+    deadline = _time.time() + 20
+    while True:
+        with _zsy_lock:
+            r, me, err = _zsy_auth(code)
+            if err: return err
+            zsy_run_ai(r)
+            if r["version"] != since or _time.time() >= deadline: return jsonify(ok=True, view=zsy_view(r, me))
+            wait = max(0.15, min(0.5, r.get("ai_due", 0) - _time.time())) if r["status"] == "play" and not r["players"][r["turn"]]["human"] else 0.5
+        _time.sleep(wait)
 
 @app.get("/play/zsy")
 def play_zsy():
