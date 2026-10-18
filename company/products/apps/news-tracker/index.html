@@ -16,6 +16,11 @@ h1 small{font-family:"Source Sans 3",sans-serif;font-size:13px;color:var(--muted
 .search{display:flex;gap:8px;margin:2px 0 6px}
 .search input{flex:1;font:inherit;font-size:15px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);min-width:0}
 .search button{font:inherit;font-weight:600;font-size:14px;padding:9px 14px;border-radius:10px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}
+.search button.ask{background:var(--accent);color:#fff}
+.answer{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:14px 16px;margin:0 0 14px;font-size:15px;line-height:1.5}
+.answer h2{font-family:Newsreader,Georgia,serif;font-size:19px;margin:0 0 8px}
+.answer .since{font-size:12px;color:var(--muted);margin-top:8px}
+.answer p{margin:6px 0}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:0 0 auto;font:inherit;font-weight:600;font-size:14px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer;position:relative}
@@ -62,7 +67,7 @@ article .star.on{color:var(--accent)}
 <header><div class="hwrap">
   <h1>📰 News Tracker <small id="who"></small></h1>
   <div class="sub">The big front pages by category, plus your own topics — day by day. A green dot means you haven't seen it yet.</div>
-  <form class="search" id="searchForm"><input id="q" placeholder="Search the news — e.g. Wichita soccer, Tesla, your town" maxlength="80"><button type="submit">Search</button></form>
+  <form class="search" id="searchForm"><input id="q" placeholder="Search, or ask: what's happening now with …?" maxlength="200"><button type="submit">Search</button><button type="button" id="askBtn" class="ask">Ask</button></form>
   <div class="chips" id="chips"></div>
 </div></header>
 <main>
@@ -77,7 +82,7 @@ article .star.on{color:var(--accent)}
   <div class="foot">Headlines come from Google News. Tap a headline to read it on the publisher's site. · <a href="/games">← hardywu.com</a></div>
 </main>
 <script>
-const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All",search=null;
+const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All",search=null,answer=null;
 async function api(path,body){const r=await fetch("/api/news"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,keepalive:path==="/seen"});const j=await r.json().catch(()=>({error:"Lost the connection."}));if(!r.ok)throw new Error(j.error||"Something went wrong.");return j;}
 const fullDate=d=>d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
 const dayKey=iso=>{if(!iso)return"Undated";const d=new Date(iso),t=new Date();const s=x=>x.toDateString();const y=new Date(t);y.setDate(t.getDate()-1);
@@ -94,6 +99,11 @@ function render(){
   const sv=document.createElement("button");sv.className="chip"+(cur==="__saved"?" on":"");sv.textContent="★ Saved"+(data.saved.length?` (${data.saved.length})`:"");sv.onclick=()=>{cur="__saved";render();};chips.appendChild(sv);
   const add=document.createElement("button");add.className="chip add";add.textContent="＋ topics";add.onclick=()=>{$("#manage").classList.toggle("on");renderManage();};chips.appendChild(add);
   const list=$("#list");list.innerHTML="";
+  if(cur==="__ask"&&answer){$("#status").textContent=answer.sources?.length?`${answer.sources.length} stories used · remembered since ${answer.remembered_since||"today"}`:"";$("#briefBtn").style.display="none";
+    const box=document.createElement("div");box.className="answer";box.innerHTML=`<h2>${esc(answer.question)}</h2>${fmt(answer.answer)}<div class="since">${answer.sources?.length?`Based on ${answer.sources.length} dated stories the app has kept, oldest ${answer.remembered_since}. It keeps everything for three years, so this answer gets fuller over time.`:""}</div>`;list.appendChild(box);
+    if(answer.query){const follow=document.createElement("div");follow.className="topbar";follow.innerHTML=`<span>Keep following this?</span><button id="followBtn" class="primary">＋ Follow “${esc(answer.query)}”</button>`;list.appendChild(follow);follow.querySelector("#followBtn").onclick=()=>addTopic(answer.query);}
+    if(answer.sources?.length){const h=document.createElement("div");h.className="cat";h.innerHTML=`The stories behind it<small>newest first</small>`;list.appendChild(h);withDays(list,answer.sources,answer.query||"");}
+    return;}
   if(cur==="__search"&&search){$("#status").textContent=`${search.items.length} stories for “${search.query}” · updated ${ago(search.fetched_at)||"just now"}`;$("#briefBtn").style.display="none";
     const follow=document.createElement("div");follow.className="topbar";follow.innerHTML=`<span>Want to keep seeing this?</span><button id="followBtn" class="primary">＋ Follow “${esc(search.query)}”</button>`;list.appendChild(follow);
     follow.querySelector("#followBtn").onclick=()=>addTopic(search.query);
@@ -124,13 +134,20 @@ function card(it,topic){const a=document.createElement("article");if(it.seen)a.c
    ${it.snippet?`<div class="snip">${esc(it.snippet)}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
   a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
   return a;}
+const fmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>l.startsWith("- ")?"<p>• "+l.slice(2)+"</p>":"<p>"+l+"</p>").join("");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function renderManage(){const ul=$("#topicList");ul.innerHTML="";data.topics.forEach(t=>{const li=document.createElement("li");li.innerHTML=`${esc(t.topic)}<button title="Stop following">✕</button>`;li.querySelector("button").onclick=async()=>{await api("/topics",{remove:t.topic});if(cur===t.topic)cur=null;await load();renderManage();};ul.appendChild(li);});
   const sb=$("#sectionBtns");sb.innerHTML="";data.sections.forEach(s=>{if(data.topics.some(t=>t.topic.toLowerCase()===s))return;const b=document.createElement("button");b.textContent=s;b.onclick=()=>addTopic(s);sb.appendChild(b);});}
 async function addTopic(t){t=(t||$("#newTopic").value).trim();if(!t)return;try{await api("/topics",{add:t});$("#newTopic").value="";cur=t;await load();renderManage();}catch(e){$("#status").textContent=e.message;}}
 $("#addBtn").onclick=()=>addTopic();$("#newTopic").addEventListener("keydown",e=>{if(e.key==="Enter")addTopic();});
 $("#refreshBtn").onclick=load;
-$("#searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("#q").value.trim();if(q.length<2)return;$("#status").textContent="Searching…";
+async function ask(){const q=$("#q").value.trim();if(q.length<2||busy)return;busy=true;answer={question:q,answer:"Thinking — reading today's stories and everything remembered…",sources:[]};cur="__ask";[...$("#chips").children].forEach(c=>c.classList.remove("on"));render();window.scrollTo(0,0);
+  try{const r=await fetch("/api/news/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No answer.");answer=j;}catch(e){answer={question:q,answer:e.message,sources:[]};}
+  busy=false;render();}
+$("#askBtn").onclick=ask;
+$("#searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("#q").value.trim();if(q.length<2)return;
+  if(/\?$/.test(q)||/^(what|what's|whats|why|how|when|who|is|are|did|does|has|have)\b/i.test(q)){ask();return;}   // a question goes to Ask
+  $("#status").textContent="Searching…";
   try{const r=await fetch("/api/news/search?q="+encodeURIComponent(q));const j=await r.json();if(!r.ok)throw new Error(j.error||"Search failed.");search=j;cur="__search";[...$("#chips").children].forEach(c=>c.classList.remove("on"));render();window.scrollTo(0,0);}catch(err){$("#status").textContent=err.message;}});
 $("#briefBtn").onclick=async()=>{if(busy||!cur||cur==="__saved")return;busy=true;const box=$("#brief");box.classList.add("on");
   const topic=cur==="__front"?"front:"+(catFilter==="All"?"World":catFilter):cur,label=cur==="__front"?(catFilter==="All"?"World":catFilter)+" front pages":cur;

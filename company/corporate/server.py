@@ -2578,6 +2578,7 @@ def zsy_state(code):
 import xml.etree.ElementTree as _ET, email.utils as _eu, urllib.request as _ur, urllib.parse as _up
 NEWS_DIR = APP_DIR.parent / "news-tracker"
 NEWS_TTL = 15 * 60
+NEWS_KEEP_DAYS = 3 * 365                 # the app remembers three years of stories (Barbara, 2026-10-18)
 NEWS_DEFAULT_TOPICS = ["3D printing", "Robotics", "Indie games", "Small business"]
 # The big outlets' front pages, each filed under a category. WSJ and CNN keep no fresh
 # public feed any more, so theirs come through Google News limited to their sites.
@@ -2611,6 +2612,23 @@ NEWS_SECTIONS = {"top": "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",
                  "science": "https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en",
                  "sports": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en",
                  "world": "https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en"}
+def _news_collector():
+    """Every hour: refresh the front pages and every topic anyone follows, so the three-year memory keeps filling."""
+    import time as _t
+    _t.sleep(60)
+    while True:
+        try:
+            with app.app_context():
+                con = db(); topics = [r["topic"] for r in con.execute("SELECT DISTINCT topic FROM news_topics")]
+                con.execute("DELETE FROM news_items WHERE published < ?", ((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_KEEP_DAYS)).isoformat(),))
+                con.commit(); con.close()
+                news_frontpages()
+                for t in topics: news_items(t)
+        except Exception as e:                                             # noqa: BLE001
+            print("[news] collector:", e, flush=True)
+        _t.sleep(3600)
+if os.environ.get("NEWS_COLLECTOR", "1") != "0" and not os.environ.get("WERKZEUG_RUN_MAIN") == "false":
+    threading.Thread(target=_news_collector, daemon=True, name="news-collector").start()
 def news_user():
     em = (visitor() or session.get("email") or "").strip().lower()
     return "news_" + re.sub(r"[^a-z0-9]+", "_", em)[:60] if em else ("news_local" if is_local_request() else None)
@@ -2691,7 +2709,7 @@ def news_frontpages():
             con.execute("INSERT OR REPLACE INTO news_cache(topic,fetched_at,items) VALUES(?,?,?)", (key, now, json.dumps(items)))
             _news_remember(con, "front:" + pub["cat"], items, pub["cat"])
     con.commit()
-    out = {c: _merge(cats[c], _news_history(con, "front:" + c, 7, 200), 60) for c in NEWS_CATS}
+    out = {c: _merge(cats[c], _news_history(con, "front:" + c, 30, 300), 80) for c in NEWS_CATS}   # the page shows a month; the table keeps three years
     con.close()
     return out, (max(stamps) if stamps else None)
 def _news_topics(con, u):
@@ -2715,7 +2733,7 @@ def news_home():
     with _cf.ThreadPoolExecutor(min(6, max(1, len(topics)))) as ex: fetched = list(ex.map(news_items, topics))
     out = []
     for t, (items, at) in zip(topics, fetched):
-        con = db(); items = _merge(items, _news_history(con, t.strip().lower(), 14, 200), 80); con.close()
+        con = db(); items = _merge(items, _news_history(con, t.strip().lower(), NEWS_KEEP_DAYS, 400), 150); con.close()
         for it in items: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
         out.append({"topic": t, "fetched_at": at, "items": items, "new": sum(1 for it in items if not it["seen"])})
     front, fat = news_frontpages()
@@ -2724,6 +2742,42 @@ def news_home():
     return jsonify(user=u, name=session.get("v_name") or session.get("name") or "", topics=out, saved=list(saved.values()), sections=list(NEWS_SECTIONS),
                    front={"fetched_at": fat, "categories": [{"name": c, "items": front[c], "new": sum(1 for it in front[c] if not it["seen"])} for c in NEWS_CATS],
                           "publishers": sorted({p["name"] for p in NEWS_PUBLISHERS if not p.get("keep_source")})})
+_STOP = set("what is are was were the a an of in on at to for with about and or how why when who did does do now happening happened latest news update updates going there this that it its has have had been be new".split())
+def _ask_terms(q):
+    words = [w for w in re.findall(r"[a-z0-9][a-z0-9'-]+", q.lower()) if w not in _STOP and len(w) > 1]
+    return words[:6]
+@app.post("/api/news/ask")
+def news_ask():
+    """'What is happening now with X?' — answered from today's stories plus everything remembered about X."""
+    if not news_user(): return jsonify(error="Please sign in."), 401
+    q = str((request.get_json(silent=True) or {}).get("question") or "").strip()[:200]
+    terms = _ask_terms(q)
+    if not terms: return jsonify(error="Ask about something specific — a place, a person, a company."), 400
+    query = " ".join(terms)
+    fresh, at = news_items(query)                                           # today's stories (also remembered from now on)
+    con = db()
+    like = " AND ".join("lower(title) LIKE ?" for _ in terms[:3])
+    hist = [dict(r) for r in con.execute(f"SELECT link,title,source,published,snippet FROM news_items WHERE {like} AND published >= ? ORDER BY published DESC LIMIT 120",
+                                        tuple(f"%{t}%" for t in terms[:3]) + ((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_KEEP_DAYS)).isoformat(),))]
+    con.close()
+    items = _merge(fresh[:40], hist, 60)
+    if not items: return jsonify(ok=True, question=q, answer=f"I have nothing on “{query}” yet — not in today's news and nothing remembered. Try other words, or follow it as a topic and I'll start keeping track.", sources=[], fetched_at=at)
+    first = min(i.get("published") or "9999" for i in items)[:10]
+    if not os.environ.get("OPENAI_API_KEY"): return jsonify(error="Answering needs the AI key on the server."), 503
+    lines = "\n".join(f"- [{(i.get('published') or '')[:16].replace('T',' ')}] {i['title']} ({i.get('source','')})" + (f" — {i['snippet'][:140]}" if i.get("snippet") else "") for i in sorted(items, key=lambda i: i.get("published") or "", reverse=True))
+    today = datetime.datetime.now(datetime.timezone.utc).strftime("%A, %B %-d, %Y")
+    try:
+        from openai import OpenAI
+        r = OpenAI().chat.completions.create(model=os.environ.get("OPENAI_MODEL", "gpt-5.1"), max_completion_tokens=600,
+            messages=[{"role": "system", "content": f"Today is {today}. You answer a parent's question about the news using ONLY the dated headlines provided (timestamps are UTC). "
+                       "Structure: 1) 'Right now:' two or three sentences on the latest state, naming dates. 2) 'How it got here:' a short dated timeline, oldest first, only if there is history older than today. "
+                       "3) 'Watch for:' one line. Plain English, no hype, mention outlets in brackets, never invent facts not in the headlines; if the headlines are thin, say so."},
+                      {"role": "user", "content": f"Question: {q}\nStories remembered since {first} and today's:\n{lines}"}])
+        answer = r.choices[0].message.content.strip()
+    except Exception as e:                                                 # noqa: BLE001
+        return jsonify(error=f"The answer didn't come through ({type(e).__name__})."), 502
+    return jsonify(ok=True, question=q, query=query, answer=answer, remembered_since=first, sources=items[:25], fetched_at=at)
+
 @app.get("/api/news/search")
 def news_search():
     """A one-off look-up: fresh stories for any words, without following them."""

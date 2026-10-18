@@ -4,7 +4,8 @@ Owner: Barbara. Last updated 2026-10-18.
 
 - Follow topics I choose and show me the latest stories for each.
 - Pull from the big news outlets (Wall Street Journal, CNN and the like) and sort them into similar categories.
-- Remember the dates: show stories day by day and keep recent days, not only the latest fetch.
+- Remember the dates: show stories day by day and keep three years of them, not only the latest fetch.
+- Answer 'what is happening now about X' from that memory plus the latest stories, with dates.
 - Make clear what is new since I last looked; let me save stories.
 - A short plain-English briefing on demand.
 - Phone-first; works for every signed-in person separately.
