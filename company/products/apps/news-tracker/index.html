@@ -31,6 +31,7 @@ article.seen h3{color:var(--muted);font-weight:500}
 article h3{font-family:Newsreader,Georgia,serif;font-size:19px;line-height:1.25;margin:0;font-weight:700;grid-column:1}
 article h3 a{color:inherit;text-decoration:none}
 article .meta{grid-column:1;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+article .meta .agot{opacity:.7}
 article .meta .dot{width:8px;height:8px;border-radius:50%;background:var(--new);display:inline-block}
 article .snip{grid-column:1;font-size:14px;color:var(--muted);margin-top:2px}
 article .star{grid-column:2;grid-row:1/4;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
@@ -74,8 +75,10 @@ article .star.on{color:var(--accent)}
 <script>
 const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All";
 async function api(path,body){const r=await fetch("/api/news"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,keepalive:path==="/seen"});const j=await r.json().catch(()=>({error:"Lost the connection."}));if(!r.ok)throw new Error(j.error||"Something went wrong.");return j;}
+const fullDate=d=>d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
 const dayKey=iso=>{if(!iso)return"Undated";const d=new Date(iso),t=new Date();const s=x=>x.toDateString();const y=new Date(t);y.setDate(t.getDate()-1);
-  if(s(d)===s(t))return"Today";if(s(d)===s(y))return"Yesterday";return d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})+(d.getFullYear()!==t.getFullYear()?" "+d.getFullYear():"");};
+  if(s(d)===s(t))return"Today · "+fullDate(d);if(s(d)===s(y))return"Yesterday · "+fullDate(d);return fullDate(d);};
+const when=iso=>{if(!iso)return"";const d=new Date(iso);return d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+", "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});};
 function withDays(list,items,topic){let last=null;items.forEach(it=>{const k=dayKey(it.published);if(k!==last){const h=document.createElement("div");h.className="day";h.textContent=k;list.appendChild(h);last=k;}list.appendChild(card(it,topic));});}
 const ago=iso=>{if(!iso)return"";const m=Math.round((Date.now()-new Date(iso))/60000);if(m<60)return m+" min ago";const h=Math.round(m/60);if(h<24)return h+" h ago";const d=Math.round(h/24);return d===1?"yesterday":d+" days ago";};
 async function load(){$("#status").textContent="Loading…";try{data=await api("/home");}catch(e){$("#status").textContent=e.message;return;}
@@ -109,7 +112,7 @@ function render(){
 }
 function card(it,topic){const a=document.createElement("article");if(it.seen)a.classList.add("seen");
   a.innerHTML=`<h3><a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
-   <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${ago(it.published)}</span></div>
+   <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${when(it.published)}</span><span class="agot">(${ago(it.published)})</span></div>
    ${it.snippet?`<div class="snip">${esc(it.snippet)}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
   a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
   return a;}
