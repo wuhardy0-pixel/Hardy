@@ -8,6 +8,8 @@
 
 - Barbara: 'it keeps track so past 3 years it remembers, and if you ask what is happening now about it, it will tell you'. Memory is now three years (`NEWS_KEEP_DAYS`), an hourly background collector refreshes front pages and every followed topic so the memory fills even when nobody opens the app, and **Ask** (`POST /api/news/ask`) answers a question from today's stories plus everything remembered: 'Right now / How it got here (dated timeline) / Watch for', with the dated source stories listed under it. A question typed in the search box goes to Ask automatically.
 
+- Barbara: 'make an area for past — things more than 3 days ago'. Live lists (topics and front pages) now show only the last 3 days; everything older moves to a **📜 Past** chip (`/api/news/past?topic=…&offset=…`, 150 at a time, with a chooser for every topic and category and a Show-more button). Each live list ends with a link to its older stories.
+
 ## Next
 - Push a morning digest by email once the mail sender is configured.
 - Let a topic be pinned to a category.

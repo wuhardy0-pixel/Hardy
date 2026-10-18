@@ -61,12 +61,14 @@ article .star.on{color:var(--accent)}
 .pubs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
 .pubs button{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer}
 .pubs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.older{display:block;margin:14px 0 4px;text-align:center;font-size:14px;color:var(--accent);background:var(--accent-soft);border-radius:10px;padding:10px;cursor:pointer;border:0;width:100%;font-family:inherit}
+.loadmore{display:block;margin:16px auto;font:inherit;font-weight:600;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
 .foot{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
 .foot a{color:var(--muted)}
 </style></head><body>
 <header><div class="hwrap">
   <h1>📰 News Tracker <small id="who"></small></h1>
-  <div class="sub">The big front pages by category, plus your own topics — day by day. A green dot means you haven't seen it yet.</div>
+  <div class="sub">The last 3 days up front; everything older waits in 📜 Past, kept for three years. A green dot means you haven't seen it yet.</div>
   <form class="search" id="searchForm"><input id="q" placeholder="Search, or ask: what's happening now with …?" maxlength="200"><button type="submit">Search</button><button type="button" id="askBtn" class="ask">Ask</button></form>
   <div class="chips" id="chips"></div>
 </div></header>
@@ -82,7 +84,7 @@ article .star.on{color:var(--accent)}
   <div class="foot">Headlines come from Google News. Tap a headline to read it on the publisher's site. · <a href="/games">← hardywu.com</a></div>
 </main>
 <script>
-const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All",search=null,answer=null;
+const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All",search=null,answer=null,past={topic:null,items:[],total:0,offset:0};
 async function api(path,body){const r=await fetch("/api/news"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,keepalive:path==="/seen"});const j=await r.json().catch(()=>({error:"Lost the connection."}));if(!r.ok)throw new Error(j.error||"Something went wrong.");return j;}
 const fullDate=d=>d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
 const dayKey=iso=>{if(!iso)return"Undated";const d=new Date(iso),t=new Date();const s=x=>x.toDateString();const y=new Date(t);y.setDate(t.getDate()-1);
@@ -96,9 +98,15 @@ function render(){
   const chips=$("#chips");chips.innerHTML="";
   const fp=document.createElement("button");fp.className="chip"+(cur==="__front"?" on":"");const fnew=data.front.categories.reduce((a,c)=>a+c.new,0);fp.innerHTML="🗞 Front pages"+(fnew?`<span class="n">${fnew}</span>`:"");fp.onclick=()=>{cur="__front";$("#brief").classList.remove("on");render();};chips.appendChild(fp);
   data.topics.forEach(t=>{const b=document.createElement("button");b.className="chip"+(t.topic===cur?" on":"");b.textContent=t.topic;if(t.new)b.innerHTML+=`<span class="n">${t.new}</span>`;b.onclick=()=>{cur=t.topic;$("#brief").classList.remove("on");render();};chips.appendChild(b);});
+  const ps=document.createElement("button");ps.className="chip"+(cur==="__past"?" on":"");ps.textContent="📜 Past";ps.onclick=()=>openPast(past.topic||data.topics[0]?.topic||"Top stories");chips.appendChild(ps);
   const sv=document.createElement("button");sv.className="chip"+(cur==="__saved"?" on":"");sv.textContent="★ Saved"+(data.saved.length?` (${data.saved.length})`:"");sv.onclick=()=>{cur="__saved";render();};chips.appendChild(sv);
   const add=document.createElement("button");add.className="chip add";add.textContent="＋ topics";add.onclick=()=>{$("#manage").classList.toggle("on");renderManage();};chips.appendChild(add);
   const list=$("#list");list.innerHTML="";
+  if(cur==="__past"){$("#briefBtn").style.display="none";$("#status").textContent=past.total?`${past.total} stor${past.total===1?"y":"ies"} older than 3 days · kept for three years`:"Nothing older than 3 days here yet — it fills up as days pass.";
+    const sel=document.createElement("div");sel.className="pubs";[...data.front.categories.map(c=>c.name),...data.topics.map(t=>t.topic)].forEach(n=>{const b=document.createElement("button");b.textContent=n;b.className=n===past.topic?"on":"";b.onclick=()=>openPast(n);sel.appendChild(b);});list.appendChild(sel);
+    if(past.items.length)withDays(list,past.items,past.topic);
+    if(past.items.length<past.total){const m=document.createElement("button");m.className="loadmore";m.textContent=`Show more (${past.total-past.items.length} left)`;m.onclick=()=>loadPast(past.topic,past.items.length);list.appendChild(m);}
+    return;}
   if(cur==="__ask"&&answer){$("#status").textContent=answer.sources?.length?`${answer.sources.length} stories used · remembered since ${answer.remembered_since||"today"}`:"";$("#briefBtn").style.display="none";
     const box=document.createElement("div");box.className="answer";box.innerHTML=`<h2>${esc(answer.question)}</h2>${fmt(answer.answer)}<div class="since">${answer.sources?.length?`Based on ${answer.sources.length} dated stories the app has kept, oldest ${answer.remembered_since}. It keeps everything for three years, so this answer gets fuller over time.`:""}</div>`;list.appendChild(box);
     if(answer.query){const follow=document.createElement("div");follow.className="topbar";follow.innerHTML=`<span>Keep following this?</span><button id="followBtn" class="primary">＋ Follow “${esc(answer.query)}”</button>`;list.appendChild(follow);follow.querySelector("#followBtn").onclick=()=>addTopic(answer.query);}
@@ -115,15 +123,17 @@ function render(){
     const pubs=document.createElement("div");pubs.className="pubs";["All",...f.publishers].forEach(p=>{const b=document.createElement("button");b.textContent=p;b.className=p===pubFilter?"on":"";b.onclick=()=>{pubFilter=p;render();};pubs.appendChild(b);});list.appendChild(pubs);
     const cats=document.createElement("div");cats.className="pubs";["All",...f.categories.map(c=>c.name)].forEach(c=>{const b=document.createElement("button");b.textContent=c;b.className=c===catFilter?"on":"";b.onclick=()=>{catFilter=c;render();};cats.appendChild(b);});list.appendChild(cats);
     let fresh=[];
-    f.categories.forEach(c=>{if(catFilter!=="All"&&catFilter!==c.name)return;const items=c.items.filter(i=>pubFilter==="All"||i.source===pubFilter);if(!items.length)return;
+    f.categories.forEach(c=>{if(catFilter!=="All"&&catFilter!==c.name)return;const items=c.items.filter(i=>pubFilter==="All"||i.source===pubFilter);if(!items.length&&!c.older)return;
       const h=document.createElement("div");h.className="cat";h.innerHTML=`${esc(c.name)}<small>${items.length} stories${c.new?" · "+c.new+" new":""}</small>`;list.appendChild(h);
-      withDays(list,items.slice(0,catFilter==="All"?12:60),"front:"+c.name);fresh.push(...items.filter(i=>!i.seen).map(i=>i.link));});
+      withDays(list,items.slice(0,catFilter==="All"?12:60),"front:"+c.name);fresh.push(...items.filter(i=>!i.seen).map(i=>i.link));
+      if(c.older){const o=document.createElement("button");o.className="older";o.textContent=`📜 ${c.older} older ${c.name} stor${c.older===1?"y":"ies"} (more than 3 days ago) →`;o.onclick=()=>openPast(c.name);list.appendChild(o);}});
     if(fresh.length){api("/seen",{links:fresh}).catch(()=>{});setTimeout(()=>{f.categories.forEach(c=>c.items.forEach(i=>{if(fresh.includes(i.link))i.seen=true;}));f.categories.forEach(c=>c.new=0);fp.querySelector(".n")?.remove();},2500);}
     return;}
   const t=data.topics.find(x=>x.topic===cur);if(!t){list.innerHTML='<div class="empty">Follow a topic to start.</div>';$("#status").textContent="";return;}
   $("#status").textContent=`${t.items.length} stories · ${t.new?t.new+" new":"all seen"} · updated ${ago(t.fetched_at)||"just now"}`;
-  if(!t.items.length)list.innerHTML='<div class="empty">No stories found for this topic right now.</div>';
+  if(!t.items.length)list.innerHTML='<div class="empty">Nothing in the last 3 days for this topic.</div>';
   withDays(list,t.items,t.topic);
+  if(t.older){const o=document.createElement("button");o.className="older";o.textContent=`📜 ${t.older} older stor${t.older===1?"y":"ies"} about ${t.topic} (more than 3 days ago) →`;o.onclick=()=>openPast(t.topic);list.appendChild(o);}
   // what you have now looked at counts as seen (after a moment, so the dots show first)
   const fresh=t.items.filter(i=>!i.seen).map(i=>i.link);
   if(fresh.length){api("/seen",{links:fresh}).catch(()=>{});setTimeout(()=>{t.items.forEach(i=>{if(fresh.includes(i.link))i.seen=true;});t.new=0;const c=[...chips.children].find(x=>x.textContent.startsWith(t.topic));if(c)c.querySelector(".n")?.remove();},2500);}
@@ -144,6 +154,9 @@ $("#refreshBtn").onclick=load;
 async function ask(){const q=$("#q").value.trim();if(q.length<2||busy)return;busy=true;answer={question:q,answer:"Thinking — reading today's stories and everything remembered…",sources:[]};cur="__ask";[...$("#chips").children].forEach(c=>c.classList.remove("on"));render();window.scrollTo(0,0);
   try{const r=await fetch("/api/news/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No answer.");answer=j;}catch(e){answer={question:q,answer:e.message,sources:[]};}
   busy=false;render();}
+async function loadPast(topic,offset){try{const r=await fetch("/api/news/past?topic="+encodeURIComponent(topic)+"&offset="+offset);const j=await r.json();if(!r.ok)throw new Error(j.error||"Could not load the past.");
+    past={topic,total:j.total,offset,items:offset?past.items.concat(j.items):j.items};render();}catch(e){$("#status").textContent=e.message;}}
+function openPast(topic){cur="__past";past={topic,items:[],total:0,offset:0};render();window.scrollTo(0,0);loadPast(topic,0);}
 $("#askBtn").onclick=ask;
 $("#searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("#q").value.trim();if(q.length<2)return;
   if(/\?$/.test(q)||/^(what|what's|whats|why|how|when|who|is|are|did|does|has|have)\b/i.test(q)){ask();return;}   // a question goes to Ask

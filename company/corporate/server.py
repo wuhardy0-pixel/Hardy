@@ -2578,7 +2578,8 @@ def zsy_state(code):
 import xml.etree.ElementTree as _ET, email.utils as _eu, urllib.request as _ur, urllib.parse as _up
 NEWS_DIR = APP_DIR.parent / "news-tracker"
 NEWS_TTL = 15 * 60
-NEWS_KEEP_DAYS = 3 * 365                 # the app remembers three years of stories (Barbara, 2026-10-18)
+NEWS_KEEP_DAYS = 3 * 365
+NEWS_RECENT_DAYS = 3                     # newer than this = the live lists; older = the Past area                 # the app remembers three years of stories (Barbara, 2026-10-18)
 NEWS_DEFAULT_TOPICS = ["3D printing", "Robotics", "Indie games", "Small business"]
 # The big outlets' front pages, each filed under a category. WSJ and CNN keep no fresh
 # public feed any more, so theirs come through Google News limited to their sites.
@@ -2709,7 +2710,7 @@ def news_frontpages():
             con.execute("INSERT OR REPLACE INTO news_cache(topic,fetched_at,items) VALUES(?,?,?)", (key, now, json.dumps(items)))
             _news_remember(con, "front:" + pub["cat"], items, pub["cat"])
     con.commit()
-    out = {c: _merge(cats[c], _news_history(con, "front:" + c, 30, 300), 80) for c in NEWS_CATS}   # the page shows a month; the table keeps three years
+    out = {c: _merge(cats[c], _news_history(con, "front:" + c, NEWS_RECENT_DAYS + 1, 300), 120) for c in NEWS_CATS}   # live lists: the last few days; older lives in Past
     con.close()
     return out, (max(stamps) if stamps else None)
 def _news_topics(con, u):
@@ -2734,13 +2735,20 @@ def news_home():
     out = []
     for t, (items, at) in zip(topics, fetched):
         con = db(); items = _merge(items, _news_history(con, t.strip().lower(), NEWS_KEEP_DAYS, 400), 150); con.close()
-        for it in items: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
-        out.append({"topic": t, "fetched_at": at, "items": items, "new": sum(1 for it in items if not it["seen"])})
+        cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_RECENT_DAYS)).isoformat()
+        recent = [it for it in items if (it.get("published") or "") >= cutoff]
+        for it in recent: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
+        con = db(); older = con.execute("SELECT COUNT(*) FROM news_items WHERE topic=? AND published < ?", (t.strip().lower(), cutoff)).fetchone()[0]; con.close()
+        out.append({"topic": t, "fetched_at": at, "items": recent, "older": older, "new": sum(1 for it in recent if not it["seen"])})
     front, fat = news_frontpages()
+    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_RECENT_DAYS)).isoformat()
+    con = db(); older_by_cat = {c: con.execute("SELECT COUNT(*) FROM news_items WHERE topic=? AND published < ?", ("front:" + c, cutoff)).fetchone()[0] for c in NEWS_CATS}; con.close()
     for c in front:
+        front[c] = [it for it in front[c] if (it.get("published") or "") >= cutoff]
         for it in front[c]: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
     return jsonify(user=u, name=session.get("v_name") or session.get("name") or "", topics=out, saved=list(saved.values()), sections=list(NEWS_SECTIONS),
-                   front={"fetched_at": fat, "categories": [{"name": c, "items": front[c], "new": sum(1 for it in front[c] if not it["seen"])} for c in NEWS_CATS],
+                   front={"fetched_at": fat, "categories": [{"name": c, "items": front[c], "older": older_by_cat[c], "new": sum(1 for it in front[c] if not it["seen"])} for c in NEWS_CATS],
+                          "older": sum(older_by_cat.values()),
                           "publishers": sorted({p["name"] for p in NEWS_PUBLISHERS if not p.get("keep_source")})})
 _STOP = set("what is are was were the a an of in on at to for with about and or how why when who did does do now happening happened latest news update updates going there this that it its has have had been be new".split())
 def _ask_terms(q):
@@ -2777,6 +2785,24 @@ def news_ask():
     except Exception as e:                                                 # noqa: BLE001
         return jsonify(error=f"The answer didn't come through ({type(e).__name__})."), 502
     return jsonify(ok=True, question=q, query=query, answer=answer, remembered_since=first, sources=items[:25], fetched_at=at)
+
+@app.get("/api/news/past")
+def news_past():
+    """Everything older than three days for a topic or a front-page category, newest first, 150 at a time."""
+    if not news_user(): return jsonify(error="Please sign in."), 401
+    topic = str(request.args.get("topic") or "").strip()[:60]
+    try: offset = max(0, int(request.args.get("offset") or 0))
+    except ValueError: offset = 0
+    key = ("front:" + topic) if topic in NEWS_CATS else topic.lower()
+    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_RECENT_DAYS)).isoformat()
+    con = db()
+    total = con.execute("SELECT COUNT(*) FROM news_items WHERE topic=? AND published < ?", (key, cutoff)).fetchone()[0]
+    rows = [dict(r) for r in con.execute("SELECT link,title,source,category,published,snippet FROM news_items WHERE topic=? AND published < ? ORDER BY published DESC LIMIT 150 OFFSET ?", (key, cutoff, offset))]
+    saved = {r["link"] for r in con.execute("SELECT link FROM news_saved WHERE user_key=?", (news_user(),))}
+    con.close()
+    rows = _merge(rows, [], 150)
+    for it in rows: it["seen"] = True; it["saved"] = it["link"] in saved
+    return jsonify(ok=True, topic=topic, total=total, offset=offset, items=rows, cutoff=cutoff)
 
 @app.get("/api/news/search")
 def news_search():
