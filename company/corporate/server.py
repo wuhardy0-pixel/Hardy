@@ -2647,11 +2647,16 @@ def _news_remember(con, topic, items, category=None):
 def _news_history(con, topic, days, cap):
     since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
     return [dict(r) for r in con.execute("SELECT link,title,source,category,published,snippet FROM news_items WHERE topic=? AND published>=? ORDER BY published DESC LIMIT ?", (topic, since, cap))]
+def _story_key(it):
+    """The same article often shows up under two addresses; same outlet + same headline = one story."""
+    t = re.sub(r"[^a-z0-9 ]+", "", (it.get("title") or "").lower()); t = re.sub(r"\s+", " ", t).strip()
+    return ((it.get("source") or "").lower().strip(), t[:120])
 def _merge(fresh, hist, cap):
-    seen, out = set(), []
+    seen, keys, out = set(), set(), []
     for it in sorted(fresh + hist, key=lambda i: i.get("published") or "", reverse=True):
-        if it["link"] in seen: continue
-        seen.add(it["link"]); out.append(it)
+        k = _story_key(it)
+        if it["link"] in seen or k in keys: continue
+        seen.add(it["link"]); keys.add(k); out.append(it)
         if len(out) >= cap: break
     return out
 def news_frontpages():
