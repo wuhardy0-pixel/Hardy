@@ -1699,7 +1699,8 @@ def dest(tgt):
     to = tgt["to"]
     if to.startswith("http"): return to
     if not on_real_site(): return to
-    return (PLAY_ORIGIN if to.startswith("/play/") else SITE_ORIGIN) + to
+    served_here = to.startswith("/play/") or to in PLAY_KEYS or to == "/news"   # pages the server serves, not the static site
+    return (PLAY_ORIGIN if served_here else SITE_ORIGIN) + to
 
 # short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
 LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
