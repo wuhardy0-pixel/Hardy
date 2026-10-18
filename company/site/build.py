@@ -73,6 +73,7 @@ redirects = [
     "/3d            https://shop.hardywu.com/  302",
     "/3d/*          https://shop.hardywu.com/products/:splat  302",
     f"/play/*        https://play.hardywu.com/play/:splat  302",
+    f"/news          https://play.hardywu.com/news  302",
     f"/go/*          {LIVE}/go/:splat  302",
     f"/activity      {LIVE}/activity  302",
     f"/orders        {LIVE}/orders  302",
