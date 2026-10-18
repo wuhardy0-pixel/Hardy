@@ -2732,7 +2732,7 @@ def news_topics_edit():
 def news_seen():
     u = news_user()
     if not u: return jsonify(error="Please sign in."), 401
-    links = [str(l)[:500] for l in ((request.get_json(silent=True) or {}).get("links") or [])][:200]
+    links = [str(l)[:2000] for l in ((request.get_json(silent=True) or {}).get("links") or [])][:200]
     con = db(); now = now_iso()
     con.executemany("INSERT OR IGNORE INTO news_seen(user_key,link,seen_at) VALUES(?,?,?)", [(u, l, now) for l in links])
     con.execute("DELETE FROM news_seen WHERE user_key=? AND seen_at < ?", (u, (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)).isoformat()))
@@ -2742,11 +2742,11 @@ def news_save():
     u = news_user()
     if not u: return jsonify(error="Please sign in."), 401
     x = request.get_json(silent=True) or {}; con = db()
-    if x.get("remove"): con.execute("DELETE FROM news_saved WHERE user_key=? AND link=?", (u, str(x["remove"])[:500]))
+    if x.get("remove"): con.execute("DELETE FROM news_saved WHERE user_key=? AND link=?", (u, str(x["remove"])[:2000]))
     else:
         it = x.get("item") or {}
         con.execute("INSERT OR REPLACE INTO news_saved(user_key,link,title,source,published,topic,saved_at) VALUES(?,?,?,?,?,?,?)",
-                    (u, str(it.get("link"))[:500], str(it.get("title"))[:300], str(it.get("source") or "")[:100], str(it.get("published") or "")[:40], str(x.get("topic") or "")[:60], now_iso()))
+                    (u, str(it.get("link"))[:2000], str(it.get("title"))[:300], str(it.get("source") or "")[:100], str(it.get("published") or "")[:40], str(x.get("topic") or "")[:60], now_iso()))
     con.commit(); con.close(); return jsonify(ok=True)
 @app.post("/api/news/summary")
 def news_summary():
