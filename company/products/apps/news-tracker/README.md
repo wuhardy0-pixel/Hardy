@@ -5,7 +5,8 @@ Status: **live** at play.hardywu.com/news (sign-in at lognews.hardywu.com); list
 One page, `index.html` (front-end only). The back end is the "News Tracker" section of corporate/server.py (`/api/news/*`).
 
 What it does
-- **Front pages**: the big outlets (Wall Street Journal, CNN, Reuters, AP, New York Times, BBC, Bloomberg, CNBC, The Guardian, Fox News, NPR) filed into four categories — World, US, Business & Markets, Technology — with a publisher filter and a category filter.
+- **Front pages**: the big outlets (Wall Street Journal, CNN, Reuters, AP, New York Times, BBC, Bloomberg, CNBC, The Guardian, Fox News, NPR) filed into five categories — Top stories, World, US, Business & Markets, Technology — with a publisher filter and a category filter.
+- **Search**: look anything up (e.g. a town, a company); one tap follows it as a topic.
 - **Your topics**: follow any words (a company, a place, a hobby) or a Google News section; fresh headlines for each.
 - **Remembers dates**: every story is kept (14 days for topics, 7 for front pages) and shown under day headings — Today, Yesterday, then the date.
 - **What's new**: a green dot on stories you have not seen; counts on the chips; seen state is per login.

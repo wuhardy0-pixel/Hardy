@@ -2581,9 +2581,12 @@ NEWS_TTL = 15 * 60
 NEWS_DEFAULT_TOPICS = ["3D printing", "Robotics", "Indie games", "Small business"]
 # The big outlets' front pages, each filed under a category. WSJ and CNN keep no fresh
 # public feed any more, so theirs come through Google News limited to their sites.
-_G = lambda q: "https://news.google.com/rss/search?q=" + _up.quote(q) + "+when:2d&hl=en-US&gl=US&ceid=US:en"
-NEWS_CATS = ["World", "US", "Business & Markets", "Technology"]
+_G = lambda q: "https://news.google.com/rss/search?q=" + _up.quote(q) + "+when:1d&hl=en-US&gl=US&ceid=US:en"
+NEWS_CATS = ["Top stories", "World", "US", "Business & Markets", "Technology"]
 NEWS_PUBLISHERS = [
+  # the day's biggest stories as Google News ranks them across every outlet (source = the outlet)
+  {"name": "Top stories", "url": "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en", "cat": "Top stories", "keep_source": True},
+  {"name": "Top stories", "url": "https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en", "cat": "Top stories", "keep_source": True},
   {"name": "Wall Street Journal", "url": _G("site:wsj.com"), "cat": "Business & Markets"},
   {"name": "CNN", "url": _G("site:cnn.com"), "cat": "US"},
   {"name": "Reuters", "url": _G("site:reuters.com"), "cat": "World"},
@@ -2619,6 +2622,7 @@ def _news_fetch(url):
         title = (it.findtext("title") or "").strip(); link = (it.findtext("link") or "").strip()
         src = it.find("{https://news.google.com/rss}source"); src = (src.text if src is not None else "")
         if not src and " - " in title: title, src = title.rsplit(" - ", 1)
+        src = {"Breaking News, Latest News and Videos": "CNN", "The New York Times": "New York Times", "BBC News": "BBC", "The Wall Street Journal": "Wall Street Journal"}.get(src.strip(), src)
         try: ts = _eu.parsedate_to_datetime(it.findtext("pubDate") or "").astimezone(datetime.timezone.utc).isoformat()
         except Exception: ts = ""
         desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or ""); desc = re.sub(r"\s+", " ", desc).strip()
@@ -2672,10 +2676,12 @@ def news_frontpages():
         else: stale.append((pub, key, json.loads(row["items"]) if row else []))
     def grab(entry):                                   # all the stale feeds at once, not one after another
         pub, key, old = entry
-        try: items = _news_fetch(pub["url"])[:20]
+        try: items = _news_fetch(pub["url"])[:30]
         except Exception as e:                                            # noqa: BLE001
             print("[news] publisher failed", pub["name"], e, flush=True); items = old
-        for it in items: it["source"] = pub["name"]; it["category"] = pub["cat"]
+        for it in items:
+            if not pub.get("keep_source") or not it.get("source"): it["source"] = pub["name"]
+            it["category"] = pub["cat"]
         return pub, key, items
     if stale:
         with _cf.ThreadPoolExecutor(min(8, len(stale))) as ex: results = list(ex.map(grab, stale))
@@ -2717,7 +2723,15 @@ def news_home():
         for it in front[c]: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
     return jsonify(user=u, name=session.get("v_name") or session.get("name") or "", topics=out, saved=list(saved.values()), sections=list(NEWS_SECTIONS),
                    front={"fetched_at": fat, "categories": [{"name": c, "items": front[c], "new": sum(1 for it in front[c] if not it["seen"])} for c in NEWS_CATS],
-                          "publishers": sorted({p["name"] for p in NEWS_PUBLISHERS})})
+                          "publishers": sorted({p["name"] for p in NEWS_PUBLISHERS if not p.get("keep_source")})})
+@app.get("/api/news/search")
+def news_search():
+    """A one-off look-up: fresh stories for any words, without following them."""
+    if not news_user(): return jsonify(error="Please sign in."), 401
+    q = str(request.args.get("q") or "").strip()[:80]
+    if len(q) < 2: return jsonify(error="Type a word or two to search."), 400
+    items, at = news_items(q)
+    return jsonify(ok=True, query=q, fetched_at=at, items=items[:40])
 @app.post("/api/news/topics")
 def news_topics_edit():
     u = news_user()
