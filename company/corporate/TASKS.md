@@ -35,3 +35,6 @@ History before 2026-09-10: see `../products/apps/bookkeep/TASKS.md` (the server 
 - New game 争上游 (products/games/zheng-shang-you) registered: games section entry, `/play/zsy`, sign-in host logzsy.hardywu.com, activity label.
 - 争上游 online rooms: POST /api/zsy/rooms (create), /join, /start (host; computers fill seats), /play, /pass, GET /state?v= (long-poll ≤20 s; computers move during polls). Rooms in memory (`ZSY_ROOMS`), tokens per seat, 2 h idle expiry, 200-room cap. Rules engine duplicated in Python (zsy_classify/zsy_beats/zsy_ai) — keep in step with the page.
 
+## 2026-10-18
+- New app News Tracker (products/apps/news-tracker, served at /news on play.hardywu.com; sign-in host lognews). Back end in server.py: tables news_topics/news_seen/news_saved/news_cache/news_items/news_summaries; routes /api/news/home|topics|seen|save|summary; publisher front pages in parallel; Google News + publisher RSS.
+

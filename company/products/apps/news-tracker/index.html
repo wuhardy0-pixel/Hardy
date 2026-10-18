@@ -1,0 +1,130 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>News Tracker — Hardy Wu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f6f3ec;--panel:#fffdf8;--ink:#1c1a16;--muted:#6a645a;--line:#e3ddd0;--accent:#8a3b12;--accent-soft:#f6e3d6;--new:#1d6f42;--new-soft:#dcefe3;--chip:#efe9dd}
+@media (prefers-color-scheme:dark){:root{--bg:#14120f;--panel:#1d1a16;--ink:#f1ece3;--muted:#a59e92;--line:#332e27;--accent:#e8a070;--accent-soft:#3a251a;--new:#7bd3a0;--new-soft:#15301f;--chip:#2a251f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;font-size:16px;line-height:1.45;padding-top:env(safe-area-inset-top)}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.hwrap{max-width:720px;margin:0 auto;padding:12px 16px 0}
+h1{font-family:Newsreader,Georgia,serif;font-size:26px;margin:0;font-weight:700;display:flex;align-items:baseline;gap:10px}
+h1 small{font-family:"Source Sans 3",sans-serif;font-size:13px;color:var(--muted);font-weight:400}
+.sub{font-size:13px;color:var(--muted);margin:2px 0 8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:6px 0 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;font:inherit;font-weight:600;font-size:14px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer;position:relative}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip .n{position:absolute;top:-6px;right:-4px;background:var(--new);color:#fff;font-size:11px;font-weight:700;padding:1px 6px;border-radius:999px}
+.chip.add{background:transparent;border-style:dashed;color:var(--muted)}
+main{max-width:720px;margin:0 auto;padding:12px 16px 80px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 10px;font-size:13px;color:var(--muted)}
+.topbar button{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.topbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.brief{background:var(--accent-soft);border-radius:14px;padding:12px 16px;margin:0 0 14px;font-size:15px;white-space:pre-wrap;display:none}
+.brief.on{display:block}
+.brief b{display:block;font-family:Newsreader,serif;font-size:17px;margin-bottom:4px}
+article{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px 0;border-bottom:1px solid var(--line)}
+article.seen h3{color:var(--muted);font-weight:500}
+article h3{font-family:Newsreader,Georgia,serif;font-size:19px;line-height:1.25;margin:0;font-weight:700;grid-column:1}
+article h3 a{color:inherit;text-decoration:none}
+article .meta{grid-column:1;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+article .meta .dot{width:8px;height:8px;border-radius:50%;background:var(--new);display:inline-block}
+article .snip{grid-column:1;font-size:14px;color:var(--muted);margin-top:2px}
+article .star{grid-column:2;grid-row:1/4;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
+article .star.on{color:var(--accent)}
+.empty{color:var(--muted);text-align:center;padding:40px 0}
+.manage{display:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.manage.on{display:block}
+.manage .row{display:flex;gap:8px;margin-bottom:8px}
+.manage input{flex:1;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.manage button{font:inherit;font-weight:600;padding:10px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+.manage ul{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-wrap:wrap;gap:8px}
+.manage li{background:var(--chip);border-radius:999px;padding:6px 10px 6px 14px;font-size:14px;display:flex;gap:8px;align-items:center}
+.manage li button{background:none;color:var(--muted);padding:0 2px;font-size:16px}
+.sections{font-size:13px;color:var(--muted);margin-top:8px}
+.sections button{background:none;border:1px solid var(--line);color:var(--ink);font-size:12px;padding:4px 10px;border-radius:999px;margin:4px 4px 0 0}
+.day{font-family:Newsreader,Georgia,serif;font-size:15px;font-weight:700;color:var(--accent);margin:18px 0 0;padding-bottom:4px;border-bottom:2px solid var(--accent-soft);letter-spacing:.2px}
+.cat{font-family:Newsreader,Georgia,serif;font-size:22px;font-weight:700;margin:22px 0 2px;display:flex;justify-content:space-between;align-items:baseline}
+.cat small{font-family:"Source Sans 3",sans-serif;font-size:13px;color:var(--muted);font-weight:400}
+.pubs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+.pubs button{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer}
+.pubs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.foot{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
+.foot a{color:var(--muted)}
+</style></head><body>
+<header><div class="hwrap">
+  <h1>📰 News Tracker <small id="who"></small></h1>
+  <div class="sub">The big front pages by category, plus your own topics — day by day. A green dot means you haven't seen it yet.</div>
+  <div class="chips" id="chips"></div>
+</div></header>
+<main>
+  <div class="manage" id="manage">
+    <div class="row"><input id="newTopic" placeholder="Add a topic — a company, a place, a hobby…" maxlength="60"><button id="addBtn">Follow</button></div>
+    <ul id="topicList"></ul>
+    <div class="sections">Or follow a whole section: <span id="sectionBtns"></span></div>
+  </div>
+  <div class="topbar"><span id="status">Loading…</span><span><button id="briefBtn" class="primary">✨ One-minute briefing</button> <button id="refreshBtn">Refresh</button></span></div>
+  <div class="brief" id="brief"></div>
+  <div id="list"></div>
+  <div class="foot">Headlines come from Google News. Tap a headline to read it on the publisher's site. · <a href="/games">← hardywu.com</a></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All";
+async function api(path,body){const r=await fetch("/api/news"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,keepalive:path==="/seen"});const j=await r.json().catch(()=>({error:"Lost the connection."}));if(!r.ok)throw new Error(j.error||"Something went wrong.");return j;}
+const dayKey=iso=>{if(!iso)return"Undated";const d=new Date(iso),t=new Date();const s=x=>x.toDateString();const y=new Date(t);y.setDate(t.getDate()-1);
+  if(s(d)===s(t))return"Today";if(s(d)===s(y))return"Yesterday";return d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})+(d.getFullYear()!==t.getFullYear()?" "+d.getFullYear():"");};
+function withDays(list,items,topic){let last=null;items.forEach(it=>{const k=dayKey(it.published);if(k!==last){const h=document.createElement("div");h.className="day";h.textContent=k;list.appendChild(h);last=k;}list.appendChild(card(it,topic));});}
+const ago=iso=>{if(!iso)return"";const m=Math.round((Date.now()-new Date(iso))/60000);if(m<60)return m+" min ago";const h=Math.round(m/60);if(h<24)return h+" h ago";const d=Math.round(h/24);return d===1?"yesterday":d+" days ago";};
+async function load(){$("#status").textContent="Loading…";try{data=await api("/home");}catch(e){$("#status").textContent=e.message;return;}
+  if(cur!=="__front"&&cur!=="__saved"&&!data.topics.some(t=>t.topic===cur))cur="__front";$("#who").textContent=data.name?"for "+data.name:"";render();}
+function render(){
+  const chips=$("#chips");chips.innerHTML="";
+  const fp=document.createElement("button");fp.className="chip"+(cur==="__front"?" on":"");const fnew=data.front.categories.reduce((a,c)=>a+c.new,0);fp.innerHTML="🗞 Front pages"+(fnew?`<span class="n">${fnew}</span>`:"");fp.onclick=()=>{cur="__front";$("#brief").classList.remove("on");render();};chips.appendChild(fp);
+  data.topics.forEach(t=>{const b=document.createElement("button");b.className="chip"+(t.topic===cur?" on":"");b.textContent=t.topic;if(t.new)b.innerHTML+=`<span class="n">${t.new}</span>`;b.onclick=()=>{cur=t.topic;$("#brief").classList.remove("on");render();};chips.appendChild(b);});
+  const sv=document.createElement("button");sv.className="chip"+(cur==="__saved"?" on":"");sv.textContent="★ Saved"+(data.saved.length?` (${data.saved.length})`:"");sv.onclick=()=>{cur="__saved";render();};chips.appendChild(sv);
+  const add=document.createElement("button");add.className="chip add";add.textContent="＋ topics";add.onclick=()=>{$("#manage").classList.toggle("on");renderManage();};chips.appendChild(add);
+  const list=$("#list");list.innerHTML="";
+  if(cur==="__saved"){$("#status").textContent=data.saved.length?`${data.saved.length} saved stor${data.saved.length===1?"y":"ies"}`:"Nothing saved yet — tap ★ on a story.";$("#briefBtn").style.display="none";
+    data.saved.forEach(it=>list.appendChild(card({...it,saved:true,seen:true},it.topic)));return;}
+  $("#briefBtn").style.display="";
+  if(cur==="__front"){const f=data.front;$("#status").textContent=`${f.publishers.length} newspapers and channels · updated ${ago(f.fetched_at)||"just now"}`;
+    const pubs=document.createElement("div");pubs.className="pubs";["All",...f.publishers].forEach(p=>{const b=document.createElement("button");b.textContent=p;b.className=p===pubFilter?"on":"";b.onclick=()=>{pubFilter=p;render();};pubs.appendChild(b);});list.appendChild(pubs);
+    const cats=document.createElement("div");cats.className="pubs";["All",...f.categories.map(c=>c.name)].forEach(c=>{const b=document.createElement("button");b.textContent=c;b.className=c===catFilter?"on":"";b.onclick=()=>{catFilter=c;render();};cats.appendChild(b);});list.appendChild(cats);
+    let fresh=[];
+    f.categories.forEach(c=>{if(catFilter!=="All"&&catFilter!==c.name)return;const items=c.items.filter(i=>pubFilter==="All"||i.source===pubFilter);if(!items.length)return;
+      const h=document.createElement("div");h.className="cat";h.innerHTML=`${esc(c.name)}<small>${items.length} stories${c.new?" · "+c.new+" new":""}</small>`;list.appendChild(h);
+      withDays(list,items.slice(0,catFilter==="All"?12:60),"front:"+c.name);fresh.push(...items.filter(i=>!i.seen).map(i=>i.link));});
+    if(fresh.length){api("/seen",{links:fresh}).catch(()=>{});setTimeout(()=>{f.categories.forEach(c=>c.items.forEach(i=>{if(fresh.includes(i.link))i.seen=true;}));f.categories.forEach(c=>c.new=0);fp.querySelector(".n")?.remove();},2500);}
+    return;}
+  const t=data.topics.find(x=>x.topic===cur);if(!t){list.innerHTML='<div class="empty">Follow a topic to start.</div>';$("#status").textContent="";return;}
+  $("#status").textContent=`${t.items.length} stories · ${t.new?t.new+" new":"all seen"} · updated ${ago(t.fetched_at)||"just now"}`;
+  if(!t.items.length)list.innerHTML='<div class="empty">No stories found for this topic right now.</div>';
+  withDays(list,t.items,t.topic);
+  // what you have now looked at counts as seen (after a moment, so the dots show first)
+  const fresh=t.items.filter(i=>!i.seen).map(i=>i.link);
+  if(fresh.length){api("/seen",{links:fresh}).catch(()=>{});setTimeout(()=>{t.items.forEach(i=>{if(fresh.includes(i.link))i.seen=true;});t.new=0;const c=[...chips.children].find(x=>x.textContent.startsWith(t.topic));if(c)c.querySelector(".n")?.remove();},2500);}
+}
+function card(it,topic){const a=document.createElement("article");if(it.seen)a.classList.add("seen");
+  a.innerHTML=`<h3><a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
+   <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${ago(it.published)}</span></div>
+   ${it.snippet?`<div class="snip">${esc(it.snippet)}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
+  a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
+  return a;}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function renderManage(){const ul=$("#topicList");ul.innerHTML="";data.topics.forEach(t=>{const li=document.createElement("li");li.innerHTML=`${esc(t.topic)}<button title="Stop following">✕</button>`;li.querySelector("button").onclick=async()=>{await api("/topics",{remove:t.topic});if(cur===t.topic)cur=null;await load();renderManage();};ul.appendChild(li);});
+  const sb=$("#sectionBtns");sb.innerHTML="";data.sections.forEach(s=>{if(data.topics.some(t=>t.topic.toLowerCase()===s))return;const b=document.createElement("button");b.textContent=s;b.onclick=()=>addTopic(s);sb.appendChild(b);});}
+async function addTopic(t){t=(t||$("#newTopic").value).trim();if(!t)return;try{await api("/topics",{add:t});$("#newTopic").value="";cur=t;await load();renderManage();}catch(e){$("#status").textContent=e.message;}}
+$("#addBtn").onclick=()=>addTopic();$("#newTopic").addEventListener("keydown",e=>{if(e.key==="Enter")addTopic();});
+$("#refreshBtn").onclick=load;
+$("#briefBtn").onclick=async()=>{if(busy||!cur||cur==="__saved")return;busy=true;const box=$("#brief");box.classList.add("on");
+  const topic=cur==="__front"?"front:"+(catFilter==="All"?"World":catFilter):cur,label=cur==="__front"?(catFilter==="All"?"World":catFilter)+" front pages":cur;
+  box.innerHTML="<b>"+esc(label)+" — today in one minute</b>Thinking…";
+  try{const j=await api("/summary",{topic});box.innerHTML="<b>"+esc(label)+" — today in one minute</b>"+esc(j.summary);}catch(e){box.innerHTML="<b>"+esc(label)+"</b>"+esc(e.message);}busy=false;};
+load();
+</script>
+<script>window.FEEDBACK_GAME="News Tracker";window.FEEDBACK_POS={right:"14px",bottom:"16px"};</script>
+<script src="/track.js" defer></script>
+</body></html>

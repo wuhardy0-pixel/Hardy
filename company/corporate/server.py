@@ -94,6 +94,9 @@ PORTFOLIO = {
         "items": {
             "bookkeep": {"name": "BookKeep", "emoji": "📒", "redirect": APP_HOST, "img": "/item/bookkeep.png",
                 "desc": "An AI bookkeeper you can talk to — double-entry accounting, evidence, statements, and margins."},
+            "news-tracker": {"name": "News Tracker", "emoji": "📰",
+                "desc": "Follow the topics you care about. Fresh headlines for each, what's new since you last looked, saved stories, and a one-minute AI briefing.",
+                "link": "/news", "link_label": "Open"},
         }},
     "games": {"title": "Video Games", "emoji": "🎮", "blurb": "Games built by Hardy Wu — play them free.",
         "items": {
@@ -1043,7 +1046,7 @@ def friendly_label(path):
     if p.startswith("/play/"):
         slug = p.split("/play/")[1].strip("/")
         return {"nova": "Playing Nova Blast", "quest": "Playing Critter Quest",
-                "fifa": "Playing Football Sim", "zsy": "Playing 争上游"}.get(slug, "Playing " + slug)
+                "fifa": "Playing Football Sim", "zsy": "Playing 争上游", "news": "Reading the news"}.get(slug, "Playing " + slug)
     parts = [x for x in p.split("/") if x]
     if len(parts) == 1 and parts[0] in PORTFOLIO:
         return PORTFOLIO[parts[0]]["title"]
@@ -1700,7 +1703,7 @@ def dest(tgt):
 
 # short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
 LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
-               "critterquest": "logquest", "footballsim": "logfoot", "zhengshangyou": "logzsy",
+               "critterquest": "logquest", "footballsim": "logfoot", "zhengshangyou": "logzsy", "newstracker": "lognews",
                "pokemonadventure": "logpoke", "cmindfreecell": "logfreecell", "3d": "log3d", "": "log"}
 _SHORT_TO_KEY = {v: k for k, v in LOGIN_SHORT.items()}
 
@@ -1720,7 +1723,7 @@ def login_url_for(key):
     short = LOGIN_SHORT.get(key, "login" + key)
     return f"https://{short}.hardywu.com/" if on_real_site() else f"/go/{key or 'home'}"
 
-PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim", "/play/zsy": "zhengshangyou"}
+PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim", "/play/zsy": "zhengshangyou", "/news": "newstracker"}
 def play_key(path):
     for pre, k in PLAY_KEYS.items():
         if path == pre or path.startswith(pre + "/"): return k
@@ -1926,7 +1929,7 @@ def require_passcode():
                       or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/approve/") or p.startswith("/go/")
+        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -1934,7 +1937,7 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback")   # /approve/ checks its own code first
+        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback", "/news") or p.startswith("/api/news/")   # /approve/ checks its own code first
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
@@ -2216,6 +2219,13 @@ def init_db():
                      o.get("color") or "", o.get("custom_text") or "", o.get("buyer") or "",
                      "done" if done else "todo", o["created_at"], o["created_at"] if done else None))
     con.executescript("""
+    CREATE TABLE IF NOT EXISTS news_topics(user_key TEXT NOT NULL, topic TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, PRIMARY KEY(user_key, topic));
+    CREATE TABLE IF NOT EXISTS news_seen(user_key TEXT NOT NULL, link TEXT NOT NULL, seen_at TEXT NOT NULL, PRIMARY KEY(user_key, link));
+    CREATE TABLE IF NOT EXISTS news_saved(user_key TEXT NOT NULL, link TEXT NOT NULL, title TEXT, source TEXT, published TEXT, topic TEXT, saved_at TEXT NOT NULL, PRIMARY KEY(user_key, link));
+    CREATE TABLE IF NOT EXISTS news_cache(topic TEXT PRIMARY KEY, fetched_at TEXT NOT NULL, items TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS news_items(link TEXT PRIMARY KEY, title TEXT, source TEXT, category TEXT, topic TEXT, published TEXT, snippet TEXT, first_seen TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS news_items_topic ON news_items(topic, published);
+    CREATE TABLE IF NOT EXISTS news_summaries(topic TEXT NOT NULL, fetched_at TEXT NOT NULL, text TEXT NOT NULL, made_at TEXT NOT NULL, PRIMARY KEY(topic, fetched_at));
     CREATE TABLE IF NOT EXISTS ucp_carts(
       id TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at TEXT NOT NULL
     );
@@ -2559,6 +2569,211 @@ def zsy_state(code):
             if r["version"] != since or _time.time() >= deadline: return jsonify(ok=True, view=zsy_view(r, me))
             wait = max(0.15, min(0.5, r.get("ai_due", 0) - _time.time())) if r["status"] == "play" and not r["players"][r["turn"]]["human"] else 0.5
         _time.sleep(wait)
+
+# ============================ News Tracker ====================================
+# A small app: follow topics, see the latest headlines for each (Google News RSS,
+# no key needed), keep track of what you have seen, save stories, and get a short
+# AI summary of a topic's day. Per login, like BookKeep's books.
+import xml.etree.ElementTree as _ET, email.utils as _eu, urllib.request as _ur, urllib.parse as _up
+NEWS_DIR = APP_DIR.parent / "news-tracker"
+NEWS_TTL = 15 * 60
+NEWS_DEFAULT_TOPICS = ["3D printing", "Robotics", "Indie games", "Small business"]
+# The big outlets' front pages, each filed under a category. WSJ and CNN keep no fresh
+# public feed any more, so theirs come through Google News limited to their sites.
+_G = lambda q: "https://news.google.com/rss/search?q=" + _up.quote(q) + "+when:2d&hl=en-US&gl=US&ceid=US:en"
+NEWS_CATS = ["World", "US", "Business & Markets", "Technology"]
+NEWS_PUBLISHERS = [
+  {"name": "Wall Street Journal", "url": _G("site:wsj.com"), "cat": "Business & Markets"},
+  {"name": "CNN", "url": _G("site:cnn.com"), "cat": "US"},
+  {"name": "Reuters", "url": _G("site:reuters.com"), "cat": "World"},
+  {"name": "AP News", "url": _G("site:apnews.com"), "cat": "US"},
+  {"name": "New York Times", "url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", "cat": "US"},
+  {"name": "New York Times", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "cat": "World"},
+  {"name": "New York Times", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml", "cat": "Business & Markets"},
+  {"name": "New York Times", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml", "cat": "Technology"},
+  {"name": "BBC", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "cat": "World"},
+  {"name": "BBC", "url": "https://feeds.bbci.co.uk/news/business/rss.xml", "cat": "Business & Markets"},
+  {"name": "BBC", "url": "https://feeds.bbci.co.uk/news/technology/rss.xml", "cat": "Technology"},
+  {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss", "cat": "Business & Markets"},
+  {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/technology/news.rss", "cat": "Technology"},
+  {"name": "CNBC", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "cat": "Business & Markets"},
+  {"name": "The Guardian", "url": "https://www.theguardian.com/world/rss", "cat": "World"},
+  {"name": "Fox News", "url": "https://moxie.foxnews.com/google-publisher/latest.xml", "cat": "US"},
+  {"name": "NPR", "url": "https://feeds.npr.org/1001/rss.xml", "cat": "US"},
+]
+NEWS_SECTIONS = {"top": "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",
+                 "technology": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en",
+                 "business": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en",
+                 "science": "https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en",
+                 "sports": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en",
+                 "world": "https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en"}
+def news_user():
+    em = (visitor() or session.get("email") or "").strip().lower()
+    return "news_" + re.sub(r"[^a-z0-9]+", "_", em)[:60] if em else ("news_local" if is_local_request() else None)
+def _news_fetch(url):
+    req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 (hardywu.com News Tracker)"})
+    root = _ET.fromstring(_ur.urlopen(req, timeout=15).read())
+    out = []
+    for it in root.findall(".//item")[:40]:
+        title = (it.findtext("title") or "").strip(); link = (it.findtext("link") or "").strip()
+        src = it.find("{https://news.google.com/rss}source"); src = (src.text if src is not None else "")
+        if not src and " - " in title: title, src = title.rsplit(" - ", 1)
+        try: ts = _eu.parsedate_to_datetime(it.findtext("pubDate") or "").astimezone(datetime.timezone.utc).isoformat()
+        except Exception: ts = ""
+        desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or ""); desc = re.sub(r"\s+", " ", desc).strip()
+        if desc.startswith(title): desc = ""
+        out.append({"title": title, "link": link, "source": src.strip(), "published": ts, "snippet": desc[:220]})
+    return out
+def news_items(topic):
+    """Headlines for a topic (a section name or free words), cached 15 minutes."""
+    key = topic.strip().lower()
+    con = db(); row = con.execute("SELECT fetched_at, items FROM news_cache WHERE topic=?", (key,)).fetchone()
+    if row and (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(row["fetched_at"])).total_seconds() < NEWS_TTL:
+        con.close(); return json.loads(row["items"]), row["fetched_at"]
+    url = NEWS_SECTIONS.get(key) or ("https://news.google.com/rss/search?q=" + _up.quote(topic) + "&hl=en-US&gl=US&ceid=US:en")
+    try: items = _news_fetch(url)
+    except Exception as e:                                             # noqa: BLE001
+        con.close(); print("[news] fetch failed", topic, e, flush=True)
+        return (json.loads(row["items"]) if row else []), (row["fetched_at"] if row else None)
+    now = now_iso(); con.execute("INSERT OR REPLACE INTO news_cache(topic,fetched_at,items) VALUES(?,?,?)", (key, now, json.dumps(items)))
+    _news_remember(con, key, items); con.commit(); con.close()
+    return items, now
+def _news_remember(con, topic, items, category=None):
+    for it in items:
+        if it.get("link"):
+            con.execute("""INSERT OR IGNORE INTO news_items(link,title,source,category,topic,published,snippet,first_seen) VALUES(?,?,?,?,?,?,?,?)""",
+                        (it["link"], it["title"], it.get("source", ""), category or "", topic, it.get("published") or now_iso(), it.get("snippet", ""), now_iso()))
+def _news_history(con, topic, days, cap):
+    since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+    return [dict(r) for r in con.execute("SELECT link,title,source,category,published,snippet FROM news_items WHERE topic=? AND published>=? ORDER BY published DESC LIMIT ?", (topic, since, cap))]
+def _merge(fresh, hist, cap):
+    seen, out = set(), []
+    for it in sorted(fresh + hist, key=lambda i: i.get("published") or "", reverse=True):
+        if it["link"] in seen: continue
+        seen.add(it["link"]); out.append(it)
+        if len(out) >= cap: break
+    return out
+def news_frontpages():
+    """Every publisher's latest, filed by category; remembers a week."""
+    import concurrent.futures as _cf
+    cats = {c: [] for c in NEWS_CATS}; stamps = []
+    con = db(); stale = []
+    for pub in NEWS_PUBLISHERS:
+        key = "pub:" + pub["name"] + ":" + pub["cat"]
+        row = con.execute("SELECT fetched_at, items FROM news_cache WHERE topic=?", (key,)).fetchone()
+        if row and (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(row["fetched_at"])).total_seconds() < NEWS_TTL:
+            cats[pub["cat"]].extend(json.loads(row["items"])); stamps.append(row["fetched_at"])
+        else: stale.append((pub, key, json.loads(row["items"]) if row else []))
+    def grab(entry):                                   # all the stale feeds at once, not one after another
+        pub, key, old = entry
+        try: items = _news_fetch(pub["url"])[:20]
+        except Exception as e:                                            # noqa: BLE001
+            print("[news] publisher failed", pub["name"], e, flush=True); items = old
+        for it in items: it["source"] = pub["name"]; it["category"] = pub["cat"]
+        return pub, key, items
+    if stale:
+        with _cf.ThreadPoolExecutor(min(8, len(stale))) as ex: results = list(ex.map(grab, stale))
+        now = now_iso()
+        for pub, key, items in results:
+            stamps.append(now); cats[pub["cat"]].extend(items)
+            con.execute("INSERT OR REPLACE INTO news_cache(topic,fetched_at,items) VALUES(?,?,?)", (key, now, json.dumps(items)))
+            _news_remember(con, "front:" + pub["cat"], items, pub["cat"])
+    con.commit()
+    out = {c: _merge(cats[c], _news_history(con, "front:" + c, 7, 200), 60) for c in NEWS_CATS}
+    con.close()
+    return out, (max(stamps) if stamps else None)
+def _news_topics(con, u):
+    rows = [r["topic"] for r in con.execute("SELECT topic FROM news_topics WHERE user_key=? ORDER BY position, created_at", (u,))]
+    if not rows:
+        for i, t in enumerate(NEWS_DEFAULT_TOPICS): con.execute("INSERT INTO news_topics(user_key,topic,position,created_at) VALUES(?,?,?,?)", (u, t, i, now_iso()))
+        con.commit(); rows = list(NEWS_DEFAULT_TOPICS)
+    return rows
+@app.get("/news")
+def news_page():
+    return _nocache(send_from_directory(NEWS_DIR, "index.html", max_age=0))
+@app.get("/api/news/home")
+def news_home():
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    con = db(); topics = _news_topics(con, u)
+    seen = {r["link"] for r in con.execute("SELECT link FROM news_seen WHERE user_key=?", (u,))}
+    saved = {r["link"]: dict(r) for r in con.execute("SELECT * FROM news_saved WHERE user_key=? ORDER BY saved_at DESC", (u,))}
+    con.close()
+    import concurrent.futures as _cf
+    with _cf.ThreadPoolExecutor(min(6, max(1, len(topics)))) as ex: fetched = list(ex.map(news_items, topics))
+    out = []
+    for t, (items, at) in zip(topics, fetched):
+        con = db(); items = _merge(items, _news_history(con, t.strip().lower(), 14, 200), 80); con.close()
+        for it in items: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
+        out.append({"topic": t, "fetched_at": at, "items": items, "new": sum(1 for it in items if not it["seen"])})
+    front, fat = news_frontpages()
+    for c in front:
+        for it in front[c]: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
+    return jsonify(user=u, name=session.get("v_name") or session.get("name") or "", topics=out, saved=list(saved.values()), sections=list(NEWS_SECTIONS),
+                   front={"fetched_at": fat, "categories": [{"name": c, "items": front[c], "new": sum(1 for it in front[c] if not it["seen"])} for c in NEWS_CATS],
+                          "publishers": sorted({p["name"] for p in NEWS_PUBLISHERS})})
+@app.post("/api/news/topics")
+def news_topics_edit():
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    x = request.get_json(silent=True) or {}; con = db()
+    if x.get("add"):
+        t = str(x["add"]).strip()[:60]
+        if t and not con.execute("SELECT 1 FROM news_topics WHERE user_key=? AND topic=? COLLATE NOCASE", (u, t)).fetchone():
+            n = con.execute("SELECT COUNT(*) FROM news_topics WHERE user_key=?", (u,)).fetchone()[0]
+            if n >= 20: con.close(); return jsonify(error="Twenty topics is plenty — remove one first."), 400
+            con.execute("INSERT INTO news_topics(user_key,topic,position,created_at) VALUES(?,?,?,?)", (u, t, n, now_iso()))
+    if x.get("remove"): con.execute("DELETE FROM news_topics WHERE user_key=? AND topic=? COLLATE NOCASE", (u, str(x["remove"])[:60]))
+    if isinstance(x.get("order"), list):
+        for i, t in enumerate(x["order"][:20]): con.execute("UPDATE news_topics SET position=? WHERE user_key=? AND topic=?", (i, u, str(t)[:60]))
+    con.commit(); topics = _news_topics(con, u); con.close()
+    return jsonify(ok=True, topics=topics)
+@app.post("/api/news/seen")
+def news_seen():
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    links = [str(l)[:500] for l in ((request.get_json(silent=True) or {}).get("links") or [])][:200]
+    con = db(); now = now_iso()
+    con.executemany("INSERT OR IGNORE INTO news_seen(user_key,link,seen_at) VALUES(?,?,?)", [(u, l, now) for l in links])
+    con.execute("DELETE FROM news_seen WHERE user_key=? AND seen_at < ?", (u, (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)).isoformat()))
+    con.commit(); con.close(); return jsonify(ok=True)
+@app.post("/api/news/save")
+def news_save():
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    x = request.get_json(silent=True) or {}; con = db()
+    if x.get("remove"): con.execute("DELETE FROM news_saved WHERE user_key=? AND link=?", (u, str(x["remove"])[:500]))
+    else:
+        it = x.get("item") or {}
+        con.execute("INSERT OR REPLACE INTO news_saved(user_key,link,title,source,published,topic,saved_at) VALUES(?,?,?,?,?,?,?)",
+                    (u, str(it.get("link"))[:500], str(it.get("title"))[:300], str(it.get("source") or "")[:100], str(it.get("published") or "")[:40], str(x.get("topic") or "")[:60], now_iso()))
+    con.commit(); con.close(); return jsonify(ok=True)
+@app.post("/api/news/summary")
+def news_summary():
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    topic = str((request.get_json(silent=True) or {}).get("topic") or "").strip()[:60]
+    if topic.startswith("front:"):
+        front, at = news_frontpages(); items = front.get(topic[6:], [])
+    else:
+        items, at = news_items(topic)
+    if not items: return jsonify(error="Nothing to summarize yet."), 404
+    con = db(); row = con.execute("SELECT text, made_at FROM news_summaries WHERE topic=? AND fetched_at=?", (topic.lower(), at)).fetchone(); con.close()
+    if row: return jsonify(ok=True, summary=row["text"], made_at=row["made_at"], cached=True)
+    if not os.environ.get("OPENAI_API_KEY"): return jsonify(error="The summary needs the AI key on the server."), 503
+    heads = "\n".join(f"- {it['title']} ({it['source']})" for it in items[:25])
+    try:
+        from openai import OpenAI
+        client = OpenAI()
+        r = client.chat.completions.create(model=os.environ.get("OPENAI_MODEL", "gpt-5.1"), max_completion_tokens=350,
+            messages=[{"role": "system", "content": "You write a calm, plain-English briefing for a busy parent. 4 short bullet points max, each one sentence, no hype, no links. Group related headlines. End with one line: what to watch next."},
+                      {"role": "user", "content": f"Topic: {topic}\nToday's headlines:\n{heads}"}])
+        text = r.choices[0].message.content.strip()
+    except Exception as e:                                             # noqa: BLE001
+        return jsonify(error=f"The summary didn't come through ({type(e).__name__})."), 502
+    con = db(); con.execute("INSERT OR REPLACE INTO news_summaries(topic,fetched_at,text,made_at) VALUES(?,?,?,?)", (topic.lower(), at, text, now_iso())); con.commit(); con.close()
+    return jsonify(ok=True, summary=text, made_at=now_iso(), cached=False)
+
 
 @app.get("/play/zsy")
 def play_zsy():
