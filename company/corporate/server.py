@@ -2633,6 +2633,10 @@ if os.environ.get("NEWS_COLLECTOR", "1") != "0" and not os.environ.get("WERKZEUG
 def news_user():
     em = (visitor() or session.get("email") or "").strip().lower()
     return "news_" + re.sub(r"[^a-z0-9]+", "_", em)[:60] if em else ("news_local" if is_local_request() else None)
+NEWS_ALIASES = {"Breaking News, Latest News and Videos": "CNN", "CNN.com": "CNN", "The New York Times": "New York Times", "NYT": "New York Times", "NYTimes.com": "New York Times",
+                "BBC News": "BBC", "BBC.com": "BBC", "The Wall Street Journal": "Wall Street Journal", "WSJ": "Wall Street Journal", "WSJ.com": "Wall Street Journal",
+                "Bloomberg.com": "Bloomberg", "Bloomberg News": "Bloomberg", "Reuters.com": "Reuters", "AP": "AP News", "Associated Press": "AP News", "The Associated Press": "AP News",
+                "Fox News Channel": "Fox News", "FOX News": "Fox News", "NPR.org": "NPR", "The Guardian US": "The Guardian", "Guardian": "The Guardian", "CNBC.com": "CNBC"}
 def _news_fetch(url):
     req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 (hardywu.com News Tracker)"})
     root = _ET.fromstring(_ur.urlopen(req, timeout=15).read())
@@ -2641,7 +2645,7 @@ def _news_fetch(url):
         title = (it.findtext("title") or "").strip(); link = (it.findtext("link") or "").strip()
         src = it.find("{https://news.google.com/rss}source"); src = (src.text if src is not None else "")
         if not src and " - " in title: title, src = title.rsplit(" - ", 1)
-        src = {"Breaking News, Latest News and Videos": "CNN", "The New York Times": "New York Times", "BBC News": "BBC", "The Wall Street Journal": "Wall Street Journal"}.get(src.strip(), src)
+        src = NEWS_ALIASES.get(src.strip(), src.strip())
         try: ts = _eu.parsedate_to_datetime(it.findtext("pubDate") or "").astimezone(datetime.timezone.utc).isoformat()
         except Exception: ts = ""
         desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or ""); desc = re.sub(r"\s+", " ", desc).strip()
@@ -2690,6 +2694,7 @@ def _merge(fresh, hist, cap):
         k = _story_key(it)
         if it["link"] in seen or k in keys: continue
         seen.add(it["link"]); keys.add(k)
+        it["source"] = NEWS_ALIASES.get((it.get("source") or "").strip(), (it.get("source") or "").strip())
         toks = _title_tokens(it.get("title"))
         home = next((o for o in out if _same_story(o["_toks"], toks)), None)
         if home is not None:
