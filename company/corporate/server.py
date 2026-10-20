@@ -2674,13 +2674,32 @@ def _story_key(it):
     """The same article often shows up under two addresses; same outlet + same headline = one story."""
     t = re.sub(r"[^a-z0-9 ]+", "", (it.get("title") or "").lower()); t = re.sub(r"\s+", " ", t).strip()
     return ((it.get("source") or "").lower().strip(), t[:120])
+_TITLE_STOP = set("the a an and or of to in on at for with from by as is are was were be been has have had will would could says said after amid over into about its their his her this that new more than".split())
+def _title_tokens(t):
+    return {w for w in re.findall(r"[a-z0-9]+", (t or "").lower()) if len(w) > 2 and w not in _TITLE_STOP}
+def _same_story(a, b):
+    """Two headlines about the same event, from any outlets: enough of the meaningful words overlap."""
+    if not a or not b: return False
+    inter = len(a & b); small = min(len(a), len(b))
+    return inter >= 4 and inter / small >= 0.5 or inter / len(a | b) >= 0.5
 def _merge(fresh, hist, cap):
+    """Newest first; the same article under two addresses shows once, and the same event reported by
+    several outlets becomes ONE story with the others listed under it ('also')."""
     seen, keys, out = set(), set(), []
     for it in sorted(fresh + hist, key=lambda i: i.get("published") or "", reverse=True):
         k = _story_key(it)
         if it["link"] in seen or k in keys: continue
-        seen.add(it["link"]); keys.add(k); out.append(it)
+        seen.add(it["link"]); keys.add(k)
+        toks = _title_tokens(it.get("title"))
+        home = next((o for o in out if _same_story(o["_toks"], toks)), None)
+        if home is not None:
+            if it.get("source") and it["source"] != home.get("source") and all(a["source"] != it["source"] for a in home["also"]):
+                home["also"].append({"source": it["source"], "link": it["link"], "title": it["title"], "published": it.get("published")})
+            if not home.get("snippet") and it.get("snippet"): home["snippet"] = it["snippet"]
+            continue
+        it = dict(it); it["_toks"] = toks; it["also"] = []; out.append(it)
         if len(out) >= cap: break
+    for o in out: o.pop("_toks", None)
     return out
 def news_frontpages():
     """Every publisher's latest, filed by category; remembers a week."""
@@ -2743,8 +2762,21 @@ def news_home():
     front, fat = news_frontpages()
     cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_RECENT_DAYS)).isoformat()
     con = db(); older_by_cat = {c: con.execute("SELECT COUNT(*) FROM news_items WHERE topic=? AND published < ?", ("front:" + c, cutoff)).fetchone()[0] for c in NEWS_CATS}; con.close()
+    placed = []                                       # a story shows in the first category it belongs to, never twice
+    for c in NEWS_CATS:
+        kept = []
+        for it in front[c]:
+            if (it.get("published") or "") < cutoff: continue
+            toks = _title_tokens(it.get("title"))
+            home = next((o for o in placed if o["link"] == it["link"] or _same_story(o["_toks"], toks)), None)
+            if home is not None:
+                for a in [{"source": it.get("source"), "link": it["link"], "title": it["title"], "published": it.get("published")}] + it.get("also", []):
+                    if a["source"] and a["source"] != home.get("source") and all(x["source"] != a["source"] for x in home["also"]): home["also"].append(a)
+                continue
+            it["_toks"] = toks; placed.append(it); kept.append(it)
+        front[c] = kept
+    for it in placed: it.pop("_toks", None)
     for c in front:
-        front[c] = [it for it in front[c] if (it.get("published") or "") >= cutoff]
         for it in front[c]: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
     return jsonify(user=u, name=session.get("v_name") or session.get("name") or "", topics=out, saved=list(saved.values()), sections=list(NEWS_SECTIONS),
                    front={"fetched_at": fat, "categories": [{"name": c, "items": front[c], "older": older_by_cat[c], "new": sum(1 for it in front[c] if not it["seen"])} for c in NEWS_CATS],

@@ -42,7 +42,9 @@ article .meta{grid-column:1;font-size:13px;color:var(--muted);display:flex;gap:8
 article .meta .agot{opacity:.7}
 article .meta .dot{width:8px;height:8px;border-radius:50%;background:var(--new);display:inline-block}
 article .snip{grid-column:1;font-size:14px;color:var(--muted);margin-top:2px}
-article .star{grid-column:2;grid-row:1/4;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
+article .also{grid-column:1;font-size:13px;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+article .also a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
+article .star{grid-column:2;grid-row:1/5;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
 article .star.on{color:var(--accent)}
 .empty{color:var(--muted);text-align:center;padding:40px 0}
 .manage{display:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
@@ -141,7 +143,7 @@ function render(){
 function card(it,topic){const a=document.createElement("article");if(it.seen)a.classList.add("seen");
   a.innerHTML=`<h3><a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
    <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${when(it.published)}</span><span class="agot">(${ago(it.published)})</span></div>
-   ${it.snippet?`<div class="snip">${esc(it.snippet)}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
+   ${it.snippet?`<div class="snip">${esc(it.snippet)}</div>`:""}${it.also&&it.also.length?`<div class="also"><span>Also reported by</span>${it.also.map(a=>`<a href="${a.link}" target="_blank" rel="noopener" title="${esc(a.title)}">${esc(a.source)}</a>`).join("")}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
   a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
   return a;}
 const fmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>l.startsWith("- ")?"<p>• "+l.slice(2)+"</p>":"<p>"+l+"</p>").join("");

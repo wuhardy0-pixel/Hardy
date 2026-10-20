@@ -10,6 +10,8 @@
 
 - Barbara: 'make an area for past — things more than 3 days ago'. Live lists (topics and front pages) now show only the last 3 days; everything older moves to a **📜 Past** chip (`/api/news/past?topic=…&offset=…`, 150 at a time, with a chooser for every topic and category and a Show-more button). Each live list ends with a link to its older stories.
 
+- 2026-10-20, Barbara: 'don't show the same story multiple times, combine them'. `_merge` now clusters headlines about the same event from different outlets (enough shared meaningful words) into one story; the others are listed under it as 'Also reported by CNN · BBC …' with links. Applies to topics, front pages, search, Past and Ask sources.
+
 ## Next
 - Push a morning digest by email once the mail sender is configured.
 - Let a topic be pinned to a category.
