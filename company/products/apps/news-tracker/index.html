@@ -65,6 +65,10 @@ article .star.on{color:var(--accent)}
 .pubs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
 .pubs button{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer}
 .pubs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.rankrow{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+.rank{font-family:Newsreader,Georgia,serif;font-size:26px;font-weight:700;color:var(--accent);line-height:1.1;padding-top:14px;text-align:right}
+.rank.top{font-size:30px}
+.why{grid-column:1;font-size:12px;color:var(--muted);margin-top:2px}
 .older{display:block;margin:14px 0 4px;text-align:center;font-size:14px;color:var(--accent);background:var(--accent-soft);border-radius:10px;padding:10px;cursor:pointer;border:0;width:100%;font-family:inherit}
 .loadmore{display:block;margin:16px auto;font:inherit;font-weight:600;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
 .foot{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
@@ -88,7 +92,7 @@ article .star.on{color:var(--accent)}
   <div class="foot">Headlines come from Google News. Tap a headline to read it on the publisher's site. · <a href="/games">← hardywu.com</a></div>
 </main>
 <script>
-const $=s=>document.querySelector(s);let data=null,cur="__front",busy=false,pubFilter="All",catFilter="All",search=null,answer=null,past={topic:null,items:[],total:0,offset:0};
+const $=s=>document.querySelector(s);let popular={days:3,items:null},data=null,cur="__front",busy=false,pubFilter="All",catFilter="All",search=null,answer=null,past={topic:null,items:[],total:0,offset:0};
 async function api(path,body){const r=await fetch("/api/news"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,keepalive:path==="/seen"});const j=await r.json().catch(()=>({error:"Lost the connection."}));if(!r.ok)throw new Error(j.error||"Something went wrong.");return j;}
 const fullDate=d=>d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
 const dayKey=iso=>{if(!iso)return"Undated";const d=new Date(iso),t=new Date();const s=x=>x.toDateString();const y=new Date(t);y.setDate(t.getDate()-1);
@@ -103,10 +107,24 @@ function _render(){
   const chips=$("#chips");chips.innerHTML="";
   const fp=document.createElement("button");fp.className="chip"+(cur==="__front"?" on":"");const fnew=data.front.categories.reduce((a,c)=>a+c.new,0);fp.innerHTML="🗞 Front pages"+(fnew?`<span class="n">${fnew}</span>`:"");fp.onclick=()=>{cur="__front";$("#brief").classList.remove("on");render();};chips.appendChild(fp);
   data.topics.forEach(t=>{const b=document.createElement("button");b.className="chip"+(t.topic===cur?" on":"");b.textContent=t.topic;if(t.new)b.innerHTML+=`<span class="n">${t.new}</span>`;b.onclick=()=>{cur=t.topic;$("#brief").classList.remove("on");render();};chips.appendChild(b);});
+  const lb=document.createElement("button");lb.className="chip"+(cur==="__popular"?" on":"");lb.textContent="🏆 Popular";lb.onclick=()=>openPopular(popular.days);chips.appendChild(lb);
   const ps=document.createElement("button");ps.className="chip"+(cur==="__past"?" on":"");ps.textContent="📜 Past";ps.onclick=()=>openPast(past.topic||data.topics[0]?.topic||"Top stories");chips.appendChild(ps);
   const sv=document.createElement("button");sv.className="chip"+(cur==="__saved"?" on":"");sv.textContent="★ Saved"+(data.saved.length?` (${data.saved.length})`:"");sv.onclick=()=>{cur="__saved";render();};chips.appendChild(sv);
   const add=document.createElement("button");add.className="chip add";add.textContent="＋ topics";add.onclick=()=>{$("#manage").classList.toggle("on");renderManage();};chips.appendChild(add);
   const list=$("#list");list.innerHTML="";
+  if(cur==="__popular"){$("#briefBtn").style.display="none";
+    const sel=document.createElement("div");sel.className="pubs";[[1,"Today"],[3,"Last 3 days"],[7,"This week"],[30,"This month"]].forEach(([d,l])=>{const b=document.createElement("button");b.textContent=l;b.className=d===popular.days?"on":"";b.onclick=()=>openPopular(d);sel.appendChild(b);});list.appendChild(sel);
+    if(!popular.items){$("#status").textContent="Ranking…";return;}
+    $("#status").textContent=popular.items.length?`Ranked by how many outlets are covering it and how often readers here open or save it`:"Nothing stands out yet.";
+    if(popular.hot?.length){const h=document.createElement("div");h.className="cat";h.innerHTML=`Hot subjects<small>names in the most headlines · tap to search</small>`;list.appendChild(h);
+      const row=document.createElement("div");row.className="pubs";popular.hot.forEach(x=>{const b=document.createElement("button");b.textContent=`${x.subject} · ${x.stories}`;b.onclick=()=>{$("#q").value=x.subject;$("#searchForm").requestSubmit();};row.appendChild(b);});list.appendChild(row);}
+    if(popular.topics?.length){const h=document.createElement("div");h.className="cat";h.innerHTML=`Topics<small>followed here · stories in this period</small>`;list.appendChild(h);
+      popular.topics.forEach((t,k)=>{const row=document.createElement("div");row.className="rankrow";row.innerHTML=`<div class="rank${k<3?" top":""}">${k+1}</div><div><button class="chip" style="margin-top:10px">${esc(t.topic)}</button><div class="why">${t.stories} stor${t.stories===1?"y":"ies"}${t.clicks?` · ${t.clicks} open${t.clicks===1?"":"s"}`:""}${t.followers>1?` · ${t.followers} followers`:""}</div></div>`;
+        row.querySelector("button").onclick=()=>{if(data.topics.some(x=>x.topic.toLowerCase()===t.topic.toLowerCase())){cur=data.topics.find(x=>x.topic.toLowerCase()===t.topic.toLowerCase()).topic;render();}else{$("#q").value=t.topic;$("#searchForm").requestSubmit();}};list.appendChild(row);});}
+    const h2=document.createElement("div");h2.className="cat";h2.innerHTML=`Headlines<small>most covered and most opened</small>`;list.appendChild(h2);
+    popular.items.forEach((it,k)=>{const row=document.createElement("div");row.className="rankrow";const r=document.createElement("div");r.className="rank"+(k<3?" top":"");r.textContent=k+1;row.appendChild(r);
+      const c=card(it,"front:"+(it.category||""));const why=document.createElement("div");why.className="why";why.textContent=[`${it.outlets} outlet${it.outlets===1?"":"s"}`,it.clicks?`${it.clicks} open${it.clicks===1?"":"s"}`:"",it.saves?`${it.saves} save${it.saves===1?"":"s"}`:""].filter(Boolean).join(" · ");c.appendChild(why);row.appendChild(c);list.appendChild(row);});
+    return;}
   if(cur==="__past"){$("#briefBtn").style.display="none";$("#status").textContent=past.total?`${past.total} stor${past.total===1?"y":"ies"} older than 3 days · kept for three years`:"Nothing older than 3 days here yet — it fills up as days pass.";
     const sel=document.createElement("div");sel.className="pubs";[...data.front.categories.map(c=>c.name),...data.topics.map(t=>t.topic)].forEach(n=>{const b=document.createElement("button");b.textContent=n;b.className=n===past.topic?"on":"";b.onclick=()=>openPast(n);sel.appendChild(b);});list.appendChild(sel);
     if(past.items.length)withDays(list,past.items,past.topic);
@@ -147,6 +165,7 @@ function card(it,topic){const a=document.createElement("article");if(it.seen)a.c
   a.innerHTML=`<h3><a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
    <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${when(it.published)}</span><span class="agot">(${ago(it.published)})</span></div>
    <div class="snip" data-link="${esc(it.link)}">${it.snippet?esc(it.snippet)+(it.summary_src==="ai"?' <span class="aiTag" title="Written from the headline, not from the article">AI summary</span>':""):'<span class="pending">Fetching the summary…</span>'}</div>${it.also&&it.also.length?`<div class="also"><span>Also reported by</span>${it.also.map(a=>`<a href="${a.link}" target="_blank" rel="noopener" title="${esc(a.title)}">${esc(a.source)}</a>`).join("")}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
+  a.querySelector("h3 a").addEventListener("click",()=>{fetch("/api/news/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({link:it.link}),keepalive:true}).catch(()=>{});});
   a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
   return a;}
 const fmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>l.startsWith("- ")?"<p>• "+l.slice(2)+"</p>":"<p>"+l+"</p>").join("");
@@ -171,6 +190,8 @@ async function ask(){const q=$("#q").value.trim();if(q.length<2||busy)return;bus
   busy=false;render();}
 async function loadPast(topic,offset){try{const r=await fetch("/api/news/past?topic="+encodeURIComponent(topic)+"&offset="+offset);const j=await r.json();if(!r.ok)throw new Error(j.error||"Could not load the past.");
     past={topic,total:j.total,offset,items:offset?past.items.concat(j.items):j.items};render();}catch(e){$("#status").textContent=e.message;}}
+async function openPopular(days){cur="__popular";popular={days,items:null};[...$("#chips").children].forEach(c=>c.classList.remove("on"));render();window.scrollTo(0,0);
+  try{const r=await fetch("/api/news/popular?days="+days);const j=await r.json();if(!r.ok)throw new Error(j.error||"Could not rank.");popular={days,items:j.items,topics:j.topics,hot:j.hot};}catch(e){popular={days,items:[]};$("#status").textContent=e.message;}render();}
 function openPast(topic){cur="__past";past={topic,items:[],total:0,offset:0};render();window.scrollTo(0,0);loadPast(topic,0);}
 $("#askBtn").onclick=ask;
 $("#searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("#q").value.trim();if(q.length<2)return;

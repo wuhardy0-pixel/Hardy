@@ -14,6 +14,8 @@
 
 - 2026-10-21, Barbara: 'add a summary of each news story, the things under the headline'. Every story now gets a line: the publisher's feed text when there is one; otherwise the Google link is resolved to the real article (googlenewsdecoder, batched) and the page's own description line is read; otherwise one AI sentence from the headline, shown with a small 'AI summary' tag. Lines are remembered in `news_links` (never re-fetched), filled by the hourly collector for the last 3 days and on demand by the page (`POST /api/news/summaries`, 25 at a time) with a 'Fetching the summary…' placeholder. Also: same-story matching tightened and a merged story no longer borrows a neighbour's summary (that was the mismatched Zelensky line).
 
+- Barbara: 'add a leaderboard of most popular headlines — and topics'. New 🏆 Popular chip (`/api/news/popular?days=1|3|7|30`): **Hot subjects** (names that recur across the period's headlines, tap to search), **Topics** ranked by stories + opens + followers, and **Headlines** ranked by outlets covering + opens + saves. Headline taps are counted (`/api/news/click`, table news_clicks).
+
 ## Next
 - Push a morning digest by email once the mail sender is configured.
 - Let a topic be pinned to a category.

@@ -2226,6 +2226,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS news_cache(topic TEXT PRIMARY KEY, fetched_at TEXT NOT NULL, items TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS news_items(link TEXT PRIMARY KEY, title TEXT, source TEXT, category TEXT, topic TEXT, published TEXT, snippet TEXT, first_seen TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS news_items_topic ON news_items(topic, published);
+    CREATE TABLE IF NOT EXISTS news_clicks(link TEXT NOT NULL, user_key TEXT NOT NULL, at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS news_clicks_link ON news_clicks(link);
     CREATE TABLE IF NOT EXISTS news_links(link TEXT PRIMARY KEY, real_url TEXT, summary TEXT, summary_src TEXT, tried_at TEXT);
     CREATE TABLE IF NOT EXISTS news_summaries(topic TEXT NOT NULL, fetched_at TEXT NOT NULL, text TEXT NOT NULL, made_at TEXT NOT NULL, PRIMARY KEY(topic, fetched_at));
     CREATE TABLE IF NOT EXISTS ucp_carts(
@@ -2822,6 +2824,65 @@ def _attach_known_summaries(con, items):
     for it in missing:
         r = rows.get(it["link"])
         if r: it["snippet"], it["summary_src"] = r["summary"], r["summary_src"]
+@app.post("/api/news/click")
+def news_click():
+    """A headline was tapped — counts toward the leaderboard."""
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    link = str((request.get_json(silent=True) or {}).get("link") or "")[:2000]
+    if link:
+        con = db(); con.execute("INSERT INTO news_clicks(link,user_key,at) VALUES(?,?,?)", (link, u, now_iso())); con.commit(); con.close()
+    return jsonify(ok=True)
+@app.get("/api/news/popular")
+def news_popular():
+    """The leaderboard: the stories most outlets are reporting and most readers here are opening or saving."""
+    u = news_user()
+    if not u: return jsonify(error="Please sign in."), 401
+    try: days = max(1, min(30, int(request.args.get("days") or NEWS_RECENT_DAYS)))
+    except ValueError: days = NEWS_RECENT_DAYS
+    since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+    con = db()
+    rows = [dict(r) for r in con.execute("SELECT link,title,source,category,topic,published,snippet FROM news_items WHERE published >= ? AND topic LIKE 'front:%' ORDER BY published DESC LIMIT 1500", (since,))]
+    clicks = {r["link"]: r["n"] for r in con.execute("SELECT link, COUNT(*) AS n FROM news_clicks WHERE at >= ? GROUP BY link", (since,))}
+    saves = {r["link"]: r["n"] for r in con.execute("SELECT link, COUNT(*) AS n FROM news_saved WHERE saved_at >= ? GROUP BY link", (since,))}
+    seen = {r["link"] for r in con.execute("SELECT link FROM news_seen WHERE user_key=?", (u,))}
+    saved_mine = {r["link"] for r in con.execute("SELECT link FROM news_saved WHERE user_key=?", (u,))}
+    stories = _merge(rows, [], 1500)
+    _attach_known_summaries(con, stories); con.close()
+    out = []
+    for it in stories:
+        links = [it["link"]] + [a["link"] for a in it.get("also", [])]
+        outlets = 1 + len(it.get("also", [])); c = sum(clicks.get(l, 0) for l in links); sv = sum(saves.get(l, 0) for l in links)
+        score = outlets * 3 + c * 2 + sv * 5
+        if outlets < 2 and not c and not sv: continue
+        it.update(outlets=outlets, clicks=c, saves=sv, score=score, seen=it["link"] in seen, saved=it["link"] in saved_mine)
+        out.append(it)
+    out.sort(key=lambda i: (-i["score"], i.get("published") or ""), reverse=False)
+    # topics: the subjects people follow here, ranked by how much is being written and opened
+    con = db()
+    topic_names = [r["topic"] for r in con.execute("SELECT topic, COUNT(*) AS n FROM news_topics GROUP BY topic ORDER BY n DESC LIMIT 40")]
+    topics = []
+    for t in topic_names:
+        n = con.execute("SELECT COUNT(*) FROM news_items WHERE topic=? AND published >= ?", (t.lower(), since)).fetchone()[0]
+        c = con.execute("SELECT COUNT(*) FROM news_clicks k JOIN news_items i ON i.link=k.link WHERE i.topic=? AND k.at >= ?", (t.lower(), since)).fetchone()[0]
+        followers = con.execute("SELECT COUNT(*) FROM news_topics WHERE topic=? COLLATE NOCASE", (t,)).fetchone()[0]
+        if n: topics.append({"topic": t, "stories": n, "clicks": c, "followers": followers, "score": n + c * 3 + followers * 2})
+    topics.sort(key=lambda x: -x["score"])
+    con.close()
+    # hot subjects: names and phrases that keep appearing across this period's headlines
+    phrases = {}
+    for it in stories:
+        heads = [it["title"]] + [a["title"] for a in it.get("also", [])]
+        found = set()
+        for h in heads:
+            for m in re.finditer(r"\b([A-Z][a-zA-Z'’.-]+(?:\s+(?:of|the|de|van|von|al)?\s*[A-Z][a-zA-Z'’.-]+){0,2})", h or ""):
+                ph = re.sub(r"[’']s$", "", m.group(1).strip(" .'’"))      # Trump’s → Trump
+                if len(ph) < 4 or ph.lower() in _TITLE_STOP or ph in ("The", "New", "US", "U.S", "Why", "How", "What", "Live", "Breaking", "Watch", "Video", "Opinion", "Exclusive"): continue
+                found.add(ph)
+        for ph in found: phrases[ph] = phrases.get(ph, 0) + 1
+    hot = [{"subject": k, "stories": v} for k, v in phrases.items() if v >= 2]
+    hot.sort(key=lambda x: (-x["stories"], x["subject"]))
+    return jsonify(ok=True, days=days, items=out[:30], topics=topics[:15], hot=hot[:20])
 @app.post("/api/news/summaries")
 def news_summaries_api():
     """The page asks for the lines it is still missing; answers with what it could get (bounded per call)."""

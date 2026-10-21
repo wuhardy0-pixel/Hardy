@@ -14,6 +14,7 @@ What it does
 - **A summary under every headline**: the publisher's own description line (read from the article page), or the feed text; only when neither exists, one AI sentence marked 'AI summary'.
 - **One story, many outlets**: the same event reported by several papers shows once, with the other outlets linked under it.
 - **What's new**: a green dot on stories you have not seen; counts on the chips; seen state is per login.
+- **Popular**: a leaderboard — hot subjects, the busiest topics, and the headlines most outlets cover and most readers open, for today / 3 days / week / month.
 - **Saved**: tap ★ to keep a story in the Saved list.
 - **One-minute briefing**: an AI summary of a topic or a category (OpenAI, cached per fetch).
 
