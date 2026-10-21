@@ -38,3 +38,6 @@ History before 2026-09-10: see `../products/apps/bookkeep/TASKS.md` (the server 
 ## 2026-10-18
 - New app News Tracker (products/apps/news-tracker, served at /news on play.hardywu.com; sign-in host lognews). Back end in server.py: tables news_topics/news_seen/news_saved/news_cache/news_items/news_summaries; routes /api/news/home|topics|seen|save|summary; publisher front pages in parallel; Google News + publisher RSS.
 
+## 2026-10-21
+- Barbara saw a Cloudflare tunnel error on her phone at sign-in: the Mac's internet dropped for a moment at 6:55 PM and the tunnel lost its connections. Tunnel now uses HTTP/2 (more tolerant of flaky home Wi-Fi than QUIC) and a `com.hardywu.awake` launchd job keeps the Mac awake. The real fix is still the Cloud Run move (TODO 1).
+
