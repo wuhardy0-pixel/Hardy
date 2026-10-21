@@ -42,6 +42,8 @@ article .meta{grid-column:1;font-size:13px;color:var(--muted);display:flex;gap:8
 article .meta .agot{opacity:.7}
 article .meta .dot{width:8px;height:8px;border-radius:50%;background:var(--new);display:inline-block}
 article .snip{grid-column:1;font-size:14px;color:var(--muted);margin-top:2px}
+article .snip .pending{opacity:.55;font-style:italic}
+article .snip .aiTag{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-left:4px;white-space:nowrap}
 article .also{grid-column:1;font-size:13px;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
 article .also a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
 article .star{grid-column:2;grid-row:1/5;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
@@ -96,7 +98,8 @@ function withDays(list,items,topic){let last=null;items.forEach(it=>{const k=day
 const ago=iso=>{if(!iso)return"";const m=Math.round((Date.now()-new Date(iso))/60000);if(m<60)return m+" min ago";const h=Math.round(m/60);if(h<24)return h+" h ago";const d=Math.round(h/24);return d===1?"yesterday":d+" days ago";};
 async function load(){$("#status").textContent="Loading…";try{data=await api("/home");}catch(e){$("#status").textContent=e.message;return;}
   if(cur!=="__front"&&cur!=="__saved"&&!data.topics.some(t=>t.topic===cur))cur="__front";$("#who").textContent=data.name?"for "+data.name:"";render();}
-function render(){
+function render(){_render();fillSummaries();}
+function _render(){
   const chips=$("#chips");chips.innerHTML="";
   const fp=document.createElement("button");fp.className="chip"+(cur==="__front"?" on":"");const fnew=data.front.categories.reduce((a,c)=>a+c.new,0);fp.innerHTML="🗞 Front pages"+(fnew?`<span class="n">${fnew}</span>`:"");fp.onclick=()=>{cur="__front";$("#brief").classList.remove("on");render();};chips.appendChild(fp);
   data.topics.forEach(t=>{const b=document.createElement("button");b.className="chip"+(t.topic===cur?" on":"");b.textContent=t.topic;if(t.new)b.innerHTML+=`<span class="n">${t.new}</span>`;b.onclick=()=>{cur=t.topic;$("#brief").classList.remove("on");render();};chips.appendChild(b);});
@@ -143,10 +146,20 @@ function render(){
 function card(it,topic){const a=document.createElement("article");if(it.seen)a.classList.add("seen");
   a.innerHTML=`<h3><a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
    <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${when(it.published)}</span><span class="agot">(${ago(it.published)})</span></div>
-   ${it.snippet?`<div class="snip">${esc(it.snippet)}</div>`:""}${it.also&&it.also.length?`<div class="also"><span>Also reported by</span>${it.also.map(a=>`<a href="${a.link}" target="_blank" rel="noopener" title="${esc(a.title)}">${esc(a.source)}</a>`).join("")}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
+   <div class="snip" data-link="${esc(it.link)}">${it.snippet?esc(it.snippet)+(it.summary_src==="ai"?' <span class="aiTag" title="Written from the headline, not from the article">AI summary</span>':""):'<span class="pending">Fetching the summary…</span>'}</div>${it.also&&it.also.length?`<div class="also"><span>Also reported by</span>${it.also.map(a=>`<a href="${a.link}" target="_blank" rel="noopener" title="${esc(a.title)}">${esc(a.source)}</a>`).join("")}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
   a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
   return a;}
 const fmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>l.startsWith("- ")?"<p>• "+l.slice(2)+"</p>":"<p>"+l+"</p>").join("");
+let fillTimer=null;
+function fillSummaries(){clearTimeout(fillTimer);fillTimer=setTimeout(async()=>{
+  const nodes=[...document.querySelectorAll("article .snip .pending")].map(p=>p.closest(".snip"));if(!nodes.length)return;
+  const links=nodes.slice(0,40).map(n=>n.dataset.link);
+  try{const r=await fetch("/api/news/summaries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({links})});const j=await r.json();
+    const all=[...(data?.topics||[]).flatMap(t=>t.items),...(data?.front?.categories||[]).flatMap(c=>c.items),...(search?.items||[]),...(past?.items||[]),...(answer?.sources||[])];
+    for(const n of nodes){const s=j.summaries?.[n.dataset.link];if(s){n.innerHTML=esc(s.text)+(s.src==="ai"?' <span class="aiTag" title="Written from the headline, not from the article">AI summary</span>':"");all.filter(i=>i.link===n.dataset.link).forEach(i=>{i.snippet=s.text;i.summary_src=s.src;});}
+      else n.innerHTML="";}
+    if(document.querySelector("article .snip .pending"))fillSummaries();}
+  catch(e){nodes.forEach(n=>n.innerHTML="");}},300);}
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function renderManage(){const ul=$("#topicList");ul.innerHTML="";data.topics.forEach(t=>{const li=document.createElement("li");li.innerHTML=`${esc(t.topic)}<button title="Stop following">✕</button>`;li.querySelector("button").onclick=async()=>{await api("/topics",{remove:t.topic});if(cur===t.topic)cur=null;await load();renderManage();};ul.appendChild(li);});
   const sb=$("#sectionBtns");sb.innerHTML="";data.sections.forEach(s=>{if(data.topics.some(t=>t.topic.toLowerCase()===s))return;const b=document.createElement("button");b.textContent=s;b.onclick=()=>addTopic(s);sb.appendChild(b);});}

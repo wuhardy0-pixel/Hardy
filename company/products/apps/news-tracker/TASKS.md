@@ -12,6 +12,8 @@
 
 - 2026-10-20, Barbara: 'don't show the same story multiple times, combine them'. `_merge` now clusters headlines about the same event from different outlets (enough shared meaningful words) into one story; the others are listed under it as 'Also reported by CNN · BBC …' with links. Applies to topics, front pages, search, Past and Ask sources.
 
+- 2026-10-21, Barbara: 'add a summary of each news story, the things under the headline'. Every story now gets a line: the publisher's feed text when there is one; otherwise the Google link is resolved to the real article (googlenewsdecoder, batched) and the page's own description line is read; otherwise one AI sentence from the headline, shown with a small 'AI summary' tag. Lines are remembered in `news_links` (never re-fetched), filled by the hourly collector for the last 3 days and on demand by the page (`POST /api/news/summaries`, 25 at a time) with a 'Fetching the summary…' placeholder. Also: same-story matching tightened and a merged story no longer borrows a neighbour's summary (that was the mismatched Zelensky line).
+
 ## Next
 - Push a morning digest by email once the mail sender is configured.
 - Let a topic be pinned to a category.

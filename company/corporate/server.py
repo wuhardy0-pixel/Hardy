@@ -2226,6 +2226,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS news_cache(topic TEXT PRIMARY KEY, fetched_at TEXT NOT NULL, items TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS news_items(link TEXT PRIMARY KEY, title TEXT, source TEXT, category TEXT, topic TEXT, published TEXT, snippet TEXT, first_seen TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS news_items_topic ON news_items(topic, published);
+    CREATE TABLE IF NOT EXISTS news_links(link TEXT PRIMARY KEY, real_url TEXT, summary TEXT, summary_src TEXT, tried_at TEXT);
     CREATE TABLE IF NOT EXISTS news_summaries(topic TEXT NOT NULL, fetched_at TEXT NOT NULL, text TEXT NOT NULL, made_at TEXT NOT NULL, PRIMARY KEY(topic, fetched_at));
     CREATE TABLE IF NOT EXISTS ucp_carts(
       id TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at TEXT NOT NULL
@@ -2625,6 +2626,11 @@ def _news_collector():
                 con.commit(); con.close()
                 news_frontpages()
                 for t in topics: news_items(t)
+                con = db(); recent = [dict(r) for r in con.execute("SELECT link,title,source,snippet FROM news_items WHERE (snippet IS NULL OR snippet='') AND published >= ? ORDER BY published DESC LIMIT 400",
+                                                                   ((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_RECENT_DAYS)).isoformat(),))]
+                _attach_known_summaries(con, recent); con.close()
+                for i in range(0, len(recent), 25):
+                    with _sum_lock: news_fill_summaries(recent[i:i + 25], budget=25)
         except Exception as e:                                             # noqa: BLE001
             print("[news] collector:", e, flush=True)
         _t.sleep(3600)
@@ -2649,7 +2655,7 @@ def _news_fetch(url):
         try: ts = _eu.parsedate_to_datetime(it.findtext("pubDate") or "").astimezone(datetime.timezone.utc).isoformat()
         except Exception: ts = ""
         desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or ""); desc = re.sub(r"\s+", " ", desc).strip()
-        if desc.startswith(title): desc = ""
+        if desc.startswith(title) or "news.google.com" in link: desc = ""      # Google's 'description' is a list of other headlines, not a summary
         out.append({"title": title, "link": link, "source": src.strip(), "published": ts, "snippet": desc[:220]})
     return out
 def news_items(topic):
@@ -2685,7 +2691,7 @@ def _same_story(a, b):
     """Two headlines about the same event, from any outlets: enough of the meaningful words overlap."""
     if not a or not b: return False
     inter = len(a & b); small = min(len(a), len(b))
-    return inter >= 4 and inter / small >= 0.5 or inter / len(a | b) >= 0.5
+    return (inter >= 4 and inter / small >= 0.6) or (inter >= 3 and inter / len(a | b) >= 0.6)
 def _merge(fresh, hist, cap):
     """Newest first; the same article under two addresses shows once, and the same event reported by
     several outlets becomes ONE story with the others listed under it ('also')."""
@@ -2700,8 +2706,7 @@ def _merge(fresh, hist, cap):
         if home is not None:
             if it.get("source") and it["source"] != home.get("source") and all(a["source"] != it["source"] for a in home["also"]):
                 home["also"].append({"source": it["source"], "link": it["link"], "title": it["title"], "published": it.get("published")})
-            if not home.get("snippet") and it.get("snippet"): home["snippet"] = it["snippet"]
-            continue
+            continue                                   # never borrow a summary from a merged neighbour
         it = dict(it); it["_toks"] = toks; it["also"] = []; out.append(it)
         if len(out) >= cap: break
     for o in out: o.pop("_toks", None)
@@ -2737,6 +2742,96 @@ def news_frontpages():
     out = {c: _merge(cats[c], _news_history(con, "front:" + c, NEWS_RECENT_DAYS + 1, 300), 120) for c in NEWS_CATS}   # live lists: the last few days; older lives in Past
     con.close()
     return out, (max(stamps) if stamps else None)
+# ---- summaries: the line under each headline. 1) the publisher's feed text; 2) else resolve the
+# real article (Google links are wrappers) and read the page's own description line;
+# 3) else one plain sentence written by the AI from the headline — marked as such.
+def _page_summary(url):
+    try:
+        req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36", "Accept": "text/html"})
+        page = _ur.urlopen(req, timeout=8).read(300000).decode("utf-8", "ignore")
+    except Exception: return None                                                   # noqa: BLE001
+    for pat in (r'<meta[^>]+property="og:description"[^>]+content="([^"]{25,})"', r'<meta[^>]+content="([^"]{25,})"[^>]+property="og:description"',
+                r'<meta[^>]+name="description"[^>]+content="([^"]{25,})"', r'<meta[^>]+content="([^"]{25,})"[^>]+name="description"',
+                r'<meta[^>]+name="twitter:description"[^>]+content="([^"]{25,})"'):
+        m = re.search(pat, page, re.I)
+        if m:
+            t = html.unescape(m.group(1)).strip(); t = re.sub(r"\s+", " ", t)
+            if len(t) > 25 and not re.match(r"(?i)(subscribe|sign up|read the latest|breaking news|get the latest)", t): return t[:300]
+    return None
+def _ai_summaries(items):
+    """One sentence each, from the headline and the other outlets' headlines on the same event. Batched."""
+    if not os.environ.get("OPENAI_API_KEY") or not items: return {}
+    lines = "\n".join(f"{i+1}. {it['title']} ({it.get('source','')})" + (" | also: " + "; ".join(a['title'] for a in it.get('also', [])[:3]) if it.get('also') else "") for i, it in enumerate(items))
+    try:
+        from openai import OpenAI
+        r = OpenAI().chat.completions.create(model=os.environ.get("OPENAI_MODEL", "gpt-5.1"), max_completion_tokens=60 * len(items) + 50,
+            messages=[{"role": "system", "content": "For each numbered headline write ONE plain sentence (max 28 words) saying what the story is about, using only what the headline(s) say — never add facts. Output exactly one line per item as 'N. sentence'."},
+                      {"role": "user", "content": lines}])
+        out = {}
+        for ln in r.choices[0].message.content.splitlines():
+            m = re.match(r"\s*(\d+)[.)]\s*(.+)", ln)
+            if m and 1 <= int(m.group(1)) <= len(items): out[items[int(m.group(1)) - 1]["link"]] = m.group(2).strip()[:300]
+        return out
+    except Exception as e:                                                         # noqa: BLE001
+        print("[news] ai summaries:", e, flush=True); return {}
+_sum_lock = threading.Lock()
+def news_fill_summaries(items, budget=25):
+    """Fill the missing summary lines for these items (bounded), remembering each in news_links."""
+    import concurrent.futures as _cf
+    todo = [it for it in items if not it.get("snippet")][:budget]
+    if not todo: return 0
+    con = db()
+    known = {r["link"]: dict(r) for r in con.execute(f"SELECT * FROM news_links WHERE link IN ({','.join('?'*len(todo))})", [it["link"] for it in todo])}
+    for it in todo:
+        k = known.get(it["link"])
+        if k and k.get("summary"): it["snippet"], it["summary_src"] = k["summary"], k["summary_src"]
+    todo = [it for it in todo if not it.get("snippet") and not (known.get(it["link"]) or {}).get("tried_at")]
+    if not todo: con.close(); return 0
+    # 1) real article addresses (Google links decoded in one call), then the pages' own description lines
+    gl = [it for it in todo if "news.google.com" in it["link"]]
+    real = {it["link"]: it["link"] for it in todo if it not in gl}
+    if gl:
+        try:
+            from googlenewsdecoder import gnewsdecoder
+            res = gnewsdecoder([it["link"] for it in gl], interval=0)
+            for it, r in zip(gl, res if isinstance(res, list) else [res]):
+                if isinstance(r, dict) and r.get("success") and r.get("decoded_url"): real[it["link"]] = r["decoded_url"]
+        except Exception as e:                                                     # noqa: BLE001
+            print("[news] decode:", e, flush=True)
+    with _cf.ThreadPoolExecutor(8) as ex:
+        got = dict(zip([it["link"] for it in todo], ex.map(lambda it: _page_summary(real[it["link"]]) if real.get(it["link"]) else None, todo)))
+    for it in todo:
+        if got.get(it["link"]): it["snippet"], it["summary_src"] = got[it["link"]], "page"
+    # 2) the rest: one honest sentence from the headline
+    rest = [it for it in todo if not it.get("snippet")]
+    ai = _ai_summaries(rest)
+    for it in rest:
+        if ai.get(it["link"]): it["snippet"], it["summary_src"] = ai[it["link"]], "ai"
+    now = now_iso()
+    for it in todo:
+        con.execute("INSERT OR REPLACE INTO news_links(link,real_url,summary,summary_src,tried_at) VALUES(?,?,?,?,?)",
+                    (it["link"], real.get(it["link"]), it.get("snippet") or None, it.get("summary_src"), now))
+        if it.get("snippet"): con.execute("UPDATE news_items SET snippet=? WHERE link=? AND (snippet IS NULL OR snippet='')", (it["snippet"], it["link"]))
+    con.commit(); con.close()
+    return sum(1 for it in todo if it.get("snippet"))
+def _attach_known_summaries(con, items):
+    """Stories already summarised earlier get their line back without any fetching."""
+    missing = [it for it in items if not it.get("snippet")]
+    if not missing: return
+    rows = {r["link"]: r for r in con.execute(f"SELECT link,summary,summary_src FROM news_links WHERE summary IS NOT NULL AND link IN ({','.join('?'*len(missing))})", [it["link"] for it in missing])}
+    for it in missing:
+        r = rows.get(it["link"])
+        if r: it["snippet"], it["summary_src"] = r["summary"], r["summary_src"]
+@app.post("/api/news/summaries")
+def news_summaries_api():
+    """The page asks for the lines it is still missing; answers with what it could get (bounded per call)."""
+    if not news_user(): return jsonify(error="Please sign in."), 401
+    x = request.get_json(silent=True) or {}
+    links = [str(l)[:2000] for l in (x.get("links") or [])][:40]
+    con = db(); rows = [dict(r) for r in con.execute(f"SELECT link,title,source,snippet FROM news_items WHERE link IN ({','.join('?'*len(links))})", links)] if links else []
+    _attach_known_summaries(con, rows); con.close()
+    with _sum_lock: news_fill_summaries(rows, budget=25)
+    return jsonify(ok=True, summaries={r["link"]: {"text": r["snippet"], "src": r.get("summary_src", "feed")} for r in rows if r.get("snippet")})
 def _news_topics(con, u):
     rows = [r["topic"] for r in con.execute("SELECT topic FROM news_topics WHERE user_key=? ORDER BY position, created_at", (u,))]
     if not rows:
@@ -2761,6 +2856,7 @@ def news_home():
         con = db(); items = _merge(items, _news_history(con, t.strip().lower(), NEWS_KEEP_DAYS, 400), 150); con.close()
         cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=NEWS_RECENT_DAYS)).isoformat()
         recent = [it for it in items if (it.get("published") or "") >= cutoff]
+        con = db(); _attach_known_summaries(con, recent); con.close()
         for it in recent: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
         con = db(); older = con.execute("SELECT COUNT(*) FROM news_items WHERE topic=? AND published < ?", (t.strip().lower(), cutoff)).fetchone()[0]; con.close()
         out.append({"topic": t, "fetched_at": at, "items": recent, "older": older, "new": sum(1 for it in recent if not it["seen"])})
@@ -2781,6 +2877,7 @@ def news_home():
             it["_toks"] = toks; placed.append(it); kept.append(it)
         front[c] = kept
     for it in placed: it.pop("_toks", None)
+    con = db(); _attach_known_summaries(con, placed); con.close()
     for c in front:
         for it in front[c]: it["seen"] = it["link"] in seen; it["saved"] = it["link"] in saved
     return jsonify(user=u, name=session.get("v_name") or session.get("name") or "", topics=out, saved=list(saved.values()), sections=list(NEWS_SECTIONS),
