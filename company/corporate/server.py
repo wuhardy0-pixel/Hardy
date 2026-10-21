@@ -2833,6 +2833,7 @@ def news_click():
     if link:
         con = db(); con.execute("INSERT INTO news_clicks(link,user_key,at) VALUES(?,?,?)", (link, u, now_iso())); con.commit(); con.close()
     return jsonify(ok=True)
+_HOT_SKIP = {"The", "New", "US", "U.S", "Why", "How", "What", "When", "Where", "Who", "Live", "Breaking", "Watch", "Video", "Opinion", "Exclusive", "Analysis", "Explainer", "Review", "Update", "Updates", "Report", "Photos", "Everything", "Inside", "First", "Latest", "Your", "This", "That", "These", "After", "Before", "With", "Says", "Said", "From", "Over", "Into", "About", "Amid", "Against", "Will", "Could", "Would", "Should", "Can", "Not", "But", "And", "For", "Its", "His", "Her", "Their"}
 @app.get("/api/news/popular")
 def news_popular():
     """The leaderboard: the stories most outlets are reporting and most readers here are opening or saving."""
@@ -2877,7 +2878,7 @@ def news_popular():
         for h in heads:
             for m in re.finditer(r"\b([A-Z][a-zA-Z'’.-]+(?:\s+(?:of|the|de|van|von|al)?\s*[A-Z][a-zA-Z'’.-]+){0,2})", h or ""):
                 ph = re.sub(r"[’']s$", "", m.group(1).strip(" .'’"))      # Trump’s → Trump
-                if len(ph) < 4 or ph.lower() in _TITLE_STOP or ph in ("The", "New", "US", "U.S", "Why", "How", "What", "Live", "Breaking", "Watch", "Video", "Opinion", "Exclusive"): continue
+                if len(ph) < 4 or ph.lower() in _TITLE_STOP or ph in _HOT_SKIP or re.fullmatch(r"(Here|There|Just|Today|Tonight|Yesterday|Tomorrow|Billion|Million|Trillion|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)", ph): continue
                 found.add(ph)
         for ph in found: phrases[ph] = phrases.get(ph, 0) + 1
     hot = [{"subject": k, "stories": v} for k, v in phrases.items() if v >= 2]
