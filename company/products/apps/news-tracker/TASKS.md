@@ -16,6 +16,8 @@
 
 - Barbara: 'add a leaderboard of most popular headlines — and topics'. New 🏆 Popular chip (`/api/news/popular?days=1|3|7|30`): **Hot subjects** (names that recur across the period's headlines, tap to search), **Topics** ranked by stories + opens + followers, and **Headlines** ranked by outlets covering + opens + saves. Headline taps are counted (`/api/news/click`, table news_clicks).
 
+- Barbara: 'the summary shows the first line, but an arrow shows 5 sentences in detail'. Each story has a ▶ In detail arrow: `POST /api/news/detail` reads the article's paragraphs (Google links resolved), or another outlet's version of the same story if the first is paywalled, and the AI writes exactly five plain sentences (who/what/where/when/why); if nothing can be read it says so and works from the headline. Cached in `news_details`.
+
 ## Next
 - Push a morning digest by email once the mail sender is configured.
 - Let a topic be pinned to a category.

@@ -43,10 +43,17 @@ article .meta .agot{opacity:.7}
 article .meta .dot{width:8px;height:8px;border-radius:50%;background:var(--new);display:inline-block}
 article .snip{grid-column:1;font-size:14px;color:var(--muted);margin-top:2px}
 article .snip .pending{opacity:.55;font-style:italic}
+article .more{grid-column:1;margin-top:4px}
+article .more button{font:inherit;font-size:13px;font-weight:600;color:var(--accent);background:none;border:0;padding:2px 0;cursor:pointer}
+article .more button .arr{display:inline-block;transition:transform .15s;margin-right:4px}
+article .more.open button .arr{transform:rotate(90deg)}
+article .detail{display:none;font-size:14.5px;line-height:1.5;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:6px}
+article .more.open .detail{display:block}
+article .detail .src{display:block;font-size:11px;color:var(--muted);margin-top:6px}
 article .snip .aiTag{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-left:4px;white-space:nowrap}
 article .also{grid-column:1;font-size:13px;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
 article .also a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
-article .star{grid-column:2;grid-row:1/5;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
+article .star{grid-column:2;grid-row:1/6;align-self:start;font-size:22px;background:none;border:0;cursor:pointer;color:var(--muted);padding:4px}
 article .star.on{color:var(--accent)}
 .empty{color:var(--muted);text-align:center;padding:40px 0}
 .manage{display:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
@@ -164,8 +171,14 @@ function _render(){
 function card(it,topic){const a=document.createElement("article");if(it.seen)a.classList.add("seen");
   a.innerHTML=`<h3><a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>
    <div class="meta">${it.seen?"":'<span class="dot"></span>'}<span>${esc(it.source||"")}</span><span>·</span><span>${when(it.published)}</span><span class="agot">(${ago(it.published)})</span></div>
-   <div class="snip" data-link="${esc(it.link)}">${it.snippet?esc(it.snippet)+(it.summary_src==="ai"?' <span class="aiTag" title="Written from the headline, not from the article">AI summary</span>':""):'<span class="pending">Fetching the summary…</span>'}</div>${it.also&&it.also.length?`<div class="also"><span>Also reported by</span>${it.also.map(a=>`<a href="${a.link}" target="_blank" rel="noopener" title="${esc(a.title)}">${esc(a.source)}</a>`).join("")}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
+   <div class="snip" data-link="${esc(it.link)}">${it.snippet?esc(it.snippet):'<span class="pending">Fetching the summary…</span>'}</div>
+   <div class="more"><button type="button"><span class="arr">▶</span>In detail</button><div class="detail"></div></div>${it.also&&it.also.length?`<div class="also"><span>Also reported by</span>${it.also.map(a=>`<a href="${a.link}" target="_blank" rel="noopener" title="${esc(a.title)}">${esc(a.source)}</a>`).join("")}</div>`:""}<button class="star ${it.saved?"on":""}" title="Save">${it.saved?"★":"☆"}</button>`;
   a.querySelector("h3 a").addEventListener("click",()=>{fetch("/api/news/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({link:it.link}),keepalive:true}).catch(()=>{});});
+  const more=a.querySelector(".more"),det=more.querySelector(".detail");
+  more.querySelector("button").onclick=async()=>{more.classList.toggle("open");if(!more.classList.contains("open")||det.dataset.done)return;det.textContent="Reading the story…";
+    try{const r=await fetch("/api/news/detail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({link:it.link,also:(it.also||[]).map(a=>a.link)})});const j=await r.json();if(!r.ok)throw new Error(j.error||"No detail.");
+      const from=String(j.src||"");det.innerHTML=esc(j.text)+`<span class="src">${from.startsWith("article")?"From the article"+(from.split(":")[1]?" at "+esc(from.split(":")[1]):""):"From the headline only — the article could not be read"}</span>`;det.dataset.done="1";}
+    catch(e){det.textContent=e.message;}};
   a.querySelector(".star").onclick=async e=>{const b=e.currentTarget;try{if(it.saved){await api("/save",{remove:it.link});it.saved=false;data.saved=data.saved.filter(s=>s.link!==it.link);}else{await api("/save",{item:it,topic});it.saved=true;data.saved.unshift({...it,topic,saved_at:new Date().toISOString()});}b.textContent=it.saved?"★":"☆";b.classList.toggle("on",it.saved);if(cur==="__saved")render();else render();}catch(err){$("#status").textContent=err.message;}};
   return a;}
 const fmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>l.startsWith("- ")?"<p>• "+l.slice(2)+"</p>":"<p>"+l+"</p>").join("");
@@ -175,7 +188,7 @@ function fillSummaries(){clearTimeout(fillTimer);fillTimer=setTimeout(async()=>{
   const links=nodes.slice(0,40).map(n=>n.dataset.link);
   try{const r=await fetch("/api/news/summaries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({links})});const j=await r.json();
     const all=[...(data?.topics||[]).flatMap(t=>t.items),...(data?.front?.categories||[]).flatMap(c=>c.items),...(search?.items||[]),...(past?.items||[]),...(answer?.sources||[])];
-    for(const n of nodes){const s=j.summaries?.[n.dataset.link];if(s){n.innerHTML=esc(s.text)+(s.src==="ai"?' <span class="aiTag" title="Written from the headline, not from the article">AI summary</span>':"");all.filter(i=>i.link===n.dataset.link).forEach(i=>{i.snippet=s.text;i.summary_src=s.src;});}
+    for(const n of nodes){const s=j.summaries?.[n.dataset.link];if(s){n.innerHTML=esc(s.text);all.filter(i=>i.link===n.dataset.link).forEach(i=>{i.snippet=s.text;i.summary_src=s.src;});}
       else n.innerHTML="";}
     if(document.querySelector("article .snip .pending"))fillSummaries();}
   catch(e){nodes.forEach(n=>n.innerHTML="");}},300);}

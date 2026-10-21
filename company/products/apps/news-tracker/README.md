@@ -12,6 +12,7 @@ What it does
 - **Remembers three years**: every story it sees is kept for three years (an hourly collector keeps gathering even when nobody is looking) and shown under day headings with full dates.
 - **Ask**: type a question — 'what is happening now with the Wichita crash?' — and it answers from today's stories plus its memory: right now, how it got here (dated), what to watch, with the sources listed.
 - **A summary under every headline**: the publisher's own description line (read from the article page), or the feed text; only when neither exists, one AI sentence marked 'AI summary'.
+- **In detail**: an arrow under each summary opens five sentences on what happened, read from the article (or another outlet's copy when one is paywalled).
 - **One story, many outlets**: the same event reported by several papers shows once, with the other outlets linked under it.
 - **What's new**: a green dot on stories you have not seen; counts on the chips; seen state is per login.
 - **Popular**: a leaderboard — hot subjects, the busiest topics, and the headlines most outlets cover and most readers open, for today / 3 days / week / month.

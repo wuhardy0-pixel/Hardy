@@ -2229,6 +2229,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS news_clicks(link TEXT NOT NULL, user_key TEXT NOT NULL, at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS news_clicks_link ON news_clicks(link);
     CREATE TABLE IF NOT EXISTS news_links(link TEXT PRIMARY KEY, real_url TEXT, summary TEXT, summary_src TEXT, tried_at TEXT);
+    CREATE TABLE IF NOT EXISTS news_details(link TEXT PRIMARY KEY, text TEXT NOT NULL, src TEXT, made_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS news_summaries(topic TEXT NOT NULL, fetched_at TEXT NOT NULL, text TEXT NOT NULL, made_at TEXT NOT NULL, PRIMARY KEY(topic, fetched_at));
     CREATE TABLE IF NOT EXISTS ucp_carts(
       id TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at TEXT NOT NULL
@@ -2759,6 +2760,13 @@ def _page_summary(url):
         if m:
             t = html.unescape(m.group(1)).strip(); t = re.sub(r"\s+", " ", t)
             if len(t) > 25 and not re.match(r"(?i)(subscribe|sign up|read the latest|breaking news|get the latest)", t): return t[:300]
+    # no description line: the article's own first real paragraph
+    page2 = re.sub(r"(?is)<(script|style|noscript|svg|header|footer|nav|aside)[^>]*>.*?</\1>", " ", page)
+    for m in re.findall(r"(?is)<p[^>]*>(.*?)</p>", page2):
+        t = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", m))).strip()
+        if len(t) > 80 and not re.search(r"(?i)subscribe|sign up|cookies|newsletter|all rights reserved|read more|advertisement", t):
+            t = t[:300]; cut = t.rfind(". ", 120, 260)
+            return (t[:cut + 1] if cut > 0 else t)
     return None
 def _ai_summaries(items):
     """One sentence each, from the headline and the other outlets' headlines on the same event. Batched."""
@@ -2884,6 +2892,69 @@ def news_popular():
     hot = [{"subject": k, "stories": v} for k, v in phrases.items() if v >= 2]
     hot.sort(key=lambda x: (-x["stories"], x["subject"]))
     return jsonify(ok=True, days=days, items=out[:30], topics=topics[:15], hot=hot[:20])
+def _article_text(url):
+    """The readable paragraphs of an article page (best effort; paywalls give little)."""
+    try:
+        req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36", "Accept": "text/html"})
+        page = _ur.urlopen(req, timeout=10).read(600000).decode("utf-8", "ignore")
+    except Exception: return ""                                                    # noqa: BLE001
+    page = re.sub(r"(?is)<(script|style|noscript|svg|header|footer|nav|aside)[^>]*>.*?</\1>", " ", page)
+    paras = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", m))).strip() for m in re.findall(r"(?is)<p[^>]*>(.*?)</p>", page)]
+    paras = [t for t in paras if len(t) > 60 and not re.search(r"(?i)subscribe|sign up|cookies|newsletter|all rights reserved|read more", t)]
+    return "\n".join(paras)[:7000]
+@app.post("/api/news/detail")
+def news_detail():
+    """The arrow under a summary: about five sentences on what happened, from the article itself when it can be read."""
+    if not news_user(): return jsonify(error="Please sign in."), 401
+    x = request.get_json(silent=True) or {}
+    link = str(x.get("link") or "")[:2000]
+    alts = [str(l)[:2000] for l in (x.get("also") or [])][:4]          # the same story at other outlets, in case this one is paywalled
+    con = db()
+    row = con.execute("SELECT text, src FROM news_details WHERE link=?", (link,)).fetchone()
+    if row: con.close(); return jsonify(ok=True, text=row["text"], src=row["src"], cached=True)
+    it = con.execute("SELECT link,title,source,snippet,published FROM news_items WHERE link=?", (link,)).fetchone()
+    if not it: con.close(); return jsonify(error="I don't have that story."), 404
+    it = dict(it); lk = con.execute("SELECT real_url, summary FROM news_links WHERE link=?", (link,)).fetchone()
+    con.close()
+    real = (lk["real_url"] if lk and lk["real_url"] else None)
+    if not real and "news.google.com" in link:
+        try:
+            from googlenewsdecoder import gnewsdecoder
+            r = gnewsdecoder(link, interval=0); real = r.get("decoded_url") if isinstance(r, dict) and r.get("success") else None
+        except Exception: real = None                                              # noqa: BLE001
+    if not real and "news.google.com" not in link: real = link
+    body = _article_text(real) if real else ""
+    read_from = it.get("source", "")
+    if len(body) <= 400 and alts:                                       # try another outlet's version of the same story
+        try:
+            from googlenewsdecoder import gnewsdecoder
+            g = [a for a in alts if "news.google.com" in a]; real_alts = {a: a for a in alts if a not in g}
+            if g:
+                for a, r in zip(g, (lambda res: res if isinstance(res, list) else [res])(gnewsdecoder(g, interval=0))):
+                    if isinstance(r, dict) and r.get("success") and r.get("decoded_url"): real_alts[a] = r["decoded_url"]
+        except Exception: real_alts = {a: a for a in alts if "news.google.com" not in a}   # noqa: BLE001
+        con = db()
+        for a in alts:
+            u = real_alts.get(a)
+            if not u: continue
+            t = _article_text(u)
+            if len(t) > 400:
+                body = t; srcrow = con.execute("SELECT source FROM news_items WHERE link=?", (a,)).fetchone(); read_from = (srcrow["source"] if srcrow else "") or _up.urlparse(u).hostname; break
+        con.close()
+    if not os.environ.get("OPENAI_API_KEY"): return jsonify(error="The detail needs the AI key on the server."), 503
+    src = "article" if len(body) > 400 else "headline"
+    context = (f"Article text:\n{body}" if src == "article" else f"Only the headline and summary are available (the article could not be read):\nHeadline: {it['title']}\nSummary: {it.get('snippet') or (lk and lk['summary']) or ''}")
+    try:
+        from openai import OpenAI
+        r = OpenAI().chat.completions.create(model=os.environ.get("OPENAI_MODEL", "gpt-5.1"), max_completion_tokens=320,
+            messages=[{"role": "system", "content": "Explain what happened in exactly five plain sentences for a busy parent: who, what, where, when, why it matters. Use only the material given; never invent names, numbers or quotes. If only a headline is available, say what is known and that details are thin. No bullet points, no headings."},
+                      {"role": "user", "content": f"Headline: {it['title']} ({it.get('source','')}, {str(it.get('published') or '')[:10]})\n{context}"}])
+        text = r.choices[0].message.content.strip()
+    except Exception as e:                                                         # noqa: BLE001
+        return jsonify(error=f"The detail didn't come through ({type(e).__name__})."), 502
+    src_label = f"article:{read_from}" if src == "article" else "headline"
+    con = db(); con.execute("INSERT OR REPLACE INTO news_details(link,text,src,made_at) VALUES(?,?,?,?)", (link, text, src_label, now_iso())); con.commit(); con.close()
+    return jsonify(ok=True, text=text, src=src_label, cached=False)
 @app.post("/api/news/summaries")
 def news_summaries_api():
     """The page asks for the lines it is still missing; answers with what it could get (bounded per call)."""
