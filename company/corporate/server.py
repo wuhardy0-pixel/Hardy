@@ -2634,6 +2634,7 @@ def _news_collector():
                 _attach_known_summaries(con, recent); con.close()
                 for i in range(0, len(recent), 25):
                     with _sum_lock: news_fill_summaries(recent[i:i + 25], budget=25)
+                news_precompute_details(150)
         except Exception as e:                                             # noqa: BLE001
             print("[news] collector:", e, flush=True)
         _t.sleep(3600)
@@ -2902,18 +2903,13 @@ def _article_text(url):
     paras = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", m))).strip() for m in re.findall(r"(?is)<p[^>]*>(.*?)</p>", page)]
     paras = [t for t in paras if len(t) > 60 and not re.search(r"(?i)subscribe|sign up|cookies|newsletter|all rights reserved|read more", t)]
     return "\n".join(paras)[:7000]
-@app.post("/api/news/detail")
-def news_detail():
-    """The arrow under a summary: about five sentences on what happened, from the article itself when it can be read."""
-    if not news_user(): return jsonify(error="Please sign in."), 401
-    x = request.get_json(silent=True) or {}
-    link = str(x.get("link") or "")[:2000]
-    alts = [str(l)[:2000] for l in (x.get("also") or [])][:4]          # the same story at other outlets, in case this one is paywalled
+def make_detail(link, alts=()):
+    """Five sentences for one story: from the article (Google links resolved), else another outlet's copy, else the headline. Cached."""
     con = db()
     row = con.execute("SELECT text, src FROM news_details WHERE link=?", (link,)).fetchone()
-    if row: con.close(); return jsonify(ok=True, text=row["text"], src=row["src"], cached=True)
+    if row: con.close(); return row["text"], row["src"], True
     it = con.execute("SELECT link,title,source,snippet,published FROM news_items WHERE link=?", (link,)).fetchone()
-    if not it: con.close(); return jsonify(error="I don't have that story."), 404
+    if not it: con.close(); raise LookupError("I don't have that story.")
     it = dict(it); lk = con.execute("SELECT real_url, summary FROM news_links WHERE link=?", (link,)).fetchone()
     con.close()
     real = (lk["real_url"] if lk and lk["real_url"] else None)
@@ -2925,12 +2921,14 @@ def news_detail():
     if not real and "news.google.com" not in link: real = link
     body = _article_text(real) if real else ""
     read_from = it.get("source", "")
+    alts = [a for a in alts if a and a != link][:4]
     if len(body) <= 400 and alts:                                       # try another outlet's version of the same story
         try:
             from googlenewsdecoder import gnewsdecoder
             g = [a for a in alts if "news.google.com" in a]; real_alts = {a: a for a in alts if a not in g}
             if g:
-                for a, r in zip(g, (lambda res: res if isinstance(res, list) else [res])(gnewsdecoder(g, interval=0))):
+                res = gnewsdecoder(g, interval=0)
+                for a, r in zip(g, res if isinstance(res, list) else [res]):
                     if isinstance(r, dict) and r.get("success") and r.get("decoded_url"): real_alts[a] = r["decoded_url"]
         except Exception: real_alts = {a: a for a in alts if "news.google.com" not in a}   # noqa: BLE001
         con = db()
@@ -2941,20 +2939,52 @@ def news_detail():
             if len(t) > 400:
                 body = t; srcrow = con.execute("SELECT source FROM news_items WHERE link=?", (a,)).fetchone(); read_from = (srcrow["source"] if srcrow else "") or _up.urlparse(u).hostname; break
         con.close()
-    if not os.environ.get("OPENAI_API_KEY"): return jsonify(error="The detail needs the AI key on the server."), 503
+    if not os.environ.get("OPENAI_API_KEY"): raise RuntimeError("The detail needs the AI key on the server.")
     src = "article" if len(body) > 400 else "headline"
     context = (f"Article text:\n{body}" if src == "article" else f"Only the headline and summary are available (the article could not be read):\nHeadline: {it['title']}\nSummary: {it.get('snippet') or (lk and lk['summary']) or ''}")
-    try:
-        from openai import OpenAI
-        r = OpenAI().chat.completions.create(model=os.environ.get("OPENAI_MODEL", "gpt-5.1"), max_completion_tokens=320,
-            messages=[{"role": "system", "content": "Explain what happened in exactly five plain sentences for a busy parent: who, what, where, when, why it matters. Use only the material given; never invent names, numbers or quotes. If only a headline is available, say what is known and that details are thin. No bullet points, no headings."},
-                      {"role": "user", "content": f"Headline: {it['title']} ({it.get('source','')}, {str(it.get('published') or '')[:10]})\n{context}"}])
-        text = r.choices[0].message.content.strip()
-    except Exception as e:                                                         # noqa: BLE001
-        return jsonify(error=f"The detail didn't come through ({type(e).__name__})."), 502
+    from openai import OpenAI
+    r = OpenAI().chat.completions.create(model=os.environ.get("OPENAI_MODEL", "gpt-5.1"), max_completion_tokens=320,
+        messages=[{"role": "system", "content": "Explain what happened in exactly five plain sentences for a busy parent: who, what, where, when, why it matters. Use only the material given; never invent names, numbers or quotes. If only a headline is available, say what is known and that details are thin. No bullet points, no headings."},
+                  {"role": "user", "content": f"Headline: {it['title']} ({it.get('source','')}, {str(it.get('published') or '')[:10]})\n{context}"}])
+    text = r.choices[0].message.content.strip()
     src_label = f"article:{read_from}" if src == "article" else "headline"
     con = db(); con.execute("INSERT OR REPLACE INTO news_details(link,text,src,made_at) VALUES(?,?,?,?)", (link, text, src_label, now_iso())); con.commit(); con.close()
-    return jsonify(ok=True, text=text, src=src_label, cached=False)
+    return text, src_label, False
+@app.post("/api/news/detail")
+def news_detail():
+    """The arrow under a summary. Usually already made in the background; otherwise made now."""
+    if not news_user(): return jsonify(error="Please sign in."), 401
+    x = request.get_json(silent=True) or {}
+    link = str(x.get("link") or "")[:2000]; alts = [str(l)[:2000] for l in (x.get("also") or [])][:4]
+    try: text, src, cached = make_detail(link, alts)
+    except LookupError as e: return jsonify(error=str(e)), 404
+    except RuntimeError as e: return jsonify(error=str(e)), 503
+    except Exception as e: return jsonify(error=f"The detail didn't come through ({type(e).__name__})."), 502     # noqa: BLE001
+    return jsonify(ok=True, text=text, src=src, cached=cached)
+_detail_lock = threading.Lock()
+def news_precompute_details(limit=150):
+    """Read ahead: make the five-sentence detail for the stories readers will see next (front pages first, then topics), newest first."""
+    if not os.environ.get("OPENAI_API_KEY") or not _detail_lock.acquire(blocking=False): return 0
+    made = 0
+    try:
+        front, _ = news_frontpages()
+        queue = [it for c in NEWS_CATS for it in front[c][:40]]
+        con = db(); topics = [r["topic"] for r in con.execute("SELECT topic, COUNT(*) n FROM news_topics GROUP BY topic ORDER BY n DESC LIMIT 20")]
+        have = {r["link"] for r in con.execute("SELECT link FROM news_details")}; con.close()
+        for t in topics:
+            items, _ = news_items(t); con = db(); items = _merge(items, _news_history(con, t.strip().lower(), NEWS_RECENT_DAYS, 200), 40); con.close(); queue += items
+        seen = set()
+        for it in queue:
+            if made >= limit: break
+            if it["link"] in have or it["link"] in seen: continue
+            seen.add(it["link"])
+            try: make_detail(it["link"], [a["link"] for a in it.get("also", [])]); made += 1
+            except Exception as e: print("[news] detail:", type(e).__name__, flush=True)   # noqa: BLE001
+    finally: _detail_lock.release()
+    return made
+def _news_details_once():
+    import time as _t; _t.sleep(5); n = news_precompute_details(300); print(f"[news] read ahead: {n} details made", flush=True)
+threading.Thread(target=_news_details_once, daemon=True, name="news-details-once").start()
 @app.post("/api/news/summaries")
 def news_summaries_api():
     """The page asks for the lines it is still missing; answers with what it could get (bounded per call)."""

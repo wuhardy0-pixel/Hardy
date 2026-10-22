@@ -18,6 +18,8 @@
 
 - Barbara: 'the summary shows the first line, but an arrow shows 5 sentences in detail'. Each story has a ▶ In detail arrow: `POST /api/news/detail` reads the article's paragraphs (Google links resolved), or another outlet's version of the same story if the first is paywalled, and the AI writes exactly five plain sentences (who/what/where/when/why); if nothing can be read it says so and works from the headline. Cached in `news_details`.
 
+- Barbara: 'it should already be pre-read so readers don't have to wait'. Details are now made ahead of time: a read-ahead pass runs at server start and every hour (`news_precompute_details`, front pages first then followed topics, newest first, up to 300/150 per pass), so the arrow opens instantly; only a brand-new story still shows 'Reading the story…'. Summaries that were headline-only were cleared and redone with the article's first paragraph.
+
 ## Next
 - Push a morning digest by email once the mail sender is configured.
 - Let a topic be pinned to a category.
