@@ -7,6 +7,10 @@
 
 - Barbara: 'make it like Fortnite and Prodigy'. Added a walkable world map (canvas, 15×11 biomes, D-pad/tap/arrows, biome-based wild encounters, towns with rival mages, the arena), an avatar with 6 outfits + hats on an XP reward track (crown only from a Royale win; look saved in the browser), and the Ludus Royale (six mages, shrinking ring, carried-over health, crown). Camp = wardrobe + track + familiars.
 
+- Barbara: 'no — like Fortnite where it is 3D; the skills you spray, animations and effects'. Rebuilt the visuals in Three.js (vendored r158 + scene.js, served via a new /play/latin/<file> route): 3D terrain world with a chase camera, D-pad/tap/arrow walking with a hop, biome arenas, 3D mage (outfit colours, hats, staff with element orb) and creatures (body/head/legs/tail, spikes/wings/ears by species), rival mages in element robes, familiar beside you; particle sprays per element, bolts, beams, rocks, shield domes, heal/charge/fizzle/tame effects, flinch, camera shake, damage numbers, red hit vignette, Royale storm wall. The spell builder became four scrollable rows so Cast stays on screen on a phone. HTML HUD (hp bars, log, builder) is translucent over the scene.
+
 ## Next
 - Ask Hardy which Latin he is learning (cases/tenses) so the levels match his class; add perfect tense and plural nouns.
-- Sounds and spell animations.
+- Sounds (casts, hits, the storm).
+- Walk animation for the mage's legs; creature attack lunge; idle cloth sway.
+- Performance pass on old phones (particle counts, pixel ratio) once Hardy tries it on his.

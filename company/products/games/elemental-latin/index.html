@@ -7,30 +7,33 @@
 :root{--bg:#120d1f;--panel:#1d1631;--ink:#f3eee6;--muted:#a79fb8;--gold:#e8b84a;--line:#36294f;--good:#5fd38a;--bad:#ff6b6b;--fire:#ff7b3a;--water:#4cc3ff;--earth:#b08b4f;--air:#cfe8ff;--lightning:#ffe26a;--ice:#a9f1ff;--light:#fff4c2;--shadow:#9b7bd1}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:radial-gradient(800px 500px at 50% -10%,#2a1b4d 0%,var(--bg) 60%);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
-#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:520px;margin:0 auto;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+#gl{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;touch-action:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:520px;margin:0 auto;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);z-index:1;pointer-events:none}
+#app>*{pointer-events:auto}#view{flex:1;pointer-events:none;min-height:40px}#hud{pointer-events:none}
+.hidden{display:none!important}
+#nums span{position:fixed;transform:translate(-50%,-50%);font:800 24px Cinzel,Georgia,serif;color:#fff;text-shadow:0 2px 8px #000,0 0 14px rgba(255,255,255,.4);pointer-events:none;z-index:3;animation:pop .95s ease-out forwards}#nums span.me{color:#ff8a8a}#nums span.heal{color:#8dffb0}
+@keyframes pop{from{opacity:1;transform:translate(-50%,-50%) scale(.6)}30%{transform:translate(-50%,-90%) scale(1.2)}to{opacity:0;transform:translate(-50%,-190%) scale(1)}}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 0 rgba(255,40,40,0);transition:box-shadow .12s}#vig.on{box-shadow:inset 0 0 140px rgba(255,40,40,.75)}
 h1,h2,.lat{font-family:Cinzel,Georgia,serif}
-#bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 4px;font-size:13px;color:var(--muted)}
+#bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 6px;font-size:13px;color:var(--muted);background:linear-gradient(rgba(10,6,20,.7),rgba(10,6,20,0))}
 #bar b{color:var(--gold);font-family:Cinzel,serif;font-size:15px}
 #bar button{font:inherit;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff;font-size:17px;padding:0;margin-left:6px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin:6px 12px}
+.strip{padding:4px 10px;background:rgba(10,6,20,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;margin:4px 12px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .nm{font-weight:700;font-size:16px}.sm{font-size:12px;color:var(--muted)}
 .hp{height:10px;background:#0b0816;border-radius:999px;overflow:hidden;margin-top:6px;border:1px solid var(--line)}
 .hp i{display:block;height:100%;background:linear-gradient(90deg,#ff6b6b,#ffb86b);transition:width .35s}
 .hp.me i{background:linear-gradient(90deg,#5fd38a,#a6ff9b)}
 .sh{font-size:12px;color:var(--water);min-height:16px}
-#foeArt{font-size:44px;line-height:1;filter:drop-shadow(0 0 12px rgba(255,255,255,.25));transition:transform .15s}
-#foeArt.hit{transform:translateX(8px) rotate(-6deg)}
-#stage{flex:1;overflow:auto;padding-bottom:6px}
-#world{display:none;flex:1;flex-direction:column}
+#stage{padding-bottom:4px}
+#world{display:none;flex-direction:column;background:linear-gradient(rgba(10,6,20,0),rgba(10,6,20,.75) 30%)}
 #world.on{display:flex}
-#map{display:block;width:100%;background:#0b0816;touch-action:none}
-#mapBar{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:13px;color:var(--muted)}
+#mapBar{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:13px;color:var(--ink);text-shadow:0 1px 4px #000}
 #dpad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);gap:4px;justify-content:center;padding:6px 0 10px}
-#dpad button{font:inherit;font-size:22px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:#fff;padding:0}
+#dpad button{font:inherit;font-size:22px;border-radius:14px;border:1px solid var(--line);background:rgba(29,22,49,.85);color:#fff;padding:0}
 #dpad .sp{visibility:hidden}
 #dpad .act{background:var(--gold);color:#1a1208;font-size:14px;font-weight:800}
-#where{font-size:13px;color:var(--ink);padding:0 14px;min-height:36px}
+#where{font-size:13px;color:var(--ink);padding:0 14px;min-height:36px;text-shadow:0 1px 4px #000}
 .pass{display:flex;gap:8px;overflow-x:auto;padding:6px 2px;scrollbar-width:none;max-width:100%}
 .pass .tier{flex:0 0 auto;width:84px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;font-size:12px}
 .pass .tier.got{border-color:var(--gold)}.pass .tier .ic{font-size:26px}.pass .tier .xp{color:var(--muted)}
@@ -39,23 +42,24 @@ h1,h2,.lat{font-family:Cinzel,Georgia,serif}
 .overlay .wardrobe button.on{background:var(--gold)}.overlay .wardrobe button.lock{opacity:.55}.wardrobe button.lock::after{content:"🔒";position:absolute;right:-4px;bottom:-4px;font-size:12px}
 .avatar{font-size:34px;line-height:1;position:relative;display:inline-block;margin-top:18px}
 .avatar .hat{position:absolute;left:50%;top:-14px;transform:translateX(-50%);font-size:20px}
-#log{min-height:56px;font-size:14px;padding:4px 14px;line-height:1.4}
+#log{min-height:44px;font-size:13px;padding:5px 10px;line-height:1.4;margin:4px 12px;border-radius:10px;background:rgba(10,6,20,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 #log .ok{color:var(--good)}#log .no{color:var(--bad)}#log .hint{color:var(--gold);font-size:13px}
 /* spell builder */
-#builder{background:rgba(0,0,0,.28);border-top:1px solid var(--line);padding:8px 12px 10px}
-#spell{font-size:22px;text-align:center;min-height:30px;color:var(--gold);letter-spacing:.5px}
-#gloss{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-bottom:6px}
-.slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-.slot{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 8px}
-.slot .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.opts{display:flex;flex-wrap:wrap;gap:6px}
-.opts button{font:inherit;font-weight:600;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:#120d1f;color:var(--ink);cursor:pointer}
+#builder{background:rgba(10,6,20,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:8px 12px 10px}
+#spell{font-size:20px;text-align:center;min-height:26px;color:var(--gold);letter-spacing:.5px}
+#gloss{text-align:center;font-size:12px;color:var(--muted);min-height:16px;margin-bottom:4px}
+.slots{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
+.slot{display:flex;align-items:center;gap:8px;background:rgba(29,22,49,.7);border:1px solid var(--line);border-radius:12px;padding:3px 8px}
+.slot .lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);flex:0 0 58px;line-height:1.1}
+.opts{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;padding:2px 0}.opts::-webkit-scrollbar{display:none}.opts button{flex:0 0 auto;white-space:nowrap}
+#hubTeam{flex-wrap:wrap;overflow:visible}
+.opts button{font:inherit;font-weight:600;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(18,13,31,.9);color:var(--ink);cursor:pointer}
 .opts button.on{background:var(--gold);color:#1a1208;border-color:var(--gold)}
 .opts button:disabled{opacity:.35}
 #hubTeam button.on{background:var(--gold);color:#1a1208}
 .opts button.el-fire{border-color:var(--fire)}.opts button.el-water{border-color:var(--water)}.opts button.el-earth{border-color:var(--earth)}.opts button.el-air{border-color:var(--air)}.opts button.el-lightning{border-color:var(--lightning)}.opts button.el-ice{border-color:var(--ice)}.opts button.el-light{border-color:var(--light)}.opts button.el-shadow{border-color:var(--shadow)}
 #actions{display:flex;gap:8px}
-#actions button{font:inherit;font-weight:800;font-size:17px;padding:12px 0;flex:1;border:0;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff}
+#actions button{font:inherit;font-weight:800;font-size:16px;padding:10px 0;flex:1;border:0;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff}
 #actions button.go{background:var(--gold);color:#1a1208;flex:2}
 #actions button:disabled{opacity:.4}
 .overlay{position:fixed;inset:0;background:rgb(10,6,20);display:grid;place-items:center;text-align:center;padding:22px;z-index:9;overflow:auto}
@@ -73,19 +77,20 @@ h1,h2,.lat{font-family:Cinzel,Georgia,serif}
 a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
 .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(232,184,74,.18);color:var(--gold);margin-left:6px}
 #book{display:flex;gap:6px;overflow-x:auto;padding:4px 12px;scrollbar-width:none}
-#book button{flex:0 0 auto;font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+#book button{flex:0 0 auto;font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(29,22,49,.85);color:var(--ink)}
 </style></head><body>
+<canvas id="gl"></canvas><div id="vig"></div><div id="nums"></div>
 <div id="app">
   <div id="bar"><div><b>Elemental Latin</b> · <span id="lvl">Level 1</span></div><div><button id="campBtn" title="Camp">⛺</button><button id="codexBtn" title="Grammar codex">📖</button><button id="pauseBtn" title="Menu">☰</button></div></div>
+  <div id="hud" class="hidden"><div class="strip" id="foeCard"><div class="row"><div><div class="nm" id="foeName">—</div><div class="sm" id="foeInfo"></div></div></div><div class="hp"><i id="foeHp" style="width:100%"></i></div><div class="sh" id="foeSh"></div></div></div>
+  <div id="view"></div>
   <div id="world">
     <div id="mapBar"><span id="biome">—</span><span id="coins">🪙 0</span></div>
-    <canvas id="map" width="390" height="300"></canvas>
     <div id="where"></div>
     <div id="dpad"><button class="sp"></button><button data-d="0,-1">▲</button><button class="sp"></button><button data-d="-1,0">◀</button><button class="act" id="actBtn">Go</button><button data-d="1,0">▶</button><button class="sp"></button><button data-d="0,1">▼</button><button class="sp"></button></div>
   </div>
   <div id="stage">
-    <div class="card" id="foeCard"><div class="row"><div><div class="nm" id="foeName">—</div><div class="sm" id="foeInfo"></div></div><div id="foeArt">👾</div></div><div class="hp"><i id="foeHp" style="width:100%"></i></div><div class="sh" id="foeSh"></div></div>
-    <div class="card"><div class="row"><div><div class="nm">You · <span class="lat" id="meTitle">Magus</span></div><div class="sm" id="meInfo"></div></div><div class="avatar" id="meAvatar">🧙</div></div><div class="hp me"><i id="meHp" style="width:100%"></i></div><div class="sh" id="meSh"></div></div>
+    <div class="strip"><div class="row"><div><div class="nm">You · <span class="lat" id="meTitle">Magus</span></div><div class="sm" id="meInfo"></div></div></div><div class="hp me"><i id="meHp" style="width:100%"></i></div><div class="sh" id="meSh"></div></div>
     <div id="log"></div>
     <div id="book"></div>
   </div>
@@ -104,7 +109,7 @@ a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
 <div class="overlay" id="start"><div>
   <h1>Elemental Latin<small>Elemental powers with Latin names. The spell only works if the Latin is right.</small></h1>
   <p>Fire is <span class="lat">ignis</span>, water is <span class="lat">aqua</span>, lightning is <span class="lat">fulmen</span>. To throw fire you need the object form: <span class="lat">ignem iacio</span> — "I throw fire". Get an ending wrong and the spell fizzles, but the game tells you why.</p>
-  <p>Walk the world: ember fields, frost tundra, thunder peaks, shadow woods. Weaken wild creatures and <b>tame</b> them by calling their name in the vocative — <span class="lat">Gryphe, veni!</span>. Duel the mage of each town. Enter the <b>Ludus Royale</b>, where six mages fight until one stands. Earn XP, climb the reward track, unlock outfits and the crown, and keep your own skills in a spellbook.</p>
+  <p>A 3D world you walk through: ember fields, frost tundra, thunder peaks, shadow woods. Every spell you get right sprays real fire, water or lightning across the arena. Weaken wild creatures and <b>tame</b> them by calling their name in the vocative — <span class="lat">Gryphe, veni!</span>. Duel the mage of each town. Enter the <b>Ludus Royale</b>, where six mages fight until one stands. Earn XP, climb the reward track, unlock outfits and the crown, and keep your own skills in a spellbook.</p>
   <button id="startBtn">Set out</button><br>
   <a class="back" href="/games">← back to Hardy Wu</a>
 </div></div>
@@ -133,6 +138,7 @@ a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
   <button id="nextBtn">Next duel →</button><br><a class="back" href="/games">← back to Hardy Wu</a>
 </div></div>
 
+<script src="/play/latin/three.min.js"></script>
 <script>
 // ---------------- Latin data ----------------
 const NOUNS=[
@@ -237,42 +243,44 @@ function levelUp(){const unlocked=[...NOUNS.filter(n=>n.lvl===S.level),...VERBS.
 function cast(){
   if(!S||S.turn!=="me"||paused||!S.mode)return;
   const j=judge();const[txt]=spellText();
-  if(!j.ok){say(`<span class="no">✗ <span class="lat">${txt}</span> fizzles.</span> <span class="hint">${j.why}</span>`);S.streak=0;S.turn="foe";render();setTimeout(foeTurn,1100);return;}
+  if(!j.ok){g3.fizzle("me");say(`<span class="no">✗ <span class="lat">${txt}</span> fizzles.</span> <span class="hint">${j.why}</span>`);S.streak=0;S.turn="foe";render();setTimeout(foeTurn,1500);return;}
   const n=sel.noun,v=sel.verb,p=sel.vform;
   if(v.kind==="tame"){const chance=Math.min(.95,.25+.7*(1-S.foe.hp/S.foe.max)+(S.streak>=2?.1:0));
     if(Math.random()<chance){S.team.push({la:S.foe.la,en:S.foe.en,el:S.foe.el,art:S.foe.art});S.active=S.team.length-1;gainXp(40);
-      say(`<span class="ok">✓ <span class="lat">${txt}</span></span> — ${S.foe.la} comes to you! It is now your familiar ${S.foe.art}. <span class="hint">vocative + imperative: the way to command.</span>`);S.turn="done";render();return setTimeout(()=>endEncounter("tamed"),900);}
-    say(`<span class="ok">✓ <span class="lat">${txt}</span></span> — a proper call, but ${S.foe.la} hesitates (${Math.round(chance*100)}% chance). Weaken it a little more and call again.`);S.streak++;S.turn="foe";render();setTimeout(foeTurn,1100);return;}
+      g3.call(true);say(`<span class="ok">✓ <span class="lat">${txt}</span></span> — ${S.foe.la} comes to you! It is now your familiar ${S.foe.art}. <span class="hint">vocative + imperative: the way to command.</span>`);S.turn="done";render();return setTimeout(()=>g3.tamed(()=>endEncounter("tamed")),900);}
+    g3.call(false);say(`<span class="ok">✓ <span class="lat">${txt}</span></span> — a proper call, but ${S.foe.la} hesitates (${Math.round(chance*100)}% chance). Weaken it a little more and call again.`);S.streak++;S.turn="foe";render();setTimeout(foeTurn,1500);return;}
   const el=n.el||"light";const who=p==="imp"?"fam":p==="p1"?"both":"me";
   let msg=`<span class="ok">✓ <span class="lat">${txt}</span></span> — `;
   const power=10+S.level*2;
-  const attack=(attEl,base,label)=>{let d=Math.round(base*dmgMult(attEl,S.foe.el)*(S.me.charge?2:1));S.me.charge=false;
-    if(S.foe.shield){const blocked=Math.min(d,S.foe.shield.v);d-=blocked;S.foe.shield=null;msg+=`${label} breaks the shield (${blocked} blocked). `;}
-    S.foe.hp=Math.max(0,S.foe.hp-d);msg+=`${label} ${EMO[attEl]} ${d} damage${dmgMult(attEl,S.foe.el)>1?" — super effective!":dmgMult(attEl,S.foe.el)<1?" — not very effective.":"."} `;hitAnim();};
-  if(v.kind==="attack"){if(who!=="fam")attack(el,power,"Your "+n.en);if(who!=="me")attack(fam().el,Math.round(power*.7),`${fam().la}'s ${fam().el}`);}
-  else if(v.kind==="strike"){attack(el,power+6,"You strike with "+n.en);}
-  else if(v.kind==="shield"){S.me.shield={el,v:18+S.level*3};msg+=`A wall of ${EMO[el]} ${n.en} rises (blocks ${S.me.shield.v}). `;}
-  else if(v.kind==="heal"){const h=25+S.level*3;S.me.hp=Math.min(S.me.max,S.me.hp+h);msg+=`You heal ${h}. `;}
-  else if(v.kind==="break"){if(S.foe.shield){S.foe.shield=null;msg+=`You shatter its shield! `;}else msg+=`Nothing to break — `;attack(el,Math.round(power*.5),"the shards deal");}
-  else if(v.kind==="charge"){S.me.charge=true;msg+=`Your next attack is doubled. `;}
+  const attack=(attEl,base,label,src)=>{let d=Math.round(base*dmgMult(attEl,S.foe.el)*(S.me.charge?2:1));if(S.me.charge)g3.uncharge("me");S.me.charge=false;let broke=false;
+    if(S.foe.shield){const blocked=Math.min(d,S.foe.shield.v);d-=blocked;S.foe.shield=null;broke=true;msg+=`${label} breaks the shield (${blocked} blocked). `;}
+    S.foe.hp=Math.max(0,S.foe.hp-d);msg+=`${label} ${EMO[attEl]} ${d} damage${dmgMult(attEl,S.foe.el)>1?" — super effective!":dmgMult(attEl,S.foe.el)<1?" — not very effective.":"."} `;
+    const dd=d;g3.spell(attEl,src||"me",()=>{if(broke)g3.shieldOff("foe",true);g3.flinch("foe");g3.pop("foe","−"+dd);});};
+  if(v.kind==="attack"){if(who!=="fam")attack(el,power,"Your "+n.en,"me");if(who!=="me")setTimeout(()=>attack(fam().el,Math.round(power*.7),`${fam().la}'s ${fam().el}`,"fam"),who==="both"?350:0);}
+  else if(v.kind==="strike"){attack(el,power+6,"You strike with "+n.en,"me");}
+  else if(v.kind==="shield"){S.me.shield={el,v:18+S.level*3};g3.shieldOn("me",el);msg+=`A wall of ${EMO[el]} ${n.en} rises (blocks ${S.me.shield.v}). `;}
+  else if(v.kind==="heal"){const h=25+S.level*3;S.me.hp=Math.min(S.me.max,S.me.hp+h);g3.heal("me");g3.pop("me","+"+h,"heal");msg+=`You heal ${h}. `;}
+  else if(v.kind==="break"){if(S.foe.shield){S.foe.shield=null;g3.shieldOff("foe",true);msg+=`You shatter its shield! `;}else msg+=`Nothing to break — `;attack(el,Math.round(power*.5),"the shards deal","me");}
+  else if(v.kind==="charge"){S.me.charge=true;g3.charge("me");msg+=`Your next attack is doubled. `;}
   S.streak++;gainXp(8+(S.streak>=3?4:0));if(S.streak>=3)msg+=`<span class="badge">streak ×${S.streak}</span>`;
   say(msg);
-  if(S.foe.hp<=0){S.turn="done";render();return setTimeout(()=>endEncounter(S.mode==="wild"?"fled":"won"),800);}
-  S.turn="foe";render();setTimeout(foeTurn,1100);
+  if(S.foe.hp<=0){S.turn="done";render();setTimeout(()=>g3.defeat("foe"),750);return setTimeout(()=>endEncounter(S.mode==="wild"?"fled":"won"),1700);}
+  S.turn="foe";render();setTimeout(foeTurn,1500);
 }
 function foeTurn(){if(!S||paused||!S.foe)return;const f=S.foe;
-  if(f.kind==="human"&&Math.random()<.25&&!f.shield){f.shield={el:f.el,v:12+S.wins*3};const nn=NOUNS.find(x=>x.el===f.el)||NOUNS[0];say(`${f.la}: <span class="lat">“${nn.forms.acc} voco!”</span> <span class="sm">(I summon ${nn.en})</span> — a ${EMO[f.el]} shield goes up.`);}
+  if(f.kind==="human"&&Math.random()<.25&&!f.shield){f.shield={el:f.el,v:12+S.wins*3};g3.shieldOn("foe",f.el);const nn=NOUNS.find(x=>x.el===f.el)||NOUNS[0];say(`${f.la}: <span class="lat">“${nn.forms.acc} voco!”</span> <span class="sm">(I summon ${nn.en})</span> — a ${EMO[f.el]} shield goes up.`);}
   else{let d=Math.round(f.atk*(1+S.wins*.1)*(S.me.shield?dmgMult(f.el,S.me.shield.el):1));const nn=NOUNS.find(x=>x.el===f.el);
     let m=f.kind==="human"?`${f.la}: <span class="lat">“${nn?nn.forms.acc+" iacio!":"…"}”</span> <span class="sm">(I throw ${nn?nn.en:f.el})</span>`:`${f.la} lashes out with ${EMO[f.el]} ${f.el}`;
-    if(S.me.shield){const b=Math.min(d,S.me.shield.v);d-=b;m+=` — your ${S.me.shield.el} wall blocks ${b}${BEATS[S.me.shield.el]===f.el?" (strong against it!)":""}`;S.me.shield=null;}
-    S.me.hp=Math.max(0,S.me.hp-d);m+=` — ${d} damage.`;say(m);}
-  if(S.me.hp<=0){S.turn="done";render();return setTimeout(lose,700);}
+    let brokeMine=false;if(S.me.shield){const b=Math.min(d,S.me.shield.v);d-=b;m+=` — your ${S.me.shield.el} wall blocks ${b}${BEATS[S.me.shield.el]===f.el?" (strong against it!)":""}`;S.me.shield=null;brokeMine=true;}
+    S.me.hp=Math.max(0,S.me.hp-d);m+=` — ${d} damage.`;say(m);
+    const dd=d;g3.spell(f.el,"foe",()=>{if(brokeMine)g3.shieldOff("me",true);if(dd>0){g3.flinch("me");g3.pop("me","−"+dd,"me");vig();}});}
+  if(S.me.hp<=0){S.turn="done";render();setTimeout(()=>g3.defeat("me"),800);return setTimeout(lose,1700);}
   S.turn="me";render();
 }
 function endEncounter(how){const f=S.foe;let t,x;
   if(how==="tamed"){t=`${f.la} is yours!`;x=`${f.art} <b class="lat">${f.la}</b>, ${f.en}, joins your team as a familiar. Command it with the <b>imperative</b> (<span class="lat">ignem iace!</span>) and cast as <b>we</b> (<span class="lat">ignem iacimus</span>) at level 3.`;}
   else if(how==="fled"){t=`${f.la} fainted and fled`;x=`You can't tame a creature you have knocked out. Next time stop short and call it: <span class="lat">${f.forms.voc}, veni!</span> +15 XP for the fight.`;gainXp(15);}
-  else if(S.mode==="royale"){const R=S.royale;R.left--;gainXp(25);
+  else if(S.mode==="royale"){const R=S.royale;R.left--;g3.stormTo(R.left);gainXp(25);
     if(R.left<=1||!R.order.length){S.crowns=(S.crowns||0)+1;if(!(S.look||{}).hat||S.look.hat==="none"){S.look={...(S.look||{}),hat:"crown"};saveLook();}R.left=1;t="👑 Victory Royale!";x=`You are the last mage standing. +60 XP and the <b>Royale crown</b> for your look.`;gainXp(60);}
     else{t=`${f.la} is out — ${R.left} left`;x=`The ring shrinks. Your health carries over (${S.me.hp}/${S.me.max}). Press on!`;}}
   else{S.wins++;S.me.hp=Math.min(S.me.max,S.me.hp+30);gainXp(35);t=`${f.la} yields!`;x=`Town cleared — win ${S.wins}. +35 XP.`+(S.wins>=RIVALS.length-1?" 🏆 Every town mage has yielded — they return stronger.":"");}
@@ -291,9 +299,9 @@ function useSkill(b){sel.noun=NOUNS.find(n=>n.la===b.noun)||(b.noun==="me"?ME:nu
 function render(){if(!S)return;const a=avail();
   $("#lvl").textContent=`Level ${S.level} · ${S.xp} XP`;
   const f=S.foe;
-  if(f){$("#foeName").innerHTML=`<span class="lat">${f.la}</span> <span class="sm">${f.en}${f.kind==="creature"?" · wild":" · rival"}</span>`;$("#foeInfo").textContent=`${EMO[f.el]} ${f.el} · ${f.hp}/${f.max} HP`;$("#foeArt").textContent=f.art;$("#foeHp").style.width=(100*f.hp/f.max)+"%";$("#foeSh").textContent=f.shield?`🛡 ${f.shield.el} shield ${f.shield.v}`:(f.kind==="creature"?`tame chance now ≈ ${Math.round(Math.min(95,25+70*(1-f.hp/f.max)))}%`:"");}
-  else{$("#foeName").textContent="Camp";$("#foeInfo").textContent="choose where to go";$("#foeArt").textContent="⛺";$("#foeHp").style.width="0%";$("#foeSh").textContent="";}
-  const o=outfit(),hh=hat();$("#meAvatar").innerHTML=`${o.ic}${hh.ic?`<span class="hat">${hh.ic}</span>`:""}`;$("#meTitle").textContent=o.name;
+  if(f){$("#foeName").innerHTML=`<span class="lat">${f.la}</span> <span class="sm">${f.en}${f.kind==="creature"?" · wild":" · rival"}</span>`;$("#foeInfo").textContent=`${EMO[f.el]} ${f.el} · ${f.hp}/${f.max} HP`;$("#foeHp").style.width=(100*f.hp/f.max)+"%";$("#foeSh").textContent=f.shield?`🛡 ${f.shield.el} shield ${f.shield.v}`:(f.kind==="creature"?`tame chance now ≈ ${Math.round(Math.min(95,25+70*(1-f.hp/f.max)))}%`:"");}
+  else{$("#foeName").textContent="Camp";$("#foeInfo").textContent="choose where to go";$("#foeHp").style.width="0%";$("#foeSh").textContent="";}
+  const o=outfit();$("#meTitle").textContent=o.name;
   const ff=fam();$("#meInfo").textContent=`${S.me.hp}/${S.me.max} HP${ff?` · with ${ff.art} ${ff.la}`:""}${S.me.charge?" · ⚡ charged":""}`;$("#meHp").style.width=(100*S.me.hp/S.me.max)+"%";$("#meSh").textContent=S.me.shield?`🛡 ${S.me.shield.el} wall ${S.me.shield.v}`:"";
   const nb0=$("#nouns");nb0.innerHTML="";a.nouns.forEach(n=>{const b=document.createElement("button");b.innerHTML=n.isCreature?`${n.art} <span class="lat">${n.la}</span>`:`${n.el?EMO[n.el]:"🙋"} <span class="lat">${n.la}</span>`;b.className=n.el?"el-"+n.el:"";if(sel.noun&&sel.noun.la===n.la)b.classList.add("on");b.onclick=()=>{sel.noun=sel.noun&&sel.noun.la===n.la?null:n;if(sel.noun&&!nounForm(sel.noun,sel.ncase))sel.ncase=null;render();};nb0.appendChild(b);});
   const nb=$("#nends");nb.innerHTML="";a.cases.forEach(c=>{const b=document.createElement("button");const fm=sel.noun?nounForm(sel.noun,c):null;b.innerHTML=sel.noun?(fm?`<span class="lat">${fm}</span> <span class="sm">${c}</span>`:`<span class="sm">— ${c}</span>`):`<span class="sm">${c}</span>`;b.disabled=!sel.noun||!fm;if(sel.ncase===c)b.classList.add("on");b.onclick=()=>{sel.ncase=sel.ncase===c?null:c;render();};nb.appendChild(b);});
@@ -305,7 +313,8 @@ function render(){if(!S)return;const a=avail();
   book.forEach(b=>{const x=document.createElement("button");x.innerHTML=`<b>${b.name}</b> <span class="sm lat">${b.txt}</span>`;x.onclick=()=>useSkill(b);bk.appendChild(x);});
 }
 function say(h){$("#log").innerHTML=h;}
-function hitAnim(){const a=$("#foeArt");a.classList.add("hit");setTimeout(()=>a.classList.remove("hit"),160);}
+function hitAnim(){}
+function vig(){const v=$("#vig");v.classList.add("on");setTimeout(()=>v.classList.remove("on"),180);}
 function hint(){if(!S.foe){say("Pick the wild to tame a creature, or the arena to duel a rival.");return;}const a=avail();const f=S.foe;const strong=Object.keys(BEATS).find(k=>BEATS[k]===f.el);const n=a.nouns.find(x=>x.el===strong&&!x.isCreature)||NOUNS[0];
   if(S.mode==="wild"&&f.hp<=f.max*.45)say(`<span class="hint">It's weak enough — call it: <b class="lat">${f.forms.voc}, veni!</b> (vocative${f.forms.voc!==f.forms.nom?" — 2nd declension -us → -e":""} + imperative of venio).</span>`);
   else if(S.me.hp<40&&a.verbs.some(v=>v.kind==="heal"))say(`<span class="hint">Low on health: <b class="lat">me sano</b> — “I heal myself”.</span>`);
@@ -327,19 +336,14 @@ const HATS=[{id:"none",ic:"",name:"no hat",xp:0},{id:"crown",ic:"👑",name:"Roy
 const PASS=[{xp:0,ic:"🧙",t:"Magus"},{xp:60,ic:"🧝",t:"Elf knight"},{xp:100,ic:"🎩",t:"Top hat"},{xp:150,ic:"🥷",t:"Shadow ninja"},{xp:200,ic:"🎓",t:"Scholar's cap"},{xp:280,ic:"👸",t:"Frost royalty"},{xp:380,ic:"😇",t:"Halo"},{xp:450,ic:"🧛",t:"Night lord"},{xp:660,ic:"🧞",t:"Storm genie"}];
 let W={x:5,y:4,steps:0};
 function tileAt(x,y){return TERRAIN[(MAPROWS[y]||"")[x]]||null;}
-function drawMap(){const c=$("#map");const dpr=Math.min(2,devicePixelRatio||1);const cw=c.clientWidth||390;c.width=cw*dpr;c.height=Math.round(cw*MH/MW)*dpr;const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);const t=cw/MW;
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){const T=tileAt(x,y);g.fillStyle=T.color;g.fillRect(x*t,y*t,t,t);g.fillStyle="rgba(255,255,255,.04)";if((x+y)%2)g.fillRect(x*t,y*t,t,t);
-    const em={f:"🌲",w:"〰️",m:"⛰️",v:"🌋",i:"❄️",s:"🌑",l:"✨",t:"🏘️",a:"🏟️",c:"⛺"}[(MAPROWS[y]||"")[x]];if(em&&(x*7+y*3)%2===0){g.fillStyle="#fff";g.font=`${t*.7}px serif`;g.textAlign="center";g.textBaseline="middle";g.fillText(em,x*t+t/2,y*t+t/2);}}
-  // tamed-creature markers: nothing; the player:
-  g.fillStyle="rgba(255,220,120,.35)";g.beginPath();g.arc(W.x*t+t/2,W.y*t+t/2,t*.55,0,Math.PI*2);g.fill();g.fillStyle="#fff";g.font=`${t*.9}px serif`;g.textAlign="center";g.textBaseline="middle";g.fillText(outfit().ic,W.x*t+t/2,W.y*t+t/2+1);const h=hat();if(h.ic){g.font=`${t*.5}px serif`;g.fillText(h.ic,W.x*t+t/2,W.y*t+t*.12);}
-  const T=tileAt(W.x,W.y);$("#biome").textContent=`${T.name}${T.el?" · "+T.el.map(e=>EMO[e]).join(""):""}`;$("#coins").textContent=`⭐ ${S.xp} XP · lvl ${S.level}`;
+function drawMap(){const T=tileAt(W.x,W.y);$("#biome").textContent=`${T.name}${T.el?" · "+T.el.map(e=>EMO[e]).join(""):""}`;$("#coins").textContent=`⭐ ${S.xp} XP · lvl ${S.level}`;
   $("#where").innerHTML=T.wild?`Wild ${T.el.map(e=>EMO[e]).join("")} creatures live here. Press <b>Go</b> to search.`:T.town?`A town. Press <b>Go</b> to challenge the local mage.`:T.arena?`The grand arena. Press <b>Go</b> for the <b>Ludus Royale</b>.`:T.camp?`Your camp. Press <b>Go</b> to rest, change outfit, see the reward track.`:`Open meadow. Walk on.`;
   $("#actBtn").textContent=T.wild?"Search":T.town?"Duel":T.arena?"Royale":T.camp?"Camp":"Go";}
-function move(dx,dy){if(S.mode)return;const nx=W.x+dx,ny=W.y+dy;if(nx<0||ny<0||nx>=MW||ny>=MH)return;W.x=nx;W.y=ny;W.steps++;drawMap();
-  const T=tileAt(nx,ny);if(T.wild&&Math.random()<.22){startWild(T.el[Math.floor(Math.random()*T.el.length)]);}}
+let moving=false;
+function move(dx,dy){if(S.mode||moving)return;const nx=W.x+dx,ny=W.y+dy;if(nx<0||ny<0||nx>=MW||ny>=MH)return;W.x=nx;W.y=ny;W.steps++;moving=true;g3.walk(nx,ny,[dx,dy],()=>{moving=false;const T=tileAt(nx,ny);if(!S.mode&&T.wild&&Math.random()<.22){startWild(T.el[Math.floor(Math.random()*T.el.length)]);}});drawMap();}
 function act(){const T=tileAt(W.x,W.y);if(T.wild)startWild(T.el[Math.floor(Math.random()*T.el.length)]);else if(T.town)startTown();else if(T.arena)startRoyale();else if(T.camp)hub();}
-function showWorld(){$("#world").classList.add("on");$("#stage").style.display="none";$("#builder").style.display="none";$("#hub").classList.add("hidden");drawMap();}
-function showBattle(){$("#world").classList.remove("on");$("#stage").style.display="";$("#builder").style.display="";}
+function showWorld(){$("#world").classList.add("on");$("#stage").style.display="none";$("#builder").style.display="none";$("#hub").classList.add("hidden");$("#hud").classList.add("hidden");g3.world();drawMap();}
+function showBattle(){$("#world").classList.remove("on");$("#stage").style.display="";$("#builder").style.display="";$("#hud").classList.remove("hidden");g3.arena();}
 function startWild(el){const pool=CREATURES.filter(c=>c.el===el&&c.lvl<=S.level+1&&!S.team.some(t=>t.la===c.la));const c=pool.length?pool[0]:CREATURES.filter(x=>x.el===el)[0]||CREATURES[0];
   S.mode="wild";S.foe={...c,hp:c.hp,max:c.hp,shield:null,kind:"creature"};S.turn="me";sel={noun:null,ncase:null,verb:null,vform:null};showBattle();
   say(`A wild <b class="lat">${c.la}</b>, ${c.en} ${EMO[c.el]}, bursts from the ${tileAt(W.x,W.y).name}! Weaken it, then call it: <b class="lat">${c.forms.voc}, veni!</b> Don't knock it out.`);render();}
@@ -355,11 +359,10 @@ function renderCamp(){const o=outfit(),h=hat();$("#hubAvatar").innerHTML=`${o.ic
   const w=$("#wardrobe");w.innerHTML="";OUTFITS.forEach(x=>{const b=document.createElement("button");b.textContent=x.ic;b.title=x.name+(S.xp<x.xp?` — unlocks at ${x.xp} XP`:"");if(S.xp<x.xp)b.classList.add("lock");if(o.id===x.id)b.classList.add("on");b.onclick=()=>{if(S.xp<x.xp){say("");$("#hubInfo").textContent=`${x.name} unlocks at ${x.xp} XP (you have ${S.xp}).`;return;}S.look={...(S.look||{}),outfit:x.id};saveLook();renderCamp();};w.appendChild(b);});
   HATS.forEach(x=>{if(x.id==="none")return;const locked=x.royale?!(S.crowns>0):S.xp<x.xp;const b=document.createElement("button");b.textContent=x.ic;b.title=x.name+(locked?(x.royale?" — win a Ludus Royale":` — unlocks at ${x.xp} XP`):"");if(locked)b.classList.add("lock");if(h.id===x.id)b.classList.add("on");b.onclick=()=>{if(locked){$("#hubInfo").textContent=x.royale?"The crown goes to a Ludus Royale winner.":`${x.name} unlocks at ${x.xp} XP.`;return;}S.look={...(S.look||{}),hat:h.id===x.id?"none":x.id};saveLook();renderCamp();};w.appendChild(b);});
   const ps=$("#pass");ps.innerHTML="";PASS.forEach(t=>{const d=document.createElement("div");d.className="tier"+(S.xp>=t.xp?" got":"");d.innerHTML=`<div class="ic">${t.ic}</div>${t.t}<div class="xp">${S.xp>=t.xp?"unlocked":t.xp+" XP"}</div>`;ps.appendChild(d);});}
-function saveLook(){try{localStorage.setItem("latin_look",JSON.stringify(S.look||{}));}catch(e){}}
+function saveLook(){try{localStorage.setItem("latin_look",JSON.stringify(S.look||{}));}catch(e){}if(window.g3)g3.refreshLook();}
 // ---------------- wiring ----------------
 $("#dpad").addEventListener("click",e=>{const b=e.target.closest("button[data-d]");if(!b)return;const[dx,dy]=b.dataset.d.split(",").map(Number);move(dx,dy);});
 $("#actBtn").onclick=act;
-$("#map").addEventListener("click",e=>{const r=e.currentTarget.getBoundingClientRect();const t=r.width/MW;const tx=Math.floor((e.clientX-r.left)/t),ty=Math.floor((e.clientY-r.top)/t);const dx=Math.sign(tx-W.x),dy=Math.sign(ty-W.y);if(Math.abs(tx-W.x)>=Math.abs(ty-W.y))move(dx,0);else move(0,dy);});
 addEventListener("keydown",e=>{if(!S||S.mode)return;const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(m){e.preventDefault();move(...m);}else if(e.key===" "){e.preventDefault();act();}});
 addEventListener("resize",()=>{if(S&&!S.mode)drawMap();});
 $("#startBtn").onclick=()=>{$("#start").classList.add("hidden");newRun();};
@@ -370,8 +373,9 @@ function resumeGame(){if(!paused)return;paused=false;$("#pause").classList.add("
 $("#pauseBtn").onclick=()=>paused?resumeGame():pauseGame();$("#resumeBtn").onclick=resumeGame;$("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");$("#start").classList.remove("hidden");S=null;};
 addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}else if(e.key==="Enter")cast();});
 document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
-window.__latin={get S(){return S},sel,judge,cast,newRun,goWild,goArena,hub,set:(n,c,v,p)=>{sel.noun=n==="me"?ME:(S.foe&&S.foe.la===n?{...S.foe,isCreature:true}:NOUNS.find(x=>x.la===n));sel.ncase=c;sel.verb=VERBS.find(x=>x.la===v);sel.vform=p;render();},spellText,NOUNS,VERBS,CREATURES,RIVALS};
+window.__latin={get S(){return S},sel,judge,cast,newRun,goWild,goArena,hub,move,fam,set:(n,c,v,p)=>{sel.noun=n==="me"?ME:(S.foe&&S.foe.la===n?{...S.foe,isCreature:true}:NOUNS.find(x=>x.la===n));sel.ncase=c;sel.verb=VERBS.find(x=>x.la===v);sel.vform=p;render();},spellText,NOUNS,VERBS,CREATURES,RIVALS};
 </script>
+<script src="/play/latin/scene.js"></script>
 <script>window.FEEDBACK_GAME="Elemental Latin";window.FEEDBACK_POS={right:"12px",bottom:"calc(env(safe-area-inset-bottom,0px) + 12px)"};</script>
 <script src="/track.js" defer></script>
 </body></html>

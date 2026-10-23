@@ -113,7 +113,7 @@ PORTFOLIO = {
                 "desc": "The family card game: singles, pairs, three-of-a-kind bombs, four-of-a-kind bigger bombs, and the two jokers beat all. 2–5 players, on your phone.",
                 "link": "/play/zsy", "link_label": "Play"},
             "elemental-latin": {"name": "Elemental Latin", "emoji": "🔥",
-                "desc": "Elemental powers with Latin names. Throw fire with “ignem iacio” — only if the endings are right. Duel human rivals in the arena, tame wild creatures by calling them in the vocative, forge your own skills.",
+                "desc": "Elemental powers with Latin names. Throw fire with “ignem iacio” — only if the endings are right. A 3D world you walk through; spells that spray real fire, water and lightning. Duel human rivals in the arena, tame wild creatures by calling them in the vocative, forge your own skills.",
                 "link": "/play/latin", "link_label": "Play"},
             "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.png",
                 "desc": "A fast-paced space shooter on itch.io.",
@@ -3178,6 +3178,13 @@ def news_summary():
 @app.get("/play/latin")
 def play_latin():
     return _nocache(send_from_directory(GAMES_DIR / "elemental-latin", "index.html", max_age=0))
+
+@app.get("/play/latin/<path:name>")
+def play_latin_asset(name):
+    # the game's own files next to index.html: the 3D library and the scene code
+    if not name.endswith((".js", ".png", ".json")) or "/" in name:
+        return jsonify(error="Not found."), 404
+    return send_from_directory(GAMES_DIR / "elemental-latin", name, max_age=0)
 
 @app.get("/play/zsy")
 def play_zsy():
