@@ -1,0 +1,256 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Elemental Latin — Hardy Wu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#120d1f;--panel:#1d1631;--ink:#f3eee6;--muted:#a79fb8;--gold:#e8b84a;--line:#36294f;--good:#5fd38a;--bad:#ff6b6b;--fire:#ff7b3a;--water:#4cc3ff;--earth:#b08b4f;--air:#cfe8ff;--lightning:#ffe26a;--ice:#a9f1ff;--light:#fff4c2;--shadow:#9b7bd1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:radial-gradient(800px 500px at 50% -10%,#2a1b4d 0%,var(--bg) 60%);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:520px;margin:0 auto;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+h1,h2,.lat{font-family:Cinzel,Georgia,serif}
+#bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 4px;font-size:13px;color:var(--muted)}
+#bar b{color:var(--gold);font-family:Cinzel,serif;font-size:15px}
+#bar button{font:inherit;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff;font-size:17px;padding:0;margin-left:6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin:6px 12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.nm{font-weight:700;font-size:16px}.sm{font-size:12px;color:var(--muted)}
+.hp{height:10px;background:#0b0816;border-radius:999px;overflow:hidden;margin-top:6px;border:1px solid var(--line)}
+.hp i{display:block;height:100%;background:linear-gradient(90deg,#ff6b6b,#ffb86b);transition:width .35s}
+.hp.me i{background:linear-gradient(90deg,#5fd38a,#a6ff9b)}
+.sh{font-size:12px;color:var(--water);min-height:16px}
+#foeArt{font-size:44px;line-height:1;filter:drop-shadow(0 0 12px rgba(255,255,255,.25));transition:transform .15s}
+#foeArt.hit{transform:translateX(8px) rotate(-6deg)}
+#stage{flex:1;overflow:auto;padding-bottom:6px}
+#log{min-height:56px;font-size:14px;padding:4px 14px;line-height:1.4}
+#log .ok{color:var(--good)}#log .no{color:var(--bad)}#log .hint{color:var(--gold);font-size:13px}
+/* spell builder */
+#builder{background:rgba(0,0,0,.28);border-top:1px solid var(--line);padding:8px 12px 10px}
+#spell{font-size:22px;text-align:center;min-height:30px;color:var(--gold);letter-spacing:.5px}
+#gloss{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-bottom:6px}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.slot{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 8px}
+.slot .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{font:inherit;font-weight:600;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:#120d1f;color:var(--ink);cursor:pointer}
+.opts button.on{background:var(--gold);color:#1a1208;border-color:var(--gold)}
+.opts button:disabled{opacity:.35}
+.opts button.el-fire{border-color:var(--fire)}.opts button.el-water{border-color:var(--water)}.opts button.el-earth{border-color:var(--earth)}.opts button.el-air{border-color:var(--air)}.opts button.el-lightning{border-color:var(--lightning)}.opts button.el-ice{border-color:var(--ice)}.opts button.el-light{border-color:var(--light)}.opts button.el-shadow{border-color:var(--shadow)}
+#actions{display:flex;gap:8px}
+#actions button{font:inherit;font-weight:800;font-size:17px;padding:12px 0;flex:1;border:0;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.12);color:#fff}
+#actions button.go{background:var(--gold);color:#1a1208;flex:2}
+#actions button:disabled{opacity:.4}
+.overlay{position:fixed;inset:0;background:rgba(10,6,20,.94);display:grid;place-items:center;text-align:center;padding:22px;z-index:9;overflow:auto}
+.overlay.hidden{display:none}
+.overlay h1{font-size:32px;margin:0;color:var(--gold);line-height:1.1}
+.overlay h1 small{display:block;font-family:"Source Sans 3",sans-serif;font-size:15px;color:var(--muted);margin-top:6px;font-weight:400}
+.overlay p{color:var(--muted);font-size:14px;max-width:380px;margin:12px auto;line-height:1.5}
+.overlay button{font:inherit;font-weight:800;font-size:18px;padding:14px 30px;margin-top:10px;border:0;border-radius:14px;cursor:pointer;background:var(--gold);color:#1a1208}
+.overlay button.g{background:rgba(255,255,255,.14);color:#fff}
+.tbl{text-align:left;max-width:380px;margin:10px auto;background:var(--panel);border-radius:14px;padding:12px 14px;font-size:14px}
+.tbl h3{margin:6px 0 4px;font-family:Cinzel,serif;color:var(--gold);font-size:15px}
+.tbl table{width:100%;border-collapse:collapse}.tbl td{padding:3px 4px;border-bottom:1px solid var(--line)}.tbl td:first-child{color:var(--muted)}
+.tbl .lat{color:var(--ink)}
+a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(232,184,74,.18);color:var(--gold);margin-left:6px}
+#book{display:flex;gap:6px;overflow-x:auto;padding:4px 12px;scrollbar-width:none}
+#book button{flex:0 0 auto;font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+</style></head><body>
+<div id="app">
+  <div id="bar"><div><b>Elemental Latin</b> · <span id="lvl">Level 1</span></div><div><button id="codexBtn" title="Grammar codex">📖</button><button id="pauseBtn" title="Menu">☰</button></div></div>
+  <div id="stage">
+    <div class="card" id="foeCard"><div class="row"><div><div class="nm" id="foeName">—</div><div class="sm" id="foeInfo"></div></div><div id="foeArt">👾</div></div><div class="hp"><i id="foeHp" style="width:100%"></i></div><div class="sh" id="foeSh"></div></div>
+    <div class="card"><div class="row"><div><div class="nm">You · <span class="lat">Magus</span></div><div class="sm" id="meInfo"></div></div><div style="font-size:30px">🧙</div></div><div class="hp me"><i id="meHp" style="width:100%"></i></div><div class="sh" id="meSh"></div></div>
+    <div id="log"></div>
+    <div id="book"></div>
+  </div>
+  <div id="builder">
+    <div id="spell">—</div><div id="gloss">Build a spell: a noun, its ending, a verb, its ending.</div>
+    <div class="slots">
+      <div class="slot"><div class="lbl">Element (noun)</div><div class="opts" id="nouns"></div></div>
+      <div class="slot"><div class="lbl">Noun ending</div><div class="opts" id="nends"></div></div>
+      <div class="slot"><div class="lbl">Action (verb)</div><div class="opts" id="verbs"></div></div>
+      <div class="slot"><div class="lbl">Verb ending</div><div class="opts" id="vends"></div></div>
+    </div>
+    <div id="actions"><button id="hintBtn">Hint</button><button id="castBtn" class="go">Cast ✦</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="start"><div>
+  <h1>Elemental Latin<small>Superpowers with Latin names. The spell only works if the Latin is right.</small></h1>
+  <p>Fire is <span class="lat">ignis</span>, water is <span class="lat">aqua</span>, lightning is <span class="lat">fulmen</span>. To throw fire you need the object form: <span class="lat">ignem iacio</span> — "I throw fire". Get an ending wrong and the spell fizzles, but the game tells you why.</p>
+  <p>Beat the creatures, level up, unlock new words, persons and cases. Forge your own skills and keep them in your spellbook.</p>
+  <button id="startBtn">Begin the first duel</button><br>
+  <a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+<div class="overlay hidden" id="codex"><div style="max-width:420px;width:100%">
+  <h1 style="font-size:24px">Codex <small>what you have learned so far</small></h1>
+  <div id="codexBody"></div>
+  <button class="g" id="codexClose">Close</button>
+</div></div>
+<div class="overlay hidden" id="pause"><div>
+  <h1 style="font-size:26px">Paused</h1>
+  <button id="resumeBtn">▶ Continue</button><br><button class="g" id="newBtn">Start over</button>
+  <p>P or Esc pauses and continues</p><a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+<div class="overlay hidden" id="over"><div>
+  <h1 id="overTitle">Victory</h1><p id="overText"></p>
+  <button id="nextBtn">Next duel →</button><br><a class="back" href="/games">← back to Hardy Wu</a>
+</div></div>
+
+<script>
+// ---------------- Latin data ----------------
+// nouns: forms by case; gender; declension; the element they stand for
+const NOUNS=[
+ {la:"ignis",en:"fire",el:"fire",g:"m",decl:3,forms:{nom:"ignis",acc:"ignem",abl:"igne"},lvl:1},
+ {la:"aqua",en:"water",el:"water",g:"f",decl:1,forms:{nom:"aqua",acc:"aquam",abl:"aquā"},lvl:1},
+ {la:"terra",en:"earth",el:"earth",g:"f",decl:1,forms:{nom:"terra",acc:"terram",abl:"terrā"},lvl:1},
+ {la:"ventus",en:"wind",el:"air",g:"m",decl:2,forms:{nom:"ventus",acc:"ventum",abl:"vento"},lvl:2},
+ {la:"fulmen",en:"lightning",el:"lightning",g:"n",decl:3,forms:{nom:"fulmen",acc:"fulmen",abl:"fulmine"},lvl:3},
+ {la:"glacies",en:"ice",el:"ice",g:"f",decl:5,forms:{nom:"glacies",acc:"glaciem",abl:"glacie"},lvl:4},
+ {la:"lux",en:"light",el:"light",g:"f",decl:3,forms:{nom:"lux",acc:"lucem",abl:"luce"},lvl:5},
+ {la:"umbra",en:"shadow",el:"shadow",g:"f",decl:1,forms:{nom:"umbra",acc:"umbram",abl:"umbrā"},lvl:6},
+];
+const ME={la:"me",en:"myself",el:null,forms:{acc:"me",abl:"me"},pron:true};
+// verbs: present active forms; what the spell does; what case the verb takes
+const VERBS=[
+ {la:"iacio",en:"throw",conj:"3io",forms:{s1:"iacio",s2:"iacis",s3:"iacit",p1:"iacimus",imp:"iace"},kind:"attack",needs:"acc",lvl:1},
+ {la:"voco",en:"summon",conj:"1",forms:{s1:"voco",s2:"vocas",s3:"vocat",p1:"vocamus",imp:"voca"},kind:"shield",needs:"acc",lvl:1},
+ {la:"sano",en:"heal",conj:"1",forms:{s1:"sano",s2:"sanas",s3:"sanat",p1:"sanamus",imp:"sana"},kind:"heal",needs:"acc",lvl:2,me:true},
+ {la:"frango",en:"break",conj:"3",forms:{s1:"frango",s2:"frangis",s3:"frangit",p1:"frangimus",imp:"frange"},kind:"break",needs:"acc",lvl:3},
+ {la:"augeo",en:"strengthen",conj:"2",forms:{s1:"augeo",s2:"auges",s3:"auget",p1:"augemus",imp:"auge"},kind:"charge",needs:"acc",lvl:4},
+ {la:"pugno",en:"fight",conj:"1",forms:{s1:"pugno",s2:"pugnas",s3:"pugnat",p1:"pugnamus",imp:"pugna"},kind:"strike",needs:"abl",lvl:5},
+];
+const CASES={nom:"nominative — the subject (who does it)",acc:"accusative — the object (what it is done to)",abl:"ablative — 'with / by' (the means)"};
+const PERSONS={s1:"I (ego) — 1st person singular",s2:"you (tu) — 2nd person singular",s3:"he/she/it — 3rd person singular",p1:"we (nos) — 1st person plural",imp:"command! — imperative, to your familiar"};
+const ENDING_NOTE={1:"1st declension (-a): acc -am, abl -ā",2:"2nd declension (-us): acc -um, abl -o",3:"3rd declension: acc -em (neuter: same as nom), abl -e",5:"5th declension (-es): acc -em, abl -e"};
+const CONJ_NOTE={"1":"1st conjugation (-āre): -o, -as, -at, -amus · command: -a","2":"2nd conjugation (-ēre): -eo, -es, -et, -emus · command: -e","3":"3rd conjugation (-ere): -o, -is, -it, -imus · command: -e","3io":"3rd -io conjugation: -io, -is, -it, -imus · command: -e"};
+// elements: what beats what
+const BEATS={fire:"ice",ice:"air",air:"earth",earth:"lightning",lightning:"water",water:"fire",light:"shadow",shadow:"light"};
+const EMO={fire:"🔥",water:"💧",earth:"🪨",air:"🌪️",lightning:"⚡",ice:"❄️",light:"✨",shadow:"🌑"};
+const FOES=[
+ {la:"Salamandra",en:"the fire lizard",el:"fire",art:"🦎",hp:40,atk:7},
+ {la:"Hydra",en:"the water serpent",el:"water",art:"🐍",hp:55,atk:8},
+ {la:"Harpyia",en:"the storm bird",el:"air",art:"🦅",hp:60,atk:9},
+ {la:"Gigas",en:"the earth giant",el:"earth",art:"🗿",hp:75,atk:10},
+ {la:"Fulgur Lupus",en:"the lightning wolf",el:"lightning",art:"🐺",hp:80,atk:12},
+ {la:"Draco Glacialis",en:"the ice dragon",el:"ice",art:"🐉",hp:100,atk:13},
+ {la:"Umbra Rex",en:"the shadow king",el:"shadow",art:"👑",hp:120,atk:15},
+];
+// ---------------- state ----------------
+const $=s=>document.querySelector(s);
+let S=null,sel={noun:null,ncase:null,verb:null,vform:null},paused=false,familiar=null,book=[];
+try{book=JSON.parse(localStorage.getItem("latin_book")||"[]");}catch(e){}
+function newRun(){S={level:1,xp:0,me:{hp:100,max:100,shield:null,charge:false},foe:null,turn:"me",won:0,learned:new Set(["acc","s1"]),streak:0};spawn();render();}
+function spawn(){const f=FOES[Math.min(FOES.length-1,S.won)];S.foe={...f,hp:f.hp+S.won*5,max:f.hp+S.won*5,shield:null};
+  familiar=S.level>=2?{la:"Vulpes Ignea",en:"fire fox",el:"fire",art:"🦊"}:null;
+  say(`<b class="lat">${f.la}</b>, ${f.en}, appears! It is ${EMO[f.el]} ${f.el}. ${f.el in BEATS?`Remember: ${EMO[BEATS[f.el]]} ${BEATS[f.el]} is weak to it, and it is weak to ${EMO[Object.keys(BEATS).find(k=>BEATS[k]===f.el)]} ${Object.keys(BEATS).find(k=>BEATS[k]===f.el)}.`:""}`);}
+// ---------------- building a spell ----------------
+function avail(){return{nouns:[...NOUNS.filter(n=>n.lvl<=S.level),...(S.level>=2?[ME]:[])],verbs:VERBS.filter(v=>v.lvl<=S.level),
+  cases:["acc",...(S.level>=5?["abl"]:[]),"nom"],persons:["s1",...(S.level>=2?["imp"]:[]),...(S.level>=3?["p1"]:[]),"s2","s3"]};}
+function nounForm(n,c){return n.forms[c]||null;}
+function verbForm(v,p){return v.forms[p]||null;}
+function spellText(){const n=sel.noun,v=sel.verb;const nf=n&&sel.ncase?nounForm(n,sel.ncase):null;const vf=v&&sel.vform?verbForm(v,sel.vform):null;
+  if(!n&&!v)return["—",""];const words=[nf||(n?n.la+"…":"…"),vf||(v?v.la+"…":"…")];
+  let gl="";if(n&&v&&nf&&vf){const who={s1:"I",s2:"you",s3:"it",p1:"we",imp:(familiar?familiar.en:"familiar")+","}[sel.vform];gl=sel.vform==="imp"?`“${who} ${v.en} ${n.en}!”`:`“${who} ${v.en} ${n.pron?"myself":n.en}”`;}
+  return[words.join(" ")+(sel.vform==="imp"&&vf?"!":""),gl];}
+function judge(){ // returns {ok, why, effect}
+  const n=sel.noun,v=sel.verb,c=sel.ncase,p=sel.vform;
+  if(!n||!v||!c||!p)return{ok:false,why:"Pick all four parts first."};
+  if(!nounForm(n,c))return{ok:false,why:`${n.la} has no ${c} form here.`};
+  if(c==="nom")return{ok:false,why:`<b>${nounForm(n,"nom")}</b> is the nominative — that makes ${n.en} the <i>subject</i>. The thing you act on needs the <b>accusative</b>: <b>${nounForm(n,"acc")}</b>. ${ENDING_NOTE[n.decl]||""}`};
+  if(v.needs==="acc"&&c!=="acc")return{ok:false,why:`<b>${v.la}</b> takes a direct object — accusative <b>${nounForm(n,"acc")}</b>, not the ${c}.`};
+  if(v.needs==="abl"&&c!=="abl")return{ok:false,why:`<b>${v.la}</b> (fight) takes the means you fight <i>with</i> — ablative <b>${nounForm(n,"abl")}</b>: “I fight with ${n.en}”. ${ENDING_NOTE[n.decl]||""}`};
+  if(v.me&&!n.pron)return{ok:false,why:`<b>${v.la}</b> heals a person. Heal yourself: <b>me ${v.forms.s1}</b> — “I heal myself”.`};
+  if(!v.me&&n.pron)return{ok:false,why:`You can't ${v.en} yourself. <b>me</b> goes with <b>sano</b> (heal).`};
+  if(p==="s2"||p==="s3")return{ok:false,why:`<b>${verbForm(v,p)}</b> means “${p==="s2"?"you":"he/she/it"} ${v.en}”. You are casting, so say it as <b>I</b>: <b>${v.forms.s1}</b> (1st person singular, -o). ${CONJ_NOTE[v.conj]}`};
+  if(p==="imp"&&!familiar)return{ok:false,why:`<b>${v.forms.imp}!</b> is a command — but nobody is here to obey. Commands are for your familiar (level 2).`};
+  if(p==="p1"&&!familiar)return{ok:false,why:`<b>${v.forms.p1}</b> means “<i>we</i> ${v.en}” — you need a companion for “we”.`};
+  return{ok:true,why:`${CASES[c].split(" — ")[0]} ✓ ${PERSONS[p].split(" — ")[0]} ✓`};
+}
+// ---------------- combat ----------------
+function dmgMult(att,def){return BEATS[att]===def?1.6:BEATS[def]===att?0.6:1;}
+function cast(){
+  if(!S||S.turn!=="me"||paused)return;
+  const j=judge();const[txt]=spellText();
+  if(!j.ok){say(`<span class="no">✗ <span class="lat">${txt}</span> fizzles.</span> <span class="hint">${j.why}</span>`);S.streak=0;S.turn="foe";render();setTimeout(foeTurn,1100);return;}
+  const n=sel.noun,v=sel.verb,p=sel.vform;const el=n.el||"light";const who=p==="imp"?"fam":p==="p1"?"both":"me";
+  let msg=`<span class="ok">✓ <span class="lat">${txt}</span></span> — `;
+  const power=(S.level>=3?12:10)+S.level*2;
+  const attack=(attEl,base,label)=>{let d=Math.round(base*dmgMult(attEl,S.foe.el)*(S.me.charge?2:1));S.me.charge=false;
+    if(S.foe.shield){const blocked=Math.min(d,S.foe.shield.v);d-=blocked;S.foe.shield=null;msg+=`${label} hits the ${S.foe.shield?"":""}shield (${blocked} blocked). `;}
+    S.foe.hp=Math.max(0,S.foe.hp-d);msg+=`${label} ${EMO[attEl]} ${d} damage${dmgMult(attEl,S.foe.el)>1?" — super effective!":dmgMult(attEl,S.foe.el)<1?" — not very effective.":"."} `;hitAnim();};
+  if(v.kind==="attack"){if(who!=="fam")attack(el,power,"Your "+n.en);if(who!=="me")attack(familiar.el,Math.round(power*.7),`${familiar.la}'s ${familiar.el}`);}
+  else if(v.kind==="strike"){attack(el,power+6,"You strike with "+n.en);}
+  else if(v.kind==="shield"){S.me.shield={el,v:18+S.level*3};msg+=`A wall of ${EMO[el]} ${n.en} rises (blocks ${S.me.shield.v}). `;}
+  else if(v.kind==="heal"){const h=25+S.level*3;S.me.hp=Math.min(S.me.max,S.me.hp+h);msg+=`You heal ${h}. `;}
+  else if(v.kind==="break"){if(S.foe.shield){S.foe.shield=null;msg+=`You shatter its shield! `;}else msg+=`Nothing to break — `;attack(el,Math.round(power*.5),"the shards deal");}
+  else if(v.kind==="charge"){S.me.charge=true;msg+=`Your next attack is doubled. `;}
+  S.streak++;S.xp+=10+(S.streak>=3?5:0);if(S.streak>=3)msg+=`<span class="badge">streak ×${S.streak}</span>`;
+  if(sel.ncase)S.learned.add(sel.ncase);S.learned.add(p);
+  say(msg);
+  if(S.foe.hp<=0){S.turn="done";render();return setTimeout(win,700);}
+  S.turn="foe";render();setTimeout(foeTurn,1100);
+}
+function foeTurn(){if(!S||paused)return;const f=S.foe;
+  if(Math.random()<.2&&!f.shield){f.shield={el:f.el,v:12+S.won*3};say(`${f.la} raises a ${EMO[f.el]} ${f.el} shield.`);}
+  else{let d=Math.round(f.atk*(1+S.won*.1)*(S.me.shield?dmgMult(f.el,S.me.shield.el):1));let m=`${f.la} attacks with ${EMO[f.el]} ${f.el}`;
+    if(S.me.shield){const b=Math.min(d,S.me.shield.v);d-=b;m+=` — your ${S.me.shield.el} wall blocks ${b}${BEATS[S.me.shield.el]===f.el?" (strong against it!)":""}`;S.me.shield=null;}
+    S.me.hp=Math.max(0,S.me.hp-d);m+=`: ${d} damage.`;say(m);}
+  if(S.me.hp<=0){S.turn="done";render();return setTimeout(lose,700);}
+  S.turn="me";render();
+}
+function win(){S.won++;const lvlBefore=S.level;S.level=Math.min(6,1+Math.floor(S.won/1));S.me.hp=Math.min(S.me.max,S.me.hp+30);
+  const unlocked=[...NOUNS.filter(n=>n.lvl===S.level),...VERBS.filter(v=>v.lvl===S.level)].map(w=>`<b class="lat">${w.la}</b> (${w.en})`);
+  $("#overTitle").textContent=`${S.foe.la} defeated!`;
+  $("#overText").innerHTML=`+${S.xp} XP so far.`+(S.level>lvlBefore?`<br><br><b>Level ${S.level}!</b> New: ${unlocked.join(", ")||"—"}.`+(S.level===2?"<br>Your familiar <b class='lat'>Vulpes Ignea</b> joins — give it commands with the <b>imperative</b> (iace!, voca!).":S.level===3?"<br>Now you can cast as <b>we</b> (-mus) together with your familiar for a double strike.":S.level===5?"<br>New case: the <b>ablative</b> — <i>igne pugno</i>, “I fight with fire”.":""):"")+(S.won>=FOES.length?"<br><br>🏆 You have beaten every creature. The duels continue, harder.":"");
+  $("#nextBtn").textContent=S.won>=FOES.length?"Keep duelling →":"Next duel →";$("#over").classList.remove("hidden");}
+function lose(){$("#overTitle").textContent="Defeated…";$("#overText").innerHTML=`${S.foe.la} wins this time. You reached level ${S.level} with ${S.xp} XP.<br>Tip: shields (<span class="lat">aquam voco</span>) and healing (<span class="lat">me sano</span>) win long fights.`;$("#nextBtn").textContent="Try again";$("#over").classList.remove("hidden");S.lost=true;}
+$("#nextBtn").onclick=()=>{$("#over").classList.add("hidden");if(S.lost){newRun();return;}sel={noun:null,ncase:null,verb:null,vform:null};S.turn="me";spawn();render();};
+// ---------------- spellbook (your own skills) ----------------
+function saveSkill(){const j=judge();if(!j.ok){say(`<span class="no">Only a correct spell can be kept.</span> <span class="hint">${j.why}</span>`);return;}
+  const[txt,gl]=spellText();if(book.some(b=>b.txt===txt)){say("That skill is already in your book.");return;}
+  const name=prompt("Name this skill (e.g. Flame Lance):",txt);if(name===null)return;
+  book.push({name:(name||txt).slice(0,24),txt,gl,noun:sel.noun.la,ncase:sel.ncase,verb:sel.verb.la,vform:sel.vform});try{localStorage.setItem("latin_book",JSON.stringify(book));}catch(e){}render();say(`<span class="ok">“${name||txt}” added to your spellbook.</span>`);}
+function useSkill(b){sel.noun=NOUNS.find(n=>n.la===b.noun)||(b.noun==="me"?ME:null);sel.ncase=b.ncase;sel.verb=VERBS.find(v=>v.la===b.verb);sel.vform=b.vform;render();}
+// ---------------- render ----------------
+function btns(box,items,key,label,cls){box.innerHTML="";items.forEach(it=>{const b=document.createElement("button");b.innerHTML=label(it);if(cls)b.className=cls(it)||"";if(sel[key]===it||(key==="ncase"&&sel.ncase===it)||(key==="vform"&&sel.vform===it))b.classList.add("on");
+  b.onclick=()=>{sel[key]=sel[key]===it?null:it;render();};box.appendChild(b);});}
+function render(){if(!S)return;const a=avail();
+  $("#lvl").textContent=`Level ${S.level} · ${S.xp} XP`;
+  $("#foeName").innerHTML=`<span class="lat">${S.foe.la}</span> <span class="sm">${S.foe.en}</span>`;$("#foeInfo").textContent=`${EMO[S.foe.el]} ${S.foe.el} · ${S.foe.hp}/${S.foe.max} HP`;$("#foeArt").textContent=S.foe.art;
+  $("#foeHp").style.width=(100*S.foe.hp/S.foe.max)+"%";$("#foeSh").textContent=S.foe.shield?`🛡 ${S.foe.shield.el} shield ${S.foe.shield.v}`:"";
+  $("#meInfo").textContent=`${S.me.hp}/${S.me.max} HP${familiar?` · with ${familiar.art} ${familiar.la}`:""}${S.me.charge?" · ⚡ charged":""}`;$("#meHp").style.width=(100*S.me.hp/S.me.max)+"%";$("#meSh").textContent=S.me.shield?`🛡 ${S.me.shield.el} wall ${S.me.shield.v}`:"";
+  btns($("#nouns"),a.nouns,"noun",n=>`${n.el?EMO[n.el]:"🙋"} <span class="lat">${n.la}</span>`,n=>n.el?"el-"+n.el:"");
+  const nb=$("#nends");nb.innerHTML="";a.cases.forEach(c=>{const b=document.createElement("button");const f=sel.noun?nounForm(sel.noun,c):null;b.innerHTML=sel.noun?(f?`<span class="lat">${f}</span> <span class="sm">${c}</span>`:`<span class="sm">— ${c}</span>`):`<span class="sm">${c}</span>`;b.disabled=!sel.noun||!f;if(sel.ncase===c)b.classList.add("on");b.onclick=()=>{sel.ncase=sel.ncase===c?null:c;render();};nb.appendChild(b);});
+  btns($("#verbs"),a.verbs,"verb",v=>`<span class="lat">${v.la}</span> <span class="sm">${v.en}</span>`);
+  const vb=$("#vends");vb.innerHTML="";a.persons.forEach(p=>{const b=document.createElement("button");const f=sel.verb?verbForm(sel.verb,p):null;b.innerHTML=sel.verb?`<span class="lat">${f}${p==="imp"?"!":""}</span> <span class="sm">${p==="imp"?"cmd":p}</span>`:`<span class="sm">${p}</span>`;b.disabled=!sel.verb;if(sel.vform===p)b.classList.add("on");b.onclick=()=>{sel.vform=sel.vform===p?null:p;render();};vb.appendChild(b);});
+  const[txt,gl]=spellText();$("#spell").innerHTML=`<span class="lat">${txt}</span>`;$("#gloss").textContent=gl||"Build a spell: a noun, its ending, a verb, its ending.";
+  $("#castBtn").disabled=S.turn!=="me";
+  const bk=$("#book");bk.innerHTML="";const add=document.createElement("button");add.textContent="＋ keep this as a skill";add.onclick=saveSkill;bk.appendChild(add);
+  book.forEach(b=>{const x=document.createElement("button");x.innerHTML=`<b>${b.name}</b> <span class="sm lat">${b.txt}</span>`;x.onclick=()=>useSkill(b);bk.appendChild(x);});
+}
+function say(h){$("#log").innerHTML=h;}
+function hitAnim(){const a=$("#foeArt");a.classList.add("hit");setTimeout(()=>a.classList.remove("hit"),160);}
+function hint(){const a=avail();const f=S.foe;const strong=Object.keys(BEATS).find(k=>BEATS[k]===f.el);const n=a.nouns.find(x=>x.el===strong)||a.nouns[0];
+  if(S.me.hp<40&&a.verbs.some(v=>v.kind==="heal"))say(`<span class="hint">Low on health: <b class="lat">me sano</b> — “I heal myself”. Verb <b>sano</b> + <b>me</b> (accusative).</span>`);
+  else say(`<span class="hint">${f.la} is weak to ${EMO[n.el]} ${n.en}: <b class="lat">${n.forms.acc} iacio</b> — “I throw ${n.en}”. <i>${n.la}</i> → <b>${n.forms.acc}</b> (accusative, ${ENDING_NOTE[n.decl]}); <i>iacio</i> stays <b>-o</b> for “I”.</span>`);}
+// ---------------- codex ----------------
+function codex(){const a=avail();let h=`<div class="tbl"><h3>Cases you've met</h3><table>${a.cases.map(c=>`<tr><td>${c}</td><td>${CASES[c].split(" — ")[1]}</td></tr>`).join("")}</table>
+  <h3>Nouns</h3><table><tr><td></td><td class="lat">nominative</td><td class="lat">accusative</td>${S.level>=5?'<td class="lat">ablative</td>':""}</tr>${a.nouns.filter(n=>!n.pron).map(n=>`<tr><td>${EMO[n.el]} ${n.en} <span class="sm">(${n.g}, decl ${n.decl})</span></td><td class="lat">${n.forms.nom}</td><td class="lat">${n.forms.acc}</td>${S.level>=5?`<td class="lat">${n.forms.abl}</td>`:""}</tr>`).join("")}</table>
+  <h3>Verbs (present)</h3><table>${a.verbs.map(v=>`<tr><td>${v.en} <span class="sm">(${v.conj})</span></td><td class="lat">${v.forms.s1}, ${v.forms.s2}, ${v.forms.s3}${S.level>=3?", "+v.forms.p1:""}${S.level>=2?" · "+v.forms.imp+"!":""}</td></tr>`).join("")}</table>
+  <h3>Persons</h3><table>${a.persons.map(p=>`<tr><td>${p}</td><td>${PERSONS[p]}</td></tr>`).join("")}</table>
+  <h3>Elements</h3><table>${Object.entries(BEATS).filter(([k])=>a.nouns.some(n=>n.el===k)).map(([k,v])=>`<tr><td>${EMO[k]} ${k}</td><td>beats ${EMO[v]} ${v}</td></tr>`).join("")}</table></div>`;$("#codexBody").innerHTML=h;$("#codex").classList.remove("hidden");}
+// ---------------- wiring ----------------
+$("#startBtn").onclick=()=>{$("#start").classList.add("hidden");newRun();};
+$("#castBtn").onclick=cast;$("#hintBtn").onclick=hint;$("#codexBtn").onclick=codex;$("#codexClose").onclick=()=>$("#codex").classList.add("hidden");
+function pauseGame(){if(!S||paused)return;paused=true;$("#pause").classList.remove("hidden");}
+function resumeGame(){if(!paused)return;paused=false;$("#pause").classList.add("hidden");if(S.turn==="foe")setTimeout(foeTurn,600);}
+$("#pauseBtn").onclick=()=>paused?resumeGame():pauseGame();$("#resumeBtn").onclick=resumeGame;$("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");$("#start").classList.remove("hidden");S=null;};
+addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}else if(e.key==="Enter")cast();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
+window.__latin={get S(){return S},sel,judge,cast,newRun,set:(n,c,v,p)=>{sel.noun=n==="me"?ME:NOUNS.find(x=>x.la===n);sel.ncase=c;sel.verb=VERBS.find(x=>x.la===v);sel.vform=p;render();},spellText,NOUNS,VERBS};
+</script>
+<script>window.FEEDBACK_GAME="Elemental Latin";window.FEEDBACK_POS={right:"102px",top:"calc(env(safe-area-inset-top,0px) + 8px)"};</script>
+<script src="/track.js" defer></script>
+</body></html>

@@ -112,6 +112,9 @@ PORTFOLIO = {
             "zheng-shang-you": {"name": "争上游 Zheng Shang You", "emoji": "🀄",
                 "desc": "The family card game: singles, pairs, three-of-a-kind bombs, four-of-a-kind bigger bombs, and the two jokers beat all. 2–5 players, on your phone.",
                 "link": "/play/zsy", "link_label": "Play"},
+            "elemental-latin": {"name": "Elemental Latin", "emoji": "🔥",
+                "desc": "Superpowers with Latin names. Throw fire with “ignem iacio” — but only if the endings are right. Duel creatures, learn cases and persons, forge your own skills.",
+                "link": "/play/latin", "link_label": "Play"},
             "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.png",
                 "desc": "A fast-paced space shooter on itch.io.",
                 "link": "https://hardywu.itch.io/ns", "link_label": "Play"},
@@ -1046,7 +1049,7 @@ def friendly_label(path):
     if p.startswith("/play/"):
         slug = p.split("/play/")[1].strip("/")
         return {"nova": "Playing Nova Blast", "quest": "Playing Critter Quest",
-                "fifa": "Playing Football Sim", "zsy": "Playing 争上游", "news": "Reading the news"}.get(slug, "Playing " + slug)
+                "fifa": "Playing Football Sim", "zsy": "Playing 争上游", "latin": "Playing Elemental Latin", "news": "Reading the news"}.get(slug, "Playing " + slug)
     parts = [x for x in p.split("/") if x]
     if len(parts) == 1 and parts[0] in PORTFOLIO:
         return PORTFOLIO[parts[0]]["title"]
@@ -1704,7 +1707,7 @@ def dest(tgt):
 
 # short login addresses: logbook.hardywu.com, lognovab.hardywu.com, …
 LOGIN_SHORT = {"bookkeep": "logbook", "novablast": "lognovab", "novastrike": "lognovas",
-               "critterquest": "logquest", "footballsim": "logfoot", "zhengshangyou": "logzsy", "newstracker": "lognews",
+               "critterquest": "logquest", "footballsim": "logfoot", "zhengshangyou": "logzsy", "newstracker": "lognews", "elementallatin": "loglatin",
                "pokemonadventure": "logpoke", "cmindfreecell": "logfreecell", "3d": "log3d", "": "log"}
 _SHORT_TO_KEY = {v: k for k, v in LOGIN_SHORT.items()}
 
@@ -1724,7 +1727,7 @@ def login_url_for(key):
     short = LOGIN_SHORT.get(key, "login" + key)
     return f"https://{short}.hardywu.com/" if on_real_site() else f"/go/{key or 'home'}"
 
-PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim", "/play/zsy": "zhengshangyou", "/news": "newstracker"}
+PLAY_KEYS = {"/play/nova": "novablast", "/play/quest": "critterquest", "/play/fifa": "footballsim", "/play/zsy": "zhengshangyou", "/play/latin": "elementallatin", "/news": "newstracker"}
 def play_key(path):
     for pre, k in PLAY_KEYS.items():
         if path == pre or path.startswith(pre + "/"): return k
@@ -3171,6 +3174,10 @@ def news_summary():
     con = db(); con.execute("INSERT OR REPLACE INTO news_summaries(topic,fetched_at,text,made_at) VALUES(?,?,?,?)", (topic.lower(), at, text, now_iso())); con.commit(); con.close()
     return jsonify(ok=True, summary=text, made_at=now_iso(), cached=False)
 
+
+@app.get("/play/latin")
+def play_latin():
+    return _nocache(send_from_directory(GAMES_DIR / "elemental-latin", "index.html", max_age=0))
 
 @app.get("/play/zsy")
 def play_zsy():

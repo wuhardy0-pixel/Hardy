@@ -8,6 +8,7 @@ One folder per game. Live ones are served by corporate at play.hardywu.com today
 | critter-quest | live | play.hardywu.com/play/quest |
 | football-sim | live | play.hardywu.com/play/fifa/ |
 | zheng-shang-you | live | play.hardywu.com/play/zsy |
+| elemental-latin | live | play.hardywu.com/play/latin |
 | funny-monsters | building | Unity project, not online |
 | dodge, math-game | building | Arduino boards |
 
