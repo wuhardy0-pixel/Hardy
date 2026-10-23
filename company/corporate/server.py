@@ -113,7 +113,7 @@ PORTFOLIO = {
                 "desc": "The family card game: singles, pairs, three-of-a-kind bombs, four-of-a-kind bigger bombs, and the two jokers beat all. 2–5 players, on your phone.",
                 "link": "/play/zsy", "link_label": "Play"},
             "elemental-latin": {"name": "Elemental Latin", "emoji": "🔥",
-                "desc": "Superpowers with Latin names. Throw fire with “ignem iacio” — but only if the endings are right. Duel creatures, learn cases and persons, forge your own skills.",
+                "desc": "Elemental powers with Latin names. Throw fire with “ignem iacio” — only if the endings are right. Duel human rivals in the arena, tame wild creatures by calling them in the vocative, forge your own skills.",
                 "link": "/play/latin", "link_label": "Play"},
             "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.png",
                 "desc": "A fast-paced space shooter on itch.io.",
