@@ -1,0 +1,24 @@
+# Elemental Latin — how to prove it works
+
+Open http://127.0.0.1:5000/play/latin (the app port serves games without the sign-in gate) in a
+phone-sized window (390 × 844). `window.__latin` exposes `S`, `newRun`, `hub`, `judge`, `cast`, `set` for scripts.
+
+Pass = all of these hold:
+
+- **Set out** closes the intro and opens Camp. Camp fits the width: nothing is cut off at the sides,
+  the outfit row wraps, the reward track scrolls sideways on its own.
+- At 120 XP (`__latin.S.xp=120; __latin.hub()`) Magus / Elf knight / Top hat are unlocked and the
+  rest show a 🔒 and are dimmed; tapping a locked one explains the XP needed.
+- **Explore the world** shows the map with the 🧙 on the camp tile and trees / towns / arena / ember
+  volcanoes visible (they are drawn at full opacity). Arrows, taps on the map and the keyboard move
+  the player; the strip under the map names the biome and **Go** does what it says (rest, duel, enter).
+- Wild tile: a creature appears; a wrong ending fizzles with a reason; `Gryphe, veni!` can tame when
+  it is weak; a tamed creature shows under Familiars at Camp.
+- Town: the mage casts Latin back with a translation; winning gives XP and may level up.
+- **Ludus Royale**: six mages, the ring shrinks, HP carries over; the winner gets the 👑 and it shows
+  on the avatar and on the map.
+- The 💬 feedback bubble sits bottom-right and never covers the title bar or the ⛺ 📖 ☰ buttons.
+- No errors in the browser console.
+
+A Playwright script that does the camp / wardrobe / bubble / map-pixel checks lives in the session
+scratchpad while being worked on; copy it here as `tests/` when it settles.
