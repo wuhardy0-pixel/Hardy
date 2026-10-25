@@ -17,3 +17,6 @@ __pycache__/
 **/node_modules/
 **/.next/
 /company/site/shop/.uploads/
+
+# asset packs Hardy dropped next to the game (95 MB) stay on the Mac, out of git; art/ holds what the game uses
+company/products/games/elemental-latin/*.zip
