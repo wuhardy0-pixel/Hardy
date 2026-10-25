@@ -3182,7 +3182,7 @@ def play_latin():
 @app.get("/play/latin/<path:name>")
 def play_latin_asset(name):
     # the game's own files next to index.html: the 3D library and the scene code
-    if not name.endswith((".js", ".png", ".json")) or "/" in name:
+    if not name.endswith((".js", ".png", ".webp", ".json")) or ".." in name:
         return jsonify(error="Not found."), 404
     return send_from_directory(GAMES_DIR / "elemental-latin", name, max_age=0)
 

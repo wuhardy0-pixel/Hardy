@@ -9,8 +9,12 @@
 
 - Barbara: 'no — like Fortnite where it is 3D; the skills you spray, animations and effects'. Rebuilt the visuals in Three.js (vendored r158 + scene.js, served via a new /play/latin/<file> route): 3D terrain world with a chase camera, D-pad/tap/arrow walking with a hop, biome arenas, 3D mage (outfit colours, hats, staff with element orb) and creatures (body/head/legs/tail, spikes/wings/ears by species), rival mages in element robes, familiar beside you; particle sprays per element, bolts, beams, rocks, shield domes, heal/charge/fizzle/tame effects, flinch, camera shake, damage numbers, red hit vignette, Royale storm wall. The spell builder became four scrollable rows so Cast stays on screen on a phone. HTML HUD (hp bars, log, builder) is translucent over the scene.
 
+- Hardy: 'use the new zips for the new game; also in the 260 zips generate 3D characters with the portraits'. From the 260-portrait pack: 30 heroes became cut-out cards (art/chars/*.webp, 20 cut with rembg, the rest from the pack's no-background set) — the player picks one of 12 as their hero on the reward track, 12 town rivals each have one, HUD and camp show the portraits; 11 cube tiles became terrain/arena textures (art/tiles). From Binbun3D's CC0 Godot VFX packs: the flame, comet projectile, impact sphere, hit stars, beam and cast-flare shaders were ported to GLSL ShaderMaterials with a generated tileable noise texture. Build script: tools/build_art.py.
+
 ## Next
 - Ask Hardy which Latin he is learning (cases/tenses) so the levels match his class; add perfect tense and plural nouns.
 - Sounds (casts, hits, the storm).
+- Creature portraits: the pack has a dragon head and a werewolf — consider cards for Draco and Lupus.
+- Confirm the 260-pack licence (where Hardy got it) before any paid release.
 - Walk animation for the mage's legs; creature attack lunge; idle cloth sway.
 - Performance pass on old phones (particle counts, pixel ratio) once Hardy tries it on his.

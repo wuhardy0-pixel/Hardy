@@ -38,9 +38,13 @@ h1,h2,.lat{font-family:Cinzel,Georgia,serif}
 .pass .tier{flex:0 0 auto;width:84px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;font-size:12px}
 .pass .tier.got{border-color:var(--gold)}.pass .tier .ic{font-size:26px}.pass .tier .xp{color:var(--muted)}
 .wardrobe{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.overlay .wardrobe button{font:inherit;font-size:22px;width:52px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:#fff;padding:0;margin:0;position:relative}
+.overlay .wardrobe button{font:inherit;font-size:22px;width:58px;height:58px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:#fff;padding:0;margin:0;position:relative}
 .overlay .wardrobe button.on{background:var(--gold)}.overlay .wardrobe button.lock{opacity:.55}.wardrobe button.lock::after{content:"🔒";position:absolute;right:-4px;bottom:-4px;font-size:12px}
 .avatar{font-size:34px;line-height:1;position:relative;display:inline-block;margin-top:18px}
+.port{width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:top;background:#1d1631;border:1px solid var(--line);flex:0 0 auto}.port.big{width:104px;height:104px;border:2px solid var(--gold)}
+.overlay .wardrobe button img{width:100%;height:100%;object-fit:cover;object-position:top;border-radius:13px;display:block}
+.pass .tier .pt{width:44px;height:44px;border-radius:50%;object-fit:cover;object-position:top;display:block;margin:0 auto 4px;border:1px solid var(--line)}
+#hubHero{font-size:13px;color:var(--gold);margin-top:6px}
 .avatar .hat{position:absolute;left:50%;top:-14px;transform:translateX(-50%);font-size:20px}
 #log{min-height:44px;font-size:13px;padding:5px 10px;line-height:1.4;margin:4px 12px;border-radius:10px;background:rgba(10,6,20,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 #log .ok{color:var(--good)}#log .no{color:var(--bad)}#log .hint{color:var(--gold);font-size:13px}
@@ -82,7 +86,7 @@ a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
 <canvas id="gl"></canvas><div id="vig"></div><div id="nums"></div>
 <div id="app">
   <div id="bar"><div><b>Elemental Latin</b> · <span id="lvl">Level 1</span></div><div><button id="campBtn" title="Camp">⛺</button><button id="codexBtn" title="Grammar codex">📖</button><button id="pauseBtn" title="Menu">☰</button></div></div>
-  <div id="hud" class="hidden"><div class="strip" id="foeCard"><div class="row"><div><div class="nm" id="foeName">—</div><div class="sm" id="foeInfo"></div></div></div><div class="hp"><i id="foeHp" style="width:100%"></i></div><div class="sh" id="foeSh"></div></div></div>
+  <div id="hud" class="hidden"><div class="strip" id="foeCard"><div class="row"><div style="display:flex;gap:8px;align-items:center"><img id="foePort" class="port hidden" alt=""><div><div class="nm" id="foeName">—</div><div class="sm" id="foeInfo"></div></div></div></div><div class="hp"><i id="foeHp" style="width:100%"></i></div><div class="sh" id="foeSh"></div></div></div>
   <div id="view"></div>
   <div id="world">
     <div id="mapBar"><span id="biome">—</span><span id="coins">🪙 0</span></div>
@@ -90,7 +94,7 @@ a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
     <div id="dpad"><button class="sp"></button><button data-d="0,-1">▲</button><button class="sp"></button><button data-d="-1,0">◀</button><button class="act" id="actBtn">Go</button><button data-d="1,0">▶</button><button class="sp"></button><button data-d="0,1">▼</button><button class="sp"></button></div>
   </div>
   <div id="stage">
-    <div class="strip"><div class="row"><div><div class="nm">You · <span class="lat" id="meTitle">Magus</span></div><div class="sm" id="meInfo"></div></div></div><div class="hp me"><i id="meHp" style="width:100%"></i></div><div class="sh" id="meSh"></div></div>
+    <div class="strip"><div class="row"><div style="display:flex;gap:8px;align-items:center"><img id="mePort" class="port" alt=""><div><div class="nm">You · <span class="lat" id="meTitle">Magus</span></div><div class="sm" id="meInfo"></div></div></div></div><div class="hp me"><i id="meHp" style="width:100%"></i></div><div class="sh" id="meSh"></div></div>
     <div id="log"></div>
     <div id="book"></div>
   </div>
@@ -109,14 +113,14 @@ a.back{color:var(--muted);font-size:13px;display:inline-block;margin-top:12px}
 <div class="overlay" id="start"><div>
   <h1>Elemental Latin<small>Elemental powers with Latin names. The spell only works if the Latin is right.</small></h1>
   <p>Fire is <span class="lat">ignis</span>, water is <span class="lat">aqua</span>, lightning is <span class="lat">fulmen</span>. To throw fire you need the object form: <span class="lat">ignem iacio</span> — "I throw fire". Get an ending wrong and the spell fizzles, but the game tells you why.</p>
-  <p>A 3D world you walk through: ember fields, frost tundra, thunder peaks, shadow woods. Every spell you get right sprays real fire, water or lightning across the arena. Weaken wild creatures and <b>tame</b> them by calling their name in the vocative — <span class="lat">Gryphe, veni!</span>. Duel the mage of each town. Enter the <b>Ludus Royale</b>, where six mages fight until one stands. Earn XP, climb the reward track, unlock outfits and the crown, and keep your own skills in a spellbook.</p>
+  <p>Thirty heroes to play as — the Windy Wizard first, then the Fire Lord, the Ice Queen, the Obsidian Elf King and more as you earn XP. A 3D world you walk through: ember fields, frost tundra, thunder peaks, shadow woods. Every spell you get right sprays real fire, water or lightning across the arena. Weaken wild creatures and <b>tame</b> them by calling their name in the vocative — <span class="lat">Gryphe, veni!</span>. Duel the mage of each town. Enter the <b>Ludus Royale</b>, where six mages fight until one stands. Earn XP, climb the reward track, unlock outfits and the crown, and keep your own skills in a spellbook.</p>
   <button id="startBtn">Set out</button><br>
   <a class="back" href="/games">← back to Hardy Wu</a>
 </div></div>
 <div class="overlay hidden" id="hub"><div>
   <h1 style="font-size:26px">Camp <small id="hubInfo"></small></h1>
-  <div class="avatar" id="hubAvatar">🧙</div>
-  <p style="margin:6px auto">Your look — outfits unlock on the reward track:</p><div class="wardrobe" id="wardrobe"></div>
+  <div class="avatar" id="hubAvatar">🧙</div><div id="hubHero"></div>
+  <p style="margin:6px auto">Your hero — more unlock on the reward track (tap a hat to wear it):</p><div class="wardrobe" id="wardrobe"></div>
   <p style="margin:12px auto 4px">Reward track:</p><div class="pass" id="pass"></div>
   <p style="margin:12px auto 4px">Familiars (tap one to make it active):</p><div class="opts" id="hubTeam" style="justify-content:center;margin-bottom:10px"></div>
   <button id="wildBtn">🗺️ Explore the world <span style="font-size:13px;font-weight:400;display:block">walk to the wilds, towns and the arena</span></button><br>
@@ -180,13 +184,18 @@ const CREATURES=[
 ];
 // the arena: human rivals who cast Latin spells of their own
 const RIVALS=[
- {la:"Marcus",en:"the apprentice",el:"fire",art:"🧑‍🎓",hp:55,atk:8},
- {la:"Livia",en:"the river witch",el:"water",art:"👩‍🦰",hp:70,atk:9},
- {la:"Quintus",en:"the stone mason",el:"earth",art:"🧔",hp:85,atk:10},
- {la:"Flavia",en:"the storm caller",el:"air",art:"👩",hp:95,atk:11},
- {la:"Gaius",en:"the thunder knight",el:"lightning",art:"🧑‍✈️",hp:110,atk:12},
- {la:"Octavia",en:"the frost queen",el:"ice",art:"👸",hp:125,atk:13},
- {la:"Magister Umbrarum",en:"master of shadows",el:"shadow",art:"🧙‍♂️",hp:150,atk:15},
+ {la:"Marcus",en:"the apprentice",el:"fire",art:"🧑‍🎓",hero:"volcano-master",hp:55,atk:8},
+ {la:"Livia",en:"the river witch",el:"water",art:"👩‍🦰",hero:"water-lady",hp:70,atk:9},
+ {la:"Cassius",en:"the dragon duke",el:"fire",art:"🐲",hero:"dragon-duke",hp:78,atk:10},
+ {la:"Quintus",en:"the stone mason",el:"earth",art:"🧔",hero:"stoneheart",hp:85,atk:10},
+ {la:"Flavia",en:"the storm caller",el:"air",art:"👩",hero:"orc-queen",hp:95,atk:11},
+ {la:"Drusilla",en:"the silver siren",el:"water",art:"🧜‍♀️",hero:"silver-siren",hp:100,atk:11},
+ {la:"Gaius",en:"the thunder knight",el:"lightning",art:"🧑‍✈️",hero:"thunder-prince",hp:110,atk:12},
+ {la:"Aurelius",en:"emperor of the flowers",el:"light",art:"🌸",hero:"flower-emperor",hp:115,atk:12},
+ {la:"Octavia",en:"the frost queen",el:"ice",art:"👸",hero:"frost-fairy",hp:125,atk:13},
+ {la:"Glaucus",en:"guardian of the glaciers",el:"ice",art:"🧊",hero:"glacier-guardian",hp:130,atk:13},
+ {la:"Lupa",en:"she-wolf of the petrified forest",el:"shadow",art:"🐺",hero:"werewolf",hp:140,atk:14},
+ {la:"Magister Umbrarum",en:"master of shadows",el:"shadow",art:"🧙‍♂️",hero:"night-knight",hp:150,atk:15},
 ];
 const XP_LEVELS=[0,60,150,280,450,660];
 // ---------------- state ----------------
@@ -301,7 +310,7 @@ function render(){if(!S)return;const a=avail();
   const f=S.foe;
   if(f){$("#foeName").innerHTML=`<span class="lat">${f.la}</span> <span class="sm">${f.en}${f.kind==="creature"?" · wild":" · rival"}</span>`;$("#foeInfo").textContent=`${EMO[f.el]} ${f.el} · ${f.hp}/${f.max} HP`;$("#foeHp").style.width=(100*f.hp/f.max)+"%";$("#foeSh").textContent=f.shield?`🛡 ${f.shield.el} shield ${f.shield.v}`:(f.kind==="creature"?`tame chance now ≈ ${Math.round(Math.min(95,25+70*(1-f.hp/f.max)))}%`:"");}
   else{$("#foeName").textContent="Camp";$("#foeInfo").textContent="choose where to go";$("#foeHp").style.width="0%";$("#foeSh").textContent="";}
-  const o=outfit();$("#meTitle").textContent=o.name;
+  const o=outfit();$("#meTitle").textContent=o.name;$("#mePort").src=heroImg(o.id);const fp=$("#foePort");if(f&&f.hero){fp.src=heroImg(f.hero);fp.classList.remove("hidden");}else fp.classList.add("hidden");
   const ff=fam();$("#meInfo").textContent=`${S.me.hp}/${S.me.max} HP${ff?` · with ${ff.art} ${ff.la}`:""}${S.me.charge?" · ⚡ charged":""}`;$("#meHp").style.width=(100*S.me.hp/S.me.max)+"%";$("#meSh").textContent=S.me.shield?`🛡 ${S.me.shield.el} wall ${S.me.shield.v}`:"";
   const nb0=$("#nouns");nb0.innerHTML="";a.nouns.forEach(n=>{const b=document.createElement("button");b.innerHTML=n.isCreature?`${n.art} <span class="lat">${n.la}</span>`:`${n.el?EMO[n.el]:"🙋"} <span class="lat">${n.la}</span>`;b.className=n.el?"el-"+n.el:"";if(sel.noun&&sel.noun.la===n.la)b.classList.add("on");b.onclick=()=>{sel.noun=sel.noun&&sel.noun.la===n.la?null:n;if(sel.noun&&!nounForm(sel.noun,sel.ncase))sel.ncase=null;render();};nb0.appendChild(b);});
   const nb=$("#nends");nb.innerHTML="";a.cases.forEach(c=>{const b=document.createElement("button");const fm=sel.noun?nounForm(sel.noun,c):null;b.innerHTML=sel.noun?(fm?`<span class="lat">${fm}</span> <span class="sm">${c}</span>`:`<span class="sm">— ${c}</span>`):`<span class="sm">${c}</span>`;b.disabled=!sel.noun||!fm;if(sel.ncase===c)b.classList.add("on");b.onclick=()=>{sel.ncase=sel.ncase===c?null:c;render();};nb.appendChild(b);});
@@ -331,9 +340,11 @@ const TILE=26,MW=15,MH=11;
 // terrain: g grass, f forest(wild), w water(wild water), m mountain(wild earth/lightning), v volcano(fire), i ice, t town(rival), a arena, c camp, s shadow woods, l light shrine
 const MAPROWS=["mmmmiiiigggggww","mfffgiiggttggww","gffffggggttgggw","gfffgggggggggga","gggggcggggggaaa","wwgggggggffgggg","wwwgggttgfffsss","vvvgggttggffsss","vvvvgggggggllls","vvvggggggggllgg","ggggggggggggggg"];
 const TERRAIN={g:{name:"meadow",color:"#2e6b3a"},f:{name:"deep forest",color:"#1d4a2a",el:["air","earth"],wild:true},w:{name:"lake",color:"#1f4f7a",el:["water"],wild:true},m:{name:"thunder peaks",color:"#4a4a5a",el:["lightning","earth"],wild:true},v:{name:"ember fields",color:"#5a2a1a",el:["fire"],wild:true},i:{name:"frost tundra",color:"#5a7f93",el:["ice"],wild:true},s:{name:"shadow woods",color:"#231a33",el:["shadow"],wild:true},l:{name:"light shrine",color:"#7a6a3a",el:["light"],wild:true},t:{name:"town",color:"#6b5a3a",town:true},a:{name:"the arena",color:"#7a2a3a",arena:true},c:{name:"your camp",color:"#3a5a7a",camp:true}};
-const OUTFITS=[{id:"magus",ic:"🧙",name:"Magus",xp:0},{id:"knight",ic:"🧝",name:"Elf knight",xp:60},{id:"ninja",ic:"🥷",name:"Shadow ninja",xp:150},{id:"queen",ic:"👸",name:"Frost royalty",xp:280},{id:"vamp",ic:"🧛",name:"Night lord",xp:450},{id:"genie",ic:"🧞",name:"Storm genie",xp:660}];
+// playable heroes (cut-out portraits from the 260 Elemental Characters pack, art/chars/<id>.webp); unlock by XP
+const OUTFITS=[{id:"windy-wizard",name:"Windy Wizard",el:"air",xp:0},{id:"forest-druid",name:"Forest Druid",el:"light",xp:40},{id:"fire-lord",name:"Fire Lord",el:"fire",xp:100},{id:"mermaid-knight",name:"Mermaid Knight",el:"water",xp:150},{id:"dwarf-count",name:"Dwarf Count of the Crystal Caves",el:"earth",xp:220},{id:"storm-lady",name:"Lady of the Lightning Storm",el:"lightning",xp:280},{id:"obsidian-king",name:"Obsidian Elf King",el:"shadow",xp:350},{id:"ice-queen",name:"Ice Queen",el:"ice",xp:450},{id:"wind-lord",name:"Wind Lord",el:"air",xp:560},{id:"phoenix-pharaoh",name:"Fiery Phoenix Pharaoh",el:"fire",xp:660},{id:"snow-vampire",name:"Vampire Princess of the Snow",el:"ice",xp:800},{id:"nebula-nymph",name:"Nebula Nymph",el:"shadow",xp:950}];
+const heroImg=id=>`/play/latin/art/chars/${id}.webp`;
 const HATS=[{id:"none",ic:"",name:"no hat",xp:0},{id:"crown",ic:"👑",name:"Royale crown",xp:0,royale:true},{id:"tophat",ic:"🎩",name:"Top hat",xp:100},{id:"wizard",ic:"🎓",name:"Scholar's cap",xp:200},{id:"halo",ic:"😇",name:"Halo",xp:380}];
-const PASS=[{xp:0,ic:"🧙",t:"Magus"},{xp:60,ic:"🧝",t:"Elf knight"},{xp:100,ic:"🎩",t:"Top hat"},{xp:150,ic:"🥷",t:"Shadow ninja"},{xp:200,ic:"🎓",t:"Scholar's cap"},{xp:280,ic:"👸",t:"Frost royalty"},{xp:380,ic:"😇",t:"Halo"},{xp:450,ic:"🧛",t:"Night lord"},{xp:660,ic:"🧞",t:"Storm genie"}];
+const PASS=[{xp:0,img:"windy-wizard",t:"Windy Wizard"},{xp:40,img:"forest-druid",t:"Forest Druid"},{xp:100,ic:"🎩",t:"Top hat"},{xp:100,img:"fire-lord",t:"Fire Lord"},{xp:150,img:"mermaid-knight",t:"Mermaid Knight"},{xp:200,ic:"🎓",t:"Scholar's cap"},{xp:220,img:"dwarf-count",t:"Dwarf Count"},{xp:280,img:"storm-lady",t:"Storm Lady"},{xp:350,img:"obsidian-king",t:"Obsidian King"},{xp:380,ic:"😇",t:"Halo"},{xp:450,img:"ice-queen",t:"Ice Queen"},{xp:560,img:"wind-lord",t:"Wind Lord"},{xp:660,img:"phoenix-pharaoh",t:"Phoenix Pharaoh"},{xp:800,img:"snow-vampire",t:"Snow Vampire"},{xp:950,img:"nebula-nymph",t:"Nebula Nymph"}];
 let W={x:5,y:4,steps:0};
 function tileAt(x,y){return TERRAIN[(MAPROWS[y]||"")[x]]||null;}
 function drawMap(){const T=tileAt(W.x,W.y);$("#biome").textContent=`${T.name}${T.el?" · "+T.el.map(e=>EMO[e]).join(""):""}`;$("#coins").textContent=`⭐ ${S.xp} XP · lvl ${S.level}`;
@@ -353,12 +364,12 @@ function startTown(){const r=RIVALS[Math.min(RIVALS.length-2,S.wins)];S.mode="ar
 function startRoyale(){S.royale={left:6,order:[...RIVALS].sort(()=>Math.random()-.5).slice(0,5)};S.me.hp=S.me.max;nextRoyale();}
 function nextRoyale(){const R=S.royale;const r=R.order.shift();S.mode="royale";S.foe={...r,hp:Math.round(r.hp*.8),max:Math.round(r.hp*.8),shield:null,kind:"human"};S.turn="me";sel={noun:null,ncase:null,verb:null,vform:null};showBattle();
   say(`👑 <b>Ludus Royale</b> — ${R.left} mages left, the ring shrinks! <b class="lat">${r.la}</b> ${EMO[r.el]} comes at you. Your health carries over between fights.`);render();}
-function outfit(){return OUTFITS.find(o=>o.id===(S.look||{}).outfit)||OUTFITS[0];}
+function outfit(){return OUTFITS.find(o=>o.id===((S&&S.look)||{}).outfit)||OUTFITS[0];}
 function hat(){return HATS.find(h=>h.id===(S.look||{}).hat)||HATS[0];}
-function renderCamp(){const o=outfit(),h=hat();$("#hubAvatar").innerHTML=`${o.ic}${h.ic?`<span class="hat">${h.ic}</span>`:""}`;
-  const w=$("#wardrobe");w.innerHTML="";OUTFITS.forEach(x=>{const b=document.createElement("button");b.textContent=x.ic;b.title=x.name+(S.xp<x.xp?` — unlocks at ${x.xp} XP`:"");if(S.xp<x.xp)b.classList.add("lock");if(o.id===x.id)b.classList.add("on");b.onclick=()=>{if(S.xp<x.xp){say("");$("#hubInfo").textContent=`${x.name} unlocks at ${x.xp} XP (you have ${S.xp}).`;return;}S.look={...(S.look||{}),outfit:x.id};saveLook();renderCamp();};w.appendChild(b);});
+function renderCamp(){const o=outfit(),h=hat();$("#hubAvatar").innerHTML=`<img class="port big" src="${heroImg(o.id)}" alt="">${h.ic?`<span class="hat">${h.ic}</span>`:""}`;$("#hubHero").textContent=`${o.name} · ${EMO[o.el]} ${o.el}`;
+  const w=$("#wardrobe");w.innerHTML="";OUTFITS.forEach(x=>{const b=document.createElement("button");b.innerHTML=`<img src="${heroImg(x.id)}" alt="${x.name}">`;b.title=x.name+(S.xp<x.xp?` — unlocks at ${x.xp} XP`:"");if(S.xp<x.xp)b.classList.add("lock");if(o.id===x.id)b.classList.add("on");b.onclick=()=>{if(S.xp<x.xp){say("");$("#hubInfo").textContent=`${x.name} unlocks at ${x.xp} XP (you have ${S.xp}).`;return;}S.look={...(S.look||{}),outfit:x.id};saveLook();renderCamp();};w.appendChild(b);});
   HATS.forEach(x=>{if(x.id==="none")return;const locked=x.royale?!(S.crowns>0):S.xp<x.xp;const b=document.createElement("button");b.textContent=x.ic;b.title=x.name+(locked?(x.royale?" — win a Ludus Royale":` — unlocks at ${x.xp} XP`):"");if(locked)b.classList.add("lock");if(h.id===x.id)b.classList.add("on");b.onclick=()=>{if(locked){$("#hubInfo").textContent=x.royale?"The crown goes to a Ludus Royale winner.":`${x.name} unlocks at ${x.xp} XP.`;return;}S.look={...(S.look||{}),hat:h.id===x.id?"none":x.id};saveLook();renderCamp();};w.appendChild(b);});
-  const ps=$("#pass");ps.innerHTML="";PASS.forEach(t=>{const d=document.createElement("div");d.className="tier"+(S.xp>=t.xp?" got":"");d.innerHTML=`<div class="ic">${t.ic}</div>${t.t}<div class="xp">${S.xp>=t.xp?"unlocked":t.xp+" XP"}</div>`;ps.appendChild(d);});}
+  const ps=$("#pass");ps.innerHTML="";PASS.forEach(t=>{const d=document.createElement("div");d.className="tier"+(S.xp>=t.xp?" got":"");d.innerHTML=`${t.img?`<img class="pt" src="${heroImg(t.img)}" alt="">`:`<div class="ic">${t.ic}</div>`}${t.t}<div class="xp">${S.xp>=t.xp?"unlocked":t.xp+" XP"}</div>`;ps.appendChild(d);});}
 function saveLook(){try{localStorage.setItem("latin_look",JSON.stringify(S.look||{}));}catch(e){}if(window.g3)g3.refreshLook();}
 // ---------------- wiring ----------------
 $("#dpad").addEventListener("click",e=>{const b=e.target.closest("button[data-d]");if(!b)return;const[dx,dy]=b.dataset.d.split(",").map(Number);move(dx,dy);});
@@ -373,7 +384,7 @@ function resumeGame(){if(!paused)return;paused=false;$("#pause").classList.add("
 $("#pauseBtn").onclick=()=>paused?resumeGame():pauseGame();$("#resumeBtn").onclick=resumeGame;$("#newBtn").onclick=()=>{paused=false;$("#pause").classList.add("hidden");$("#start").classList.remove("hidden");S=null;};
 addEventListener("keydown",e=>{if(e.key==="p"||e.key==="P"||e.key==="Escape"){paused?resumeGame():pauseGame();}else if(e.key==="Enter")cast();});
 document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseGame();});
-window.__latin={get S(){return S},sel,judge,cast,newRun,goWild,goArena,hub,move,fam,set:(n,c,v,p)=>{sel.noun=n==="me"?ME:(S.foe&&S.foe.la===n?{...S.foe,isCreature:true}:NOUNS.find(x=>x.la===n));sel.ncase=c;sel.verb=VERBS.find(x=>x.la===v);sel.vform=p;render();},spellText,NOUNS,VERBS,CREATURES,RIVALS};
+window.__latin={get S(){return S},sel,judge,cast,newRun,goWild,goArena,hub,move,fam,outfit,heroImg,OUTFITS,set:(n,c,v,p)=>{sel.noun=n==="me"?ME:(S.foe&&S.foe.la===n?{...S.foe,isCreature:true}:NOUNS.find(x=>x.la===n));sel.ncase=c;sel.verb=VERBS.find(x=>x.la===v);sel.vform=p;render();},spellText,NOUNS,VERBS,CREATURES,RIVALS};
 </script>
 <script src="/play/latin/scene.js"></script>
 <script>window.FEEDBACK_GAME="Elemental Latin";window.FEEDBACK_POS={right:"12px",bottom:"calc(env(safe-area-inset-bottom,0px) + 12px)"};</script>

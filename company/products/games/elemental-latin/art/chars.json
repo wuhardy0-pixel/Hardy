@@ -1,0 +1,212 @@
+[
+ {
+  "slug": "windy-wizard",
+  "name": "Windy Wizard",
+  "el": "air",
+  "file": "art/chars/windy-wizard.webp",
+  "aspect": 0.896
+ },
+ {
+  "slug": "wind-lord",
+  "name": "Wind Lord",
+  "el": "air",
+  "file": "art/chars/wind-lord.webp",
+  "aspect": 0.851
+ },
+ {
+  "slug": "orc-queen",
+  "name": "Cloudy Orc Queen",
+  "el": "air",
+  "file": "art/chars/orc-queen.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "archduke",
+  "name": "Archduke of the Aurora Borealis",
+  "el": "air",
+  "file": "art/chars/archduke.webp",
+  "aspect": 0.989
+ },
+ {
+  "slug": "fire-lord",
+  "name": "Fire Lord",
+  "el": "fire",
+  "file": "art/chars/fire-lord.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "dragon-duke",
+  "name": "Fire Dragon Duke",
+  "el": "fire",
+  "file": "art/chars/dragon-duke.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "phoenix-pharaoh",
+  "name": "Fiery Phoenix Pharaoh",
+  "el": "fire",
+  "file": "art/chars/phoenix-pharaoh.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "volcano-master",
+  "name": "Master of the Volcanic Valley",
+  "el": "fire",
+  "file": "art/chars/volcano-master.webp",
+  "aspect": 1.069
+ },
+ {
+  "slug": "water-lady",
+  "name": "Mystical Water Lady",
+  "el": "water",
+  "file": "art/chars/water-lady.webp",
+  "aspect": 0.749
+ },
+ {
+  "slug": "mermaid-knight",
+  "name": "Mermaid Knight of the Ocean",
+  "el": "water",
+  "file": "art/chars/mermaid-knight.webp",
+  "aspect": 0.969
+ },
+ {
+  "slug": "water-warrior",
+  "name": "Water Warrior of the Seas",
+  "el": "water",
+  "file": "art/chars/water-warrior.webp",
+  "aspect": 0.659
+ },
+ {
+  "slug": "silver-siren",
+  "name": "Silver Siren",
+  "el": "water",
+  "file": "art/chars/silver-siren.webp",
+  "aspect": 0.959
+ },
+ {
+  "slug": "dwarf-count",
+  "name": "Dwarf Count of the Crystal Caves",
+  "el": "earth",
+  "file": "art/chars/dwarf-count.webp",
+  "aspect": 0.579
+ },
+ {
+  "slug": "stoneheart",
+  "name": "Stoneheart Duke in his rocky dominion",
+  "el": "earth",
+  "file": "art/chars/stoneheart.webp",
+  "aspect": 0.67
+ },
+ {
+  "slug": "desert-dragon",
+  "name": "Desert Dragon Lord",
+  "el": "earth",
+  "file": "art/chars/desert-dragon.webp",
+  "aspect": 0.891
+ },
+ {
+  "slug": "dune-duchess",
+  "name": "Duchess of the Desert Dunes",
+  "el": "earth",
+  "file": "art/chars/dune-duchess.webp",
+  "aspect": 0.78
+ },
+ {
+  "slug": "thunder-prince",
+  "name": "Prince of Thunder",
+  "el": "lightning",
+  "file": "art/chars/thunder-prince.webp",
+  "aspect": 1.006
+ },
+ {
+  "slug": "storm-lady",
+  "name": "Lady of the Lighting Storm",
+  "el": "lightning",
+  "file": "art/chars/storm-lady.webp",
+  "aspect": 0.943
+ },
+ {
+  "slug": "ice-queen",
+  "name": "Ice Queen",
+  "el": "ice",
+  "file": "art/chars/ice-queen.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "glacier-guardian",
+  "name": "Guardian of the Glaciers",
+  "el": "ice",
+  "file": "art/chars/glacier-guardian.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "frost-fairy",
+  "name": "Fairy Queen of the Frost Fields",
+  "el": "ice",
+  "file": "art/chars/frost-fairy.webp",
+  "aspect": 0.859
+ },
+ {
+  "slug": "snow-vampire",
+  "name": "Vampire Princess of the Snow",
+  "el": "ice",
+  "file": "art/chars/snow-vampire.webp",
+  "aspect": 0.946
+ },
+ {
+  "slug": "flower-emperor",
+  "name": "Emperor of the Flowers",
+  "el": "light",
+  "file": "art/chars/flower-emperor.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "orchard-baron",
+  "name": "Baron of the Blossoming Orchard",
+  "el": "light",
+  "file": "art/chars/orchard-baron.webp",
+  "aspect": 1.0
+ },
+ {
+  "slug": "forest-fairy",
+  "name": "Fairy of the Forest",
+  "el": "light",
+  "file": "art/chars/forest-fairy.webp",
+  "aspect": 0.818
+ },
+ {
+  "slug": "forest-druid",
+  "name": "Forest Druid",
+  "el": "light",
+  "file": "art/chars/forest-druid.webp",
+  "aspect": 0.705
+ },
+ {
+  "slug": "night-knight",
+  "name": "Knight of the Night Sky",
+  "el": "shadow",
+  "file": "art/chars/night-knight.webp",
+  "aspect": 0.856
+ },
+ {
+  "slug": "nebula-nymph",
+  "name": "Nebula Nymph",
+  "el": "shadow",
+  "file": "art/chars/nebula-nymph.webp",
+  "aspect": 0.76
+ },
+ {
+  "slug": "obsidian-king",
+  "name": "Obsidian Elf King",
+  "el": "shadow",
+  "file": "art/chars/obsidian-king.webp",
+  "aspect": 1.024
+ },
+ {
+  "slug": "werewolf",
+  "name": "Werewolf of the Petrified Forest",
+  "el": "shadow",
+  "file": "art/chars/werewolf.webp",
+  "aspect": 0.641
+ }
+]
