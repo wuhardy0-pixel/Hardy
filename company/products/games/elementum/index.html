@@ -1,0 +1,99 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Elementum — Hardy Wu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<link rel="icon" href="/favicon.png">
+<style>
+:root{--ink:#f3f3f3;--muted:#c9c9c9;--panel:rgba(20,20,22,.55);--line:rgba(255,255,255,.18);--gold:#e8b84a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:#8e8e90;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px calc(env(safe-area-inset-bottom,0px) + 14px)}
+#bar{display:flex;justify-content:space-between;align-items:flex-start}
+#bar .t{background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.35}
+#bar b{color:var(--gold);font-size:15px;letter-spacing:.02em}
+#bar button{pointer-events:auto;font:inherit;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:#fff;font-size:18px;padding:0}
+#hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px);font-size:13px;color:#fff;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+#hint.off{opacity:0}
+/* phone controls */
+#stick{position:fixed;left:26px;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid var(--line);pointer-events:auto;display:none}
+#stick i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.6)}
+#jump{position:fixed;right:26px;bottom:calc(env(safe-area-inset-bottom,0px) + 40px);width:84px;height:84px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid var(--line);color:#fff;font:700 15px system-ui;pointer-events:auto;display:none}
+#run{position:fixed;right:124px;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid var(--line);color:#fff;font:700 13px system-ui;pointer-events:auto;display:none}
+#run.on,#jump:active,#fire:active{background:rgba(232,184,74,.6)}
+#fire{position:fixed;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:96px;height:96px;border-radius:50%;background:rgba(255,80,80,.28);border:2px solid rgba(255,120,120,.6);color:#fff;font:800 16px system-ui;pointer-events:auto;display:none}
+#jump{right:34px;bottom:calc(env(safe-area-inset-bottom,0px) + 136px);width:72px;height:72px}
+#run{right:128px;bottom:calc(env(safe-area-inset-bottom,0px) + 112px);width:60px;height:60px}
+#reloadBtn,#wswitch{position:fixed;right:128px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid var(--line);color:#fff;font:700 12px system-ui;pointer-events:auto;display:none}
+#reloadBtn{bottom:calc(env(safe-area-inset-bottom,0px) + 40px)}#wswitch{bottom:calc(env(safe-area-inset-bottom,0px) + 184px)}
+body.touch #stick,body.touch #jump,body.touch #run,body.touch #fire,body.touch #reloadBtn,body.touch #wswitch{display:block}
+/* aiming + weapon + health */
+#xh{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;z-index:3}
+#xh:before,#xh:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}
+#xh:before{left:10px;top:0;width:2px;height:22px}#xh:after{left:0;top:10px;width:22px;height:2px}
+#xh i{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#fff}
+#xh.hit:before,#xh.hit:after{background:#ff4d4d}#xh.hit{transform:scale(1.35) rotate(45deg)}
+#wep{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;padding:8px 14px;min-width:190px;text-align:center;pointer-events:none}
+#wep b{display:block;font-size:13px;color:var(--gold);letter-spacing:.04em}#wep #ammo{font:800 22px ui-monospace,Menlo,monospace;display:block;line-height:1.1}
+#wep.empty #ammo{color:#ff6b6b}#wep .rl{height:4px;background:rgba(255,255,255,.15);border-radius:2px;margin-top:6px;overflow:hidden}#wep .rl i{display:block;height:100%;width:0;background:var(--gold)}
+#wep .sm{font-size:11px;color:var(--muted);margin-top:4px}
+body.touch #wep{bottom:calc(env(safe-area-inset-bottom,0px) + 170px);min-width:150px;padding:6px 10px}body.touch #wep .sm{display:none}
+#hp{position:fixed;left:14px;top:calc(env(safe-area-inset-top,0px) + 64px);width:170px;pointer-events:none}
+#hp .lbl{font-size:12px;color:#fff;text-shadow:0 1px 3px #000;margin-bottom:3px}#hp .bar{height:9px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+#hp .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#5fd38a,#a6ff9b);transition:width .25s}#hp .bar i.low{background:linear-gradient(90deg,#ff6b6b,#ffb86b)}
+#bars .dbar{position:fixed;transform:translate(-50%,-100%);width:92px;pointer-events:none;text-align:center}
+#bars .dbar span{font-size:10px;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}#bars .dbar div{height:5px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.35);border-radius:3px;overflow:hidden;margin-top:2px}
+#bars .dbar i{display:block;height:100%;width:100%;background:#5fd38a;transition:width .15s}#bars .dbar i.low{background:#ff6b6b}
+#nums span{position:fixed;transform:translate(-50%,-50%);font:800 18px system-ui;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;z-index:3;animation:pop .9s ease-out forwards}#nums span.head{color:#ffd27a;font-size:22px}
+@keyframes pop{from{opacity:1;transform:translate(-50%,-50%) scale(.7)}30%{transform:translate(-50%,-90%) scale(1.15)}to{opacity:0;transform:translate(-50%,-180%)}}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 0 rgba(255,40,40,0);transition:box-shadow .12s}#vig.on{box-shadow:inset 0 0 140px rgba(255,40,40,.7)}
+#pos{position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 60px);font:12px ui-monospace,Menlo,monospace;color:#fff;opacity:.75;pointer-events:none}
+.overlay{position:fixed;inset:0;background:rgba(30,30,34,.92);display:grid;place-items:center;text-align:center;padding:22px;z-index:9}
+.overlay.hidden{display:none}
+.overlay>div{width:100%;max-width:420px}
+.overlay h1{font-size:34px;margin:0;color:var(--gold);letter-spacing:.03em}
+.overlay h1 small{display:block;font-size:14px;color:var(--muted);margin-top:8px;font-weight:400;letter-spacing:0}
+.overlay p{color:var(--muted);font-size:14px;line-height:1.5;margin:14px auto}
+.overlay button{font:inherit;font-weight:800;font-size:18px;padding:14px 30px;margin-top:8px;border:0;border-radius:14px;cursor:pointer;background:var(--gold);color:#1a1208}
+.overlay button.g{background:rgba(255,255,255,.14);color:#fff}
+.overlay a{color:var(--muted);font-size:13px;display:inline-block;margin-top:14px}
+kbd{font:600 12px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:#fff}
+</style></head><body>
+<canvas id="gl"></canvas>
+<div id="vig"></div><div id="nums"></div><div id="bars"></div><div id="xh"><i></i></div>
+<div id="hp"><div class="lbl">HP <span id="hpn">100</span></div><div class="bar"><i id="hpbar"></i></div></div>
+<div id="wep"><b id="wname">Magna Rifle</b><span id="ammo">30 / 30</span><div class="rl"><i id="rlbar"></i></div><div class="sm">1 2 3 switch gun · R reload</div></div>
+<div id="hud">
+  <div id="bar"><div class="t"><b>ELEMENTUM</b> · step 2<br><span id="sub">the shooting range</span></div><div><button id="camBtn" title="Camera side">⇄</button> <button id="pauseBtn" title="Pause">☰</button></div></div>
+</div>
+<div id="hint">Drag to look · joystick to walk · FIRE to shoot</div>
+<div id="pos"></div>
+<div id="stick"><i></i></div>
+<button id="run">RUN</button>
+<button id="jump">JUMP</button>
+<button id="fire">FIRE</button>
+<button id="reloadBtn">RELOAD</button>
+<button id="wswitch">GUN</button>
+
+<div class="overlay" id="start"><div>
+  <h1>ELEMENTUM<small>step 2 — guns, a shooting range, health bars</small></h1>
+  <p><b>Computer:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>Shift</kbd> run, <kbd>Space</kbd> jump, mouse to look (click the world to lock it, <kbd>Esc</kbd> frees it), <b>click to shoot</b>, <kbd>R</kbd> reload, <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick the Magna Rifle, Chaos Shotgun or Orator Staff.</p>
+  <p><b>Phone:</b> joystick walks, drag on the right looks, <b>FIRE</b> shoots (hold for the rifle), <b>RELOAD</b>, <b>GUN</b> switches.</p>
+  <p>Six dummies with health bars stand on the range ahead. A turret on the right shoots back so your own health bar gets a workout — it refills when you stay out of its fire.</p>
+  <button id="startBtn">Shoot</button><br>
+  <a href="/games">← back to Hardy Wu</a>
+</div></div>
+<div class="overlay hidden" id="down"><div>
+  <h1 style="font-size:26px">You're down</h1><p>The turret got you. Health is back to full when you respawn.</p>
+  <button id="respawnBtn">Respawn</button>
+</div></div>
+<div class="overlay hidden" id="pause"><div>
+  <h1 style="font-size:26px">Paused</h1>
+  <button id="resumeBtn">▶ Continue</button><br><button class="g" id="resetBtn">Back to the start</button>
+  <p><kbd>P</kbd> or <kbd>Esc</kbd> pauses and continues</p><a href="/games">← back to Hardy Wu</a>
+</div></div>
+
+<script src="/play/elementum/three.min.js"></script>
+<script src="/play/elementum/game.js"></script>
+<script>window.FEEDBACK_GAME="Elementum";window.FEEDBACK_POS={right:"12px",top:"calc(env(safe-area-inset-top,0px) + 110px)"};</script>
+<script src="/track.js" defer></script>
+</body></html>
