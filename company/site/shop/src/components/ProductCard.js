@@ -10,11 +10,11 @@ export default function ProductCard({ p, reviews, shipDays }) {
       <div className="pc-body">
         <Link href={`/products/${p.slug}`} className="pc-title">{p.name}</Link>
         <Stars average={r.average} count={r.count} size={14} />
-        <div className="pc-price"><sup>$</sup>{p.price}<small>{p.price % 1 ? "" : "00"}</small></div>
+        <div className="pc-price"><sup>$</sup>{Math.floor(p.price)}<small>{Math.round((p.price % 1) * 100).toString().padStart(2, "0")}</small></div>
         <div className="pc-meta">
           {p.in_stock === false ? <span className="soldout">Sold out</span> : <span className="instock">In stock · made to order</span>}
           <span>Ships in {shipDays[0]}–{shipDays[1]} days · <b>FREE shipping</b></span>
-          <span>Your color{custom.length ? ` · your ${custom.join(" and ")}` : ""}</span>
+          <span>{p.multicolored ? "Multicolored as shown" : "Your color"}{custom.length ? ` · your ${custom.join(" and ")}` : ""}</span>
         </div>
         <Link href={`/products/${p.slug}`} className="btn-yellow">{p.in_stock === false ? "See details" : "Choose options"}</Link>
       </div>

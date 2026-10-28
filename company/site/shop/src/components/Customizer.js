@@ -378,7 +378,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         <h1>{product.name}</h1>
         <div className="pdp-brand">Made to order by <a href="https://hardywu.com/">Hardy Wu</a> · {product.category}</div>
         <Stars average={reviews.average} count={reviews.count} link="#reviews" />
-        <div className="price-big"><sup>$</sup>{product.price}<span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 400 }}> base price</span></div>
+        <div className="price-big"><sup>$</sup>{product.price.toFixed(2)}<span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 400 }}> base price</span></div>
         <div className="price-note">+${AD.text} for a name, +${AD.image} for a picture, +${AD.extraColor} per extra color · <b style={{ color: "var(--ok)" }}>FREE shipping</b> (US)</div>
         <p className="pdp-desc">{product.description}</p>
         {product.bullets?.length > 0 && <><div className="sec-title">About this item</div><ul className="bullets">{product.bullets.map((b) => <li key={b}>{b}</li>)}</ul></>}
@@ -387,7 +387,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         {activeZones.map((zone, zi) => (
           <div className="field" key={zone}>
             <div className="field-label">
-              <span>{zones.length > 1 ? `${zone} color` : "Color"} {zi === 0 ? <span className="req">· required</span> : <span style={{ fontWeight: 400 }}>· optional (+${AD.extraColor} if different)</span>}</span>
+              <span>{zones.length > 1 ? `${zone} color` : product.multicolored ? "Main color (the rest as shown)" : "Color"} {zi === 0 ? <span className="req">· required</span> : <span style={{ fontWeight: 400 }}>· optional (+${AD.extraColor} if different)</span>}</span>
               <span className="swatch-name">{zoneColors[zone] ?? (zi === 0 ? "pick one" : `same as ${mainZone}`)}</span>
             </div>
             <div className="swatches">

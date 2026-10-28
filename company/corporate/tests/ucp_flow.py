@@ -22,12 +22,13 @@ tools=rpc("tools/list")["result"]["tools"]; ok(len(tools)==14 and any(t["name"]=
 # search + cart add/remove via MCP
 s=tool("search_catalog",{"catalog":{"query":"ruler"}}); ok([p["id"] for p in s["products"]]==["dual-ruler"],"search_catalog 'ruler' → dual-ruler")
 cart=tool("create_cart",{"cart":{"line_items":[{"item":{"id":"crab-gauge__black"},"quantity":2},{"item":{"id":"dual-ruler__blue"},"quantity":1}]}})
-import json as _j; _cat=_j.load(open(os.path.join(os.path.dirname(__file__),"..","..","site","shop","data","catalog.json"))); PRICE=int(round(next(x["price"] for x in _cat["products"] if x["slug"]=="crab-gauge")*100)); SHIP=int(_cat.get("shippingCents") or 0)
-ok(cart["id"].startswith("cart_") and cart["totals"][-1]["amount"]==3*PRICE+SHIP,f"create_cart with 2 lines (3 gauges) → estimated total {3*PRICE+SHIP} (incl. shipping)")
+import json as _j; _cat=_j.load(open(os.path.join(os.path.dirname(__file__),"..","..","site","shop","data","catalog.json"))); PRICE=int(round(next(x["price"] for x in _cat["products"] if x["slug"]=="crab-gauge")*100)); RULER=int(round(next(x["price"] for x in _cat["products"] if x["slug"]=="dual-ruler")*100)); SHIP=int(_cat.get("shippingCents") or 0); LUNCH_OK=next(x for x in _cat["products"] if x["slug"]=="customizable-lunchbox").get("in_stock",True)
+ok(cart["id"].startswith("cart_") and cart["totals"][-1]["amount"]==2*PRICE+RULER+SHIP,f"create_cart with 2 gauges + 1 ruler → estimated total {2*PRICE+RULER+SHIP} (incl. shipping)")
 cart=tool("update_cart",{"id":cart["id"],"cart":{"line_items":[{"id":"li_1","item":{"id":"crab-gauge__black"},"quantity":3}]}})
 ok(len(cart["line_items"])==1 and cart["line_items"][0]["quantity"]==3,"update_cart: ruler removed, crab gauge now 3")
 c2=tool("update_cart",{"id":cart["id"],"cart":{"line_items":[{"id":"li_1","item":{"id":"crab-gauge__black"},"quantity":3},{"item":{"id":"customizable-lunchbox__red"},"quantity":1}]}})
-ok(any(m["code"]=="out_of_stock" for m in c2["messages"]) and len(c2["line_items"])==1,"adding the sold-out lunchbox is refused with out_of_stock")
+if LUNCH_OK: ok(len(c2["line_items"])==2 and not any(m.get("code")=="out_of_stock" for m in c2.get("messages",[])),"the lunchbox (in stock) joins the cart"); cart=tool("update_cart",{"id":cart["id"],"cart":{"line_items":[{"id":"li_1","item":{"id":"crab-gauge__black"},"quantity":3}]}})
+else: ok(any(m["code"]=="out_of_stock" for m in c2["messages"]) and len(c2["line_items"])==1,"adding the sold-out lunchbox is refused with out_of_stock")
 # checkout from the cart
 chk=tool("create_checkout",{"checkout":{"cart_id":cart["id"],"buyer":{"first_name":"Jane","last_name":"Doe","email":"jane@example.com","phone_number":"+16175550100"},
       "fulfillment":{"methods":[{"type":"shipping","destinations":[{"street_address":"1 Main St","address_locality":"Boston","address_region":"MA","postal_code":"02101","address_country":"US"}]}]}}})

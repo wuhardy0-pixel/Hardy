@@ -18,12 +18,16 @@ Per product (estimates; Hardy can correct any of them in the catalog):
 
 | Product | Filament | Print time | Labour | Design | Cost | Min price (30 %) | Price | Margin |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Customizable Lunchbox | 260 g | 14 h | 0.6 h | 10 h | $27.11 | $38.72 | **$39** | 30 % |
-| Blue Crab Gauge | 22 g | 1.5 h | 0.2 h | 3 h | $9.81 | $14.02 | **$15** | 35 % |
-| Dual Ruler | 30 g | 1.2 h | 0.2 h | 2 h | $9.48 | $13.55 | **$14** | 32 % |
+| Customizable Lunchbox | 260 g | 14 h | 0.6 h | 10 h | $27.11 | $38.72 | **$38.99** | 30 % |
+| Blue Crab Gauge | 22 g | 1.5 h | 0.2 h | 3 h | $9.81 | $14.02 | **$14.99** | 35 % |
+| Dual Ruler | 30 g | 1.2 h | 0.2 h | 2 h | $9.48 | $13.55 | **$13.99** | 32 % |
+| Paw Fidget Spinner | 25 g | 2 h | 0.4 h | 2 h | $12.39 | $17.70 | **$17.99** | 31 % |
+| Flexi Caterpillar | 35 g | 3 h | 0.4 h | 2 h | $12.63 | $18.04 | **$18.99** | 33 % |
+| Flexi Skeleton | 30 g | 2.5 h | 0.25 h | 3 h | $10.76 | $15.37 | **$15.99** | 33 % |
+| Finger Skateboard | 18 g | 1.5 h | 0.35 h | 3 h | $11.98 | $17.11 | **$17.99** | 33 % |
 
-Add-ons: a name +$3, a picture +$4, each extra colour +$4 (a picture or an extra colour means a filament change,
+Add-ons: a name +$2.99, a picture +$3.99, each extra colour +$3.99 (a picture or an extra colour means a filament change,
 about ten minutes of Hardy's time, so $2 lost money).
 
-Price = cost ÷ 0.7, rounded up to a whole dollar; if the rounding leaves less than 30 %, one more dollar.
+Price = cost ÷ 0.7, then the next price ending in .99 (Hardy: 'round the money to the nearest .99').
 The old prices ($30 / $5 / $5 plus $5 shipping) did not cover the cost of the two small items.
