@@ -23,9 +23,9 @@ html,body{height:100%;margin:0;background:#8e8e90;color:var(--ink);font-family:s
 #fire{position:fixed;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:96px;height:96px;border-radius:50%;background:rgba(255,80,80,.28);border:2px solid rgba(255,120,120,.6);color:#fff;font:800 16px system-ui;pointer-events:auto;display:none}
 #jump{right:34px;bottom:calc(env(safe-area-inset-bottom,0px) + 136px);width:72px;height:72px}
 #run{right:128px;bottom:calc(env(safe-area-inset-bottom,0px) + 112px);width:60px;height:60px}
-#reloadBtn,#wswitch{position:fixed;right:128px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid var(--line);color:#fff;font:700 12px system-ui;pointer-events:auto;display:none}
-#reloadBtn{bottom:calc(env(safe-area-inset-bottom,0px) + 40px)}#wswitch{bottom:calc(env(safe-area-inset-bottom,0px) + 184px)}
-body.touch #stick,body.touch #jump,body.touch #run,body.touch #fire,body.touch #reloadBtn,body.touch #wswitch{display:block}
+#reloadBtn,#wswitch,#cswitch{position:fixed;right:128px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid var(--line);color:#fff;font:700 12px system-ui;pointer-events:auto;display:none}
+#reloadBtn{bottom:calc(env(safe-area-inset-bottom,0px) + 40px)}#wswitch{bottom:calc(env(safe-area-inset-bottom,0px) + 184px)}#cswitch{bottom:calc(env(safe-area-inset-bottom,0px) + 256px);font-size:10px}
+body.touch #stick,body.touch #jump,body.touch #run,body.touch #fire,body.touch #reloadBtn,body.touch #wswitch,body.touch #cswitch{display:block}
 /* aiming + weapon + health */
 #xh{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;z-index:3}
 #xh:before,#xh:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}
@@ -36,14 +36,14 @@ body.touch #stick,body.touch #jump,body.touch #run,body.touch #fire,body.touch #
 #wep b{display:block;font-size:13px;color:var(--gold);letter-spacing:.04em}#wep #ammo{font:800 22px ui-monospace,Menlo,monospace;display:block;line-height:1.1}
 #wep.empty #ammo{color:#ff6b6b}#wep .rl{height:4px;background:rgba(255,255,255,.15);border-radius:2px;margin-top:6px;overflow:hidden}#wep .rl i{display:block;height:100%;width:0;background:var(--gold)}
 #wep .sm{font-size:11px;color:var(--muted);margin-top:4px}
-body.touch #wep{bottom:calc(env(safe-area-inset-bottom,0px) + 170px);min-width:150px;padding:6px 10px}body.touch #wep .sm{display:none}
+body.touch #wep{bottom:calc(env(safe-area-inset-bottom,0px) + 170px);min-width:150px;padding:6px 10px}body.touch #wep .sm:not(#crys){display:none}
 #hp{position:fixed;left:14px;top:calc(env(safe-area-inset-top,0px) + 64px);width:170px;pointer-events:none}
 #hp .lbl{font-size:12px;color:#fff;text-shadow:0 1px 3px #000;margin-bottom:3px}#hp .bar{height:9px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;overflow:hidden}
 #hp .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#5fd38a,#a6ff9b);transition:width .25s}#hp .bar i.low{background:linear-gradient(90deg,#ff6b6b,#ffb86b)}
 #bars .dbar{position:fixed;transform:translate(-50%,-100%);width:92px;pointer-events:none;text-align:center}
 #bars .dbar span{font-size:10px;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}#bars .dbar div{height:5px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.35);border-radius:3px;overflow:hidden;margin-top:2px}
 #bars .dbar i{display:block;height:100%;width:100%;background:#5fd38a;transition:width .15s}#bars .dbar i.low{background:#ff6b6b}
-#nums span{position:fixed;transform:translate(-50%,-50%);font:800 18px system-ui;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;z-index:3;animation:pop .9s ease-out forwards}#nums span.head{color:#ffd27a;font-size:22px}
+#nums span{position:fixed;transform:translate(-50%,-50%);font:800 18px system-ui;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;z-index:3;animation:pop .9s ease-out forwards}#nums span.head{color:#ffd27a;font-size:22px}#nums span.burn{color:#ff9a5a;font-size:14px}
 @keyframes pop{from{opacity:1;transform:translate(-50%,-50%) scale(.7)}30%{transform:translate(-50%,-90%) scale(1.15)}to{opacity:0;transform:translate(-50%,-180%)}}
 #vig{position:fixed;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 0 rgba(255,40,40,0);transition:box-shadow .12s}#vig.on{box-shadow:inset 0 0 140px rgba(255,40,40,.7)}
 #pos{position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 60px);font:12px ui-monospace,Menlo,monospace;color:#fff;opacity:.75;pointer-events:none}
@@ -61,7 +61,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);
 <canvas id="gl"></canvas>
 <div id="vig"></div><div id="nums"></div><div id="bars"></div><div id="xh"><i></i></div>
 <div id="hp"><div class="lbl">HP <span id="hpn">100</span></div><div class="bar"><i id="hpbar"></i></div></div>
-<div id="wep"><b id="wname">Magna Rifle</b><span id="ammo">30 / 30</span><div class="rl"><i id="rlbar"></i></div><div class="sm">1 2 3 switch gun · R reload</div></div>
+<div id="wep"><b id="wname">Magna Rifle</b><span id="ammo">30 / 30</span><div class="rl"><i id="rlbar"></i></div><div class="sm" id="crys">Carbo crystal · fire</div><div class="sm">1 2 3 gun · Q crystal · R reload</div></div>
 <div id="hud">
   <div id="bar"><div class="t"><b>ELEMENTUM</b> · step 2<br><span id="sub">the shooting range</span></div><div><button id="camBtn" title="Camera side">⇄</button> <button id="pauseBtn" title="Pause">☰</button></div></div>
 </div>
@@ -73,11 +73,12 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);
 <button id="fire">FIRE</button>
 <button id="reloadBtn">RELOAD</button>
 <button id="wswitch">GUN</button>
+<button id="cswitch">CRYSTAL</button>
 
 <div class="overlay" id="start"><div>
   <h1>ELEMENTUM<small>step 2 — guns, a shooting range, health bars</small></h1>
-  <p><b>Computer:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>Shift</kbd> run, <kbd>Space</kbd> jump, mouse to look (click the world to lock it, <kbd>Esc</kbd> frees it), <b>click to shoot</b>, <kbd>R</kbd> reload, <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick the Magna Rifle, Chaos Shotgun or Orator Staff.</p>
-  <p><b>Phone:</b> joystick walks, drag on the right looks, <b>FIRE</b> shoots (hold for the rifle), <b>RELOAD</b>, <b>GUN</b> switches.</p>
+  <p><b>Computer:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>Shift</kbd> run, <kbd>Space</kbd> jump, mouse to look (click the world to lock it, <kbd>Esc</kbd> frees it), <b>click to shoot</b>, <kbd>R</kbd> reload, <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick the Magna Rifle, Chaos Shotgun or Orator Staff, <kbd>Q</kbd> swaps the crystal in the gun: Carbo burns, Nimbus soaks, Silex throws rock, Aether staggers, Electrum chains lightning to the next dummy.</p>
+  <p><b>Phone:</b> joystick walks, drag on the right looks, <b>FIRE</b> shoots (hold for the rifle), <b>RELOAD</b>, <b>GUN</b> switches, <b>CRYSTAL</b> swaps the element.</p>
   <p>Six dummies with health bars stand on the range ahead. A turret on the right shoots back so your own health bar gets a workout — it refills when you stay out of its fire.</p>
   <button id="startBtn">Shoot</button><br>
   <a href="/games">← back to Hardy Wu</a>
@@ -93,6 +94,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);
 </div></div>
 
 <script src="/play/elementum/three.min.js"></script>
+<script src="/play/elementum/fx.js"></script>
 <script src="/play/elementum/game.js"></script>
 <script>window.FEEDBACK_GAME="Elementum";window.FEEDBACK_POS={right:"12px",top:"calc(env(safe-area-inset-top,0px) + 110px)"};</script>
 <script src="/track.js" defer></script>
