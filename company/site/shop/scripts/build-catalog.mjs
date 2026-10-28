@@ -25,6 +25,7 @@ const yesDetail = (v) => {
   return { detail: detail || "", required: /required/i.test(detail) };
 };
 
+if (!existsSync(SRC)) { console.log("build-catalog: no ../assets/products folder — keeping data/catalog.json as it is"); process.exit(0); }
 const shopInfo = readFileSync(join(SRC, "shop-info.md"), "utf8");
 const colorSection = shopInfo.split(/## My filament colors/i)[1]?.split(/\n## /)[0] ?? "";
 const COLOR_HEX = {

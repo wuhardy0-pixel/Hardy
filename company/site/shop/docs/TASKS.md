@@ -106,3 +106,7 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 ## 2026-09-26
 - The shop now speaks the Universal Commerce Protocol on its own domain at the paths Shopify's agent hard-codes: `/.well-known/ucp`, `/api/ucp/mcp`, `/api/mcp` (route handlers in src/app that proxy to corporate via src/lib/ucpProxy.js).
 
+
+## 2026-10-28
+- Hardy: 'fix the 3D store so they can order their lunchbox and other stuff. Make it set up like Amazon' + 'the lunchbox should be orderable, and the colors are depleted: orange, red, black plenty; blue, purple, white, transparent a little'. Lunchbox back in stock; color stock levels in the catalog with 'low' badges; the whole store re-laid out marketplace-style (header with search/account/cart, category bar, hero + tiles, product cards, search with filters, product page with buy box + bullets + reviews, cart, checkout with address, Your orders, thank-you). Server: orders from the shop store ship_to/phone/email; `/api/orders/mine`; product reviews table + endpoints. Tested end to end in a browser (laptop + phone), test order deleted.
+- Open: a card payment provider (Stripe) is still not set up — checkout says 'no card needed now'. Letting Hardy change filament stock levels from his dashboard instead of the catalog file.

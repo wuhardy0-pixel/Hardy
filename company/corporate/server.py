@@ -927,15 +927,61 @@ def order_from_shop():
         buyer = v_name or "Online customer"
     pname, qty = str(x.get("product_name") or x.get("product") or "")[:80], int(x.get("qty") or 1)
     color, details = str(x.get("color") or "")[:60], str(x.get("details") or "")[:300]
+    ship_to, phone = str(x.get("ship_to") or "").strip()[:300], str(x.get("phone") or "").strip()[:40]
     con = db()
     con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
-                                      visitor_name,visitor_email,buyer_email,source)
-                   VALUES(?,?,?,?,?,?,?,?,?,'ordered',?,?,?,?,'shop')""",
+                                      visitor_name,visitor_email,buyer_email,source,ship_to,phone)
+                   VALUES(?,?,?,?,?,?,?,?,?,'ordered',?,?,?,?,'shop',?,?)""",
                 (oid, str(x.get("product") or "")[:60], pname, qty, float(x.get("price_each") or 0), float(x.get("total") or 0),
-                 color, details, buyer, now_iso(), v_name, v_email, str(x.get("email") or "").strip()[:90]))
+                 color, details, buyer, now_iso(), v_name, v_email, str(x.get("email") or "").strip()[:90] or v_email, ship_to, phone))
     add_print_job(con, oid, pname, qty, color, details, buyer)
     con.commit(); con.close()
     return jsonify(ok=True, order=oid, signed_in=v_email or None)
+
+@app.get("/api/orders/mine")
+def my_orders():
+    """The signed-in shopper's own orders (the store's 'Your Orders' page)."""
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in."), 401
+    con = db()
+    rows = [dict(r) for r in con.execute("""SELECT id,product,product_name,qty,price_each,total,color,custom_text,status,created_at,ship_to,source
+                                             FROM orders WHERE lower(visitor_email)=? OR lower(buyer_email)=? ORDER BY created_at DESC LIMIT 200""", (em, em))]
+    jobs = {j["order_id"]: dict(j) for j in con.execute("SELECT order_id,status FROM print_jobs")}
+    con.close()
+    for o in rows:
+        o["print_status"] = (jobs.get(o["id"]) or {}).get("status")
+    return jsonify(orders=rows, email=em, name=session.get("v_name") or "")
+
+def _reviews_table(con):
+    con.execute("""CREATE TABLE IF NOT EXISTS reviews(id TEXT PRIMARY KEY, product TEXT NOT NULL, name TEXT, email TEXT NOT NULL,
+                   stars INTEGER NOT NULL, title TEXT, body TEXT, created_at TEXT NOT NULL, UNIQUE(product, email))""")
+
+@app.get("/api/reviews/<slug>")
+def get_reviews(slug):
+    con = db(); _reviews_table(con)
+    rows = [dict(r) for r in con.execute("SELECT id,product,name,stars,title,body,created_at FROM reviews WHERE product=? ORDER BY created_at DESC", (slug[:60],))]
+    con.close()
+    avg = round(sum(r["stars"] for r in rows) / len(rows), 1) if rows else None
+    return jsonify(reviews=rows, count=len(rows), average=avg)
+
+@app.post("/api/reviews/<slug>")
+def post_review(slug):
+    """One review per signed-in shopper per product; writing again replaces it."""
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in to write a review."), 401
+    x = request.get_json(force=True) or {}
+    stars = int(x.get("stars") or 0)
+    if stars < 1 or stars > 5:
+        return jsonify(error="Pick 1 to 5 stars."), 400
+    body = str(x.get("body") or "").strip()[:1000]
+    title = str(x.get("title") or "").strip()[:80]
+    con = db(); _reviews_table(con)
+    con.execute("INSERT OR REPLACE INTO reviews(id,product,name,email,stars,title,body,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                ("R_" + uuid.uuid4().hex[:10], slug[:60], (session.get("v_name") or "")[:60], em, stars, title, body, now_iso()))
+    con.commit(); con.close()
+    return jsonify(ok=True)
 
 @app.get("/api/orders")
 def list_orders():
@@ -1936,7 +1982,7 @@ def require_passcode():
                             "/api/track", "/api/feedback", "/api/me", "/signout", "/api/order",
                             "/api/products", "/api/agent/order", "/openapi.json", "/llms.txt", "/robots.txt",
                             "/.well-known/ucp", "/terms")
-                      or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/")
+                      or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/") or p.startswith("/api/reviews/") or p == "/api/orders/mine"
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
         ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")

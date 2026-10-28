@@ -35,3 +35,6 @@ Run `.venv/bin/python tests/ucp_flow.py` from corporate/ (server on :5000). It c
 Older manual steps:
 Run `.venv/bin/python` on the script in corporate/tests/ucp_flow.py (Host play.hardywu.com): create session with `crab-gauge__black` → incomplete with missing buyer.email and address; PUT buyer + US address → ready_for_complete, total 1500; complete → completed with order; GET /ucp/orders/{id} → ordered; the order row has source agent, ship_to, and a print job. The script deletes its test order and sessions.
 
+
+## Store orders, your orders, reviews (2026-10-28)
+From this Mac: POST `/api/order/from-shop` with `ship_to`, `phone`, `email` → the order row carries them (Hardy's Orders tab shows the address). With a signed-in cookie jar: GET `/api/orders/mine` lists that email's orders (401 without); GET `/api/reviews/<slug>` is open and returns `{reviews,count,average}`; POST it `{stars,title,body}` signed in → one review per person per product (a second post replaces). Delete test orders (and their print_jobs) and test reviews afterwards.

@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { cart, money } from "../lib/cart";
+import Stars from "./Stars";
 
 const MAX_TEXT = 30;
 const MAX_UPLOAD_MB = 10;
@@ -218,11 +221,17 @@ function PreviewCanvas({ preview, zoneColors, hexOf, uploadUrl, text, textColorH
   );
 }
 
-/* ---------- customizer ---------- */
+/* ---------- the product page: gallery · options · buy box · reviews ---------- */
 
-export default function Customizer({ product, colors, shippingCents }) {
+function deliveryText(shipDays) {
+  const d = new Date(); d.setDate(d.getDate() + shipDays[1] + 3);   // print days + a few days in the mail
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+export default function Customizer({ product, colors, shippingCents, shipDays, initialReviews }) {
+  const router = useRouter();
   const zones = product.zones || ["Color"];
-  const [photo, setPhoto] = useState(0);           // gallery index; -1 = live preview
+  const [photo, setPhoto] = useState(0);
   const [zoneColors, setZoneColors] = useState({});
   const [colorRequest, setColorRequest] = useState("");
   const [text, setText] = useState("");
@@ -230,287 +239,191 @@ export default function Customizer({ product, colors, shippingCents }) {
   const [uploading, setUploading] = useState(false);
   const [qty, setQty] = useState(1);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [reviews, setReviews] = useState(initialReviews || { count: 0, average: null, reviews: [] });
+  const [me, setMe] = useState(null);
 
   const hasPreview = !!product.preview;
   const [showLive, setShowLive] = useState(hasPreview);
   const storageKey = `customize:${product.slug}`;
-  const hexOf = useMemo(() => {
-    const map = Object.fromEntries(colors.map((c) => [c.name, c.hex]));
-    return (name) => map[name];
-  }, [colors]);
+  const hexOf = useMemo(() => { const map = Object.fromEntries(colors.map((c) => [c.name, c.hex])); return (name) => map[name]; }, [colors]);
+  const stockOf = useMemo(() => Object.fromEntries(colors.map((c) => [c.name, c.stock || "plenty"])), [colors]);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
-      if (saved) {
-        setZoneColors(saved.zoneColors ?? {});
-        setColorRequest(saved.colorRequest ?? "");
-        setText(saved.text ?? "");
-        setUpload(saved.upload ?? null);
-        setQty(saved.qty ?? 1);
-      }
-    } catch {}
+    try { const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
+      if (saved) { setZoneColors(saved.zoneColors ?? {}); setColorRequest(saved.colorRequest ?? ""); setText(saved.text ?? ""); setUpload(saved.upload ?? null); setQty(saved.qty ?? 1); } } catch {}
+    fetch("/api/me", { cache: "no-store" }).then((r) => r.json()).then(setMe).catch(() => setMe({}));
   }, [storageKey]);
-
-  const save = (patch) => {
-    const state = { zoneColors, colorRequest, text, upload, qty, ...patch };
-    try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch {}
-  };
-
-  const pickColor = (zone, name) => {
-    const zc = { ...zoneColors, [zone]: name };
-    setZoneColors(zc); setError(""); save({ zoneColors: zc });
-  };
+  const save = (patch) => { const state = { zoneColors, colorRequest, text, upload, qty, ...patch }; try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch {} };
+  const pickColor = (zone, name) => { const zc = { ...zoneColors, [zone]: name }; setZoneColors(zc); setError(""); save({ zoneColors: zc }); };
 
   const onFile = async (file) => {
-    setError("");
-    if (!file) return;
-    if (!OK_TYPES.includes(file.type) && !/\.heic$/i.test(file.name)) {
-      setError("That file type won't work — please upload a JPG, PNG, or iPhone photo.");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
-      setError(`That image is too large — the limit is ${MAX_UPLOAD_MB} MB.`);
-      return;
-    }
-    // show the picture instantly from the device while the upload runs
+    setError(""); if (!file) return;
+    if (!OK_TYPES.includes(file.type) && !/\.heic$/i.test(file.name)) { setError("That file type won't work — please upload a JPG, PNG, or iPhone photo."); return; }
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) { setError(`That image is too large — the limit is ${MAX_UPLOAD_MB} MB.`); return; }
     const localUrl = URL.createObjectURL(file);
-    setUpload({ url: null, localUrl, name: file.name, size: file.size });
-    setUploading(true);
-    try {
-      const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
-        method: "POST", body: file,
-      });
-      const data = await res.json();
+    setUpload({ url: null, localUrl, name: file.name, size: file.size }); setUploading(true);
+    try { const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, { method: "POST", body: file }); const data = await res.json();
       if (!res.ok) throw new Error(data.error || "upload failed");
-      const u = { url: data.url, localUrl, name: file.name, size: file.size };
-      setUpload(u); save({ upload: { url: data.url, name: file.name, size: file.size } });
-    } catch {
-      setUpload(null);
-      setError("The upload didn't go through — please try again.");
-    } finally {
-      setUploading(false);
-    }
+      const u = { url: data.url, localUrl, name: file.name, size: file.size }; setUpload(u); save({ upload: { url: data.url, name: file.name, size: file.size } });
+    } catch { setUpload(null); setError("The upload didn't go through — please try again."); } finally { setUploading(false); }
   };
 
-  // ---- effective colors: only the first zone is required; the rest default to it.
-  // The text-color zone only exists once the customer has typed text.
   const mainZone = zones[0];
   const textZone = product.preview?.canvasTextZone;
   const activeZones = zones.filter((z) => z !== textZone || (product.text && text.trim()));
-  const effectiveColors = Object.fromEntries(
-    activeZones.map((z) => [z, zoneColors[z] || zoneColors[mainZone] || null])
-  );
-
-  // ---- pricing: base + $5 picture + $5 text + $5 per extra distinct color ----
+  const effectiveColors = Object.fromEntries(activeZones.map((z) => [z, zoneColors[z] || zoneColors[mainZone] || null]));
   const distinctColors = new Set(Object.values(effectiveColors).filter(Boolean)).size;
   const extraColors = Math.max(0, distinctColors - 1);
-  const addons =
-    (product.text && text.trim() ? ADDON : 0) +
-    (product.image && upload ? ADDON : 0) +
-    extraColors * ADDON;
+  const addons = (product.text && text.trim() ? ADDON : 0) + (product.image && upload ? ADDON : 0) + extraColors * ADDON;
   const unitCents = (product.price + addons) * 100;
-  const totalCents = unitCents * qty + shippingCents;
-  const money = (c) => `$${(c / 100).toFixed(2)}`;
-
-  const checkout = async () => {
-    if (!zoneColors[mainZone]) { setError("Please pick a color first."); return; }
-    if (product.image?.required && !upload) { setError("Please upload your image first — this product is printed from it."); return; }
-    setBusy(true); setError(""); save({});
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: product.slug,
-          colors: effectiveColors,
-          colorRequest: colorRequest.trim() || null,
-          text: text.trim() || null,
-          uploadUrl: upload?.url || null,
-          uploadName: upload?.name || null,
-          qty,
-        }),
-      });
-      const data = await res.json();
-      if (res.status === 401 && data.login) { window.location.href = data.login; return; }   // sign in, then come back here
-      if (!res.ok) throw new Error(data.error || "checkout failed");
-      window.location.href = data.url;
-    } catch (e) {
-      setError(e.message && e.message !== "checkout failed" ? e.message : "Something went wrong starting the payment — please try again.");
-      setBusy(false);
-    }
-  };
-
   const textColorHex = hexOf(effectiveColors[product.preview?.canvasTextZone]) || "#37282d";
+  const lowPicked = Object.values(effectiveColors).filter((c) => c && stockOf[c] === "low");
 
-  return (
+  const makeLine = () => {
+    if (product.in_stock === false) { setError("This product is sold out right now."); return null; }
+    if (!zoneColors[mainZone]) { setError("Please pick a color first."); return null; }
+    if (product.image?.required && !upload) { setError("Please upload your image first — this product is printed from it."); return null; }
+    if (uploading) { setError("One moment — your picture is still uploading."); return null; }
+    const colorStr = activeZones.length > 1 ? activeZones.map((z) => `${z}: ${effectiveColors[z]}`).join(" · ") : effectiveColors[mainZone];
+    const summary = [`Color: ${colorStr}`, colorRequest.trim() && `Color request: "${colorRequest.trim()}"`, product.text && text.trim() && `Text: "${text.trim()}"`, product.image && upload && `Picture: ${upload.name}`].filter(Boolean).join(" · ");
+    return { slug: product.slug, name: product.name, photo: product.photos[0], qty, colors: effectiveColors, colorRequest: colorRequest.trim() || null,
+      text: product.text && text.trim() ? text.trim() : null, uploadUrl: upload?.url || null, uploadName: upload?.name || null, unitCents, summary };
+  };
+  const addToCart = () => { const line = makeLine(); if (!line) return; cart.add(line); setAdded(true); setError(""); setTimeout(() => setAdded(false), 2500); };
+  const buyNow = () => { const line = makeLine(); if (!line) return; cart.add(line); router.push("/checkout"); };
+
+  // reviews
+  const [rvStars, setRvStars] = useState(0); const [rvTitle, setRvTitle] = useState(""); const [rvBody, setRvBody] = useState(""); const [rvMsg, setRvMsg] = useState("");
+  const sendReview = async () => {
+    if (!rvStars) { setRvMsg("Pick a star rating first."); return; }
+    const res = await fetch(`/api/reviews/${product.slug}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stars: rvStars, title: rvTitle, body: rvBody }) });
+    const d = await res.json();
+    if (!res.ok) { setRvMsg(d.error || "Could not save the review."); return; }
+    setRvMsg("Thanks — your review is up."); setRvTitle(""); setRvBody("");
+    const r2 = await fetch(`/api/reviews/${product.slug}`, { cache: "no-store" }).then((r) => r.json()); setReviews(r2);
+  };
+  const signIn = `https://log3d.hardywu.com/?p=${product.slug}`;
+
+  return (<>
     <main className="pdp">
       <div className="pdp-photos">
-        {hasPreview && showLive ? (
-          <PreviewCanvas
-            preview={product.preview}
-            zoneColors={effectiveColors}
-            hexOf={hexOf}
-            uploadUrl={product.image ? (upload?.localUrl || upload?.url) : null}
-            text={product.preview?.frames?.some((f) => f.textArea) ? text.trim() : null}
-            textColorHex={textColorHex}
-            palette={colors}
-          />
-        ) : (
-          <div className="pdp-main"><img src={product.photos[photo] || product.photos[0]} alt={product.name} /></div>
-        )}
         <div className="pdp-thumbs">
-          {hasPreview && (
-            <button className={showLive ? "sel" : ""} onClick={() => setShowLive(true)}
-              style={{ width: "auto", padding: "0 10px", fontSize: 12, fontWeight: 600, color: showLive ? "var(--accent)" : "var(--ink-soft)" }}>
-              ✨ Live
-            </button>
-          )}
+          {hasPreview && <button className={showLive ? "sel" : ""} onClick={() => setShowLive(true)} style={{ color: "var(--accent)", fontWeight: 700 }}>✨ Live</button>}
           {product.photos.map((src, i) => (
-            <button key={src} className={!showLive && i === photo ? "sel" : ""}
-              onClick={() => { setShowLive(false); setPhoto(i); }} aria-label={`Photo ${i + 1}`}>
-              <img src={src} alt="" />
-            </button>
+            <button key={src} className={!showLive && i === photo ? "sel" : ""} onClick={() => { setShowLive(false); setPhoto(i); }} aria-label={`Photo ${i + 1}`}><img src={src} alt="" /></button>
           ))}
         </div>
-        {hasPreview && showLive && (
-          <p className="hint" style={{ marginTop: 8 }}>
-            Live preview — it updates as you pick colors, type your text, and upload your picture.
-            {product.preview?.frames?.some((f) => f.side === "back")
-              ? " Your name and picture go on the BACK — press “Show back” to see them."
-              : ""} The real print may vary slightly.
-          </p>
-        )}
+        <div>
+          {hasPreview && showLive ? (
+            <PreviewCanvas preview={product.preview} zoneColors={effectiveColors} hexOf={hexOf}
+              uploadUrl={product.image ? (upload?.localUrl || upload?.url) : null}
+              text={product.preview?.frames?.some((f) => f.textArea) ? text.trim() : null} textColorHex={textColorHex} palette={colors} />
+          ) : (
+            <div className="pdp-main"><img src={product.photos[photo] || product.photos[0]} alt={product.name} /></div>
+          )}
+          {hasPreview && showLive && <p className="hint" style={{ marginTop: 8 }}>Live preview — updates as you pick colors, type your text and upload your picture. The real print may vary slightly.</p>}
+        </div>
       </div>
 
       <div className="pdp-form">
-        <h1 className="display">{product.name}</h1>
+        <h1>{product.name}</h1>
+        <div className="pdp-brand">Made to order by <a href="https://hardywu.com/">Hardy Wu</a> · {product.category}</div>
+        <Stars average={reviews.average} count={reviews.count} link="#reviews" />
+        <div className="price-big"><sup>$</sup>{product.price}<span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 400 }}> base price</span></div>
+        <div className="price-note">+${ADDON} for a name, +${ADDON} for a picture, +${ADDON} per extra color · $5 flat shipping (US)</div>
         <p className="pdp-desc">{product.description}</p>
+        {product.bullets?.length > 0 && <><div className="sec-title">About this item</div><ul className="bullets">{product.bullets.map((b) => <li key={b}>{b}</li>)}</ul></>}
 
+        <div className="sec-title">Make it yours</div>
         {activeZones.map((zone, zi) => (
           <div className="field" key={zone}>
             <div className="field-label">
-              <span>
-                {zones.length > 1 ? `${zone} color` : "Color"}{" "}
-                {zi === 0
-                  ? <span className="req">· required</span>
-                  : <span>· optional (+${ADDON} if different)</span>}
-              </span>
-              <span className="swatch-name">
-                {zoneColors[zone] ?? (zi === 0 ? "pick one" : `same as ${mainZone}`)}
-              </span>
+              <span>{zones.length > 1 ? `${zone} color` : "Color"} {zi === 0 ? <span className="req">· required</span> : <span style={{ fontWeight: 400 }}>· optional (+${ADDON} if different)</span>}</span>
+              <span className="swatch-name">{zoneColors[zone] ?? (zi === 0 ? "pick one" : `same as ${mainZone}`)}</span>
             </div>
             <div className="swatches">
-              {zi > 0 && (
-                <button
-                  className={`opt${!zoneColors[zone] ? " sel" : ""}`}
-                  onClick={() => {
-                    const zc = { ...zoneColors };
-                    delete zc[zone];
-                    setZoneColors(zc); save({ zoneColors: zc });
-                  }}>
-                  Same
-                </button>
-              )}
+              {zi > 0 && <button className={`opt${!zoneColors[zone] ? " sel" : ""}`} onClick={() => { const zc = { ...zoneColors }; delete zc[zone]; setZoneColors(zc); save({ zoneColors: zc }); }}>Same</button>}
               {colors.map((c) => (
-                <button key={c.name}
-                  className={`swatch${zoneColors[zone] === c.name ? " sel" : ""}`}
-                  style={c.transparent
-                    ? { background: "repeating-conic-gradient(#cfd8db 0% 25%, #ffffff 0% 50%) 50% / 12px 12px" }
-                    : { background: c.hex }}
-                  onClick={() => pickColor(zone, c.name)}
-                  aria-label={`${zone}: ${c.name}`} title={c.name} />
+                <button key={c.name} className={`swatch${zoneColors[zone] === c.name ? " sel" : ""}${c.stock === "low" ? " low" : ""}`}
+                  style={c.transparent ? { background: "repeating-conic-gradient(#cfd8db 0% 25%, #ffffff 0% 50%) 50% / 12px 12px" } : { background: c.hex }}
+                  onClick={() => pickColor(zone, c.name)} aria-label={`${zone}: ${c.name}${c.stock === "low" ? " (only a little left)" : ""}`} title={`${c.name}${c.stock === "low" ? " — only a little left" : ""}`} />
               ))}
             </div>
           </div>
         ))}
+        <div className="stock-note">Plenty of orange, red and black filament. <b>Only a little left</b> of blue, purple, white and clear — Hardy will tell you if yours runs out before printing.</div>
+        {lowPicked.length > 0 && <div className="stock-note" style={{ color: "#7a4a00" }}>⚠️ {lowPicked.join(", ")}: only a little left in stock.</div>}
         <div className="field">
-          <textarea className="textbox" style={{ fontSize: 13.5 }} rows={1}
-            placeholder="Want a color you don't see? Ask here — Barbara will check before printing."
-            value={colorRequest} maxLength={200}
+          <textarea className="textbox" rows={1} placeholder="Want a color you don't see? Ask here — Hardy checks before printing." value={colorRequest} maxLength={200}
             onChange={(e) => { setColorRequest(e.target.value); save({ colorRequest: e.target.value }); }} />
-          <div className="hint">One color is included — each additional color adds ${ADDON}.</div>
         </div>
-
         {product.text && (
           <div className="field">
-            <div className="field-label">
-              <span>Custom text{product.text.detail ? ` — ${product.text.detail}` : ""} (+${ADDON})</span>
-              <span>{text.length} / {MAX_TEXT}</span>
-            </div>
-            <input className="textbox" value={text} maxLength={MAX_TEXT}
-              placeholder="Leave empty for no text (free)"
-              onChange={(e) => { setText(e.target.value); save({ text: e.target.value }); }} />
-            <div className="hint">Printed exactly as typed, up to {MAX_TEXT} characters.</div>
+            <div className="field-label"><span>Custom text{product.text.detail ? ` — ${product.text.detail}` : ""} (+${ADDON})</span><span>{text.length} / {MAX_TEXT}</span></div>
+            <input className="textbox" value={text} maxLength={MAX_TEXT} placeholder="Leave empty for no text (free)" onChange={(e) => { setText(e.target.value); save({ text: e.target.value }); }} />
           </div>
         )}
-
         {product.image && (
           <div className="field">
-            <div className="field-label">
-              <span>Your picture (+${ADDON}){product.image.required ? <> <span className="req">· required</span></> : " — optional"}</span>
-            </div>
+            <div className="field-label"><span>Your picture (+${ADDON}){product.image.required ? <> <span className="req">· required</span></> : " — optional"}</span></div>
             <label className="drop" style={{ cursor: "pointer" }}>
               {upload ? <img className="drop-thumb" src={upload.localUrl || upload.url} alt="Your upload" /> : <div className="drop-thumb" />}
-              <p>
-                {uploading ? "Uploading…" : upload ? (
-                  <><span className="ok-line">✓ {upload.name} uploaded</span><br />Click to replace it.</>
-                ) : (
-                  <>Click to upload a JPG, PNG, or iPhone photo (up to {MAX_UPLOAD_MB} MB).<br />
-                  <span className="hint">{product.image.detail}</span></>
-                )}
-              </p>
-              <input type="file" accept="image/jpeg,image/png,image/heic,image/heif"
-                style={{ display: "none" }} onChange={(e) => onFile(e.target.files?.[0])} />
+              <p>{uploading ? "Uploading…" : upload ? <><span className="ok-line">✓ {upload.name} uploaded</span><br />Click to replace it.</> : <>Click to upload a JPG, PNG, or iPhone photo (up to {MAX_UPLOAD_MB} MB).<br /><span className="hint">{product.image.detail}</span></>}</p>
+              <input type="file" accept="image/jpeg,image/png,image/heic,image/heif" style={{ display: "none" }} onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
-            {/small/i.test(product.image.detail || "") && upload && (
-              <div className="hint" style={{ marginTop: 6, color: "var(--err)" }}>
-                ⚠️ Your picture prints SMALL on this product (a few centimeters). It is shrunk
-                to fit — that's why big pictures look tiny or trimmed in the preview. Simple
-                images (a logo, initials, a simple shape) work best; detailed photos won't be clear.
-              </div>
-            )}
           </div>
         )}
-
-        <div className="field">
-          <div className="field-label"><span>Quantity</span></div>
-          <div className="qty">
-            <button onClick={() => { const q = Math.max(1, qty - 1); setQty(q); save({ qty: q }); }} aria-label="Fewer">−</button>
-            <span>{qty}</span>
-            <button onClick={() => { const q = Math.min(9, qty + 1); setQty(q); save({ qty: q }); }} aria-label="More">+</button>
-          </div>
-        </div>
-
-        <div className="summary">
-          <div className="summary-title">Your order</div>
-          <div className="sline"><span>{product.name} × {qty}</span><span className="v">{money(product.price * 100 * qty)}</span></div>
-          {activeZones.map((z) => (
-            <div className="sline" key={z}><span>{activeZones.length > 1 ? `${z} color` : "Color"}</span><span className="v">{effectiveColors[z] ?? "—"}</span></div>
-          ))}
-          {extraColors > 0 && <div className="sline"><span>Extra colors × {extraColors}</span><span className="v">+{money(extraColors * ADDON * 100 * qty)}</span></div>}
-          {colorRequest.trim() && <div className="sline"><span>Color request</span><span className="v">“{colorRequest.trim()}”</span></div>}
-          {product.text && text.trim() && <div className="sline"><span>Text “{text.trim()}”</span><span className="v">+{money(ADDON * 100 * qty)}</span></div>}
-          {product.image && upload && <div className="sline"><span>Your picture</span><span className="v">+{money(ADDON * 100 * qty)}</span></div>}
-          <div className="sline"><span>Shipping (US)</span><span className="v">{money(shippingCents)}</span></div>
-          <div className="sline total"><span>Total</span><span className="v">{money(totalCents)}</span></div>
-        </div>
-
         {error && <div className="error" role="alert">{error}</div>}
-        {product.in_stock === false && (
-          <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: "#fee2e2", color: "#7f1d1d", fontWeight: 700 }}>
-            Sold out for now — check back soon.
-          </div>
-        )}
-        <p style={{ margin: "10px 0 0", fontSize: 13, color: "#6b7280" }}>You'll sign in with your name and email when you order, so Hardy knows who it's for.</p>
-        <button className="btn big" style={{ marginTop: 10 }} onClick={checkout} disabled={busy || uploading || product.in_stock === false}>
-          {busy ? "One moment…" : "Continue to secure payment →"}
-        </button>
-        <p className="hint" style={{ textAlign: "center", marginTop: 8 }}>
-          Payment is handled by Stripe. You&rsquo;ll enter your shipping address there.
-        </p>
       </div>
+
+      <aside className="buybox">
+        <div className="price-big"><sup>$</sup>{(unitCents / 100).toFixed(2)}</div>
+        <div className="deliv">$5 flat shipping (US). Printed to order in {shipDays[0]}–{shipDays[1]} days, so expect it around <b>{deliveryText(shipDays)}</b>.</div>
+        {product.in_stock === false ? <div className="soldout" style={{ fontSize: 17 }}>Sold out for now</div> : <div className="ok">In stock</div>}
+        <div className="field" style={{ marginTop: 2 }}>
+          <div className="field-label"><span>Quantity</span></div>
+          <div className="qty"><button onClick={() => { const q = Math.max(1, qty - 1); setQty(q); save({ qty: q }); }} aria-label="Fewer">−</button><span>{qty}</span><button onClick={() => { const q = Math.min(9, qty + 1); setQty(q); save({ qty: q }); }} aria-label="More">+</button></div>
+        </div>
+        <button className="btn-yellow" onClick={addToCart} disabled={uploading || product.in_stock === false}>{added ? "✓ Added to cart" : "Add to Cart"}</button>
+        <button className="btn-orange" onClick={buyNow} disabled={uploading || product.in_stock === false}>Buy Now</button>
+        {added && <div style={{ fontSize: 13 }}><a href="/cart">Go to cart →</a></div>}
+        <div className="secure">🔒 No card needed now — Hardy emails you to arrange payment and shipping.</div>
+        <div className="sold-by"><span>Ships from</span><b>Hardy's 3D</b><span>Sold by</span><b>Hardy Wu</b><span>Returns</span><b>Reprinted free if it arrives broken</b></div>
+        <div className="sline"><span>{product.name} × {qty}</span><span>{money(unitCents * qty)}</span></div>
+        <div className="sline"><span>Shipping</span><span>{money(shippingCents)}</span></div>
+        <div className="sline total"><span>Order total</span><span>{money(unitCents * qty + shippingCents)}</span></div>
+      </aside>
     </main>
-  );
+
+    <section className="reviews" id="reviews">
+      <div>
+        <h2>Customer reviews</h2>
+        <div className="rv-avg"><Stars average={reviews.average} count={reviews.count} size={18} /></div>
+        {me?.name ? (
+          <div className="rv-form">
+            <b>Review this product</b>
+            <div className="rv-stars" role="radiogroup" aria-label="Stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} className={n <= rvStars ? "on" : ""} onClick={() => setRvStars(n)} aria-label={`${n} stars`}>★</button>)}</div>
+            <input className="textbox" placeholder="Headline" value={rvTitle} maxLength={80} onChange={(e) => setRvTitle(e.target.value)} />
+            <textarea className="textbox" rows={3} placeholder="What did you think?" value={rvBody} maxLength={1000} onChange={(e) => setRvBody(e.target.value)} />
+            <button className="btn-yellow" onClick={sendReview}>Submit review</button>
+            {rvMsg && <div className="hint">{rvMsg}</div>}
+          </div>
+        ) : (
+          <div className="rv-form"><b>Review this product</b><span className="hint">Share your thoughts with other customers.</span><a href={signIn} className="btn-yellow">Sign in to write a review</a></div>
+        )}
+      </div>
+      <div>
+        {reviews.count === 0 && <p style={{ color: "var(--ink-soft)" }}>No reviews yet.</p>}
+        {(reviews.reviews || []).map((r) => (
+          <div className="rv" key={r.id}>
+            <div className="who">{r.name || "A customer"} · {new Date(r.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
+            <div><span className="star-row" style={{ color: "var(--star)" }}>{"★★★★★".slice(0, r.stars)}</span><span className="star-row" style={{ color: "#c9c9c9" }}>{"★★★★★".slice(r.stars)}</span></div>
+            {r.title && <div className="ttl">{r.title}</div>}
+            {r.body && <p>{r.body}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  </>);
 }
