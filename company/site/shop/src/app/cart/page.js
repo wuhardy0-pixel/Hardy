@@ -38,7 +38,7 @@ export default function CartPage() {
         </section>
         <aside className="side-box">
           <div className="sub">Subtotal ({count} item{count === 1 ? "" : "s"}): <b>{money(sub)}</b></div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>+ $5.00 flat shipping at checkout</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>FREE shipping on every order</div>
           <Link href="/checkout" className="btn-yellow" style={{ padding: 10 }}>Proceed to checkout</Link>
           <Link href="/" style={{ fontSize: 13 }}>Keep shopping</Link>
         </aside>

@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
         <a href="#" className="totop">Back to top</a>
         <footer className="site-foot"><div className="wrap">
           <span>© {new Date().getFullYear()} {shop.shopName} · every piece printed to order by Hardy Wu</span>
-          <span>Flat $5 shipping (US) · no card needed now: Hardy emails you to arrange payment</span>
+          <span>FREE shipping (US) · no card needed now: Hardy emails you to arrange payment</span>
           <span>🤖 AI assistants: catalogue and checkout at <a href="https://hardywu.com/llms.txt">hardywu.com/llms.txt</a></span>
         </div></footer>
       </body>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, cart, money } from "../../lib/cart";
 
-const SHIPPING = 500;
+const SHIPPING = 0;
 const STATES = "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ");
 
 export default function Checkout() {
@@ -80,7 +80,7 @@ export default function Checkout() {
           <button className="btn-yellow" style={{ padding: 10 }} onClick={place} disabled={busy || needSignIn}>{busy ? "Placing your order…" : "Place your order"}</button>
           <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>By placing this order you agree Hardy may email you about it.</div>
           <div className="sline" style={{ display: "flex", justifyContent: "space-between" }}><span>Items:</span><span>{money(sub)}</span></div>
-          <div className="sline" style={{ display: "flex", justifyContent: "space-between" }}><span>Shipping:</span><span>{money(SHIPPING)}</span></div>
+          <div className="sline" style={{ display: "flex", justifyContent: "space-between" }}><span>Shipping:</span><span style={{ color: "var(--ok)", fontWeight: 700 }}>FREE</span></div>
           <div className="sline" style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 700, color: "var(--price)" }}><span>Order total:</span><span>{money(sub + SHIPPING)}</span></div>
           {error && <div className="error" role="alert">{error}</div>}
         </aside>

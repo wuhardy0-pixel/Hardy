@@ -22,7 +22,8 @@ tools=rpc("tools/list")["result"]["tools"]; ok(len(tools)==14 and any(t["name"]=
 # search + cart add/remove via MCP
 s=tool("search_catalog",{"catalog":{"query":"ruler"}}); ok([p["id"] for p in s["products"]]==["dual-ruler"],"search_catalog 'ruler' → dual-ruler")
 cart=tool("create_cart",{"cart":{"line_items":[{"item":{"id":"crab-gauge__black"},"quantity":2},{"item":{"id":"dual-ruler__blue"},"quantity":1}]}})
-ok(cart["id"].startswith("cart_") and cart["totals"][-1]["amount"]==2000,"create_cart with 2 items → estimated total 2000 (incl. shipping)")
+import json as _j; _cat=_j.load(open(os.path.join(os.path.dirname(__file__),"..","..","site","shop","data","catalog.json"))); PRICE=int(round(next(x["price"] for x in _cat["products"] if x["slug"]=="crab-gauge")*100)); SHIP=int(_cat.get("shippingCents") or 0)
+ok(cart["id"].startswith("cart_") and cart["totals"][-1]["amount"]==3*PRICE+SHIP,f"create_cart with 2 lines (3 gauges) → estimated total {3*PRICE+SHIP} (incl. shipping)")
 cart=tool("update_cart",{"id":cart["id"],"cart":{"line_items":[{"id":"li_1","item":{"id":"crab-gauge__black"},"quantity":3}]}})
 ok(len(cart["line_items"])==1 and cart["line_items"][0]["quantity"]==3,"update_cart: ruler removed, crab gauge now 3")
 c2=tool("update_cart",{"id":cart["id"],"cart":{"line_items":[{"id":"li_1","item":{"id":"crab-gauge__black"},"quantity":3},{"item":{"id":"customizable-lunchbox__red"},"quantity":1}]}})
@@ -32,7 +33,7 @@ chk=tool("create_checkout",{"checkout":{"cart_id":cart["id"],"buyer":{"first_nam
       "fulfillment":{"methods":[{"type":"shipping","destinations":[{"street_address":"1 Main St","address_locality":"Boston","address_region":"MA","postal_code":"02101","address_country":"US"}]}]}}})
 ok(chk["status"]=="requires_escalation" and ("/approve/"+chk["id"]+"?code=") in chk["continue_url"] and any(m.get("severity")=="requires_buyer_review" for m in chk["messages"]),
    "create_checkout from cart → requires_escalation with continue_url (buyer must approve)")
-ok(chk["line_items"][0]["quantity"]==3 and chk["totals"][-1]["amount"]==2000,"checkout took the cart's lines: 3 × crab gauge + shipping = 2000")
+ok(chk["line_items"][0]["quantity"]==3 and chk["totals"][-1]["amount"]==3*PRICE+SHIP,f"checkout took the cart's lines: 3 × crab gauge + shipping = {3*PRICE+SHIP}")
 same=tool("create_checkout",{"checkout":{"cart_id":cart["id"]}}); ok(same["id"]==chk["id"],"second create_checkout for the same cart returns the same session")
 done=tool("complete_checkout",{"id":chk["id"]}); ok(done["status"]=="requires_escalation" and not done.get("order"),"complete_checkout does NOT place the order by itself")
 # the human side. The link carries a private code (lives with the checkout); the buyer must also be signed in with the buyer email.

@@ -8,7 +8,8 @@ import Stars from "./Stars";
 const MAX_TEXT = 30;
 const MAX_UPLOAD_MB = 10;
 const OK_TYPES = ["image/jpeg", "image/png", "image/heic", "image/heif"];
-const ADDON = 2; // dollars: per picture, per text, per extra color
+const ADDON_DEFAULT = { text: 2, image: 2, extraColor: 2 }; // dollars; the catalog's `addons` overrides
+const PL0 = { img: { x: 0, y: 0, s: 1 }, text: { x: 0, y: 0, s: 1 } };   // where the picture and the name sit: offsets as a fraction of the printable area, and a size
 
 /* ---------- interactive preview canvas ---------- */
 
@@ -74,8 +75,10 @@ function posterize(img, palette) {
   return c;
 }
 
-function PreviewCanvas({ preview, zoneColors, hexOf, uploadUrl, text, textColorHex, palette }) {
+function PreviewCanvas({ preview, zoneColors, hexOf, uploadUrl, text, textColorHex, palette, placement, onPlace }) {
   const canvasRef = useRef(null);
+  const drawnRef = useRef({});   // where the picture and the name were last drawn (natural units) for hit-testing
+  const pl = placement || PL0;
   const cacheRef = useRef(new Map()); // frame index -> {baseImg, maskAlphas}
   const dragRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -91,6 +94,9 @@ function PreviewCanvas({ preview, zoneColors, hexOf, uploadUrl, text, textColorH
   }, [frames]);
   const hasBack = (sideIdxs.back || []).length > 0;
   const cur = sideIdxs[side][((spin % sideIdxs[side].length) + sideIdxs[side].length) % sideIdxs[side].length];
+  // once there is a picture or a name, show the side that carries them
+  useEffect(() => { if (!(uploadUrl || text)) return; const f = frames[cur]; if (f.imageArea || f.textArea) return; const other = side === "front" ? "back" : "front";
+    if ((sideIdxs[other] || []).some((i) => frames[i].imageArea || frames[i].textArea)) { setSide(other); setSpin(0); } }, [uploadUrl, text]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadFrame = async (i) => {
     if (cacheRef.current.has(i)) return cacheRef.current.get(i);
@@ -159,42 +165,70 @@ function PreviewCanvas({ preview, zoneColors, hexOf, uploadUrl, text, textColorH
         ctx.globalCompositeOperation = "source-over";
       }
 
+      drawnRef.current = {};
       if (fr.imageArea && uploadImg) {
         // natural units match the area's real-world proportions: no distortion
         const natW = 100, natH = 100 / (fr.imageArea.aspect || 4 / 3);
-        const s = Math.min(natW / uploadImg.width, natH / uploadImg.height);
+        const s = Math.min(natW / uploadImg.width, natH / uploadImg.height) * pl.img.s;
         const w = uploadImg.width * s, h = uploadImg.height * s;
+        const x0 = (natW - w) / 2 + pl.img.x * natW / 2, y0 = (natH - h) / 2 + pl.img.y * natH / 2;
         quadTransform(ctx, fr.imageArea, W, H, natW, natH);
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, natW, natH); ctx.clip();   // only the printable area prints
         ctx.globalAlpha = 0.96;
         ctx.imageSmoothingEnabled = false; // crisp printed-pixel look
-        ctx.drawImage(uploadImg, (natW - w) / 2, (natH - h) / 2, w, h);
+        ctx.drawImage(uploadImg, x0, y0, w, h);
         ctx.imageSmoothingEnabled = true;
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1; ctx.restore();
+        drawnRef.current.img = { area: fr.imageArea, natW, natH, x0, y0, w, h };
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
 
       if (fr.textArea && text) {
         const natW = 300, natH = 300 / (fr.textArea.aspect || 3.75);
+        const fs = Math.round(natH * 0.62 * pl.text.s);
+        const tx = natW / 2 + pl.text.x * natW / 2, ty = natH / 2 + pl.text.y * natH / 2;
         quadTransform(ctx, fr.textArea, W, H, natW, natH);
+        ctx.save(); ctx.beginPath(); ctx.rect(0, 0, natW, natH); ctx.clip();
         ctx.fillStyle = textColorHex || "#37282d";
-        ctx.font = `600 ${Math.round(natH * 0.62)}px Futura, 'Avenir Next', 'Trebuchet MS', sans-serif`;
+        ctx.font = `600 ${fs}px Futura, 'Avenir Next', 'Trebuchet MS', sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(text, natW / 2, natH / 2, natW * 0.94);
+        const tw = Math.min(ctx.measureText(text).width, natW * 0.94);
+        ctx.fillText(text, tx, ty, natW * 0.94);
+        ctx.restore();
+        drawnRef.current.text = { area: fr.textArea, natW, natH, x0: tx - tw / 2, y0: ty - fs / 2, w: tw, h: fs };
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     })();
     return () => { stale = true; };
-  }, [ready, cur, preview, zoneColors, hexOf, uploadImg, text, textColorHex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, cur, preview, zoneColors, hexOf, uploadImg, text, textColorHex, pl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // canvas pixel → natural units of a printable area (inverse of quadTransform)
+  const toNat = (e, item) => {
+    const r = canvasRef.current.getBoundingClientRect(); const [W, H] = preview.res;
+    const cx = (e.clientX - r.left) * W / r.width, cy = (e.clientY - r.top) * H / r.height;
+    const { tl, tr, bl } = item.area; const a = (tr[0] - tl[0]) / item.natW, b = (tr[1] - tl[1]) / item.natW, c = (bl[0] - tl[0]) / item.natH, d = (bl[1] - tl[1]) / item.natH;
+    const det = a * d - b * c; if (!det) return null;
+    return { u: (d * (cx - tl[0]) - c * (cy - tl[1])) / det, v: (-b * (cx - tl[0]) + a * (cy - tl[1])) / det };
+  };
 
   const onPointerDown = (e) => {
-    dragRef.current = { x: e.clientX, spin };
     e.currentTarget.setPointerCapture(e.pointerId);
+    // on the picture or the name → move it; anywhere else → spin the model
+    for (const kind of ["text", "img"]) {
+      const it = drawnRef.current[kind]; if (!it || !onPlace) continue;
+      const n = toNat(e, it); if (!n) continue;
+      const pad = it.natW * 0.04;
+      if (n.u >= it.x0 - pad && n.u <= it.x0 + it.w + pad && n.v >= it.y0 - pad && n.v <= it.y0 + it.h + pad) { dragRef.current = { kind, start: n, from: { ...pl[kind] }, item: it }; return; }
+    }
+    dragRef.current = { x: e.clientX, spin };
   };
   const onPointerMove = (e) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.x;
-    setSpin(dragRef.current.spin - Math.round(dx / 36));
+    const dr = dragRef.current; if (!dr) return;
+    if (dr.kind) { const n = toNat(e, dr.item); if (!n) return; const clampv = (v) => Math.max(-1, Math.min(1, v));
+      onPlace(dr.kind, { ...dr.from, x: clampv(dr.from.x + (n.u - dr.start.u) / (dr.item.natW / 2)), y: clampv(dr.from.y + (n.v - dr.start.v) / (dr.item.natH / 2)) }); return; }
+    const dx = e.clientX - dr.x;
+    setSpin(dr.spin - Math.round(dx / 36));
   };
   const onPointerUp = () => { dragRef.current = null; };
 
@@ -208,8 +242,15 @@ function PreviewCanvas({ preview, zoneColors, hexOf, uploadUrl, text, textColorH
           ? <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
           : <div style={{ height: "100%" }} />}
       </div>
+      {onPlace && (uploadUrl || text) && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", alignItems: "center", marginTop: 8, fontSize: 12 }}>
+          {uploadUrl && <label>Picture size <input type="range" min="0.4" max="1.6" step="0.05" value={pl.img.s} onChange={(e) => onPlace("img", { ...pl.img, s: Number(e.target.value) })} /></label>}
+          {text && <label>Name size <input type="range" min="0.5" max="1.5" step="0.05" value={pl.text.s} onChange={(e) => onPlace("text", { ...pl.text, s: Number(e.target.value) })} /></label>}
+          <button className="opt" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => { onPlace("img", { x: 0, y: 0, s: 1 }); onPlace("text", { x: 0, y: 0, s: 1 }); }}>Reset placement</button>
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, gap: 10 }}>
-        <span className="hint">⟲ drag the picture to spin it</span>
+        <span className="hint">⟲ drag the model to spin · drag your picture or name to move it</span>
         {hasBack && (
           <button className="opt" style={{ padding: "6px 12px", fontSize: 13 }}
             onClick={() => { setSide(side === "front" ? "back" : "front"); setSpin(0); }}>
@@ -228,7 +269,9 @@ function deliveryText(shipDays) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
-export default function Customizer({ product, colors, shippingCents, shipDays, initialReviews }) {
+export default function Customizer({ product, colors, shippingCents, shipDays, initialReviews, addons }) {
+  const AD = addons || ADDON_DEFAULT;
+  const [placement, setPlacement] = useState(PL0);
   const router = useRouter();
   const zones = product.zones || ["Color"];
   const [photo, setPhoto] = useState(0);
@@ -251,10 +294,10 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
 
   useEffect(() => {
     try { const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
-      if (saved) { setZoneColors(saved.zoneColors ?? {}); setColorRequest(saved.colorRequest ?? ""); setText(saved.text ?? ""); setUpload(saved.upload ?? null); setQty(saved.qty ?? 1); } } catch {}
+      if (saved) { setZoneColors(saved.zoneColors ?? {}); setColorRequest(saved.colorRequest ?? ""); setText(saved.text ?? ""); setUpload(saved.upload ?? null); setQty(saved.qty ?? 1); if (saved.placement) setPlacement({ ...PL0, ...saved.placement }); } } catch {}
     fetch("/api/me", { cache: "no-store" }).then((r) => r.json()).then(setMe).catch(() => setMe({}));
   }, [storageKey]);
-  const save = (patch) => { const state = { zoneColors, colorRequest, text, upload, qty, ...patch }; try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch {} };
+  const save = (patch) => { const state = { zoneColors, colorRequest, text, upload, qty, placement, ...patch }; try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch {} };
   const pickColor = (zone, name) => { const zc = { ...zoneColors, [zone]: name }; setZoneColors(zc); setError(""); save({ zoneColors: zc }); };
 
   const onFile = async (file) => {
@@ -275,8 +318,11 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
   const effectiveColors = Object.fromEntries(activeZones.map((z) => [z, zoneColors[z] || zoneColors[mainZone] || null]));
   const distinctColors = new Set(Object.values(effectiveColors).filter(Boolean)).size;
   const extraColors = Math.max(0, distinctColors - 1);
-  const addons = (product.text && text.trim() ? ADDON : 0) + (product.image && upload ? ADDON : 0) + extraColors * ADDON;
-  const unitCents = (product.price + addons) * 100;
+  const addonTotal = (product.text && text.trim() ? AD.text : 0) + (product.image && upload ? AD.image : 0) + extraColors * AD.extraColor;
+  const unitCents = Math.round((product.price + addonTotal) * 100);
+  const moved = (k) => placement[k].x !== 0 || placement[k].y !== 0 || placement[k].s !== 1;
+  const placeText = (k) => `${Math.round(50 + placement[k].x * 50)}% across, ${Math.round(50 + placement[k].y * 50)}% down, size ${Math.round(placement[k].s * 100)}%`;
+  const setPlace = (k, v) => { const p = { ...placement, [k]: v }; setPlacement(p); save({ placement: p }); };
   const textColorHex = hexOf(effectiveColors[product.preview?.canvasTextZone]) || "#37282d";
   const lowPicked = Object.values(effectiveColors).filter((c) => c && stockOf[c] === "low");
 
@@ -286,9 +332,10 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
     if (product.image?.required && !upload) { setError("Please upload your image first — this product is printed from it."); return null; }
     if (uploading) { setError("One moment — your picture is still uploading."); return null; }
     const colorStr = activeZones.length > 1 ? activeZones.map((z) => `${z}: ${effectiveColors[z]}`).join(" · ") : effectiveColors[mainZone];
-    const summary = [`Color: ${colorStr}`, colorRequest.trim() && `Color request: "${colorRequest.trim()}"`, product.text && text.trim() && `Text: "${text.trim()}"`, product.image && upload && `Picture: ${upload.name}`].filter(Boolean).join(" · ");
+    const summary = [`Color: ${colorStr}`, colorRequest.trim() && `Color request: "${colorRequest.trim()}"`, product.text && text.trim() && `Text: "${text.trim()}"${moved("text") ? ` (${placeText("text")})` : ""}`, product.image && upload && `Picture: ${upload.name}${moved("img") ? ` (${placeText("img")})` : ""}`].filter(Boolean).join(" · ");
     return { slug: product.slug, name: product.name, photo: product.photos[0], qty, colors: effectiveColors, colorRequest: colorRequest.trim() || null,
-      text: product.text && text.trim() ? text.trim() : null, uploadUrl: upload?.url || null, uploadName: upload?.name || null, unitCents, summary };
+      text: product.text && text.trim() ? text.trim() : null, uploadUrl: upload?.url || null, uploadName: upload?.name || null, unitCents, summary,
+      placement: (moved("img") || moved("text")) ? { img: upload ? placement.img : undefined, text: text.trim() ? placement.text : undefined } : undefined };
   };
   const addToCart = () => { const line = makeLine(); if (!line) return; cart.add(line); setAdded(true); setError(""); setTimeout(() => setAdded(false), 2500); };
   const buyNow = () => { const line = makeLine(); if (!line) return; cart.add(line); router.push("/checkout"); };
@@ -318,11 +365,12 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
           {hasPreview && showLive ? (
             <PreviewCanvas preview={product.preview} zoneColors={effectiveColors} hexOf={hexOf}
               uploadUrl={product.image ? (upload?.localUrl || upload?.url) : null}
-              text={product.preview?.frames?.some((f) => f.textArea) ? text.trim() : null} textColorHex={textColorHex} palette={colors} />
+              text={product.preview?.frames?.some((f) => f.textArea) ? text.trim() : null} textColorHex={textColorHex} palette={colors}
+              placement={placement} onPlace={setPlace} />
           ) : (
             <div className="pdp-main"><img src={product.photos[photo] || product.photos[0]} alt={product.name} /></div>
           )}
-          {hasPreview && showLive && <p className="hint" style={{ marginTop: 8 }}>Live preview — updates as you pick colors, type your text and upload your picture. The real print may vary slightly.</p>}
+          {hasPreview && showLive && <p className="hint" style={{ marginTop: 8 }}>This is how it will be printed, in this orientation. Drag the model to spin it; <b>drag your picture or your name to move them</b>, and use the sliders for size. The real print may vary slightly.</p>}
         </div>
       </div>
 
@@ -331,7 +379,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         <div className="pdp-brand">Made to order by <a href="https://hardywu.com/">Hardy Wu</a> · {product.category}</div>
         <Stars average={reviews.average} count={reviews.count} link="#reviews" />
         <div className="price-big"><sup>$</sup>{product.price}<span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 400 }}> base price</span></div>
-        <div className="price-note">+${ADDON} for a name, +${ADDON} for a picture, +${ADDON} per extra color · $5 flat shipping (US)</div>
+        <div className="price-note">+${AD.text} for a name, +${AD.image} for a picture, +${AD.extraColor} per extra color · <b style={{ color: "var(--ok)" }}>FREE shipping</b> (US)</div>
         <p className="pdp-desc">{product.description}</p>
         {product.bullets?.length > 0 && <><div className="sec-title">About this item</div><ul className="bullets">{product.bullets.map((b) => <li key={b}>{b}</li>)}</ul></>}
 
@@ -339,7 +387,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         {activeZones.map((zone, zi) => (
           <div className="field" key={zone}>
             <div className="field-label">
-              <span>{zones.length > 1 ? `${zone} color` : "Color"} {zi === 0 ? <span className="req">· required</span> : <span style={{ fontWeight: 400 }}>· optional (+${ADDON} if different)</span>}</span>
+              <span>{zones.length > 1 ? `${zone} color` : "Color"} {zi === 0 ? <span className="req">· required</span> : <span style={{ fontWeight: 400 }}>· optional (+${AD.extraColor} if different)</span>}</span>
               <span className="swatch-name">{zoneColors[zone] ?? (zi === 0 ? "pick one" : `same as ${mainZone}`)}</span>
             </div>
             <div className="swatches">
@@ -360,13 +408,13 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         </div>
         {product.text && (
           <div className="field">
-            <div className="field-label"><span>Custom text{product.text.detail ? ` — ${product.text.detail}` : ""} (+${ADDON})</span><span>{text.length} / {MAX_TEXT}</span></div>
+            <div className="field-label"><span>Custom text{product.text.detail ? ` — ${product.text.detail}` : ""} (+${AD.text})</span><span>{text.length} / {MAX_TEXT}</span></div>
             <input className="textbox" value={text} maxLength={MAX_TEXT} placeholder="Leave empty for no text (free)" onChange={(e) => { setText(e.target.value); save({ text: e.target.value }); }} />
           </div>
         )}
         {product.image && (
           <div className="field">
-            <div className="field-label"><span>Your picture (+${ADDON}){product.image.required ? <> <span className="req">· required</span></> : " — optional"}</span></div>
+            <div className="field-label"><span>Your picture (+${AD.image}){product.image.required ? <> <span className="req">· required</span></> : " — optional"}</span></div>
             <label className="drop" style={{ cursor: "pointer" }}>
               {upload ? <img className="drop-thumb" src={upload.localUrl || upload.url} alt="Your upload" /> : <div className="drop-thumb" />}
               <p>{uploading ? "Uploading…" : upload ? <><span className="ok-line">✓ {upload.name} uploaded</span><br />Click to replace it.</> : <>Click to upload a JPG, PNG, or iPhone photo (up to {MAX_UPLOAD_MB} MB).<br /><span className="hint">{product.image.detail}</span></>}</p>
@@ -379,7 +427,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
 
       <aside className="buybox">
         <div className="price-big"><sup>$</sup>{(unitCents / 100).toFixed(2)}</div>
-        <div className="deliv">$5 flat shipping (US). Printed to order in {shipDays[0]}–{shipDays[1]} days, so expect it around <b>{deliveryText(shipDays)}</b>.</div>
+        <div className="deliv"><b style={{ color: "var(--ok)" }}>FREE shipping</b> (US). Printed to order in {shipDays[0]}–{shipDays[1]} days, so expect it around <b>{deliveryText(shipDays)}</b>.</div>
         {product.in_stock === false ? <div className="soldout" style={{ fontSize: 17 }}>Sold out for now</div> : <div className="ok">In stock</div>}
         <div className="field" style={{ marginTop: 2 }}>
           <div className="field-label"><span>Quantity</span></div>
@@ -391,7 +439,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         <div className="secure">🔒 No card needed now — Hardy emails you to arrange payment and shipping.</div>
         <div className="sold-by"><span>Ships from</span><b>Hardy's 3D</b><span>Sold by</span><b>Hardy Wu</b><span>Returns</span><b>Reprinted free if it arrives broken</b></div>
         <div className="sline"><span>{product.name} × {qty}</span><span>{money(unitCents * qty)}</span></div>
-        <div className="sline"><span>Shipping</span><span>{money(shippingCents)}</span></div>
+        <div className="sline"><span>Shipping</span><span>{shippingCents ? money(shippingCents) : "FREE"}</span></div>
         <div className="sline total"><span>Order total</span><span>{money(unitCents * qty + shippingCents)}</span></div>
       </aside>
     </main>

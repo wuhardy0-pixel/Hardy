@@ -48,7 +48,7 @@ export default async function Search({ searchParams }) {
               <h3><Link href={`/products/${p.slug}`}>{p.name}</Link></h3>
               <Stars average={r.average} count={r.count} size={14} />
               <div className="pc-price"><sup>$</sup>{p.price}</div>
-              <div className="pc-meta">{p.in_stock === false ? <span className="soldout">Sold out</span> : <span className="instock">In stock · made to order</span>}<span>Ships in {shipDays[0]}–{shipDays[1]} days · $5 flat shipping</span></div>
+              <div className="pc-meta">{p.in_stock === false ? <span className="soldout">Sold out</span> : <span className="instock">In stock · made to order</span>}<span>Ships in {shipDays[0]}–{shipDays[1]} days · <b>FREE shipping</b></span></div>
               <p>{p.description}</p>
               <Link href={`/products/${p.slug}`} className="btn-yellow">Choose options</Link>
             </div>

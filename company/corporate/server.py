@@ -205,7 +205,9 @@ def add_print_job(con, oid, product_name, qty, color, custom_text, buyer):
 # print queue as everything else, marked source='agent'. No card is taken: Barbara
 # emails the buyer to arrange payment and shipping, exactly like site orders today.
 SHIPPING_CENTS = int(_cat.get("shippingCents") or 0)
-ADDON = 2.00                                    # $2 per custom text / extra colour, same as the shop
+ADDONS = {k: float(v) for k, v in (_cat.get("addons") or {"text": 2, "image": 2, "extraColor": 2}).items()}   # dollars, same as the shop
+ADDON = ADDONS.get("extraColor", 2.0)
+SHIP_TEXT = "Free shipping within the US" if SHIPPING_CENTS == 0 else f"Flat ${SHIPPING_CENTS/100:.2f} within the US"
 
 def product_feed():
     items = []
@@ -222,7 +224,7 @@ def product_feed():
             "made_to_order": True, "product_type": "3D print",
             "variant_attributes": {"color": SHOP_COLORS, "zones": p.get("zones") or ["Color"]},
             "customizations": {"custom_text": bool(p.get("text")), "custom_image": bool(p.get("image")),
-                               "addon_price": f"{ADDON:.2f} USD each (text, image, each extra colour)"},
+                               "addon_price": f"text +{ADDONS.get('text',2):.2f} USD, image +{ADDONS.get('image',2):.2f} USD, each extra colour +{ADDONS.get('extraColor',2):.2f} USD"},
             "shipping": {"price": f"{SHIPPING_CENTS/100:.2f} USD", "countries": ["US"]},
             "seller": {"name": "Hardy Wu", "url": SITE_ORIGIN, "contact": OWNER_EMAIL},
             "checkout": {"method": "POST", "url": "https://play.hardywu.com/api/agent/order",
@@ -235,7 +237,7 @@ def api_products():
     return jsonify(shop="Hardy's 3D", currency=_cat.get("currency", "usd"), updated=now_iso(),
                    products=product_feed(),
                    policies={"payment": "No card is taken online. Hardy emails the buyer to arrange payment (pay on delivery).",
-                             "shipping": f"Flat ${SHIPPING_CENTS/100:.2f} within the US, made to order.",
+                             "shipping": SHIP_TEXT + ", made to order.",
                              "returns": "Contact " + OWNER_EMAIL + "."})
 
 OPENAPI = None
@@ -280,7 +282,7 @@ def llms_txt():
              "- Flow for agents: search_catalog → create_cart / update_cart (add, change, remove) → create_checkout with buyer + US address → send the buyer to continue_url to APPROVE → poll get_checkout until completed. Nothing is ordered without the buyer's approval.",
              "- Simpler order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order",
              "- Human storefront: https://shop.hardywu.com (asks for a name and email first)",
-             f"- Payment: none taken online. Hardy emails the buyer to arrange payment. Shipping ${SHIPPING_CENTS/100:.2f} flat, US only. Contact {OWNER_EMAIL}.", "",
+             f"- Payment: none taken online. Hardy emails the buyer to arrange payment. {SHIP_TEXT}, US only. Contact {OWNER_EMAIL}.", "",
              "## Products"]
     for p in product_feed():
         lines.append(f"- {p['title']} — {p['price']}{' — SOLD OUT' if p['availability'] != 'in_stock' else ''}: {p['description']} (colours: {', '.join(p['variant_attributes']['color'])}) → {p['link']}")
@@ -360,7 +362,7 @@ def agent_order():
     if custom and not p.get("text"):
         return jsonify(error="This product does not take custom text."), 400
     extra_colours = max(0, len(set(names)) - 1)
-    unit = round(float(p["price"]) + ADDON * ((1 if custom else 0) + extra_colours), 2)
+    unit = round(float(p["price"]) + (ADDONS.get("text", 2) if custom else 0) + ADDONS.get("extraColor", 2) * extra_colours, 2)
     total = round(unit * qty + SHIPPING_CENTS / 100, 2)
     ship_to = str(x.get("ship_to") or "").strip()[:300]
     phone = str(x.get("phone") or "").strip()[:40]
@@ -428,7 +430,7 @@ def ucp_product(slug, p):
             "media": media, "options": [{"name": "Color", "values": [{"label": c} for c in SHOP_COLORS]}],
             "variants": variants, "tags": ["3d-print", "made-to-order"] + ([] if ok else ["sold-out"]),
             "metadata": {"made_to_order": True, "in_stock": ok, "custom_text_available": bool(p.get("text")),
-                         "shipping": f"flat ${SHIPPING_CENTS/100:.2f} within the US"}}
+                         "shipping": SHIP_TEXT.lower()}}
 
 def ucp_env(caps):
     return {"version": UCP_VERSION, "capabilities": {c: [{"version": UCP_VERSION}] for c in caps}, "payment_handlers": {}}
@@ -752,7 +754,7 @@ MCP_TOOLS = [
 def shop_faq():
     return [
       {"id": "payment", "title": "Payment", "body": "Nothing is charged online yet. When you order, Hardy emails you to arrange payment (pay on delivery). No card details are ever asked for on the site."},
-      {"id": "shipping", "title": "Shipping and delivery", "body": f"Every piece is 3D-printed to order by Hardy and shipped within the US for a flat ${SHIPPING_CENTS/100:.2f}. Printing plus shipping usually takes about a week."},
+      {"id": "shipping", "title": "Shipping and delivery", "body": f"Every piece is 3D-printed to order by Hardy and shipped within the US — {'shipping is free' if SHIPPING_CENTS == 0 else f'a flat ${SHIPPING_CENTS/100:.2f}'}. Printing plus shipping usually takes about a week."},
       {"id": "returns", "title": "Returns and refunds", "body": f"If something arrives broken or wrong, email {OWNER_EMAIL} and we reprint or refund. Custom pieces (your text or picture) cannot be returned for change of mind."},
       {"id": "customization", "title": "Colours, custom text and pictures", "body": "Every product comes in seven colours: " + ", ".join(SHOP_COLORS) + ". Some products take custom text (up to 30 letters) or your own picture; each extra is $2, and each extra colour is $2. Custom text and pictures are only available on the human store page, not through an assistant."},
       {"id": "ai", "title": "Ordering through an AI assistant", "body": "An assistant may search, build a cart and prepare a checkout for you, but nothing is ordered until you open the approval link yourself, sign in with your own email and press Approve."},
@@ -937,6 +939,35 @@ def order_from_shop():
     add_print_job(con, oid, pname, qty, color, details, buyer)
     con.commit(); con.close()
     return jsonify(ok=True, order=oid, signed_in=v_email or None)
+
+@app.get("/costs")
+def cost_sheet():
+    """Hardy's cost sheet: material, electricity, labour, design, postage and packaging per product, and the margin at the current price."""
+    if not is_owner():
+        return redirect(APP_HOST + "/costs") if not on_real_site() else ("Only the creator can see costs.", 403)
+    cat = json.loads((SHOP_DIR / "data" / "catalog.json").read_text())
+    k = cat.get("costing") or {}
+    rows = []
+    for p in cat["products"]:
+        c = p.get("cost") or {}
+        material = c.get("grams", 0) / 1000 * k.get("filamentPerKg", 22)
+        elec = c.get("printHours", 0) * k.get("printerWatts", 120) / 1000 * k.get("electricityPerKwh", 0.17)
+        labor = c.get("laborHours", 0) * k.get("laborPerHour", 15)
+        design = c.get("designHours", 0) * k.get("designPerHour", 20) / max(1, k.get("designUnits", 40))
+        total = material + elec + labor + design + c.get("shipping", 0) + c.get("packaging", 0)
+        price = float(p["price"]); margin = (price - total) / price if price else 0
+        rows.append((p["name"], c, material, elec, labor, design, total, total / (1 - k.get("minMargin", .3)), price, margin))
+    ad = cat.get("addons") or {}
+    html = ["<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Costs — Hardy's 3D</title>",
+            "<style>body{font-family:-apple-system,Inter,sans-serif;background:#03102c;color:#fff;padding:20px;max-width:1100px;margin:0 auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0}td,th{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.15);text-align:right}th:first-child,td:first-child{text-align:left}th{color:#9fd1ff;font-weight:600}.ok{color:#5fd38a;font-weight:700}.bad{color:#ff6b6b;font-weight:700}.sm{color:rgba(255,255,255,.65);font-size:13px}a{color:#9fe3ff}</style>",
+            "<h1>What each piece costs</h1><p class=sm>Shipping is free for the buyer, so postage is part of the cost. Price must leave at least " + f"{k.get('minMargin', .3):.0%}" + " gross margin. Numbers are estimates in company/site/shop/data/catalog.json — tell Claude to change any of them.</p>",
+            "<table><tr><th>Product</th><th>Filament</th><th>Print</th><th>Material</th><th>Electricity</th><th>Labour</th><th>Design</th><th>Postage</th><th>Packaging</th><th>Cost</th><th>Min price</th><th>Price</th><th>Margin</th></tr>"]
+    for name, c, m, e, l, d, t, mn, pr, mg in rows:
+        cls = "ok" if mg >= k.get("minMargin", .3) - 1e-9 else "bad"
+        html.append(f"<tr><td>{name}</td><td>{c.get('grams',0)} g</td><td>{c.get('printHours',0)} h</td><td>${m:.2f}</td><td>${e:.2f}</td><td>${l:.2f} <span class=sm>({c.get('laborHours',0)} h)</span></td><td>${d:.2f} <span class=sm>({c.get('designHours',0)} h ÷ {k.get('designUnits',40)})</span></td><td>${c.get('shipping',0):.2f}</td><td>${c.get('packaging',0):.2f}</td><td><b>${t:.2f}</b></td><td>${mn:.2f}</td><td><b>${pr:.2f}</b></td><td class={cls}>{mg:.0%}</td></tr>")
+    html.append("</table><h2>Rates</h2><table>" + "".join(f"<tr><td>{kk}</td><td>{vv}</td></tr>" for kk, vv in k.items() if kk != "note") + "</table>")
+    html.append(f"<h2>Add-ons</h2><p>Name +${ad.get('text',2)}, picture +${ad.get('image',2)}, each extra colour +${ad.get('extraColor',2)} — a picture or an extra colour is a filament change, about ten minutes of work.</p><p class=sm>{k.get('note','')}</p><p><a href='/orders'>← orders</a></p>")
+    return "\n".join(html)
 
 @app.get("/api/orders/mine")
 def my_orders():
@@ -1985,7 +2016,7 @@ def require_passcode():
                       or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/") or p.startswith("/api/reviews/") or p == "/api/orders/mine"
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
+        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p == "/costs" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -1993,7 +2024,7 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback", "/news") or p.startswith("/api/news/")   # /approve/ checks its own code first
+        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback", "/news", "/costs") or p.startswith("/api/news/")   # /approve/ checks its own code first
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML

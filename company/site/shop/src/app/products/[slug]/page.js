@@ -30,7 +30,7 @@ export default async function ProductPage({ params }) {
   };
   return (<>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
-    <Customizer product={product} colors={shop.colors} shippingCents={shop.shippingCents} shipDays={shop.shipDays || [3, 5]} initialReviews={r} />
+    <Customizer product={product} colors={shop.colors} shippingCents={shop.shippingCents} shipDays={shop.shipDays || [3, 5]} initialReviews={r} addons={shop.addons} />
     {others.length > 0 && (
       <section className="row-box">
         <h2>Customers also look at</h2>

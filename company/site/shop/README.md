@@ -4,7 +4,7 @@ Next.js 14 app, run on this Mac by the `com.hardywu.shop` launchd job (`next sta
 Rebuilt 2026-10-28 as a marketplace-style store (Hardy: 'set it up like Amazon'): dark header with search, account,
 'Returns & Orders' and a cart; category bar; home with a hero, category tiles and product cards; search results with
 filters (category, price, personalization) and sort; product pages with a thumbnail gallery, 'About this item' bullets,
-the customizer (colors with low-stock badges, name, picture), a sticky **buy box** (delivery estimate, quantity, Add to Cart,
+the customizer (colors with low-stock badges, name, picture — in the live preview the buyer **drags the picture and the name** to where they want them and sets their size; the placement is saved with the order), a sticky **buy box** (delivery estimate, quantity, Add to Cart,
 Buy Now) and customer reviews; a cart page; a checkout (who it's for, shipping address, payment note, review items);
 'Your orders'; and a thank-you page.
 
@@ -25,7 +25,7 @@ products, prices, or colors, edit those markdown files and rebuild — no code c
 - `src/components/Header.js` — search box (→ `/s?k=`), sign-in state from `/api/me`, cart count. `src/lib/cart.js` — the cart (localStorage, `useCart()`).
 - `src/app/s/page.js` — search/browse with filters. `src/app/cart/page.js`, `src/app/checkout/page.js`, `src/app/orders/page.js` — cart, checkout, your orders (client pages).
 - `src/app/api/me`, `api/my-orders`, `api/reviews/[slug]` — thin proxies to Hardy's server on 127.0.0.1:5000 (`/api/me`, `/api/orders/mine`, `/api/reviews/<slug>`), forwarding the shopper's cookie.
-- `data/catalog.json` is edited by hand now (the old `../assets/products` markdown source is gone; `scripts/build-catalog.mjs` skips itself when that folder is missing). Per product: `in_stock`, `category`, `bullets`. Per color: `stock` = `plenty` | `low` (shown as a 'low' badge and a note on the product page). **To change what's in stock or the filament levels, edit this file and run `npm run build`, then `launchctl kickstart -k gui/$(id -u)/com.hardywu.shop`.**
+- `data/catalog.json` is edited by hand now (the old `../assets/products` markdown source is gone; `scripts/build-catalog.mjs` skips itself when that folder is missing). Per product: `in_stock`, `category`, `bullets`. Per color: `stock` = `plenty` | `low` (shown as a 'low' badge and a note on the product page). Shop-wide: `shippingCents` (0 = free shipping, the words change everywhere), `addons` (dollars for a name, a picture, each extra colour), `costing` + each product's `cost` (the cost sheet, see docs/COSTS.md and Hardy's page at play.hardywu.com/costs). **To change what's in stock or the filament levels, edit this file and run `npm run build`, then `launchctl kickstart -k gui/$(id -u)/com.hardywu.shop`.**
 
 - `src/app/page.js` — homepage: hero, product grid, About section.
 - `src/app/products/[slug]/page.js` + `src/components/Customizer.js` — product page:

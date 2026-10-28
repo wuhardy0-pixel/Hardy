@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { shop, getProduct } from "../../../lib/catalog";
 import { sendOrderEmails } from "../../../lib/orderEmail";
 
-const ADDON_CENTS = 200; // $2 per: picture, text, each extra color
+const AD = shop.addons || { text: 2, image: 2, extraColor: 2 };   // dollars, from the catalog
 export const dynamic = "force-dynamic";
 
 // Check one cart line against the catalog and price it on the server (never trust the browser's price).
@@ -22,9 +22,10 @@ function priceLine(body) {
   if (!shop.colors.some((c) => c.name === colors[activeZones[0]])) return { error: `please pick a color for ${product.name}` };
   for (const z of activeZones) { if (!colors[z]) colors[z] = colors[activeZones[0]]; if (!shop.colors.some((c) => c.name === colors[z])) return { error: `unknown color for ${z}` }; }
   const distinct = new Set(activeZones.map((z) => colors[z])).size;
-  const unitCents = product.price * 100 + (text ? ADDON_CENTS : 0) + (uploadUrl ? ADDON_CENTS : 0) + Math.max(0, distinct - 1) * ADDON_CENTS;
+  const placement = body.placement && typeof body.placement === "object" ? JSON.stringify(body.placement).slice(0, 200) : null;
+  const unitCents = Math.round((product.price + (text ? AD.text : 0) + (uploadUrl ? AD.image : 0) + Math.max(0, distinct - 1) * AD.extraColor) * 100);
   const colorStr = activeZones.length > 1 ? activeZones.map((z) => `${z}: ${colors[z]}`).join(" · ") : colors[activeZones[0]];
-  const summary = [`Color: ${colorStr}`, colorRequest && `Color request: "${colorRequest}"`, text && `Text: "${text}"`, uploadUrl && `Image: ${body.uploadName || "uploaded"}`].filter(Boolean).join(" · ");
+  const summary = [`Color: ${colorStr}`, colorRequest && `Color request: "${colorRequest}"`, text && `Text: "${text}"`, uploadUrl && `Image: ${body.uploadName || "uploaded"}`, placement && `Placement: ${placement}`].filter(Boolean).join(" · ");
   return { product, qty, text, uploadUrl, uploadName: body.uploadName || null, colorRequest, colorStr, unitCents, summary };
 }
 
@@ -54,7 +55,7 @@ export async function POST(request) {
         const res = await fetch("http://127.0.0.1:5000/api/order/from-shop", {
           method: "POST", headers: { "Content-Type": "application/json", cookie: request.headers.get("cookie") || "" },
           body: JSON.stringify({ product: l.product.slug, product_name: l.product.name, qty: l.qty, color: l.colorStr, price_each: l.unitCents / 100, total: (l.unitCents * l.qty + ship) / 100,
-            buyer: name || "Online customer", email, phone, ship_to: shipTo, details: `${l.summary}${ship ? " · incl. $5 shipping" : ""}${l.uploadUrl ? ` · ${new URL(l.uploadUrl, origin).href}` : ""}` }),
+            buyer: name || "Online customer", email, phone, ship_to: shipTo, details: `${l.summary}${ship ? ` · incl. $${(ship / 100).toFixed(2)} shipping` : ""}${l.uploadUrl ? ` · ${new URL(l.uploadUrl, origin).href}` : ""}` }),
         });
         const d = await res.json(); if (d.order) ids.push(d.order);
       } catch {}
@@ -73,7 +74,7 @@ export async function POST(request) {
     mode: "payment",
     line_items: lines.map((l) => ({ quantity: l.qty, price_data: { currency: shop.currency, unit_amount: l.unitCents, product_data: { name: l.product.name, description: l.summary.slice(0, 500), images: [new URL(l.product.photos[0], origin).href] } } })),
     shipping_address_collection: { allowed_countries: ["US"] },
-    shipping_options: [{ shipping_rate_data: { display_name: "Flat shipping", type: "fixed_amount", fixed_amount: { amount: shop.shippingCents, currency: shop.currency } } }],
+    shipping_options: [{ shipping_rate_data: { display_name: shop.shippingCents ? "Flat shipping" : "Free shipping", type: "fixed_amount", fixed_amount: { amount: shop.shippingCents, currency: shop.currency } } }],
     phone_number_collection: { enabled: true },
     metadata: { items: JSON.stringify(lines.map((l) => ({ slug: l.product.slug, qty: l.qty, color: l.colorStr, text: l.text, uploadUrl: l.uploadUrl }))).slice(0, 500) },
     success_url: `${origin}/thank-you?session_id={CHECKOUT_SESSION_ID}`,

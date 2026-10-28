@@ -16,7 +16,7 @@ export default async function Home() {
         <div className="hero-text">
           <div className="kicker">Back in stock</div>
           <h1>The customizable lunchbox — your colors, your name on the lid</h1>
-          <p>Pick the box and lid colors, add a name, and Hardy prints it to order. Flat $5 shipping anywhere in the US.</p>
+          <p>Pick the box and lid colors, add a name, and Hardy prints it to order. Free shipping anywhere in the US.</p>
           <Link href={`/products/${lunch.slug}`} className="btn-yellow">Customize yours · ${lunch.price}</Link>
         </div>
         <div className="hero-img"><img src={lunch.photos[0]} alt={lunch.name} /></div>

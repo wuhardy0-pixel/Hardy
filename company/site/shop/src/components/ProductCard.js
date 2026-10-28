@@ -13,7 +13,7 @@ export default function ProductCard({ p, reviews, shipDays }) {
         <div className="pc-price"><sup>$</sup>{p.price}<small>{p.price % 1 ? "" : "00"}</small></div>
         <div className="pc-meta">
           {p.in_stock === false ? <span className="soldout">Sold out</span> : <span className="instock">In stock · made to order</span>}
-          <span>Ships in {shipDays[0]}–{shipDays[1]} days · $5 flat shipping</span>
+          <span>Ships in {shipDays[0]}–{shipDays[1]} days · <b>FREE shipping</b></span>
           <span>Your color{custom.length ? ` · your ${custom.join(" and ")}` : ""}</span>
         </div>
         <Link href={`/products/${p.slug}`} className="btn-yellow">{p.in_stock === false ? "See details" : "Choose options"}</Link>
