@@ -1086,9 +1086,12 @@ def fmt_when(iso):
 def month_key(iso):
     d = when_local(iso); return d.strftime("%Y-%m") if d else ""
 
+# games still being built are not on the activity page (Barbara: "no more Playing elementum")
+UNTRACKED_PREFIXES = ("/play/elementum", "/games/elementum")
+
 def track(kind, label, path, seconds=0, detail=""):
     em = visitor()
-    if not em:
+    if not em or (path or "").startswith(UNTRACKED_PREFIXES):
         return
     with _act_lock:
         data = _act_load()
