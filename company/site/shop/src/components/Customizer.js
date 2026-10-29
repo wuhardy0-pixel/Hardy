@@ -401,7 +401,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
           </div>
         ))}
         <div className="stock-note">Plenty of orange, red and black filament. <b>Only a little left</b> of blue, purple, white and clear — Hardy will tell you if yours runs out before printing.</div>
-        {lowPicked.length > 0 && <div className="stock-note" style={{ color: "#7a4a00" }}>⚠️ {lowPicked.join(", ")}: only a little left in stock.</div>}
+        {lowPicked.length > 0 && <div className="stock-note" style={{ color: "#fbbf24" }}>⚠️ {lowPicked.join(", ")}: only a little left in stock.</div>}
         <div className="field">
           <textarea className="textbox" rows={1} placeholder="Want a color you don't see? Ask here — Hardy checks before printing." value={colorRequest} maxLength={200}
             onChange={(e) => { setColorRequest(e.target.value); save({ colorRequest: e.target.value }); }} />
