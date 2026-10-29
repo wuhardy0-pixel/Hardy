@@ -1218,26 +1218,26 @@ VISITOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Welcom
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:#e6ddcf}
-body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2f2a24;
+html,body{margin:0;min-height:100%;background:#f6ead8}
+body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#5b3a2e;
  display:grid;place-items:center;padding:28px;text-align:center;
- background:radial-gradient(1100px 600px at 50% -10%,#efe6d7 0%,rgba(239,230,215,0) 60%),
-  linear-gradient(180deg,#e9e1d4 0%,#e3d9c9 100%);background-attachment:fixed}
-.card{width:min(460px,100%);background:#f3ede3;border:1px solid #d2c4ae;
+ background:radial-gradient(1100px 600px at 50% -10%,#fff3e2 0%,rgba(255,243,226,0) 60%),
+  linear-gradient(180deg,#f7ecdc 0%,#f3e4cf 100%);background-attachment:fixed}
+.card{width:min(460px,100%);background:#fffaf2;border:1px solid #ead6bb;
  border-radius:22px;padding:32px 26px;box-shadow:0 14px 40px rgba(90,65,40,.14)}
 img.logo{width:92px;height:92px;border-radius:20px}
 h1{font-size:clamp(30px,7vw,46px);font-weight:900;font-style:italic;text-transform:uppercase;
  letter-spacing:-.045em;line-height:.95;margin:16px 0 6px}
-p{color:#6b6157;font-size:15px;line-height:1.55;margin:8px 0}
-input{font:inherit;font-size:17px;padding:15px 16px;border-radius:14px;border:1px solid #d2c4ae;
- background:#faf6ef;color:#2f2a24;width:100%;margin:9px 0;text-align:center}
-input:focus{outline:none;border-color:#b9603b}
+p{color:#8a6a5a;font-size:15px;line-height:1.55;margin:8px 0}
+input{font:inherit;font-size:17px;padding:15px 16px;border-radius:14px;border:1px solid #ead6bb;
+ background:#fffdf8;color:#5b3a2e;width:100%;margin:9px 0;text-align:center}
+input:focus{outline:none;border-color:#f2a65a}
 button{font:inherit;font-weight:800;font-size:19px;padding:15px 30px;margin-top:14px;border:0;border-radius:14px;
- width:100%;cursor:pointer;background:#b9603b;color:#fff;
- box-shadow:0 8px 22px rgba(185,96,59,.3)}
+ width:100%;cursor:pointer;background:#f2a65a;color:#4a2e24;
+ box-shadow:0 8px 22px rgba(217,130,59,.3)}
 .err{color:#b23b3b;min-height:20px;font-size:14px;font-weight:700;margin-top:8px}
-.small{color:#6b6157;font-size:12.5px;margin-top:16px}
-.devrow{margin:6px 0 4px;font-size:14px;color:#6b6157}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #d2c4ae;background:#faf6ef;color:#2f2a24;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#b9603b;box-shadow:0 0 0 2px rgba(185,96,59,.25)}
+.small{color:#8a6a5a;font-size:12.5px;margin-top:16px}
+.devrow{margin:6px 0 4px;font-size:14px;color:#8a6a5a}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #ead6bb;background:#fffdf8;color:#5b3a2e;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#f2a65a;background:#d6ebf5;box-shadow:0 0 0 2px rgba(242,166,90,.35)}
 </style></head><body>
 <div class="card">
  <img class="logo" src="/logo.png" alt="Hardy Wu">
@@ -2017,19 +2017,19 @@ def p_page(title, body, crumbs=""):
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
-/* warm sand theme (2026-10-29, Hardy: "not blue, not dark, not too bright"), same as the store */
-:root{{--ground:#e6ddcf;--card:#f3ede3;--ink:#2f2a24;--soft:#6b6157;--line:#d2c4ae;--accent:#b9603b;--link:#9b4c2c}}
+/* the little cat's colours (2026-10-29): cream, ginger, soft brown, pale blue — same as the store */
+:root{{--ground:#f6ead8;--card:#fffaf2;--ink:#5b3a2e;--soft:#8a6a5a;--line:#ead6bb;--accent:#f2a65a;--accent-ink:#4a2e24;--link:#b45f1e;--blue:#d6ebf5}}
 html{{background:var(--ground)}}
 body{{font-family:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
   color:var(--ink);margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
-  background:radial-gradient(1100px 600px at 50% -10%,#efe6d7 0%,rgba(239,230,215,0) 60%),linear-gradient(180deg,#e9e1d4 0%,#e3d9c9 100%);
+  background:radial-gradient(1100px 600px at 50% -10%,#fff3e2 0%,rgba(255,243,226,0) 60%),linear-gradient(180deg,#f7ecdc 0%,#f3e4cf 100%);
   background-attachment:fixed}}
 header{{padding:34px 20px 10px}}
 h1{{margin:10px 0;font-size:clamp(34px,6vw,58px);font-weight:900;font-style:italic;text-transform:uppercase;
   letter-spacing:-0.04em;line-height:.95;color:var(--ink)}}
 nav{{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px}}
 nav a,a.btn{{background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em}}
-nav a:hover,a.btn:hover{{border-color:var(--accent);color:var(--accent)}}
+nav a:hover,a.btn:hover{{border-color:var(--accent);background:var(--blue)}}
 .cards{{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;max-width:1000px;margin:24px auto;padding:0 20px}}
 .card{{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-decoration:none;color:var(--ink);
   box-shadow:0 6px 20px rgba(90,65,40,.10);transition:transform .15s,border-color .15s,box-shadow .15s}}
@@ -2039,8 +2039,8 @@ nav a:hover,a.btn:hover{{border-color:var(--accent);color:var(--accent)}}
 .card p{{color:var(--soft);margin:0;font-size:14px;line-height:1.5}}
 .tag{{color:var(--soft);font-size:17px;font-weight:500}}
 .crumbs{{color:var(--soft);font-size:14px;padding-top:16px}} .crumbs a{{color:var(--link);text-decoration:none;font-weight:600}}
-a.btn.primary{{background:var(--accent);border-color:var(--accent);color:#fff;display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 18px rgba(185,96,59,.28)}}
-a.btn.primary:hover{{filter:brightness(1.07);color:#fff}}
+a.btn.primary{{background:var(--accent);border-color:#d9823b;color:var(--accent-ink);display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 18px rgba(217,130,59,.28)}}
+a.btn.primary:hover{{filter:brightness(1.05);color:var(--accent-ink)}}
 footer{{color:var(--soft);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}}
 .whobar{{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;color:var(--soft);font-size:12.5px;padding:12px 16px 0}}
 .whobar a{{color:var(--link);text-decoration:none;font-weight:700}}
@@ -2072,25 +2072,26 @@ def portfolio_home():
     return p_page("Hardy Wu — Shop and video games", f"""
 <style>
 .top{{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 16px 4px;flex-wrap:wrap}}
-.top img{{width:52px;height:52px;border-radius:12px}} .top img.cat{{width:84px;height:84px;border-radius:0;margin:-14px 0 -10px}} .top .nm{{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}}
+.top img{{width:52px;height:52px;border-radius:12px}} .top .nm{{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}}
 .top .sl{{color:var(--soft);font-size:14px;width:100%}}
 .row{{max-width:1180px;margin:18px auto 6px;padding:0 16px;text-align:left}}
 .row h2{{font-size:24px;font-weight:900;margin:0 0 12px;display:flex;align-items:baseline;gap:12px}}
 .row h2 a{{font-size:14px;font-weight:700;color:var(--link);text-decoration:none}}
+nav a:first-child{{background:var(--accent);border-color:#d9823b;color:var(--accent-ink)}}
 .tiles{{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}}
 .tile{{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--ink);box-shadow:0 4px 14px rgba(90,65,40,.08);
   display:flex;flex-direction:column;transition:transform .15s,border-color .15s}}
 .tile:hover{{border-color:var(--accent);transform:translateY(-3px)}}
-.tile img,.tile-ph{{width:100%;aspect-ratio:1;object-fit:cover;background:#e9e0d2;display:block}}
+.tile img,.tile-ph{{width:100%;aspect-ratio:1;object-fit:cover;background:var(--blue);display:block}}
 .tile-ph{{display:flex;align-items:center;justify-content:center;font-size:54px}}
-.tile b{{padding:10px 12px 2px;font-size:15px;line-height:1.3}} .tile span{{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--accent)}}
+.tile b{{padding:10px 12px 2px;font-size:15px;line-height:1.3}} .tile span{{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--link)}}
 .coinad{{display:block;max-width:1148px;margin:6px auto 0;padding:12px 16px;border-radius:14px;background:#f1e2c8;border:1px solid #dcc39a;color:var(--ink);text-decoration:none;font-size:15px}}
 .coinad:hover{{border-color:var(--accent)}} @media(max-width:1180px){{.coinad{{margin:6px 16px 0}}}}
 .tile i{{margin:-8px 12px 12px;font-style:normal;font-weight:700;color:#b23b3b;font-size:13px}}
 .tile{{min-width:0}}
 @media(max-width:520px){{.tiles{{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}} .tile b{{font-size:14px}} .tile span{{font-size:17px}} .top .nm{{font-size:22px}}}}
 </style>
-<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><img class="cat" src="/item/cat.svg" alt="Hardy's little cat"><div class="sl">Made by Hardy Wu · try new things</div></div>
+<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><div class="sl">Made by Hardy Wu · try new things</div></div>
 <nav>{nav}</nav>
 {f'<a class="coinad" href="/coins">🪙 Send Hardy a suggestion and earn coins — <b>{COINS_FREE_PRINT} coins = a free 3D print</b> →</a>' if COINS_ON else ""}
 <section class="row"><h2>🛍️ Shop <a href="/3d">See all →</a></h2><div class="tiles">{prods}</div></section>
@@ -2268,7 +2269,7 @@ input{font-size:20px;padding:12px;border-radius:10px;border:1px solid #3a4560;ba
 button{font-size:19px;font-weight:700;padding:12px 34px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}
 .err{color:#ff9d9d;min-height:22px}
 p.small{color:#9aa4bd;font-size:13px}
-.devrow{margin:6px 0 4px;font-size:14px;color:#6b6157}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #d2c4ae;background:#faf6ef;color:#2f2a24;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#b9603b;box-shadow:0 0 0 2px rgba(185,96,59,.25)}</style></head><body>
+.devrow{margin:6px 0 4px;font-size:14px;color:#8a6a5a}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #ead6bb;background:#fffdf8;color:#5b3a2e;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#f2a65a;background:#d6ebf5;box-shadow:0 0 0 2px rgba(242,166,90,.35)}</style></head><body>
 <div class="card"><h1>📒 BookKeep</h1><p>Log in to BookKeep</p>
 <input id="nm" autofocus placeholder="Your name (e.g. Hardy)" autocomplete="name" maxlength="40">
 <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="80">
@@ -2639,7 +2640,7 @@ def section_image(name):
 @app.get("/item/<name>")
 def item_image(name):
     if name in {"bookkeep.png", "footballsim.png", "nova.png", "quest.png",
-                "novastrike.png", "pokemonadv.png", "freecell.png", "cat.svg"}:
+                "novastrike.png", "pokemonadv.png", "freecell.png"}:
         return send_from_directory(IMG_DIR, "item_" + name)
     return jsonify(error="Not found."), 404
 
