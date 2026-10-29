@@ -68,17 +68,32 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, orders: ids, url: `${origin}/thank-you?orders=${encodeURIComponent(ids.join(","))}&demo=1` });
   }
 
+  // Card payment: send the buyer to Stripe. The order is recorded and emailed by /api/webhook once Stripe says it is paid.
+  let account = "";
+  try { const r = await fetch("http://127.0.0.1:5000/api/me", { headers: { cookie: request.headers.get("cookie") || "" }, cache: "no-store" }); account = (await r.json()).email || ""; } catch {}
+  const metadata = { name, email, phone, ship: shipTo.slice(0, 500), account, shipping: String(shop.shippingCents), n: String(lines.length) };
+  lines.forEach((l, i) => {   // Stripe allows 500 characters per metadata value, so one value per cart line
+    const item = { s: l.product.slug, q: l.qty, p: l.unitCents, c: l.colorStr.slice(0, 120), u: l.uploadUrl ? new URL(l.uploadUrl, origin).href : null, un: l.uploadName, cr: l.colorRequest };
+    item.m = l.summary.slice(0, Math.max(0, 480 - JSON.stringify(item).length));
+    metadata[`item_${i}`] = JSON.stringify(item);
+  });
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: lines.map((l) => ({ quantity: l.qty, price_data: { currency: shop.currency, unit_amount: l.unitCents, product_data: { name: l.product.name, description: l.summary.slice(0, 500), images: [new URL(l.product.photos[0], origin).href] } } })),
-    shipping_address_collection: { allowed_countries: ["US"] },
-    shipping_options: [{ shipping_rate_data: { display_name: shop.shippingCents ? "Flat shipping" : "Free shipping", type: "fixed_amount", fixed_amount: { amount: shop.shippingCents, currency: shop.currency } } }],
-    phone_number_collection: { enabled: true },
-    metadata: { items: JSON.stringify(lines.map((l) => ({ slug: l.product.slug, qty: l.qty, color: l.colorStr, text: l.text, uploadUrl: l.uploadUrl }))).slice(0, 500) },
-    success_url: `${origin}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/checkout?cancelled=1`,
-  });
-  return NextResponse.json({ url: session.url });
+  const lineItems = lines.map((l) => ({ quantity: l.qty, price_data: { currency: shop.currency, unit_amount: l.unitCents, product_data: { name: l.product.name, description: l.summary.slice(0, 500), images: [new URL(l.product.photos[0], origin).href] } } }));
+  if (shop.shippingCents) lineItems.push({ quantity: 1, price_data: { currency: shop.currency, unit_amount: shop.shippingCents, product_data: { name: "Shipping (US)" } } });
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: lineItems,
+      customer_email: email || undefined,   // the address was already typed on our checkout page
+      metadata,
+      payment_intent_data: { metadata: { name, email } },
+      success_url: `${origin}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/checkout?cancelled=1`,
+    });
+    return NextResponse.json({ url: session.url, card: true });
+  } catch (e) {
+    console.error("[stripe checkout]", e.message);
+    return NextResponse.json({ error: "Card payment is not available right now. Please try again in a few minutes." }, { status: 502 });
+  }
 }

@@ -28,6 +28,7 @@ WHOBAR_JS = """<script>(async()=>{try{
  b.append("signed in as ",n," \u00b7 ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
  if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="\U0001F4CA see who visited";b.append(" \u00b7 ",a);
    const o=document.createElement("a");o.href="/orders";o.textContent="\U0001F9FE orders";b.append(" \u00b7 ",o);}
+ if(j.family){const a=document.createElement("a");a.href="/apps";a.textContent="\U0001F4F1 Apps";b.append(" \u00b7 ",a);}
 }catch(e){}})()</script>"""
 
 def clean(html):
@@ -53,8 +54,8 @@ def file(path, dest):
 shutil.rmtree(OUT, ignore_errors=True); OUT.mkdir()
 pages = [page("/", OUT / "index.html")]
 for sec, sdef in server.PORTFOLIO.items():
-    if sec == "3d":
-        continue                                          # the 3D section IS the store → redirect below
+    if sec in ("3d", "robotics"):
+        continue                                          # the Shop IS the store (robots included) → redirect below
     pages.append(page(f"/{sec}", OUT / sec / "index.html"))
     for slug, it in sdef["items"].items():
         if it.get("redirect"):
@@ -71,6 +72,7 @@ for m in sorted(set(re.findall(r'"/item/([^"]+)"', "".join(p.read_text() for p i
 redirects = [
     "/apps/bookkeep  https://logbook.hardywu.com/  302",
     "/3d            https://shop.hardywu.com/  302",
+    "/robotics      https://shop.hardywu.com/  302",
     "/3d/*          https://shop.hardywu.com/products/:splat  302",
     f"/play/*        https://play.hardywu.com/play/:splat  302",
     f"/news          https://play.hardywu.com/news  302",

@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Hardy Wu</title>
+<!doctype html><html><head><meta charset="utf-8"><title>Hardy Wu — Shop and video games</title>
 <link rel="alternate" type="application/json" title="Product catalogue for AI agents" href="https://hardywu.com/products.json">
 <link rel="help" href="https://hardywu.com/llms.txt"><meta name="ai-agents" content="catalogue and checkout: https://hardywu.com/llms.txt">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -6,49 +6,63 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
-html{background:#03102c}
+/* warm sand theme (2026-10-29, Hardy: "not blue, not dark, not too bright"), same as the store */
+:root{--ground:#e6ddcf;--card:#f3ede3;--ink:#2f2a24;--soft:#6b6157;--line:#d2c4ae;--accent:#b9603b;--link:#9b4c2c}
+html{background:var(--ground)}
 body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
-  color:#fff;margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
-  background:radial-gradient(1200px 700px at 50% -10%,#1b58c9 0%,rgba(27,88,201,0) 60%),
-             radial-gradient(900px 600px at 85% 20%,#0e7fd6 0%,rgba(14,127,214,0) 55%),
-             radial-gradient(900px 700px at 10% 80%,#0b3f9e 0%,rgba(11,63,158,0) 60%),
-             linear-gradient(180deg,#04102e 0%,#061a44 45%,#03102c 100%);
+  color:var(--ink);margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
+  background:radial-gradient(1100px 600px at 50% -10%,#efe6d7 0%,rgba(239,230,215,0) 60%),linear-gradient(180deg,#e9e1d4 0%,#e3d9c9 100%);
   background-attachment:fixed}
 header{padding:34px 20px 10px}
 h1{margin:10px 0;font-size:clamp(34px,6vw,58px);font-weight:900;font-style:italic;text-transform:uppercase;
-  letter-spacing:-0.04em;line-height:.95;color:#fff} .tag{color:#9aa4bd}
+  letter-spacing:-0.04em;line-height:.95;color:var(--ink)}
 nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px}
-nav a,a.btn{background:rgba(12,34,78,.55);border:1px solid rgba(96,165,250,.35);color:#fff;text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em;backdrop-filter:blur(8px)}
-nav a:hover,a.btn:hover{background:rgba(23,60,130,.7);border-color:#60a5fa}
+nav a,a.btn{background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em}
+nav a:hover,a.btn:hover{border-color:var(--accent);color:var(--accent)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;max-width:1000px;margin:24px auto;padding:0 20px}
-.card{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:22px 18px;text-decoration:none;color:#eaf3ff;
-  backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(2,12,35,.45);transition:transform .15s,border-color .15s,box-shadow .15s}
-.card:hover{border-color:#38bdf8;transform:translateY(-4px);box-shadow:0 14px 40px rgba(56,189,248,.28)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-decoration:none;color:var(--ink);
+  box-shadow:0 6px 20px rgba(90,65,40,.10);transition:transform .15s,border-color .15s,box-shadow .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 30px rgba(90,65,40,.16)}
 .card .big{font-size:44px}
-.card h2{margin:14px 0 6px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:21px;
-  letter-spacing:-0.035em;color:#fff}
-.card p{color:rgba(255,255,255,.8);margin:0;font-size:14px;line-height:1.5}
-.tag{color:rgba(255,255,255,.88);font-size:17px;font-weight:500}
-.crumbs{color:rgba(255,255,255,.7);font-size:14px;padding-top:16px} .crumbs a{color:#7dd3fc;text-decoration:none;font-weight:600}
-a.btn.primary{background:linear-gradient(135deg,#2563eb,#38bdf8);border-color:#38bdf8;color:#fff;display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 20px rgba(56,189,248,.35)}
-h1{text-shadow:0 4px 26px rgba(56,189,248,.35)}
-footer{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}
-.whobar{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;
-  color:rgba(255,255,255,.62);font-size:12.5px;padding:12px 16px 0}
-.whobar a{color:#7dd3fc;text-decoration:none;font-weight:700}
+.card h2{margin:14px 0 6px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:21px;letter-spacing:-0.035em;color:var(--ink)}
+.card p{color:var(--soft);margin:0;font-size:14px;line-height:1.5}
+.tag{color:var(--soft);font-size:17px;font-weight:500}
+.crumbs{color:var(--soft);font-size:14px;padding-top:16px} .crumbs a{color:var(--link);text-decoration:none;font-weight:600}
+a.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 18px rgba(185,96,59,.28)}
+a.btn.primary:hover{filter:brightness(1.07);color:#fff}
+footer{color:var(--soft);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}
+.whobar{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;color:var(--soft);font-size:12.5px;padding:12px 16px 0}
+.whobar a{color:var(--link);text-decoration:none;font-weight:700}
 </style><script type="application/ld+json">{"@context": "https://schema.org", "@type": "Organization", "name": "Hardy Wu", "url": "https://hardywu.com", "logo": "https://hardywu.com/logo.png", "sameAs": ["https://shop.hardywu.com", "https://bookkeep.hardywu.com"]}</script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "ItemList", "name": "Hardy's 3D prints", "itemListElement": [{"@type": "ListItem", "position": 1, "item": {"@type": "Product", "name": "Blue Crab Gauge", "url": "https://shop.hardywu.com/products/crab-gauge", "image": "https://play.hardywu.com/products/crab-gauge/Crab_Gauge_photo.webp", "description": "A handy blue-crab measuring gauge with an embossed scale \u2014 check your catch in seconds, then hang it back on its hook.", "offers": {"@type": "Offer", "price": "13.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 2, "item": {"@type": "Product", "name": "Customizable Lunchbox", "url": "https://shop.hardywu.com/products/customizable-lunchbox", "image": "https://play.hardywu.com/products/customizable-lunchbox/Sophia_Lunchbox_render.webp", "description": "A hinged, printed lunchbox with a carry handle \u2014 pick your colors, add a name, and send a picture your kid loves to get it printed right on the front. Made to order, one of a kind.", "offers": {"@type": "Offer", "price": "35.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 3, "item": {"@type": "Product", "name": "Dual Ruler", "url": "https://shop.hardywu.com/products/dual-ruler", "image": "https://play.hardywu.com/products/dual-ruler/Dual_Ruler_photo.webp", "description": "A sturdy ruler with centimeters along one edge and inches along the other, with crisp raised markings.", "offers": {"@type": "Offer", "price": "13.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 4, "item": {"@type": "Product", "name": "Paw Fidget Spinner (pack of 3)", "url": "https://shop.hardywu.com/products/fidget-spinner", "image": "https://play.hardywu.com/products/fidget-spinner/Paw_Fidget_Spinner_2026-10-28.webp", "description": "Three paw-print fidget spinners in one pack: white paw prints on the arms and a centre button that spins in a groove, no bearing needed. Body in the color you pick; want three different colors? Say so in the color request box.", "offers": {"@type": "Offer", "price": "25.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 5, "item": {"@type": "Product", "name": "Flexi Skeleton", "url": "https://shop.hardywu.com/products/flexi-skeleton", "image": "https://play.hardywu.com/products/flexi-skeleton/Flexi_Skeleton_photo.webp", "description": "A big-headed flexi skeleton with jointed limbs and a toothy grin \u2014 it flops, sits, and poses. Printed in the color you choose.", "offers": {"@type": "Offer", "price": "14.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "ItemList", "name": "Hardy's 3D prints", "itemListElement": [{"@type": "ListItem", "position": 1, "item": {"@type": "Product", "name": "Blue Crab Gauge", "url": "https://shop.hardywu.com/products/crab-gauge", "image": "https://play.hardywu.com/products/crab-gauge/Crab_Gauge_photo.webp", "description": "A handy blue-crab measuring gauge with an embossed scale \u2014 check your catch in seconds, then hang it back on its hook.", "offers": {"@type": "Offer", "price": "13.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 2, "item": {"@type": "Product", "name": "Customizable Lunchbox", "url": "https://shop.hardywu.com/products/customizable-lunchbox", "image": "https://play.hardywu.com/products/customizable-lunchbox/Sophia_Lunchbox_render.webp", "description": "A hinged, printed lunchbox with a carry handle \u2014 pick your colors, add a name, and send a picture your kid loves to get it printed right on the front. Made to order, one of a kind.", "offers": {"@type": "Offer", "price": "35.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 3, "item": {"@type": "Product", "name": "Dual Ruler", "url": "https://shop.hardywu.com/products/dual-ruler", "image": "https://play.hardywu.com/products/dual-ruler/Dual_Ruler_photo.webp", "description": "A sturdy ruler with centimeters along one edge and inches along the other, with crisp raised markings.", "offers": {"@type": "Offer", "price": "3.50", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 4, "item": {"@type": "Product", "name": "Paw Fidget Spinner (pack of 3)", "url": "https://shop.hardywu.com/products/fidget-spinner", "image": "https://play.hardywu.com/products/fidget-spinner/Paw_Fidget_Spinner_2026-10-28.webp", "description": "Three paw-print fidget spinners in one pack: white paw prints on the arms and a centre button that spins in a groove, no bearing needed. Body in the color you pick; want three different colors? Say so in the color request box.", "offers": {"@type": "Offer", "price": "25.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 5, "item": {"@type": "Product", "name": "Flexi Skeleton", "url": "https://shop.hardywu.com/products/flexi-skeleton", "image": "https://play.hardywu.com/products/flexi-skeleton/Flexi_Skeleton_photo.webp", "description": "A big-headed flexi skeleton with jointed limbs and a toothy grin \u2014 it flops, sits, and poses. Printed in the color you choose.", "offers": {"@type": "Offer", "price": "14.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}]}</script>
 </head><body>
 <div class="whobar"></div>
 <div class="crumbs"></div>
-<p style="font-size:12px;color:rgba(255,255,255,.55);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:#7dd3fc">hardywu.com/llms.txt</a></p>
+<p style="font-size:12px;color:var(--soft);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:var(--link)">hardywu.com/llms.txt</a></p>
 
 
-<header><img src="/logo.png" alt="Hardy Wu logo" style="width:104px;height:104px;border-radius:22px;margin-top:6px">
-<p style="letter-spacing:.35em;font-weight:700;color:#fff;opacity:.72;font-size:14px;margin:14px 0 0;font-weight:800">HARDY WU</p>
-<h1 style="font-size:clamp(46px,9.5vw,94px);font-weight:900;font-style:italic;letter-spacing:-0.045em;margin:8px 0 12px;line-height:.95;color:#fff">TRY NEW<br>THINGS.</h1>
-<p class="tag">Apps, video games, 3D prints & robots.</p></header>
-<div class="cards"><a class="card" href="/apps"><img src="/sec/apps.png" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="Apps"><h2>Apps</h2><p>Software built by Hardy Wu.</p></a><a class="card" href="/games"><img src="/sec/games.png" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="Video Games"><h2>Video Games</h2><p>Games built by Hardy Wu — play them free.</p></a><a class="card" href="/3d"><img src="/sec/3d.png" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="3D"><h2>3D</h2><p>The 3D print store — pick your colors and see it before you buy.</p></a><a class="card" href="/robotics"><img src="/sec/robotics.png" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="Robotics"><h2>Robotics</h2><p>Robot projects. Coming soon.</p></a></div>
+<style>
+.top{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 16px 4px;flex-wrap:wrap}
+.top img{width:52px;height:52px;border-radius:12px} .top .nm{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}
+.top .sl{color:var(--soft);font-size:14px;width:100%}
+.row{max-width:1180px;margin:18px auto 6px;padding:0 16px;text-align:left}
+.row h2{font-size:24px;font-weight:900;margin:0 0 12px;display:flex;align-items:baseline;gap:12px}
+.row h2 a{font-size:14px;font-weight:700;color:var(--link);text-decoration:none}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--ink);box-shadow:0 4px 14px rgba(90,65,40,.08);
+  display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
+.tile:hover{border-color:var(--accent);transform:translateY(-3px)}
+.tile img,.tile-ph{width:100%;aspect-ratio:1;object-fit:cover;background:#e9e0d2;display:block}
+.tile-ph{display:flex;align-items:center;justify-content:center;font-size:54px}
+.tile b{padding:10px 12px 2px;font-size:15px;line-height:1.3} .tile span{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--accent)}
+.tile i{margin:-8px 12px 12px;font-style:normal;font-weight:700;color:#b23b3b;font-size:13px}
+.tile{min-width:0}
+@media(max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .tile b{font-size:14px} .tile span{font-size:17px} .top .nm{font-size:22px}}
+</style>
+<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><div class="sl">Made by Hardy Wu · try new things</div></div>
+<nav><a href="/3d">🛍️ Shop</a><a href="/games">🎮 Video Games</a></nav>
+<section class="row"><h2>🛍️ Shop <a href="/3d">See all →</a></h2><div class="tiles"><a class="tile" href="https://shop.hardywu.com/products/crab-gauge"><img src="/products/crab-gauge/Crab_Gauge_photo.webp" alt="Blue Crab Gauge" loading="lazy"><b>Blue Crab Gauge</b><span>$13.99</span></a><a class="tile" href="https://shop.hardywu.com/products/customizable-lunchbox"><img src="/products/customizable-lunchbox/Sophia_Lunchbox_render.webp" alt="Customizable Lunchbox" loading="lazy"><b>Customizable Lunchbox</b><span>$35.99</span></a><a class="tile" href="https://shop.hardywu.com/products/dual-ruler"><img src="/products/dual-ruler/Dual_Ruler_photo.webp" alt="Dual Ruler" loading="lazy"><b>Dual Ruler</b><span>$3.50</span></a><a class="tile" href="https://shop.hardywu.com/products/fidget-spinner"><img src="/products/fidget-spinner/Paw_Fidget_Spinner_2026-10-28.webp" alt="Paw Fidget Spinner (pack of 3)" loading="lazy"><b>Paw Fidget Spinner (pack of 3)</b><span>$25.99</span></a><a class="tile" href="https://shop.hardywu.com/products/flexi-skeleton"><img src="/products/flexi-skeleton/Flexi_Skeleton_photo.webp" alt="Flexi Skeleton" loading="lazy"><b>Flexi Skeleton</b><span>$14.99</span></a></div></section>
+<section class="row"><h2>🎮 Video Games <a href="/games">See all →</a></h2><div class="tiles"><a class="tile" href="/games/football-sim"><img src="/item/footballsim.png" alt="Football Sim" loading="lazy"><b>Football Sim</b><span>Play free</span></a><a class="tile" href="/games/nova-blast"><img src="/item/nova.png" alt="Nova Blast" loading="lazy"><b>Nova Blast</b><span>Play free</span></a><a class="tile" href="/games/critter-quest"><img src="/item/quest.png" alt="Critter Quest" loading="lazy"><b>Critter Quest</b><span>Play free</span></a><a class="tile" href="/games/zheng-shang-you"><div class="tile-ph">🎮</div><b>争上游 Zheng Shang You</b><span>Play free</span></a><a class="tile" href="/games/elemental-latin"><div class="tile-ph">🎮</div><b>Elemental Latin</b><span>Play free</span></a><a class="tile" href="/games/elementum"><div class="tile-ph">🎮</div><b>Elementum</b><span>Play free</span></a><a class="tile" href="/games/nova-strike"><img src="/item/novastrike.png" alt="Nova Strike" loading="lazy"><b>Nova Strike</b><span>Play free</span></a><a class="tile" href="/games/cmind-freecell"><img src="/item/freecell.png" alt="C-Mind FreeCell" loading="lazy"><b>C-Mind FreeCell</b><span>Play free</span></a><a class="tile" href="/games/pokemon-adventure"><img src="/item/pokemonadv.png" alt="Pokémon Adventure" loading="lazy"><b>Pokémon Adventure</b><span>Play free</span></a></div></section>
 <footer>hardywu.com — Try New Things 🛠️</footer>
 <script>(async()=>{try{
  const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
@@ -56,4 +70,5 @@ footer{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-sp
  b.append("signed in as ",n," · ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
  if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);
    const o=document.createElement("a");o.href="/orders";o.textContent="🧾 orders";b.append(" · ",o);}
+ if(j.family){const a=document.createElement("a");a.href="/apps";a.textContent="📱 Apps";b.append(" · ",a);}
 }catch(e){}})()</script></body></html>

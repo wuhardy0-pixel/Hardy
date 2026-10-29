@@ -54,3 +54,9 @@ Add-ons: name $1.99 (36 %), picture $3.49 (25 %), extra colour $3.49 (25 %).
 
 Where the price sits above the market (lunchbox, ruler), the levers are cost, not margin: charge shipping under a free-shipping
 threshold (one $5.50 label covers several small items), sell small items as kits or packs, or count less of Hardy's time per piece.
+
+## 2026-10-29 — ruler $3.50
+
+Hardy: ruler at $3.50, worked out as $0.03 per gram × weight ÷ (1 − 0.8), i.e. filament cost with an 80 % margin.
+$3.50 matches a ruler of about 23.3 g, so the catalog weight was changed from the 30 g estimate to 23.3 g. This rule
+counts filament only (no postage, labour or electricity), so with free shipping the ruler sells below its full cost.

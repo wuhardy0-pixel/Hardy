@@ -90,7 +90,8 @@ PORTFOLIO_HOSTS = {"hardywu.com", "www.hardywu.com", "play.hardywu.com"}   # pla
 APP_HOST = "https://bookkeep.hardywu.com"   # books.hardywu.com still works as an alias
 
 PORTFOLIO = {
-    "apps": {"title": "Apps", "emoji": "📱", "blurb": "Software built by Hardy Wu.",
+    # hidden: not on the front page or the menu for the public; the pages still work by address, and the family sees an Apps link
+    "apps": {"title": "Apps", "emoji": "📱", "blurb": "Software built by Hardy Wu.", "hidden": True,
         "items": {
             "bookkeep": {"name": "BookKeep", "emoji": "📒", "redirect": APP_HOST, "img": "/item/bookkeep.png",
                 "desc": "An AI bookkeeper you can talk to — double-entry accounting, evidence, statements, and margins."},
@@ -128,10 +129,10 @@ PORTFOLIO = {
                 "desc": "An adventure through a world of creatures to catch and battle, on itch.io.",
                 "link": "https://hardywu.itch.io/pa", "link_label": "Play"},
         }},
-    "3d": {"title": "3D", "emoji": "🖨️",
-        "blurb": "The 3D print store — pick your colors and see it before you buy.",
+    "3d": {"title": "Shop", "emoji": "🛍️",   # the shop: 3D prints now, robots join it when they are ready
+        "blurb": "3D prints and robots, made to order — pick your colors and see it before you buy.",
         "items": {}},  # filled from the shop catalog below
-    "robotics": {"title": "Robotics", "emoji": "🤖", "blurb": "Robot projects. Coming soon.",
+    "robotics": {"title": "Robotics", "emoji": "🤖", "blurb": "Robot projects. Coming soon.", "hidden": True,   # part of the Shop now
         "items": {}},
 }
 
@@ -921,9 +922,18 @@ def order_from_shop():
     if not is_local_request():
         return jsonify(error="Internal only."), 403
     x = request.get_json(force=True)
+    ref = str(x.get("ref") or "")[:120]   # Stripe session id + line: a retried payment webhook must not record the order twice
+    if ref:
+        con = db()
+        con.execute("CREATE TABLE IF NOT EXISTS shop_refs(ref TEXT PRIMARY KEY, order_id TEXT NOT NULL)")
+        row = con.execute("SELECT order_id FROM shop_refs WHERE ref=?", (ref,)).fetchone()
+        con.close()
+        if row:
+            return jsonify(ok=True, order=row[0], duplicate=True)
     oid = "O_" + uuid.uuid4().hex[:10]
-    # the store forwards the shopper's cookie, so we know who was signed in
-    v_name, v_email = (session.get("v_name") or "").strip(), (visitor() or "")
+    # the store forwards the shopper's cookie, so we know who was signed in; a paid card order
+    # comes from Stripe's webhook instead, with the signed-in email the store saw at checkout
+    v_name, v_email = (session.get("v_name") or "").strip(), (visitor() or str(x.get("account") or "").strip().lower()[:90])
     buyer = str(x.get("buyer") or "").strip()[:60]
     if not buyer or buyer == "Online customer":
         buyer = v_name or "Online customer"
@@ -937,6 +947,8 @@ def order_from_shop():
                 (oid, str(x.get("product") or "")[:60], pname, qty, float(x.get("price_each") or 0), float(x.get("total") or 0),
                  color, details, buyer, now_iso(), v_name, v_email, str(x.get("email") or "").strip()[:90] or v_email, ship_to, phone))
     add_print_job(con, oid, pname, qty, color, details, buyer)
+    if ref:
+        con.execute("INSERT INTO shop_refs(ref, order_id) VALUES(?,?)", (ref, oid))
     con.commit(); con.close()
     return jsonify(ok=True, order=oid, signed_in=v_email or None)
 
@@ -1206,27 +1218,26 @@ VISITOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Welcom
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:#03102c}
-body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;
+html,body{margin:0;min-height:100%;background:#e6ddcf}
+body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2f2a24;
  display:grid;place-items:center;padding:28px;text-align:center;
- background:radial-gradient(1200px 700px at 50% -10%,#1b58c9 0%,rgba(27,88,201,0) 60%),
-  radial-gradient(900px 600px at 85% 20%,#0e7fd6 0%,rgba(14,127,214,0) 55%),
-  linear-gradient(180deg,#04102e 0%,#061a44 45%,#03102c 100%);background-attachment:fixed}
-.card{width:min(460px,100%);background:rgba(9,28,66,.6);border:1px solid rgba(96,165,250,.3);
- border-radius:22px;padding:32px 26px;backdrop-filter:blur(10px);box-shadow:0 14px 50px rgba(2,12,35,.5)}
+ background:radial-gradient(1100px 600px at 50% -10%,#efe6d7 0%,rgba(239,230,215,0) 60%),
+  linear-gradient(180deg,#e9e1d4 0%,#e3d9c9 100%);background-attachment:fixed}
+.card{width:min(460px,100%);background:#f3ede3;border:1px solid #d2c4ae;
+ border-radius:22px;padding:32px 26px;box-shadow:0 14px 40px rgba(90,65,40,.14)}
 img.logo{width:92px;height:92px;border-radius:20px}
 h1{font-size:clamp(30px,7vw,46px);font-weight:900;font-style:italic;text-transform:uppercase;
  letter-spacing:-.045em;line-height:.95;margin:16px 0 6px}
-p{color:rgba(255,255,255,.82);font-size:15px;line-height:1.55;margin:8px 0}
-input{font:inherit;font-size:17px;padding:15px 16px;border-radius:14px;border:1px solid rgba(96,165,250,.4);
- background:rgba(3,16,44,.75);color:#fff;width:100%;margin:9px 0;text-align:center}
-input:focus{outline:none;border-color:#38bdf8}
+p{color:#6b6157;font-size:15px;line-height:1.55;margin:8px 0}
+input{font:inherit;font-size:17px;padding:15px 16px;border-radius:14px;border:1px solid #d2c4ae;
+ background:#faf6ef;color:#2f2a24;width:100%;margin:9px 0;text-align:center}
+input:focus{outline:none;border-color:#b9603b}
 button{font:inherit;font-weight:800;font-size:19px;padding:15px 30px;margin-top:14px;border:0;border-radius:14px;
- width:100%;cursor:pointer;background:linear-gradient(135deg,#2563eb,#38bdf8);color:#fff;
- box-shadow:0 10px 28px rgba(56,189,248,.4)}
-.err{color:#fca5a5;min-height:20px;font-size:14px;font-weight:700;margin-top:8px}
-.small{color:rgba(255,255,255,.6);font-size:12.5px;margin-top:16px}
-.devrow{margin:6px 0 4px;font-size:14px;color:#9aa4bd}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #3a4560;background:#111827;color:#fff;cursor:pointer;opacity:.65}.dev.on{opacity:1;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.35)}
+ width:100%;cursor:pointer;background:#b9603b;color:#fff;
+ box-shadow:0 8px 22px rgba(185,96,59,.3)}
+.err{color:#b23b3b;min-height:20px;font-size:14px;font-weight:700;margin-top:8px}
+.small{color:#6b6157;font-size:12.5px;margin-top:16px}
+.devrow{margin:6px 0 4px;font-size:14px;color:#6b6157}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #d2c4ae;background:#faf6ef;color:#2f2a24;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#b9603b;box-shadow:0 0 0 2px rgba(185,96,59,.25)}
 </style></head><body>
 <div class="card">
  <img class="logo" src="/logo.png" alt="Hardy Wu">
@@ -1444,7 +1455,7 @@ def api_me():
     """Who is signed in — the static www pages ask this to fill their sign-in bar."""
     if not visitor():
         return jsonify({})
-    return jsonify(name=session.get("v_name") or "", email=visitor(), hardy=is_hardy())
+    return jsonify(name=session.get("v_name") or "", email=visitor(), hardy=is_hardy(), family=is_family())
 
 @app.get("/signout")
 def visitor_signout():
@@ -1619,6 +1630,10 @@ def fmt_dur(sec):
     h, rem = divmod(sec, 3600)
     m = rem // 60
     return f"{h} hr" + (f" {m} min" if m else "")
+
+FAMILY_EMAILS = {HARDY_EMAIL, "haowu8@gmail.com", "barbaratao@gmail.com"}   # who sees the hidden Apps link
+def is_family():
+    return (visitor() or "").lower() in FAMILY_EMAILS
 
 def is_hardy():
     return visitor() == HARDY_EMAIL or (session.get("v_email") or "").lower() == HARDY_EMAIL
@@ -1828,10 +1843,12 @@ def is_portfolio_host():
     return host.endswith(f":{SITE_PORT}")
 
 def p_page(title, body, crumbs=""):
-    nav = "".join(f'<a href="/{k}">{v["emoji"]} {v["title"]}</a>' for k, v in PORTFOLIO.items())
+    nav = "".join(f'<a href="/{k}">{v["emoji"]} {v["title"]}</a>' for k, v in front_sections())
     if visitor():
         who = (f'signed in as <b>{html.escape(session.get("v_name") or "")}</b> '
                f'({html.escape(visitor())}) · <a href="/signout">sign out</a>')
+        if is_family():
+            who += ' · <a href="/apps">📱 Apps</a>'
         if is_hardy():
             who += ' · <a href="/activity">📊 see who visited</a> · <a href="/orders">🧾 orders</a> · <a href="/feedback">💬 feedback</a>'
     else:
@@ -1844,55 +1861,81 @@ def p_page(title, body, crumbs=""):
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
-html{{background:#03102c}}
+/* warm sand theme (2026-10-29, Hardy: "not blue, not dark, not too bright"), same as the store */
+:root{{--ground:#e6ddcf;--card:#f3ede3;--ink:#2f2a24;--soft:#6b6157;--line:#d2c4ae;--accent:#b9603b;--link:#9b4c2c}}
+html{{background:var(--ground)}}
 body{{font-family:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
-  color:#fff;margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
-  background:radial-gradient(1200px 700px at 50% -10%,#1b58c9 0%,rgba(27,88,201,0) 60%),
-             radial-gradient(900px 600px at 85% 20%,#0e7fd6 0%,rgba(14,127,214,0) 55%),
-             radial-gradient(900px 700px at 10% 80%,#0b3f9e 0%,rgba(11,63,158,0) 60%),
-             linear-gradient(180deg,#04102e 0%,#061a44 45%,#03102c 100%);
+  color:var(--ink);margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
+  background:radial-gradient(1100px 600px at 50% -10%,#efe6d7 0%,rgba(239,230,215,0) 60%),linear-gradient(180deg,#e9e1d4 0%,#e3d9c9 100%);
   background-attachment:fixed}}
 header{{padding:34px 20px 10px}}
 h1{{margin:10px 0;font-size:clamp(34px,6vw,58px);font-weight:900;font-style:italic;text-transform:uppercase;
-  letter-spacing:-0.04em;line-height:.95;color:#fff}} .tag{{color:#9aa4bd}}
+  letter-spacing:-0.04em;line-height:.95;color:var(--ink)}}
 nav{{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px}}
-nav a,a.btn{{background:rgba(12,34,78,.55);border:1px solid rgba(96,165,250,.35);color:#fff;text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em;backdrop-filter:blur(8px)}}
-nav a:hover,a.btn:hover{{background:rgba(23,60,130,.7);border-color:#60a5fa}}
+nav a,a.btn{{background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em}}
+nav a:hover,a.btn:hover{{border-color:var(--accent);color:var(--accent)}}
 .cards{{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;max-width:1000px;margin:24px auto;padding:0 20px}}
-.card{{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:22px 18px;text-decoration:none;color:#eaf3ff;
-  backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(2,12,35,.45);transition:transform .15s,border-color .15s,box-shadow .15s}}
-.card:hover{{border-color:#38bdf8;transform:translateY(-4px);box-shadow:0 14px 40px rgba(56,189,248,.28)}}
+.card{{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-decoration:none;color:var(--ink);
+  box-shadow:0 6px 20px rgba(90,65,40,.10);transition:transform .15s,border-color .15s,box-shadow .15s}}
+.card:hover{{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 30px rgba(90,65,40,.16)}}
 .card .big{{font-size:44px}}
-.card h2{{margin:14px 0 6px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:21px;
-  letter-spacing:-0.035em;color:#fff}}
-.card p{{color:rgba(255,255,255,.8);margin:0;font-size:14px;line-height:1.5}}
-.tag{{color:rgba(255,255,255,.88);font-size:17px;font-weight:500}}
-.crumbs{{color:rgba(255,255,255,.7);font-size:14px;padding-top:16px}} .crumbs a{{color:#7dd3fc;text-decoration:none;font-weight:600}}
-a.btn.primary{{background:linear-gradient(135deg,#2563eb,#38bdf8);border-color:#38bdf8;color:#fff;display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 20px rgba(56,189,248,.35)}}
-h1{{text-shadow:0 4px 26px rgba(56,189,248,.35)}}
-footer{{color:rgba(255,255,255,.6);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}}
-.whobar{{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;
-  color:rgba(255,255,255,.62);font-size:12.5px;padding:12px 16px 0}}
-.whobar a{{color:#7dd3fc;text-decoration:none;font-weight:700}}
+.card h2{{margin:14px 0 6px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:21px;letter-spacing:-0.035em;color:var(--ink)}}
+.card p{{color:var(--soft);margin:0;font-size:14px;line-height:1.5}}
+.tag{{color:var(--soft);font-size:17px;font-weight:500}}
+.crumbs{{color:var(--soft);font-size:14px;padding-top:16px}} .crumbs a{{color:var(--link);text-decoration:none;font-weight:600}}
+a.btn.primary{{background:var(--accent);border-color:var(--accent);color:#fff;display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 18px rgba(185,96,59,.28)}}
+a.btn.primary:hover{{filter:brightness(1.07);color:#fff}}
+footer{{color:var(--soft);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}}
+.whobar{{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;color:var(--soft);font-size:12.5px;padding:12px 16px 0}}
+.whobar a{{color:var(--link);text-decoration:none;font-weight:700}}
 </style></head><body>
 <div class="whobar">{who}</div>
 <div class="crumbs">{crumbs}</div>
-<p style="font-size:12px;color:rgba(255,255,255,.55);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:#7dd3fc">hardywu.com/llms.txt</a></p>
+<p style="font-size:12px;color:var(--soft);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:var(--link)">hardywu.com/llms.txt</a></p>
 {f"<nav>{nav}</nav>" if crumbs else ""}
 {body}
 <footer>hardywu.com — Try New Things 🛠️</footer>
 <script src="/track.js" defer></script></body></html>"""
 
+def front_sections():
+    """The sections the public sees, Shop first (Hardy 2026-10-29: open on the shop, like Amazon)."""
+    order = ["3d", "games"]
+    return [(k, PORTFOLIO[k]) for k in order + [k for k in PORTFOLIO if k not in order] if not PORTFOLIO[k].get("hidden")]
+
 def portfolio_home():
-    cards = "".join(
-        f'<a class="card" href="/{k}"><img src="/sec/{k}.png" style="width:140px;height:140px;object-fit:cover;border-radius:18px;margin:0 auto 2px" alt="{v["title"]}"><h2>{v["title"]}</h2><p>{v["blurb"]}</p></a>'
-        for k, v in PORTFOLIO.items())
-    return p_page("Hardy Wu", f"""
-<header><img src="/logo.png" alt="Hardy Wu logo" style="width:104px;height:104px;border-radius:22px;margin-top:6px">
-<p style="letter-spacing:.35em;font-weight:700;color:#fff;opacity:.72;font-size:14px;margin:14px 0 0;font-weight:800">HARDY WU</p>
-<h1 style="font-size:clamp(46px,9.5vw,94px);font-weight:900;font-style:italic;letter-spacing:-0.045em;margin:8px 0 12px;line-height:.95;color:#fff">TRY NEW<br>THINGS.</h1>
-<p class="tag">Apps, video games, 3D prints & robots.</p></header>
-<div class="cards">{cards}</div>""")
+    """Opens straight on the products: pictures and prices first, like Amazon, then the video games."""
+    def tile(href, img, name, line, extra=""):
+        pic = f'<img src="{img}" alt="{html.escape(name)}" loading="lazy">' if img else '<div class="tile-ph">🎮</div>'
+        return f'<a class="tile" href="{href}">{pic}<b>{html.escape(name)}</b><span>{line}</span>{extra}</a>'
+    prods = "".join(tile(shop_product_url(slug), p.get("photo"), p["name"], f'${p["price"]:.2f}',
+                         "" if SHOP_PRODUCTS[slug].get("in_stock", True) else '<i>Sold out</i>')
+                    for slug, p in PORTFOLIO["3d"]["items"].items())
+    games = "".join(tile(f"/games/{slug}", it.get("img"), it["name"], "Play free")
+                    for slug, it in PORTFOLIO["games"]["items"].items())
+    nav = "".join(f'<a href="/{k}">{v["emoji"]} {v["title"]}</a>' for k, v in front_sections())
+    return p_page("Hardy Wu — Shop and video games", f"""
+<style>
+.top{{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 16px 4px;flex-wrap:wrap}}
+.top img{{width:52px;height:52px;border-radius:12px}} .top .nm{{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}}
+.top .sl{{color:var(--soft);font-size:14px;width:100%}}
+.row{{max-width:1180px;margin:18px auto 6px;padding:0 16px;text-align:left}}
+.row h2{{font-size:24px;font-weight:900;margin:0 0 12px;display:flex;align-items:baseline;gap:12px}}
+.row h2 a{{font-size:14px;font-weight:700;color:var(--link);text-decoration:none}}
+.tiles{{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}}
+.tile{{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--ink);box-shadow:0 4px 14px rgba(90,65,40,.08);
+  display:flex;flex-direction:column;transition:transform .15s,border-color .15s}}
+.tile:hover{{border-color:var(--accent);transform:translateY(-3px)}}
+.tile img,.tile-ph{{width:100%;aspect-ratio:1;object-fit:cover;background:#e9e0d2;display:block}}
+.tile-ph{{display:flex;align-items:center;justify-content:center;font-size:54px}}
+.tile b{{padding:10px 12px 2px;font-size:15px;line-height:1.3}} .tile span{{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--accent)}}
+.tile i{{margin:-8px 12px 12px;font-style:normal;font-weight:700;color:#b23b3b;font-size:13px}}
+.tile{{min-width:0}}
+@media(max-width:520px){{.tiles{{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}} .tile b{{font-size:14px}} .tile span{{font-size:17px}} .top .nm{{font-size:22px}}}}
+</style>
+<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><div class="sl">Made by Hardy Wu · try new things</div></div>
+<nav>{nav}</nav>
+<section class="row"><h2>🛍️ Shop <a href="/3d">See all →</a></h2><div class="tiles">{prods}</div></section>
+<section class="row"><h2>🎮 Video Games <a href="/games">See all →</a></h2><div class="tiles">{games}</div></section>""")
 
 SHOP_HOST = "https://shop.hardywu.com"
 
@@ -1900,6 +1943,8 @@ def portfolio_section(section):
     if section == "3d":             # the 3D section IS the live-preview store — browse freely, sign in at checkout
         if visitor(): track("open", "The 3D store", SHOP_HOST)
         return redirect(SHOP_HOST)
+    if section == "robotics":       # robots are part of the Shop now
+        return redirect("/3d")
     sec = PORTFOLIO.get(section)
     if not sec:
         return p_page("Not found", "<h1>Section not found</h1>", '<a href="/">← hardywu.com</a>'), 404
@@ -2064,7 +2109,7 @@ input{font-size:20px;padding:12px;border-radius:10px;border:1px solid #3a4560;ba
 button{font-size:19px;font-weight:700;padding:12px 34px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}
 .err{color:#ff9d9d;min-height:22px}
 p.small{color:#9aa4bd;font-size:13px}
-.devrow{margin:6px 0 4px;font-size:14px;color:#9aa4bd}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #3a4560;background:#111827;color:#fff;cursor:pointer;opacity:.65}.dev.on{opacity:1;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.35)}</style></head><body>
+.devrow{margin:6px 0 4px;font-size:14px;color:#6b6157}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #d2c4ae;background:#faf6ef;color:#2f2a24;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#b9603b;box-shadow:0 0 0 2px rgba(185,96,59,.25)}</style></head><body>
 <div class="card"><h1>📒 BookKeep</h1><p>Log in to BookKeep</p>
 <input id="nm" autofocus placeholder="Your name (e.g. Hardy)" autocomplete="name" maxlength="40">
 <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="80">

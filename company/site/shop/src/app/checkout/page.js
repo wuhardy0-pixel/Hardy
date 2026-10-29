@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useCart, cart, money } from "../../lib/cart";
 
 const SHIPPING = 0;
+const CARD = !!process.env.CARD_PAYMENTS;   // Stripe keys are set: the buyer pays by card on Stripe's page
 const STATES = "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ");
 
 export default function Checkout() {
@@ -12,6 +13,7 @@ export default function Checkout() {
   const [f, setF] = useState({ name: "", email: "", line1: "", line2: "", city: "", state: "MD", zip: "", phone: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const cancelled = typeof location !== "undefined" && /[?&]cancelled=1/.test(location.search);
   const onShop = typeof location !== "undefined" && location.hostname === "shop.hardywu.com";
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" }).then((r) => r.json()).then((m) => { setMe(m); setF((x) => ({ ...x, name: m.name || x.name, email: m.email || x.email })); }).catch(() => setMe({}));
@@ -34,7 +36,8 @@ export default function Checkout() {
       const d = await res.json();
       if (res.status === 401 && d.login) { location.href = d.login; return; }
       if (!res.ok) throw new Error(d.error || "Something went wrong placing the order.");
-      cart.clear(); location.href = d.url;
+      if (!d.card) cart.clear();   // a card order clears the cart on the thank-you page, so cancelling on Stripe keeps it
+      location.href = d.url;
     } catch (e) { setError(e.message); setBusy(false); }
   };
 
@@ -68,7 +71,11 @@ export default function Checkout() {
           </section>
           <section className="co-step">
             <h2><span className="n">3</span> Payment</h2>
-            <div className="pay-note">No card is needed now. Hardy emails you after the order to arrange payment (and answers any questions about your colors) before printing starts.</div>
+            {CARD ? (
+              <div className="pay-note">You pay by card on Stripe's secure page after you click <b>Continue to payment</b>. Hardy never sees your card number.{cancelled && <><br /><b>Payment was cancelled, nothing was charged.</b> Your cart is still here.</>}</div>
+            ) : (
+              <div className="pay-note">No card is needed now. Hardy emails you after the order to arrange payment (and answers any questions about your colors) before printing starts.</div>
+            )}
           </section>
           <section className="co-step">
             <h2><span className="n">4</span> Review items</h2>
@@ -77,7 +84,7 @@ export default function Checkout() {
           </section>
         </div>
         <aside className="side-box">
-          <button className="btn-yellow" style={{ padding: 10 }} onClick={place} disabled={busy || needSignIn}>{busy ? "Placing your order…" : "Place your order"}</button>
+          <button className="btn-yellow" style={{ padding: 10 }} onClick={place} disabled={busy || needSignIn}>{busy ? (CARD ? "Opening secure payment…" : "Placing your order…") : CARD ? "Continue to payment" : "Place your order"}</button>
           <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>By placing this order you agree Hardy may email you about it.</div>
           <div className="sline" style={{ display: "flex", justifyContent: "space-between" }}><span>Items:</span><span>{money(sub)}</span></div>
           <div className="sline" style={{ display: "flex", justifyContent: "space-between" }}><span>Shipping:</span><span style={{ color: "var(--ok)", fontWeight: 700 }}>FREE</span></div>

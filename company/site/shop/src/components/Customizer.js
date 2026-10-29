@@ -401,7 +401,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
           </div>
         ))}
         <div className="stock-note">Plenty of orange, red and black filament. <b>Only a little left</b> of blue, purple, white and clear — Hardy will tell you if yours runs out before printing.</div>
-        {lowPicked.length > 0 && <div className="stock-note" style={{ color: "#fbbf24" }}>⚠️ {lowPicked.join(", ")}: only a little left in stock.</div>}
+        {lowPicked.length > 0 && <div className="stock-note" style={{ color: "#a86f0a" }}>⚠️ {lowPicked.join(", ")}: only a little left in stock.</div>}
         <div className="field">
           <textarea className="textbox" rows={1} placeholder="Want a color you don't see? Ask here — Hardy checks before printing." value={colorRequest} maxLength={200}
             onChange={(e) => { setColorRequest(e.target.value); save({ colorRequest: e.target.value }); }} />
@@ -436,7 +436,7 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         <button className="btn-yellow" onClick={addToCart} disabled={uploading || product.in_stock === false}>{added ? "✓ Added to cart" : "Add to Cart"}</button>
         <button className="btn-orange" onClick={buyNow} disabled={uploading || product.in_stock === false}>Buy Now</button>
         {added && <div style={{ fontSize: 13 }}><a href="/cart">Go to cart →</a></div>}
-        <div className="secure">🔒 No card needed now — Hardy emails you to arrange payment and shipping.</div>
+        <div className="secure">{process.env.CARD_PAYMENTS ? "🔒 Secure card payment by Stripe — Hardy never sees your card number." : "🔒 No card needed now — Hardy emails you to arrange payment and shipping."}</div>
         <div className="sold-by"><span>Ships from</span><b>Hardy's 3D</b><span>Sold by</span><b>Hardy Wu</b><span>Returns</span><b>Reprinted free if it arrives broken</b></div>
         <div className="sline"><span>{product.name} × {qty}</span><span>{money(unitCents * qty)}</span></div>
         <div className="sline"><span>Shipping</span><span>{shippingCents ? money(shippingCents) : "FREE"}</span></div>
