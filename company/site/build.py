@@ -25,7 +25,7 @@ c = server.app.test_client()
 WHOBAR_JS = """<script>(async()=>{try{
  const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
  if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
- b.append("signed in as ",n," \u00b7 ");const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
+ b.append("signed in as ",n," \u00b7 ");if(j.coins!==undefined){const c=document.createElement("a");c.href="/coins";c.textContent="\U0001FA99 "+j.coins+" coins";b.append(c," \u00b7 ");}const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
  if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="\U0001F4CA see who visited";b.append(" \u00b7 ",a);
    const o=document.createElement("a");o.href="/orders";o.textContent="\U0001F9FE orders";b.append(" \u00b7 ",o);}
  if(j.family){const a=document.createElement("a");a.href="/apps";a.textContent="\U0001F4F1 Apps";b.append(" \u00b7 ",a);}
@@ -79,6 +79,7 @@ redirects = [
     f"/go/*          {LIVE}/go/:splat  302",
     f"/activity      {LIVE}/activity  302",
     f"/orders        {LIVE}/orders  302",
+    f"/feedback      {LIVE}/feedback  302",
     f"/signout       {LIVE}/signout  302",
     f"/api/*         {LIVE}/api/:splat  307",
     f"/products/*    {LIVE}/products/:splat  302",

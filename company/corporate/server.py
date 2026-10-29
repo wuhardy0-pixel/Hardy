@@ -1455,7 +1455,7 @@ def api_me():
     """Who is signed in — the static www pages ask this to fill their sign-in bar."""
     if not visitor():
         return jsonify({})
-    return jsonify(name=session.get("v_name") or "", email=visitor(), hardy=is_hardy(), family=is_family())
+    return jsonify(name=session.get("v_name") or "", email=visitor(), hardy=is_hardy(), family=is_family(), **({"coins": coin_balance(visitor())} if COINS_ON else {}))
 
 @app.get("/signout")
 def visitor_signout():
@@ -1594,7 +1594,18 @@ def feedback_page():
           '<a href="/">← hardywu.com</a>'), 403
     con = db()
     rows = [dict(r) for r in con.execute("SELECT * FROM feedback ORDER BY sent_at DESC")]
+    given = {r["feedback_id"]: r["amount"] for r in con.execute("SELECT feedback_id, SUM(amount) amount FROM coins WHERE feedback_id IS NOT NULL GROUP BY feedback_id")}
     con.close()
+    def coin_bar(f):
+        if not COINS_ON:
+            return ""
+        if f["id"] in given:
+            return f'<div class="coinbar">🪙 {given[f["id"]]} coins given</div>' if given[f["id"]] else '<div class="coinbar">no coins for this one</div>'
+        if not f.get("email"):
+            return ""
+        return (f'<div class="coinbar" id="cb{f["id"]}">'
+                + "".join(f'<button onclick="award({f["id"]},{n})">{t}</button>' for n, t in ((COINS_PER_SUGGESTION, f"🪙 +{COINS_PER_SUGGESTION}"), (COINS_BONUS, f"🌟 great idea +{COINS_BONUS}"), (0, "no coins")))
+                + '</div>')
     def row(f):
         return f"""<div class="person">
   <div class="top"><div><div class="nm">{html.escape(f.get("name") or "(no name)")}
@@ -1602,19 +1613,163 @@ def feedback_page():
     <div class="muted">🎮 {html.escape(f.get("playing") or "")}{(" · " + html.escape(f["device"])) if f.get("device") else ""}</div></div>
     <div class="stat"><div class="muted">sent {html.escape(fmt_when(f["sent_at"]))}</div>
       <div class="muted">started {html.escape(fmt_when(f["opened_at"])) if f.get("opened_at") else "?"} · played {fmt_dur(f.get("played_seconds"))}</div></div></div>
-  <p style="margin:12px 0 0;white-space:pre-wrap;font-size:16px">{html.escape(f.get("message") or "")}</p></div>"""
+  <p style="margin:12px 0 0;white-space:pre-wrap;font-size:16px">{html.escape(f.get("message") or "")}</p>{coin_bar(f)}</div>"""
     body = f"""<header><h1>Feedback</h1>
       <p class="tag">{len(rows)} message{"" if len(rows)==1 else "s"} from the 💬 button in the games — who wrote it, what they were playing, and when.</p></header>
       <div class="wrap">{"".join(row(f) for f in rows) or '<p class="tag">No feedback yet.</p>'}</div>"""
     extra = """<style>
 .wrap{max-width:900px;margin:10px auto 40px;padding:0 18px;text-align:left}
-.person{background:rgba(9,28,66,.55);border:1px solid rgba(96,165,250,.28);border-radius:18px;padding:20px;margin:16px 0;backdrop-filter:blur(10px)}
+.person{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0}
 .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .nm{font-size:20px;font-weight:900;font-style:italic}
-.muted{color:rgba(255,255,255,.62);font-size:13px;margin-top:4px}
+.muted{color:var(--soft);font-size:13px;margin-top:4px}
 .stat{text-align:right}
-</style>"""
+.coinbar{margin-top:12px;font-size:14px;color:var(--soft);font-weight:600}
+.coinbar button{font:inherit;font-weight:700;margin-right:8px;padding:7px 14px;border-radius:10px;border:1px solid var(--line);background:#faf6ef;color:var(--ink);cursor:pointer}
+.coinbar button:first-child{background:var(--accent);border-color:var(--accent);color:#fff}
+</style>
+<script>
+async function award(id,n){const r=await fetch("/api/coins/award",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({feedback_id:id,amount:n})});
+ const j=await r.json();document.getElementById("cb"+id).textContent=r.ok?(n?"🪙 "+n+" coins given":"no coins for this one"):(j.error||"could not save");}
+</script>"""
     return p_page("Feedback — Hardy Wu", body + extra, '<a href="/">← hardywu.com</a> · <a href="/activity">📊 who visited</a> · <a href="/orders">🧾 orders</a>')
+
+# ---- 🪙 Coins (Hardy 2026-10-29): a suggestion Hardy reads earns coins; enough coins = a free 3D print.
+# Hardy gives the coins from his feedback page, so typing junk earns nothing.
+COINS_PER_SUGGESTION, COINS_BONUS, COINS_FREE_PRINT = 10, 25, 100
+FREE_PRINT_MAX_PRICE = 15.0     # the free print is one of the small pieces (ruler, crab gauge, skeleton…)
+
+def coin_balance(email, con=None):
+    if not email:
+        return 0
+    c = con or db()
+    n = c.execute("SELECT COALESCE(SUM(amount),0) FROM coins WHERE lower(email)=?", (email.lower(),)).fetchone()[0]
+    if not con: c.close()
+    return int(n)
+
+def free_print_items():
+    return {slug: p for slug, p in SHOP_PRODUCTS.items() if p.get("in_stock", True) and float(p["price"]) <= FREE_PRINT_MAX_PRICE}
+
+def can_give_coins():
+    return is_hardy() or (visitor() or "") == OWNER_EMAIL
+
+@app.post("/api/coins/award")
+def coins_award():
+    if not COINS_ON:
+        return (jsonify(error="Coins are not open yet."), 404) if request.path.startswith("/api/") else redirect("/")
+    if not can_give_coins():
+        return jsonify(error="Only Hardy can give coins."), 403
+    d = request.get_json(silent=True) or {}
+    try:
+        fid, amount = int(d.get("feedback_id")), int(d.get("amount"))
+    except (TypeError, ValueError):
+        return jsonify(error="bad request"), 400
+    if amount not in (0, COINS_PER_SUGGESTION, COINS_BONUS):
+        return jsonify(error="bad amount"), 400
+    con = db()
+    f = con.execute("SELECT email FROM feedback WHERE id=?", (fid,)).fetchone()
+    if not f or not f["email"]:
+        con.close(); return jsonify(error="That suggestion has no email to give coins to."), 404
+    if con.execute("SELECT 1 FROM coins WHERE feedback_id=?", (fid,)).fetchone():
+        con.close(); return jsonify(error="Already decided."), 409
+    con.execute("INSERT INTO coins(email,amount,reason,feedback_id,created_at) VALUES(?,?,?,?,?)",
+                (f["email"].lower(), amount, "Bonus: great idea" if amount == COINS_BONUS else "Suggestion", fid, now_iso()))
+    con.commit(); con.close()
+    return jsonify(ok=True, balance=coin_balance(f["email"]))
+
+@app.post("/api/coins/redeem")
+def coins_redeem():
+    if not COINS_ON:
+        return (jsonify(error="Coins are not open yet."), 404) if request.path.startswith("/api/") else redirect("/")
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in first."), 401
+    d = request.get_json(silent=True) or {}
+    slug, color = str(d.get("product") or ""), str(d.get("color") or "")[:40]
+    ship_to = str(d.get("ship_to") or "").strip()[:300]
+    items = free_print_items()
+    if slug not in items:
+        return jsonify(error="Pick one of the free-print pieces."), 400
+    if color not in SHOP_COLORS:
+        return jsonify(error="Pick a color."), 400
+    if len(ship_to) < 5:
+        return jsonify(error="Tell Hardy where to send it (or write 'hand it to me')."), 400
+    con = db()
+    if coin_balance(em, con) < COINS_FREE_PRINT:
+        con.close(); return jsonify(error=f"You need {COINS_FREE_PRINT} coins for a free print."), 400
+    name = (session.get("v_name") or "").strip()[:60] or em
+    oid = "O_" + uuid.uuid4().hex[:10]
+    pname, details = items[slug]["name"], f"FREE PRINT for {COINS_FREE_PRINT} coins · Color: {color}"
+    con.execute("""INSERT INTO orders(id,product,product_name,qty,price_each,total,color,custom_text,buyer,status,created_at,
+                                      visitor_name,visitor_email,buyer_email,source,ship_to,phone)
+                   VALUES(?,?,?,1,0,0,?,?,?,'ordered',?,?,?,?,'coins',?,'')""",
+                (oid, slug, pname, color, details, name, now_iso(), name, em, em, ship_to))
+    add_print_job(con, oid, pname, 1, color, details, name)
+    con.execute("INSERT INTO coins(email,amount,reason,order_id,created_at) VALUES(?,?,?,?,?)",
+                (em, -COINS_FREE_PRINT, f"Free print: {pname}", oid, now_iso()))
+    con.commit(); bal = coin_balance(em, con); con.close()
+    if mail_configured():
+        send_mail(OWNER_EMAIL, f"🪙 Free print with coins: {pname} for {name}",
+                  f"{name} <{em}> used {COINS_FREE_PRINT} coins for a free {pname} in {color}.\nSend to:\n{ship_to}\n\nOrder {oid} is in the print queue.")
+    return jsonify(ok=True, order=oid, balance=bal)
+
+@app.get("/coins")
+def coins_page():
+    if not COINS_ON:
+        return (jsonify(error="Coins are not open yet."), 404) if request.path.startswith("/api/") else redirect("/")
+    em = visitor()
+    if not em:
+        return redirect(login_url_for("") + "?next=/coins") if on_real_site() else VISITOR_HTML
+    con = db()
+    hist = [dict(r) for r in con.execute("SELECT amount,reason,created_at FROM coins WHERE lower(email)=? AND amount<>0 ORDER BY created_at DESC LIMIT 50", (em,))]
+    waiting = con.execute("""SELECT COUNT(*) FROM feedback f WHERE lower(f.email)=? AND NOT EXISTS (SELECT 1 FROM coins c WHERE c.feedback_id=f.id)""", (em,)).fetchone()[0]
+    bal = coin_balance(em, con); con.close()
+    pct = min(100, round(bal * 100 / COINS_FREE_PRINT))
+    rows = "".join(f'<tr><td>{html.escape(fmt_when(h["created_at"]))}</td><td>{html.escape(h["reason"] or "")}</td>'
+                   f'<td class="{"plus" if h["amount"] > 0 else "minus"}">{h["amount"]:+d}</td></tr>' for h in hist) or '<tr><td colspan=3 class="muted">No coins yet — send your first suggestion below.</td></tr>'
+    items = free_print_items()
+    opts = "".join(f'<option value="{s}">{html.escape(p["name"])}</option>' for s, p in items.items())
+    colors = "".join(f"<option>{html.escape(c)}</option>" for c in SHOP_COLORS)
+    redeem = (f"""<div class="box"><h2>🎁 Get your free print</h2>
+  <label>Piece<select id="rp">{opts}</select></label><label>Color<select id="rc">{colors}</select></label>
+  <label>Send it to<textarea id="rs" placeholder="Your address, or 'hand it to me'"></textarea></label>
+  <button onclick="redeem()">Use {COINS_FREE_PRINT} coins</button><div id="rm" class="msg"></div></div>"""
+              if bal >= COINS_FREE_PRINT else
+              f'<p class="muted">{COINS_FREE_PRINT - bal} more coins to go. Free-print pieces: {html.escape(", ".join(p["name"] for p in items.values()))}.</p>')
+    body = f"""<header><h1>🪙 Your coins</h1>
+<p class="tag">Send Hardy a suggestion: every one he reads earns <b>{COINS_PER_SUGGESTION} coins</b> (a great idea earns {COINS_BONUS}).<br><b>{COINS_FREE_PRINT} coins = a free 3D print.</b></p></header>
+<div class="wrap">
+ <div class="box center"><div class="bal">{bal}</div><div class="muted">coins{f" · {waiting} suggestion{'s' if waiting != 1 else ''} waiting for Hardy to read" if waiting else ""}</div>
+  <div class="bar"><i style="width:{pct}%"></i></div><div class="muted">{min(bal, COINS_FREE_PRINT)} / {COINS_FREE_PRINT} toward a free print</div></div>
+ {redeem}
+ <div class="box"><h2>💡 Send a suggestion</h2><p class="muted">An idea for a game, a new thing to 3D print, something that went wrong — anything that helps Hardy.</p>
+  <textarea id="sg" maxlength="2000" placeholder="Your suggestion…"></textarea><button onclick="suggest()">Send</button><div id="sm" class="msg"></div></div>
+ <div class="box"><h2>History</h2><table>{rows}</table></div>
+</div>
+<style>
+.wrap{{max-width:640px;margin:10px auto 40px;padding:0 16px;text-align:left}}
+.box{{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0}} .box h2{{margin:0 0 10px;font-size:20px}}
+.center{{text-align:center}} .bal{{font-size:56px;font-weight:900;color:var(--accent);line-height:1}}
+.bar{{height:14px;border-radius:7px;background:#e3d8c7;margin:14px 0 6px;overflow:hidden}} .bar i{{display:block;height:100%;background:var(--accent);border-radius:7px}}
+.muted{{color:var(--soft);font-size:13.5px}}
+label{{display:block;font-size:13px;font-weight:700;margin:10px 0 0}}
+select,textarea{{display:block;width:100%;box-sizing:border-box;margin-top:4px;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#faf6ef;color:var(--ink)}}
+textarea{{height:96px;resize:vertical}}
+.box button{{font:inherit;font-weight:800;font-size:16px;margin-top:12px;padding:11px 22px;border:0;border-radius:12px;background:var(--accent);color:#fff;cursor:pointer}}
+.msg{{min-height:18px;margin-top:8px;font-size:14px;font-weight:600;color:var(--accent)}}
+table{{width:100%;border-collapse:collapse;font-size:14px}} td{{padding:8px 4px;border-bottom:1px solid var(--line)}} td:last-child{{text-align:right;font-weight:800}}
+.plus{{color:#3f7a47}} .minus{{color:#b23b3b}}
+</style>
+<script>
+async function post(u,b){{const r=await fetch(u,{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify(b)}});return [r.ok,await r.json()];}}
+async function suggest(){{const t=document.getElementById("sg"),m=document.getElementById("sm");if(t.value.trim().length<2){{m.textContent="Type your idea first.";return;}}
+ const [ok,j]=await post("/api/feedback",{{message:t.value.trim(),path:"/coins",playing:"Suggestion (coins page)"}});
+ m.textContent=ok?"Sent — thank you! 🪙 Your coins arrive when Hardy reads it.":(j.error||"Could not send.");if(ok)t.value="";}}
+async function redeem(){{const m=document.getElementById("rm");
+ const [ok,j]=await post("/api/coins/redeem",{{product:document.getElementById("rp").value,color:document.getElementById("rc").value,ship_to:document.getElementById("rs").value}});
+ if(ok){{m.textContent="🎉 Done! Hardy will print it. Order "+j.order+".";setTimeout(()=>location.reload(),2500);}}else m.textContent=j.error||"Could not do that.";}}
+</script>"""
+    return p_page("Your coins — Hardy Wu", body, '<a href="/">← hardywu.com</a>')
 
 @app.get("/track.js")
 def track_js():
@@ -1631,6 +1786,7 @@ def fmt_dur(sec):
     m = rem // 60
     return f"{h} hr" + (f" {m} min" if m else "")
 
+COINS_ON = False   # Hardy/Barbara 2026-10-29: "don't add coins yet" — the coin system is built but switched off
 FAMILY_EMAILS = {HARDY_EMAIL, "haowu8@gmail.com", "barbaratao@gmail.com"}   # who sees the hidden Apps link
 def is_family():
     return (visitor() or "").lower() in FAMILY_EMAILS
@@ -1846,7 +2002,7 @@ def p_page(title, body, crumbs=""):
     nav = "".join(f'<a href="/{k}">{v["emoji"]} {v["title"]}</a>' for k, v in front_sections())
     if visitor():
         who = (f'signed in as <b>{html.escape(session.get("v_name") or "")}</b> '
-               f'({html.escape(visitor())}) · <a href="/signout">sign out</a>')
+               f'({html.escape(visitor())}) · ' + (f'<a href="/coins">🪙 {coin_balance(visitor())} coins</a> · ' if COINS_ON else "") + '<a href="/signout">sign out</a>')
         if is_family():
             who += ' · <a href="/apps">📱 Apps</a>'
         if is_hardy():
@@ -1916,7 +2072,7 @@ def portfolio_home():
     return p_page("Hardy Wu — Shop and video games", f"""
 <style>
 .top{{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 16px 4px;flex-wrap:wrap}}
-.top img{{width:52px;height:52px;border-radius:12px}} .top .nm{{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}}
+.top img{{width:52px;height:52px;border-radius:12px}} .top img.cat{{width:84px;height:84px;border-radius:0;margin:-14px 0 -10px}} .top .nm{{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}}
 .top .sl{{color:var(--soft);font-size:14px;width:100%}}
 .row{{max-width:1180px;margin:18px auto 6px;padding:0 16px;text-align:left}}
 .row h2{{font-size:24px;font-weight:900;margin:0 0 12px;display:flex;align-items:baseline;gap:12px}}
@@ -1928,12 +2084,15 @@ def portfolio_home():
 .tile img,.tile-ph{{width:100%;aspect-ratio:1;object-fit:cover;background:#e9e0d2;display:block}}
 .tile-ph{{display:flex;align-items:center;justify-content:center;font-size:54px}}
 .tile b{{padding:10px 12px 2px;font-size:15px;line-height:1.3}} .tile span{{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--accent)}}
+.coinad{{display:block;max-width:1148px;margin:6px auto 0;padding:12px 16px;border-radius:14px;background:#f1e2c8;border:1px solid #dcc39a;color:var(--ink);text-decoration:none;font-size:15px}}
+.coinad:hover{{border-color:var(--accent)}} @media(max-width:1180px){{.coinad{{margin:6px 16px 0}}}}
 .tile i{{margin:-8px 12px 12px;font-style:normal;font-weight:700;color:#b23b3b;font-size:13px}}
 .tile{{min-width:0}}
 @media(max-width:520px){{.tiles{{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}} .tile b{{font-size:14px}} .tile span{{font-size:17px}} .top .nm{{font-size:22px}}}}
 </style>
-<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><div class="sl">Made by Hardy Wu · try new things</div></div>
+<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><img class="cat" src="/item/cat.svg" alt="Hardy's little cat"><div class="sl">Made by Hardy Wu · try new things</div></div>
 <nav>{nav}</nav>
+{f'<a class="coinad" href="/coins">🪙 Send Hardy a suggestion and earn coins — <b>{COINS_FREE_PRINT} coins = a free 3D print</b> →</a>' if COINS_ON else ""}
 <section class="row"><h2>🛍️ Shop <a href="/3d">See all →</a></h2><div class="tiles">{prods}</div></section>
 <section class="row"><h2>🎮 Video Games <a href="/games">See all →</a></h2><div class="tiles">{games}</div></section>""")
 
@@ -2061,10 +2220,10 @@ def require_passcode():
                             "/api/track", "/api/feedback", "/api/me", "/signout", "/api/order",
                             "/api/products", "/api/agent/order", "/openapi.json", "/llms.txt", "/robots.txt",
                             "/.well-known/ucp", "/terms")
-                      or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/") or p.startswith("/api/reviews/") or p == "/api/orders/mine"
+                      or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/") or p.startswith("/api/reviews/") or p == "/api/orders/mine" or p.startswith("/api/coins/")
                       or p.startswith("/products/") or p.startswith("/sec/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p == "/costs" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
+        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p == "/costs" or p == "/coins" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -2371,6 +2530,11 @@ def init_db():
     CREATE TABLE IF NOT EXISTS ucp_sessions(
       id TEXT PRIMARY KEY, data TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS coins(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL, amount INTEGER NOT NULL, reason TEXT,
+      feedback_id INTEGER, order_id TEXT, created_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS feedback(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT, email TEXT,
@@ -2475,7 +2639,7 @@ def section_image(name):
 @app.get("/item/<name>")
 def item_image(name):
     if name in {"bookkeep.png", "footballsim.png", "nova.png", "quest.png",
-                "novastrike.png", "pokemonadv.png", "freecell.png"}:
+                "novastrike.png", "pokemonadv.png", "freecell.png", "cat.svg"}:
         return send_from_directory(IMG_DIR, "item_" + name)
     return jsonify(error="Not found."), 404
 

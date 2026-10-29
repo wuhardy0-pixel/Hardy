@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="800" height="800">
+  <!-- Little cat v2 (2026-10-29): big head, low big eyes with highlights, tiny nose/mouth,
+       round shapes, soft warm palette, shadows in a darker fur tone (no grey/black), one warm outline colour. -->
+  <defs>
+    <clipPath id="headClip"><path id="headShape" d="M200 86 C282 86 318 130 318 182 C318 238 266 268 200 268 C134 268 82 238 82 182 C82 130 118 86 200 86 Z"/></clipPath>
+    <clipPath id="bodyClip"><ellipse cx="200" cy="300" rx="84" ry="66"/></clipPath>
+    <radialGradient id="bg" cx="50%" cy="45%" r="55%"><stop offset="0" stop-color="#e3f2f8"/><stop offset="1" stop-color="#cfe6f1"/></radialGradient>
+  </defs>
+  <g stroke="#5b3a2e" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="200" cy="205" r="178" fill="url(#bg)" stroke="none"/>
+    <!-- ground shadow -->
+    <ellipse cx="205" cy="364" rx="118" ry="14" fill="#a9cbdc" stroke="none" opacity=".7"/>
+
+    <!-- tail, behind the body -->
+    <path d="M262 340 C318 344 344 304 330 268 C322 248 300 250 302 268 C304 290 296 312 258 314 Z" fill="#f2a65a"/>
+    <path d="M318 258 C326 262 330 270 331 278" fill="none" stroke="#d9823b" stroke-width="7"/>
+    <path d="M305 300 C312 302 318 300 322 296" fill="none" stroke="#d9823b" stroke-width="7"/>
+
+    <!-- body -->
+    <ellipse cx="200" cy="300" rx="84" ry="66" fill="#f2a65a"/>
+    <g clip-path="url(#bodyClip)" stroke="none">
+      <ellipse cx="236" cy="330" rx="80" ry="60" fill="#d9823b" opacity=".45"/>
+      <ellipse cx="200" cy="312" rx="40" ry="44" fill="#fff1dd"/>
+    </g>
+    <ellipse cx="200" cy="300" rx="84" ry="66" fill="none"/>
+
+    <!-- front paws -->
+    <ellipse cx="170" cy="358" rx="24" ry="14" fill="#fff1dd"/>
+    <ellipse cx="230" cy="358" rx="24" ry="14" fill="#fff1dd"/>
+    <path d="M166 352 L166 362 M174 352 L174 362 M226 352 L226 362 M234 352 L234 362" stroke-width="3.5" stroke="#c9a88e"/>
+
+    <!-- ears (soft rounded triangles) -->
+    <path d="M104 152 C98 112 104 76 116 62 C128 58 160 84 178 102 Z" fill="#f2a65a"/>
+    <path d="M296 152 C302 112 296 76 284 62 C272 58 240 84 222 102 Z" fill="#f2a65a"/>
+    <path d="M118 128 C116 106 118 88 124 80 C134 84 150 98 158 108 Z" fill="#f6b3b0" stroke="none"/>
+    <path d="M282 128 C284 106 282 88 276 80 C266 84 250 98 242 108 Z" fill="#f6b3b0" stroke="none"/>
+
+    <!-- head -->
+    <use href="#headShape" fill="#f2a65a"/>
+    <g clip-path="url(#headClip)" stroke="none">
+      <ellipse cx="236" cy="262" rx="150" ry="70" fill="#d9823b" opacity=".38"/>   <!-- soft shadow, lower right -->
+      <ellipse cx="160" cy="118" rx="70" ry="34" fill="#ffd2a1" opacity=".55"/>   <!-- light, upper left -->
+      <ellipse cx="200" cy="232" rx="66" ry="40" fill="#fff1dd"/>                  <!-- muzzle -->
+      <!-- forehead stripes -->
+      <path d="M200 88 C196 104 196 116 200 128 C204 116 204 104 200 88 Z" fill="#d9823b"/>
+      <path d="M170 92 C168 104 170 114 176 122 C178 110 176 100 170 92 Z" fill="#d9823b"/>
+      <path d="M230 92 C232 104 230 114 224 122 C222 110 224 100 230 92 Z" fill="#d9823b"/>
+      <path d="M84 176 C98 176 108 180 114 186 C104 190 94 190 84 188 Z" fill="#d9823b"/>
+      <path d="M316 176 C302 176 292 180 286 186 C296 190 306 190 316 188 Z" fill="#d9823b"/>
+    </g>
+    <use href="#headShape" fill="none"/>
+
+    <!-- eyes: big, low, dark with two highlights -->
+    <ellipse cx="152" cy="196" rx="20" ry="24" fill="#3b2620" stroke="none"/>
+    <ellipse cx="248" cy="196" rx="20" ry="24" fill="#3b2620" stroke="none"/>
+    <circle cx="159" cy="186" r="7.5" fill="#fff" stroke="none"/><circle cx="146" cy="206" r="3.5" fill="#fff" stroke="none"/>
+    <circle cx="255" cy="186" r="7.5" fill="#fff" stroke="none"/><circle cx="242" cy="206" r="3.5" fill="#fff" stroke="none"/>
+
+    <!-- blush -->
+    <ellipse cx="122" cy="226" rx="17" ry="10" fill="#f4978e" stroke="none" opacity=".6"/>
+    <ellipse cx="278" cy="226" rx="17" ry="10" fill="#f4978e" stroke="none" opacity=".6"/>
+
+    <!-- tiny nose + mouth -->
+    <path d="M192 218 C192 214 208 214 208 218 C208 222 203 226 200 227 C197 226 192 222 192 218 Z" fill="#e8787a" stroke-width="3"/>
+    <path d="M200 227 C200 236 192 240 186 236 M200 227 C200 236 208 240 214 236" fill="none" stroke-width="4"/>
+
+    <!-- whiskers, short and light -->
+    <g stroke-width="3" opacity=".55">
+      <path d="M136 234 L106 230"/><path d="M136 241 L108 246"/>
+      <path d="M264 234 L294 230"/><path d="M264 241 L292 246"/>
+    </g>
+  </g>
+</svg>
