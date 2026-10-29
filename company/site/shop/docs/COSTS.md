@@ -31,3 +31,26 @@ about ten minutes of Hardy's time, so $2 lost money).
 
 Price = cost ÷ 0.7, rounded up to the cent, so every product earns exactly 30 % (Hardy: '30% on the dot'). This replaced the earlier .99 rounding.
 The old prices ($30 / $5 / $5 plus $5 shipping) did not cover the cost of the two small items.
+
+## 2026-10-28 — prices Hardy set
+
+Crab gauge $10, lunchbox $27, ruler $10, paw fidget spinner $15 for a pack of 3 (cost of a pack ≈ $19.67: 75 g, 6 h printing, 0.8 h labour, one parcel). Flexi skeleton stays at the 30 % rule ($15.38). Add-ons are cost ÷ 0.7: name $1.82 (5 min), picture $3.73 and extra colour $3.73 (10 min + 5 g purge each). The biggest cost on the small items is postage (free shipping) and labour at $15/h — lowering either is how these prices reach 30 %.
+
+## 2026-10-28 — 20 % floor, priced against the market
+
+Hardy: "do 20 % but think about the customer and what price he'll buy at; there are a lot of competitors." Rule now: the
+smallest price ending in .99 that leaves at least 20 %. Postage corrected to USPS Ground Advantage after the July 2026
+change (≈ $5.50 small parcel, ≈ $7.50 lunchbox) — free shipping is the biggest single cost on the small items.
+
+| Product | Cost | Price | Margin | What competitors charge |
+| --- | --- | --- | --- | --- |
+| Customizable Lunchbox | $28.11 | $35.99 | 22 % | personalised lunch/bento boxes $20–28 (not 3D-printed, no picture) |
+| Blue Crab Gauge | $10.81 | $13.99 | 23 % | Etsy gauges $6–22, store gauges $3–10 |
+| Dual Ruler | $10.48 | $13.99 | 25 % | plain rulers $1–5 — hard to sell at this price |
+| Paw Fidget Spinner, 3-pack | $20.67 | $25.99 | 21 % | 3D-printed 3-packs $20–35 |
+| Flexi Skeleton | $11.76 | $14.99 | 22 % | Etsy flexi skeletons mostly $5–15 |
+
+Add-ons: name $1.99 (36 %), picture $3.49 (25 %), extra colour $3.49 (25 %).
+
+Where the price sits above the market (lunchbox, ruler), the levers are cost, not margin: charge shipping under a free-shipping
+threshold (one $5.50 label covers several small items), sell small items as kits or packs, or count less of Hardy's time per piece.

@@ -9,5 +9,6 @@ Filled in by Claude 2026-08-14 per Barbara's instructions (fair pricing, options
 - **Sizes:** none
 - **Custom text? (max 30 characters):** no
 - **Customer image upload?** no
-- **Short description:** A paw-print fidget spinner with a press-fit center button and three cute lobed faces. Comes multicolored as shown.
-- **Photos:** Fidget_Spinner_photo.png, Fidget_Spinner_settings.png
+- **Short description:** A paw fidget spinner with three paw prints and a centre button that is printed already locked in place, so there is no bearing to buy or lose. Comes multicolored as shown.
+- **Photos:** Fidget_Spinner_photo.png
+- **2026-10-28 redesign:** models rebuilt in Fusion 360 (files in ~/Documents/3D/Fidget_Spinner); photos re-rendered.

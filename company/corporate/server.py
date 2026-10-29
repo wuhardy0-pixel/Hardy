@@ -956,17 +956,20 @@ def cost_sheet():
         design = c.get("designHours", 0) * k.get("designPerHour", 20) / max(1, k.get("designUnits", 40))
         total = material + elec + labor + design + c.get("shipping", 0) + c.get("packaging", 0)
         price = float(p["price"]); margin = (price - total) / price if price else 0
-        rows.append((p["name"], c, material, elec, labor, design, total, total / (1 - k.get("minMargin", .3)), price, margin))
+        rows.append((p["name"] + (" ✎" if p.get("priceSetBy") else ""), c, material, elec, labor, design, total, total / (1 - k.get("minMargin", .3)), price, margin, p.get("market", "")))
     ad = cat.get("addons") or {}
     html = ["<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Costs — Hardy's 3D</title>",
             "<style>body{font-family:-apple-system,Inter,sans-serif;background:#03102c;color:#fff;padding:20px;max-width:1100px;margin:0 auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0}td,th{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.15);text-align:right}th:first-child,td:first-child{text-align:left}th{color:#9fd1ff;font-weight:600}.ok{color:#5fd38a;font-weight:700}.bad{color:#ff6b6b;font-weight:700}.sm{color:rgba(255,255,255,.65);font-size:13px}a{color:#9fe3ff}</style>",
             "<h1>What each piece costs</h1><p class=sm>Shipping is free for the buyer, so postage is part of the cost. Price must leave at least " + f"{k.get('minMargin', .3):.0%}" + " gross margin. Numbers are estimates in company/site/shop/data/catalog.json — tell Claude to change any of them.</p>",
-            "<table><tr><th>Product</th><th>Filament</th><th>Print</th><th>Material</th><th>Electricity</th><th>Labour</th><th>Design</th><th>Postage</th><th>Packaging</th><th>Cost</th><th>Min price</th><th>Price</th><th>Margin</th></tr>"]
-    for name, c, m, e, l, d, t, mn, pr, mg in rows:
+            "<table><tr><th>Product</th><th>Filament</th><th>Print</th><th>Material</th><th>Electricity</th><th>Labour</th><th>Design</th><th>Postage</th><th>Packaging</th><th>Cost</th><th>Min price</th><th>Price</th><th>Margin</th><th style='text-align:left'>What competitors charge</th></tr>"]
+    for name, c, m, e, l, d, t, mn, pr, mg, mk in rows:
         cls = "ok" if mg >= k.get("minMargin", .3) - 1e-9 else "bad"
-        html.append(f"<tr><td>{name}</td><td>{c.get('grams',0)} g</td><td>{c.get('printHours',0)} h</td><td>${m:.2f}</td><td>${e:.2f}</td><td>${l:.2f} <span class=sm>({c.get('laborHours',0)} h)</span></td><td>${d:.2f} <span class=sm>({c.get('designHours',0)} h ÷ {k.get('designUnits',40)})</span></td><td>${c.get('shipping',0):.2f}</td><td>${c.get('packaging',0):.2f}</td><td><b>${t:.2f}</b></td><td>${mn:.2f}</td><td><b>${pr:.2f}</b></td><td class={cls}>{mg:.0%}</td></tr>")
+        html.append(f"<tr><td>{name}</td><td>{c.get('grams',0)} g</td><td>{c.get('printHours',0)} h</td><td>${m:.2f}</td><td>${e:.2f}</td><td>${l:.2f} <span class=sm>({c.get('laborHours',0)} h)</span></td><td>${d:.2f} <span class=sm>({c.get('designHours',0)} h ÷ {k.get('designUnits',40)})</span></td><td>${c.get('shipping',0):.2f}</td><td>${c.get('packaging',0):.2f}</td><td><b>${t:.2f}</b></td><td>${mn:.2f}</td><td><b>${pr:.2f}</b></td><td class={cls}>{mg:.0%}</td><td class=sm style='text-align:left'>{mk}</td></tr>")
     html.append("</table><h2>Rates</h2><table>" + "".join(f"<tr><td>{kk}</td><td>{vv}</td></tr>" for kk, vv in k.items() if kk != "note") + "</table>")
-    html.append(f"<h2>Add-ons</h2><p>Name +${ad.get('text',2)}, picture +${ad.get('image',2)}, each extra colour +${ad.get('extraColor',2)} — a picture or an extra colour is a filament change, about ten minutes of work.</p><p class=sm>{k.get('note','')}</p><p><a href='/orders'>← orders</a></p>")
+    ac = cat.get("addonCost") or {}
+    html.append("<h2>Add-ons</h2><table><tr><th>Add-on</th><th>What it takes</th><th>Cost</th><th>Price</th><th>Margin</th></tr>" + "".join(
+        f"<tr><td>{({'text':'Name','image':'Picture','extraColor':'Each extra colour'}).get(key,key)}</td><td>{a.get('why','')}</td><td>${a.get('cost',0):.2f}</td><td>${ad.get(key,0):.2f}</td><td class=ok>{(ad.get(key,0)-a.get('cost',0))/ad.get(key,1):.0%}</td></tr>" for key, a in ac.items()) + "</table>")
+    html.append(f"<p class=sm>Prices marked ✎ were set by Hardy and may be below the {k.get('minMargin', .3):.0%} target. {k.get('note','')}</p><p><a href='/orders'>← orders</a></p>")
     return "\n".join(html)
 
 @app.get("/api/orders/mine")
