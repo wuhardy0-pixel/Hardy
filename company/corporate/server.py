@@ -91,11 +91,11 @@ APP_HOST = "https://bookkeep.hardywu.com"   # books.hardywu.com still works as a
 
 PORTFOLIO = {
     # hidden: not on the front page or the menu for the public; the pages still work by address, and the family sees an Apps link
-    "apps": {"title": "Apps", "emoji": "📱", "blurb": "Software built by Hardy Wu.", "hidden": True,
+    "apps": {"title": "AI Apps", "emoji": "📱", "blurb": "Apps built by Hardy Wu, powered by AI.", "hidden": True,
         "items": {
-            "bookkeep": {"name": "BookKeep", "emoji": "📒", "redirect": APP_HOST, "img": "/item/bookkeep.png",
+            "bookkeep": {"name": "AI Bookkeeping", "emoji": "📒", "redirect": APP_HOST, "img": "/item/bookkeep.png",
                 "desc": "An AI bookkeeper you can talk to — double-entry accounting, evidence, statements, and margins."},
-            "news-tracker": {"name": "News Tracker", "emoji": "📰",
+            "news-tracker": {"name": "AI News Tracker", "emoji": "📰",
                 "desc": "Follow the topics you care about. Fresh headlines for each, what's new since you last looked, saved stories, and a one-minute AI briefing.",
                 "link": "/news", "link_label": "Open"},
         }},
@@ -237,7 +237,7 @@ def product_feed():
 def api_products():
     return jsonify(shop="Hardy's 3D", currency=_cat.get("currency", "usd"), updated=now_iso(),
                    products=product_feed(),
-                   policies={"payment": "No card is taken online. Hardy emails the buyer to arrange payment (pay on delivery).",
+                   policies={"payment": "Card payment at checkout on shop.hardywu.com (Stripe). Orders placed by an AI agent are paid later: Hardy emails the buyer to arrange payment.",
                              "shipping": SHIP_TEXT + ", made to order.",
                              "returns": "Contact " + OWNER_EMAIL + "."})
 
@@ -283,7 +283,7 @@ def llms_txt():
              "- Flow for agents: search_catalog → create_cart / update_cart (add, change, remove) → create_checkout with buyer + US address → send the buyer to continue_url to APPROVE → poll get_checkout until completed. Nothing is ordered without the buyer's approval.",
              "- Simpler order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order",
              "- Human storefront: https://shop.hardywu.com (asks for a name and email first)",
-             f"- Payment: none taken online. Hardy emails the buyer to arrange payment. {SHIP_TEXT}, US only. Contact {OWNER_EMAIL}.", "",
+             f"- Payment: by card at checkout on shop.hardywu.com (Stripe); for orders placed through this API, Hardy emails the buyer to arrange payment. {SHIP_TEXT}, US only. Contact {OWNER_EMAIL}.", "",
              "## Products"]
     for p in product_feed():
         lines.append(f"- {p['title']} — {p['price']}{' — SOLD OUT' if p['availability'] != 'in_stock' else ''}: {p['description']} (colours: {', '.join(p['variant_attributes']['color'])}) → {p['link']}")
@@ -955,7 +955,7 @@ def order_from_shop():
 @app.get("/costs")
 def cost_sheet():
     """Hardy's cost sheet: material, electricity, labour, design, postage and packaging per product, and the margin at the current price."""
-    if not is_owner():
+    if not is_hardy():
         return redirect(APP_HOST + "/costs") if not on_real_site() else ("Only the creator can see costs.", 403)
     cat = json.loads((SHOP_DIR / "data" / "catalog.json").read_text())
     k = cat.get("costing") or {}
@@ -1031,7 +1031,7 @@ def post_review(slug):
 
 @app.get("/api/orders")
 def list_orders():
-    if not is_owner():
+    if not is_hardy():
         return jsonify(error="Only the creator can see orders."), 403
     con = db()
     if request.args.get("all"):        # the Orders tab: every order ever placed, newest first
@@ -1048,7 +1048,7 @@ def list_orders():
 @app.post("/api/orders/update")
 def update_order():
     """Move an order along (ordered → printed → shipped → returned / cancelled) or tick it as booked."""
-    if not is_owner():
+    if not is_hardy():
         return jsonify(error="Only the creator can update orders."), 403
     x = request.get_json(force=True)
     oid = str(x.get("id") or "")
@@ -1075,12 +1075,13 @@ def update_order():
         elif status == "cancelled":
             con.execute("DELETE FROM print_jobs WHERE order_id=? AND status!='done'", (oid,))
     con.commit(); con.close()
+    staff_log("order", oid, " · ".join(filter(None, [status and f"status → {status}", "booked" in x and f"booked → {'yes' if x.get('booked') else 'no'}"])))
     return jsonify(ok=True)
 
 @app.get("/api/print-jobs")
 def list_print_jobs():
     """The 3D-printer queue: one task per order, oldest first; finished ones last."""
-    if not is_owner():
+    if not can_print():
         return jsonify(error="Only the creator can see the print queue."), 403
     con = db()
     rows = [dict(r) for r in con.execute("""SELECT j.*, o.status AS order_status, o.total, o.buyer_email, o.source
@@ -1091,7 +1092,7 @@ def list_print_jobs():
 
 @app.post("/api/print-jobs/update")
 def update_print_job():
-    if not is_owner():
+    if not can_print():
         return jsonify(error="Only the creator can update the print queue."), 403
     x = request.get_json(force=True)
     jid, status = str(x.get("id") or ""), str(x.get("status") or "")
@@ -1110,6 +1111,7 @@ def update_print_job():
     else:
         con.execute("UPDATE orders SET status='ordered' WHERE id=? AND status='printed'", (job["order_id"],))
     con.commit(); con.close()
+    staff_log("print job", job["order_id"], f"{job['product_name']} → {status}")
     return jsonify(ok=True)
 
 # ============================ visitor sign-in & activity =====================
@@ -1215,42 +1217,39 @@ def track(kind, label, path, seconds=0, detail=""):
 VISITOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Welcome — hardywu.com</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/favicon.png">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style/clay.css?v=STYLE_V"><script src="/style/theme.js?v=STYLE_V"></script>
 <style>
-*{box-sizing:border-box}
-html,body{margin:0;min-height:100%;background:#f6ead8}
-body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#5b3a2e;
- display:grid;place-items:center;padding:28px;text-align:center;
- background:radial-gradient(1100px 600px at 50% -10%,#fff3e2 0%,rgba(255,243,226,0) 60%),
-  linear-gradient(180deg,#f7ecdc 0%,#f3e4cf 100%);background-attachment:fixed}
-.card{width:min(460px,100%);background:#fffaf2;border:1px solid #ead6bb;
- border-radius:22px;padding:32px 26px;box-shadow:0 14px 40px rgba(90,65,40,.14)}
-img.logo{width:92px;height:92px;border-radius:20px}
-h1{font-size:clamp(30px,7vw,46px);font-weight:900;font-style:italic;text-transform:uppercase;
- letter-spacing:-.045em;line-height:.95;margin:16px 0 6px}
-p{color:#8a6a5a;font-size:15px;line-height:1.55;margin:8px 0}
-input{font:inherit;font-size:17px;padding:15px 16px;border-radius:14px;border:1px solid #ead6bb;
- background:#fffdf8;color:#5b3a2e;width:100%;margin:9px 0;text-align:center}
-input:focus{outline:none;border-color:#f2a65a}
-button{font:inherit;font-weight:800;font-size:19px;padding:15px 30px;margin-top:14px;border:0;border-radius:14px;
- width:100%;cursor:pointer;background:#f2a65a;color:#4a2e24;
- box-shadow:0 8px 22px rgba(217,130,59,.3)}
-.err{color:#b23b3b;min-height:20px;font-size:14px;font-weight:700;margin-top:8px}
-.small{color:#8a6a5a;font-size:12.5px;margin-top:16px}
-.devrow{margin:6px 0 4px;font-size:14px;color:#8a6a5a}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #ead6bb;background:#fffdf8;color:#5b3a2e;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#f2a65a;background:#d6ebf5;box-shadow:0 0 0 2px rgba(242,166,90,.35)}
+/* sign-in, in the site's clay style; it follows the visitor's Cozy / Space choice */
+body{display:grid;place-items:center;padding:28px;text-align:center;min-height:100vh}
+.card{position:relative;z-index:1;width:min(460px,100%);background:var(--card);border:3px solid var(--rim);border-radius:32px;padding:32px 26px;box-shadow:var(--clay);backdrop-filter:blur(8px)}
+img.logo{width:92px;height:92px;border-radius:24px;background:#fff;border:3px solid var(--rim);box-shadow:var(--clay-sm)}
+h1{font-size:clamp(34px,7vw,48px);margin:16px 0 6px}
+p{color:var(--muted);font-size:15px;line-height:1.55;margin:8px 0}
+input{font:inherit;font-size:17px;padding:15px 16px;border-radius:18px;border:3px solid var(--rim);background:var(--paper);color:var(--ink);width:100%;margin:9px 0;text-align:center;box-shadow:inset 3px 3px 8px rgba(120,70,40,.10)}
+input:focus{outline:none;border-color:var(--orange)}
+button{font-family:var(--fh);font-weight:900;font-size:19px;padding:15px 30px;margin-top:14px;border:3px solid #ffd9a6;border-radius:22px;width:100%;cursor:pointer;background:var(--orange);color:var(--on-orange);
+ box-shadow:inset -5px -6px 0 rgba(160,85,0,.22),inset 4px 4px 0 rgba(255,255,255,.45),6px 10px 20px rgba(248,153,29,.35);transition:transform .2s var(--spring)}
+button:active{transform:scale(.95)}
+.err{color:#c0392b;min-height:20px;font-size:14px;font-weight:700;margin-top:8px}
+.small{color:var(--muted);font-size:12.5px;margin-top:16px}
+.devrow{margin:6px 0 4px;font-size:14px;color:var(--muted)}
+.dev{font-family:var(--fb);font-size:14px;padding:8px 14px;margin:0 3px;border-radius:14px;border:3px solid var(--rim);background:var(--paper);color:var(--ink);cursor:pointer;opacity:.75;width:auto;box-shadow:var(--clay-sm);font-weight:700}
+.dev.on{opacity:1;border-color:var(--orange);background:var(--paper-hi)}
 </style></head><body>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
 <div class="card">
  <img class="logo" src="/logo.png" alt="Hardy Wu">
  <h1>Try New<br>Things.</h1>
- <p>Welcome to <b>hardywu.com</b> — apps, video games, 3D prints and robots.<br>Tell us who you are to come in.</p>
+ <p>Welcome to <b>hardywu.com</b>: 3D prints you can make your own, and video games.<br>Tell us who you are to come in.</p>
+ <!--google-->
  <input id="nm" autofocus placeholder="Your name" autocomplete="name" maxlength="60">
  <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="90">
- <div class="devrow" id="devrow">Playing on &nbsp;<button type="button" class="dev" data-dev="phone" onclick="pickDev('phone')">📱 Phone</button><button type="button" class="dev" data-dev="computer" onclick="pickDev('computer')">💻 Computer</button></div>
  <div class="err" id="err"></div>
  <button onclick="go()">Enter the site →</button>
  <p class="small">We email you a 6-digit code to check it's really you, and keep your name and email so Hardy knows who visited. Nothing is shared with anyone else.</p>
 </div>
 <script>
+// phone or computer is detected quietly (it only tags feedback for Hardy); nobody is asked
 let device=(document.cookie.match(/(?:^|; )hw_device=(phone|computer)/)||[])[1]||((matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)?"phone":"computer");
 function pickDev(v){device=v;for(const b of document.querySelectorAll(".dev"))b.classList.toggle("on",b.dataset.dev===v);}
 pickDev(device);
@@ -1263,7 +1262,7 @@ async function go(){
 for(const el of [nm,em])el.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 function showCode(j){
   const card=document.querySelector(".card");
-  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>30 seconds</b> to come in.</p>
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>10 minutes</b> to come in.</p>
    <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
    <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
    <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
@@ -1291,7 +1290,7 @@ MAIL_USER = os.environ.get("MAIL_USER", "").strip()
 MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "").strip().replace(" ", "")
 MAIL_FROM = os.environ.get("MAIL_FROM", "").strip() or (f"Hardy Wu <{MAIL_USER}>" if MAIL_USER else "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
-VERIFY_SECONDS, VERIFY_TRIES = 30, 5      # the emailed code dies after 30 seconds (Barbara, 2026-09-26)
+VERIFY_SECONDS, VERIFY_TRIES = 600, 5     # the emailed code lasts 10 minutes (Barbara, 2026-10-29; was 30 s)
 
 def mail_configured():
     return bool((MAIL_USER and MAIL_PASSWORD) or RESEND_API_KEY)
@@ -1312,7 +1311,7 @@ def send_mail(to, subject, text):
                                    "subject": subject, "text": text}).encode()
                 req = urllib.request.Request("https://api.resend.com/emails", data=body, method="POST",
                                              headers={"Authorization": "Bearer " + RESEND_API_KEY,
-                                                      "Content-Type": "application/json"})
+                                                      "Content-Type": "application/json", "User-Agent": "hardywu.com"})
                 urllib.request.urlopen(req, timeout=20).read()
         except Exception as e:                                       # noqa: BLE001
             print(f"[mail] could not send to {to}: {e}", flush=True)
@@ -1329,7 +1328,7 @@ def _code_hash(code):
 def login_needs_code(email):
     if os.environ.get("LOGIN_VERIFY", "").lower() == "off":
         return False
-    if email in (session.get("trusted") or []):                       # already proved on this browser
+    if email in (session.get("trusted") or []) and email not in staff_list():   # already proved on this browser
         return False
     return mail_configured() or _from_this_mac()
 
@@ -1381,7 +1380,7 @@ def verify_code():
     if not session.get("pv_email"):
         return jsonify(error="Please start again by typing your name and email."), 400
     if time.time() > float(session.get("pv_exp") or 0):
-        return jsonify(error="That code has expired (codes last 30 seconds). Press 'Send a new code' and type it straight away."), 400
+        return jsonify(error="That code has expired (codes last 10 minutes). Press 'Send a new code'."), 400
     tries = int(session.get("pv_tries") or 0) + 1
     session["pv_tries"] = tries
     if tries > VERIFY_TRIES:
@@ -1408,10 +1407,14 @@ def sign_in(name, email):
     session.permanent = True
     session["v_name"], session["v_email"] = name, email                     # the site + games + store
     session["authed"], session["name"], session["email"] = True, name, email   # BookKeep
+    row = staff_list().get((email or "").strip().lower())
+    session["signed_at"], session["staff_epoch"] = time.time(), (row["epoch"] if row else None)
     con = db()
+    # the email of an existing name is kept: typing someone else's name must not take over their member row
     con.execute("""INSERT INTO members(name,email,first_seen,last_seen,visits) VALUES(?,?,?,?,1)
                    ON CONFLICT(name) DO UPDATE SET last_seen=excluded.last_seen,
-                     email=excluded.email, visits=visits+1""",
+                     email=CASE WHEN COALESCE(members.email,'')='' THEN excluded.email ELSE members.email END,
+                     visits=visits+1""",
                 (name, email, now_iso(), now_iso()))
     con.commit(); con.close()
 
@@ -1433,6 +1436,12 @@ def visitor_login():
     sign_in(name, email)
     return with_device(dict(ok=True, next=visitor_destination(nxt)))
 
+def _shop_back(nxt):
+    """log3d.hardywu.com/?next=/make → https://shop.hardywu.com/make (store pages only)."""
+    from urllib.parse import urlparse, parse_qs
+    back = parse_qs(urlparse(nxt or "").query).get("next", [""])[0]
+    return SHOP_HOST + back if re.fullmatch(r"/(make|cart|checkout|orders)(/[\w-]*)?", back or "") else ""
+
 def visitor_destination(nxt):
     """Where a freshly signed-in visitor goes (and record what they opened)."""
     key = login_slug_from_host()
@@ -1443,6 +1452,8 @@ def visitor_destination(nxt):
         nxt = "https://play.hardywu.com" + back              # back to what they were opening
     elif key == "3d" and prod:
         nxt = shop_product_url(prod); track("open", "The 3D store", nxt)
+    elif key == "3d" and _shop_back(nxt):
+        nxt = _shop_back(nxt); track("open", "The 3D store", nxt)
     elif key is not None and key in login_targets():      # the server decides where a login address leads
         nxt = dest(login_targets()[key])
         track("open", login_targets()[key]["name"], nxt)
@@ -1450,12 +1461,39 @@ def visitor_destination(nxt):
         track("view", friendly_label(nxt), nxt)
     return nxt
 
+def account_info():
+    """Who is signed in, for the account menu. {} when nobody is."""
+    if not visitor():
+        return {}
+    me = staff_member()                    # the person, not the machine: the store asks this from this Mac on every visitor's behalf
+    return dict(name=session.get("v_name") or "", email=visitor(), hardy=bool(me and me["role"] in ("owner", "manager")), staff=bool(me), family=is_family(),
+                shop=shop_origin(), **({"coins": coin_balance(visitor())} if COINS_ON else {}))
+
 @app.get("/api/me")
 def api_me():
-    """Who is signed in — the static www pages ask this to fill their sign-in bar."""
-    if not visitor():
-        return jsonify({})
-    return jsonify(name=session.get("v_name") or "", email=visitor(), hardy=is_hardy(), family=is_family(), **({"coins": coin_balance(visitor())} if COINS_ON else {}))
+    """Who is signed in — the static www pages ask this to fill their account menu."""
+    return jsonify(account_info())
+
+# The account menu (hardywu.com header). Server pages embed window.__me; the static www pages fetch /api/me.
+ACCOUNT_JS = r"""
+(function(){const I={orders:'<svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>',
+ apps:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>',
+ list:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',eye:'<svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+ chat:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',office:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 21V5l8-3 8 3v16M9 9h2M13 9h2M9 13h2M13 13h2M10 21v-4h4v4"/></svg>',
+ out:'<svg class="ic" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M13 4h6v16h-6"/></svg>',chev:'<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'};
+function esc(s){return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+window.hwAccount=function(me){const box=document.getElementById("acct");if(!box)return;
+ if(!me||!me.name){box.innerHTML='<a class="chip dark press" href="'+esc(window.__signin||"/go/home")+'">Sign in</a>';return;}
+ const first=me.name.trim().split(/\s+/)[0],ini=me.name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+ const shop=me.shop||"https://shop.hardywu.com";let items='<a href="'+esc(shop)+'/orders">'+I.orders+'Your orders</a>'+(me.family?'<a href="/apps">'+I.apps+'Apps</a>':'');
+ if(me.hardy)items+='<div class="grp">Hardy\u2019s pages</div><a href="/orders">'+I.list+'Orders</a><a href="/activity">'+I.eye+'Who visited</a><a href="/feedback">'+I.chat+'Feedback</a>';
+ if(me.staff)items+='<a href="https://office.hardywu.com/">'+I.office+'Office</a>';
+ box.innerHTML='<button class="avatar" aria-haspopup="menu" aria-expanded="false"><i>'+esc(ini)+'</i><span>'+esc(first)+'</span>'+I.chev+'</button>'+
+  '<div class="menu" role="menu"><div class="who"><b>'+esc(me.name)+'</b><span>'+esc(me.email)+'</span></div>'+items+'<a class="out" href="/signout">'+I.out+'Sign out</a></div>';
+ const b=box.querySelector(".avatar"),m=box.querySelector(".menu");const set=o=>{m.classList.toggle("open",o);b.setAttribute("aria-expanded",o);};
+ b.onclick=e=>{e.stopPropagation();set(!m.classList.contains("open"));};document.addEventListener("click",e=>{if(!box.contains(e.target))set(false);});
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")set(false);});};
+if(window.__me!==undefined)hwAccount(window.__me);})();"""
 
 @app.get("/signout")
 def visitor_signout():
@@ -1791,8 +1829,82 @@ FAMILY_EMAILS = {HARDY_EMAIL, "haowu8@gmail.com", "barbaratao@gmail.com"}   # wh
 def is_family():
     return (visitor() or "").lower() in FAMILY_EMAILS
 
+# ============================ staff (office.hardywu.com) ============================
+# One list of who works here, by email, each with a role. Everyone else is a customer.
+# Staff sign-ins are stricter: a fresh code (or Google) every time, at most STAFF_DAYS
+# old, and "sign out everywhere" bumps the person's epoch so every other browser drops out.
+OFFICE_HOST = "office.hardywu.com"
+STAFF_ROLES = {"owner": "Everything: orders, print queue, costs, visitors, books and the staff list",
+               "manager": "Orders, print queue, costs, visitors and feedback",
+               "printer": "The print queue only"}
+STAFF_SEED = [(HARDY_EMAIL, "Hardy Wu", "owner"), ("barbaratao@gmail.com", "Barbara", "owner")]
+STAFF_DAYS = 7
+_staff_cache = None
+
+def _staff_tables(con):
+    con.execute("""CREATE TABLE IF NOT EXISTS staff(email TEXT PRIMARY KEY, name TEXT, role TEXT NOT NULL,
+                   epoch INTEGER NOT NULL DEFAULT 0, added_at TEXT NOT NULL, added_by TEXT)""")
+    con.execute("CREATE TABLE IF NOT EXISTS staff_actions(at TEXT NOT NULL, email TEXT, action TEXT NOT NULL, target TEXT, detail TEXT)")
+    if not con.execute("SELECT 1 FROM staff").fetchone():
+        for em, nm, role in STAFF_SEED:
+            con.execute("INSERT INTO staff VALUES(?,?,?,0,?,?)", (em, nm, role, now_iso(), "setup"))
+    con.commit()
+
+def staff_list():
+    global _staff_cache
+    if _staff_cache is None:
+        con = db(); _staff_tables(con)
+        _staff_cache = {r["email"]: dict(r) for r in con.execute("SELECT * FROM staff")}
+        con.close()
+    return _staff_cache
+
+def _session_email():
+    return (session.get("v_email") or session.get("email") or "").strip().lower()
+
+def _staff_session_stale(row):
+    return (session.get("staff_epoch") != row["epoch"]
+            or time.time() - float(session.get("signed_at") or 0) > STAFF_DAYS * 86400)
+
+def staff_member():
+    """The signed-in person's staff row, or None."""
+    row = staff_list().get(_session_email())
+    return row if row and not _staff_session_stale(row) else None
+
+def staff_role():
+    if is_local_request() and not _session_email():
+        return "owner"                                   # this Mac with nobody signed in: the family's own machine (BookKeep, tests)
+    row = staff_member()                                 # anyone signed in, here or on the internet, gets their real role
+    return row["role"] if row else None
+
 def is_hardy():
-    return visitor() == HARDY_EMAIL or (session.get("v_email") or "").lower() == HARDY_EMAIL
+    """Sees orders, the visitor report, feedback and costs (the name predates the staff list)."""
+    return staff_role() in ("owner", "manager")
+
+def can_print():
+    return staff_role() in ("owner", "manager", "printer")
+
+def staff_log(action, target="", detail=""):
+    try:
+        con = db(); _staff_tables(con)
+        con.execute("INSERT INTO staff_actions VALUES(?,?,?,?,?)",
+                    (now_iso(), _session_email() or ("this Mac" if is_local_request() else ""), action, str(target)[:120], str(detail)[:300]))
+        con.commit(); con.close()
+    except Exception as e:                                       # noqa: BLE001
+        print(f"[staff log] {e}", flush=True)
+
+def _signout_keep_device():
+    trusted, device = session.get("trusted"), session.get("device")
+    session.clear()
+    if trusted: session["trusted"] = trusted
+    if device: session["device"] = device
+
+@app.before_request
+def staff_session_rules():
+    """A staff sign-in that is too old, or was ended by 'sign out everywhere', is signed out."""
+    em = _session_email()
+    row = staff_list().get(em) if em else None
+    if row and _staff_session_stale(row):
+        _signout_keep_device()
 
 @app.get("/orders")
 def orders_page():
@@ -1998,59 +2110,81 @@ def is_portfolio_host():
         return True
     return host.endswith(f":{SITE_PORT}")
 
-def p_page(title, body, crumbs=""):
-    nav = "".join(f'<a href="/{k}">{v["emoji"]} {v["title"]}</a>' for k, v in front_sections())
-    if visitor():
-        who = (f'signed in as <b>{html.escape(session.get("v_name") or "")}</b> '
-               f'({html.escape(visitor())}) · ' + (f'<a href="/coins">🪙 {coin_balance(visitor())} coins</a> · ' if COINS_ON else "") + '<a href="/signout">sign out</a>')
-        if is_family():
-            who += ' · <a href="/apps">📱 Apps</a>'
-        if is_hardy():
-            who += ' · <a href="/activity">📊 see who visited</a> · <a href="/orders">🧾 orders</a> · <a href="/feedback">💬 feedback</a>'
-    else:
-        who = ""
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>{title}</title>
+LOCAL_SHOP = os.environ.get("LOCAL_SHOP", "http://127.0.0.1:3010").rstrip("/")   # the store, when looking at the site on this Mac
+
+def shop_origin():
+    """The store's address: shop.hardywu.com from the internet, the local store when the site is opened on this Mac."""
+    return SHOP_HOST if on_real_site() else LOCAL_SHOP
+
+def site_nav():
+    return [("Shop", shop_origin() + "/", "shop"), ("Make your own", shop_origin() + "/make", "make"), ("Games", "/games", "games"), ("AI Apps", "/apps", "apps")]
+
+def style_v():
+    """Changes whenever the style files change, so browsers never show a stale copy."""
+    try: return str(int(max(os.path.getmtime(SITE_DIR / "style" / f) for f in ("clay.css", "theme.js"))))
+    except OSError: return "1"
+
+def p_page(title, body, crumbs="", switch=False, on=""):
+    """Every hardywu.com page, in the one clay style (company/site/style/clay.css, 2026-10-29).
+    switch=True shows the Cozy / Space style switch (public pages); other pages stay Cozy."""
+    me = account_info()
+    sign_in = login_url_for("") + ("?next=" + request.path if on_real_site() else "")
+    nav = "".join(f'<a class="chip press{" on" if key == on else ""}" href="{href}">{label}</a>' for label, href, key in site_nav())
+    return f"""<!doctype html><html lang="en"{"" if switch else " data-fixed"}><head><meta charset="utf-8"><title>{title}</title>
 <link rel="alternate" type="application/json" title="Product catalogue for AI agents" href="https://hardywu.com/products.json">
 <link rel="help" href="https://hardywu.com/llms.txt"><meta name="ai-agents" content="catalogue and checkout: https://hardywu.com/llms.txt">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style/clay.css?v={style_v()}"><script src="/style/theme.js?v={style_v()}"></script>
 <style>
-/* the little cat's colours (2026-10-29): cream, ginger, soft brown, pale blue — same as the store */
-:root{{--ground:#f6ead8;--card:#fffaf2;--ink:#5b3a2e;--soft:#8a6a5a;--line:#ead6bb;--accent:#f2a65a;--accent-ink:#4a2e24;--link:#b45f1e;--blue:#d6ebf5}}
-html{{background:var(--ground)}}
-body{{font-family:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
-  color:var(--ink);margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
-  background:radial-gradient(1100px 600px at 50% -10%,#fff3e2 0%,rgba(255,243,226,0) 60%),linear-gradient(180deg,#f7ecdc 0%,#f3e4cf 100%);
-  background-attachment:fixed}}
-header{{padding:34px 20px 10px}}
-h1{{margin:10px 0;font-size:clamp(34px,6vw,58px);font-weight:900;font-style:italic;text-transform:uppercase;
-  letter-spacing:-0.04em;line-height:.95;color:var(--ink)}}
-nav{{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px}}
-nav a,a.btn{{background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em}}
-nav a:hover,a.btn:hover{{border-color:var(--accent);background:var(--blue)}}
-.cards{{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;max-width:1000px;margin:24px auto;padding:0 20px}}
-.card{{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-decoration:none;color:var(--ink);
-  box-shadow:0 6px 20px rgba(90,65,40,.10);transition:transform .15s,border-color .15s,box-shadow .15s}}
-.card:hover{{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 30px rgba(90,65,40,.16)}}
-.card .big{{font-size:44px}}
-.card h2{{margin:14px 0 6px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:21px;letter-spacing:-0.035em;color:var(--ink)}}
-.card p{{color:var(--soft);margin:0;font-size:14px;line-height:1.5}}
-.tag{{color:var(--soft);font-size:17px;font-weight:500}}
-.crumbs{{color:var(--soft);font-size:14px;padding-top:16px}} .crumbs a{{color:var(--link);text-decoration:none;font-weight:600}}
-a.btn.primary{{background:var(--accent);border-color:#d9823b;color:var(--accent-ink);display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 18px rgba(217,130,59,.28)}}
-a.btn.primary:hover{{filter:brightness(1.05);color:var(--accent-ink)}}
-footer{{color:var(--soft);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}}
-.whobar{{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;color:var(--soft);font-size:12.5px;padding:12px 16px 0}}
-.whobar a{{color:var(--link);text-decoration:none;font-weight:700}}
+/* the older pages' building blocks, in the clay style */
+main.page{{text-align:center}}
+main.page .hero{{text-align:left}}
+main.page header{{padding:34px 20px 10px}}
+main.page header h1{{margin:10px 0}}
+.tag{{color:var(--muted);font-size:var(--t-lead)}}
+.muted{{color:var(--muted)}}
+.cards{{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:22px;max-width:1100px;margin:24px auto;padding:0 20px}}
+.card{{display:block;background:var(--card);border:3px solid var(--rim);border-radius:32px;box-shadow:var(--clay);padding:22px 18px;color:var(--ink);transition:transform .2s var(--spring)}}
+.card:hover{{transform:translateY(-5px)}}
+.card h2{{margin:14px 0 6px;font-size:var(--t-h3)}} .card p{{color:var(--muted);margin:0;font-size:15px}} .card .big{{font-size:44px}}
+.crumbs{{color:var(--muted);font-size:var(--t-small);padding:18px 16px 0}} .crumbs a{{color:var(--teal);font-weight:700}}
+a.btn.primary{{margin-top:20px}}
+/* the account menu: a round avatar in the header; the menu drops down from it */
+.acct{{position:relative}}
+.avatar{{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;border:3px solid var(--rim);background:var(--card);box-shadow:var(--clay-sm);cursor:pointer;font-family:var(--fh);font-weight:900;color:var(--navy);font-size:15px}}
+.avatar i{{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font-style:normal;font-size:14px;letter-spacing:.02em}}
+[data-theme="space"] .avatar i{{background:var(--orange);color:#032859}}
+.avatar svg{{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;transition:transform .2s}}
+.avatar[aria-expanded="true"] svg{{transform:rotate(180deg)}}
+.menu{{position:absolute;right:0;top:calc(100% + 10px);min-width:270px;background:#fff;border:3px solid var(--rim);border-radius:24px;box-shadow:0 24px 60px rgba(60,35,20,.28),0 0 0 1px rgba(120,70,40,.06);padding:8px;display:none;z-index:30;text-align:left;animation:menuin .25s var(--spring)}}
+[data-theme="space"] .menu{{background:#0b3466;box-shadow:0 24px 60px rgba(0,0,0,.6)}}
+.menu.open{{display:block}}
+@keyframes menuin{{from{{opacity:0;transform:translateY(-8px) scale(.97)}}to{{opacity:1;transform:none}}}}
+.menu .who{{padding:10px 14px 12px;border-bottom:2px dashed var(--line, rgba(120,70,40,.14))}}
+.menu .who b{{display:block;font-family:var(--fh);font-size:16px;color:var(--navy)}}
+.menu .who span{{font-size:13px;color:var(--muted);word-break:break-all}}
+.menu .grp{{padding:6px 14px 2px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}}
+.menu a{{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;color:var(--ink);font-weight:600;font-size:15px}}
+.menu a:hover{{background:var(--paper-hi);text-decoration:none}}
+.menu a.out{{margin:8px 6px 4px;justify-content:center;background:var(--orange);color:var(--on-orange);font-family:var(--fh);font-weight:900;border:3px solid #ffd9a6;border-radius:16px;box-shadow:inset -4px -4px 0 rgba(160,85,0,.22),inset 3px 3px 0 rgba(255,255,255,.45)}}
+.menu a.out:hover{{background:#ffab3d}}
+.menu .ic{{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}}
+@media (max-width:900px){{.avatar span{{display:none}}.avatar{{padding-right:8px}}}}
+.aihint{{font-size:12px;color:var(--muted);margin:10px 0 0;position:relative;z-index:1;text-align:center}} .aihint a{{color:var(--teal)}}
 </style></head><body>
-<div class="whobar">{who}</div>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+<div class="site-head clay">
+  <a class="brand" href="/" aria-label="Hardy Wu home"><img src="/logo.png" alt="Hardy Wu"></a>
+  <nav>{nav}<div class="acct" id="acct"></div></nav>
+</div>
+<script>window.__me={json.dumps(me)};window.__signin={json.dumps(sign_in)};{ACCOUNT_JS}</script>
+<main class="page">
 <div class="crumbs">{crumbs}</div>
-<p style="font-size:12px;color:var(--soft);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:var(--link)">hardywu.com/llms.txt</a></p>
-{f"<nav>{nav}</nav>" if crumbs else ""}
 {body}
-<footer>hardywu.com — Try New Things 🛠️</footer>
+</main>
+<footer class="site-foot"><span>© 2026 Hardy Wu</span><span>hardywu.com · try new things</span></footer>
 <script src="/track.js" defer></script></body></html>"""
 
 def front_sections():
@@ -2059,43 +2193,99 @@ def front_sections():
     return [(k, PORTFOLIO[k]) for k in order + [k for k in PORTFOLIO if k not in order] if not PORTFOLIO[k].get("hidden")]
 
 def portfolio_home():
-    """Opens straight on the products: pictures and prices first, like Amazon, then the video games."""
-    def tile(href, img, name, line, extra=""):
-        pic = f'<img src="{img}" alt="{html.escape(name)}" loading="lazy">' if img else '<div class="tile-ph">🎮</div>'
-        return f'<a class="tile" href="{href}">{pic}<b>{html.escape(name)}</b><span>{line}</span>{extra}</a>'
-    prods = "".join(tile(shop_product_url(slug), p.get("photo"), p["name"], f'${p["price"]:.2f}',
-                         "" if SHOP_PRODUCTS[slug].get("in_stock", True) else '<i>Sold out</i>')
-                    for slug, p in PORTFOLIO["3d"]["items"].items())
-    games = "".join(tile(f"/games/{slug}", it.get("img"), it["name"], "Play free")
-                    for slug, it in PORTFOLIO["games"]["items"].items())
-    nav = "".join(f'<a href="/{k}">{v["emoji"]} {v["title"]}</a>' for k, v in front_sections())
-    return p_page("Hardy Wu — Shop and video games", f"""
-<style>
-.top{{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 16px 4px;flex-wrap:wrap}}
-.top img{{width:52px;height:52px;border-radius:12px}} .top .nm{{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}}
-.top .sl{{color:var(--soft);font-size:14px;width:100%}}
-.row{{max-width:1180px;margin:18px auto 6px;padding:0 16px;text-align:left}}
-.row h2{{font-size:24px;font-weight:900;margin:0 0 12px;display:flex;align-items:baseline;gap:12px}}
-.row h2 a{{font-size:14px;font-weight:700;color:var(--link);text-decoration:none}}
-nav a:first-child{{background:var(--accent);border-color:#d9823b;color:var(--accent-ink)}}
-.tiles{{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}}
-.tile{{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--ink);box-shadow:0 4px 14px rgba(90,65,40,.08);
-  display:flex;flex-direction:column;transition:transform .15s,border-color .15s}}
-.tile:hover{{border-color:var(--accent);transform:translateY(-3px)}}
-.tile img,.tile-ph{{width:100%;aspect-ratio:1;object-fit:cover;background:var(--blue);display:block}}
-.tile-ph{{display:flex;align-items:center;justify-content:center;font-size:54px}}
-.tile b{{padding:10px 12px 2px;font-size:15px;line-height:1.3}} .tile span{{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--link)}}
-.coinad{{display:block;max-width:1148px;margin:6px auto 0;padding:12px 16px;border-radius:14px;background:#f1e2c8;border:1px solid #dcc39a;color:var(--ink);text-decoration:none;font-size:15px}}
-.coinad:hover{{border-color:var(--accent)}} @media(max-width:1180px){{.coinad{{margin:6px 16px 0}}}}
-.tile i{{margin:-8px 12px 12px;font-style:normal;font-weight:700;color:#b23b3b;font-size:13px}}
-.tile{{min-width:0}}
-@media(max-width:520px){{.tiles{{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}} .tile b{{font-size:14px}} .tile span{{font-size:17px}} .top .nm{{font-size:22px}}}}
-</style>
-<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><div class="sl">Made by Hardy Wu · try new things</div></div>
-<nav>{nav}</nav>
-{f'<a class="coinad" href="/coins">🪙 Send Hardy a suggestion and earn coins — <b>{COINS_FREE_PRINT} coins = a free 3D print</b> →</a>' if COINS_ON else ""}
-<section class="row"><h2>🛍️ Shop <a href="/3d">See all →</a></h2><div class="tiles">{prods}</div></section>
-<section class="row"><h2>🎮 Video Games <a href="/games">See all →</a></h2><div class="tiles">{games}</div></section>""")
+    """The front page (Barbara + Hardy, 2026-10-29): only the compass — "Try new things", and the compass
+    points are the menu: Make your own, Shop, Games, Hardy. Designed in company/site/mocks/v2/index.html."""
+    hero = HOME_HERO.replace("https://shop.hardywu.com", shop_origin())
+    return p_page("Hardy Wu — try new things", HOME_CSS + hero + "<script>" + HOME_JS + "</script>", switch=True)
+
+HOME_CSS = """<style>
+.hero{max-width:1200px;margin:26px auto 0;padding:56px 50px;display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;min-height:calc(100vh - 150px)}
+.eyebrow{display:inline-block;font-family:var(--fh);font-weight:900;color:var(--teal);background:var(--mint);border:3px solid var(--rim);box-shadow:var(--clay-sm);padding:6px 14px;border-radius:16px;opacity:0;animation:fade .6s 2.1s forwards}
+.hero h1{font-size:var(--t-h1);margin:0}
+.hero h1 span{display:block;opacity:0;transform:translateY(30px) scale(.96);animation:rise .9s var(--spring) forwards}
+.hero h1 span:nth-child(1){animation-delay:1.4s}
+.hero h1 span:nth-child(2){animation-delay:1.6s}
+.hero h1 span:nth-child(3){animation-delay:1.8s}
+.hero h1 .new{color:var(--orange)}
+.hero h1 b{display:inline-block;background:var(--peach);color:var(--navy);padding:0 16px;border-radius:26px;border:3px solid var(--rim);box-shadow:var(--clay);animation:boing 3s 3.2s var(--spring) infinite}
+@keyframes boing{0%,70%,100%{transform:none}80%{transform:scale(1.07) rotate(-2deg)}}
+.hero .lead{margin:22px 0 14px;max-width:44ch;opacity:0;animation:fade .7s 2.3s forwards}
+.hero .slogan{font-family:var(--fh);font-weight:900;color:var(--teal);font-size:18px;margin:0 0 26px;opacity:0;animation:fade .7s 2.4s forwards}
+.ctas{display:flex;gap:14px;flex-wrap:wrap;opacity:0;animation:fade .7s 2.5s forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes fade{to{opacity:1}}
+
+/* the compass, as a clay disc that draws itself */
+.compass-wrap{position:relative;justify-self:center;width:min(500px,40vw);aspect-ratio:1}
+.disc{position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#fff6ec 70%);border:4px solid var(--rim);box-shadow:var(--clay);transform:scale(.6);opacity:0;animation:pop .8s .1s var(--spring) forwards}
+.compass{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ring{fill:none;stroke:var(--navy);stroke-width:4;stroke-dasharray:10 12;stroke-linecap:round;stroke-dashoffset:1400;animation:draw 1.6s .4s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.tick{fill:var(--navy);opacity:0;transform-box:fill-box;transform-origin:center;animation:pop .5s var(--spring) forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:scale(1)}}
+.dot{fill:var(--teal);opacity:0;animation:pop .4s var(--spring) forwards}
+.needle{transform-origin:280px 280px;transition:transform 1.1s var(--spring);animation:settle 2.2s .6s var(--spring) both}
+@keyframes settle{0%{transform:rotate(-200deg);opacity:0}30%{opacity:1}100%{transform:rotate(0)}}
+.hl{font-family:var(--fh);font-weight:900;font-size:220px;fill:var(--navy)}
+.swoosh{fill:none;stroke:url(#sw);stroke-width:18;stroke-linecap:round;stroke-dasharray:700;stroke-dashoffset:700;animation:draw 1s 1.2s cubic-bezier(.6,0,.2,1) forwards}
+.head{fill:var(--orange);opacity:0;animation:pop .35s 2s var(--spring) forwards}
+.star{fill:var(--orange);transform-origin:282px 130px;opacity:0;animation:pop .5s 2.1s var(--spring) forwards,twinkle 3s 2.8s ease-in-out infinite}
+@keyframes twinkle{50%{transform:scale(.8) rotate(20deg)}}
+.point{position:absolute;z-index:3;transform:var(--t);font-family:var(--fh);font-weight:900;font-size:16px;color:var(--navy);text-align:center;white-space:nowrap;
+  padding:10px 16px;border-radius:20px;border:3px solid var(--rim);background:var(--card);box-shadow:var(--clay-sm);opacity:0;animation:fade .5s forwards;transition:background .2s,transform .2s var(--spring)}
+.point small{display:block;font-family:var(--fb);font-weight:600;font-size:12px;color:var(--muted)}
+.point:hover,.point:focus-visible{background:var(--peach);transform:var(--t) scale(1.08)}
+.p-n{top:-3%;left:50%;--t:translateX(-50%);animation-delay:2.6s}
+.p-e{right:-10%;top:50%;--t:translateY(-50%);animation-delay:2.75s}
+.p-s{bottom:-3%;left:50%;--t:translateX(-50%);animation-delay:2.9s}
+.p-w{left:-10%;top:50%;--t:translateY(-50%);animation-delay:3.05s}
+/* little twinkling stars sprinkled around */
+.spark{position:absolute;width:14px;height:14px;background:var(--orange);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:tw 2.6s ease-in-out infinite}
+@keyframes tw{50%{transform:scale(.4) rotate(45deg);opacity:.4}}
+/* people who switch animations off see the finished picture straight away */
+@media (prefers-reduced-motion:reduce){.eyebrow,.hero h1 span,.hero .lead,.hero .slogan,.ctas,.disc,.tick,.dot,.head,.star,.point{opacity:1!important}
+  .hero h1 span,.disc{transform:none!important}.ring,.swoosh{stroke-dashoffset:0!important}}
+@media (max-width:900px){.hero{grid-template-columns:1fr;padding:30px 24px 60px;min-height:auto}.compass-wrap{width:74vw;margin-top:30px}.p-e{right:-6%}.p-w{left:-6%}}
+</style>"""
+HOME_HERO = """<div class="hero clay">
+    <div>
+      <h1><span>Hardy's 3D:</span><span>you <b>design</b> it,</span><span class="new">Hardy prints it.</span></h1>
+      <p class="lead">Start from one of Hardy's models, make it yours with your colours, name and picture, and it arrives at your door. Or shop ready-made, or play a game.</p>
+      <p class="slogan">Try new things.</p>
+      <div class="ctas"><a class="btn press" href="https://shop.hardywu.com/make">Make your own 3D products →</a><a class="btn soft press" href="https://shop.hardywu.com/">Shop ready-made 3D products</a></div>
+    </div>
+    <div class="compass-wrap" id="cw">
+      <div class="disc"></div>
+      <svg class="compass" viewBox="0 0 560 560" aria-label="The Hardy Wu compass">
+        <defs><linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#02848d"/><stop offset=".55" stop-color="#4fb3a6"/><stop offset="1" stop-color="#f8991d"/></linearGradient></defs>
+        <circle class="ring" cx="280" cy="280" r="200"/>
+        <g id="ticks"></g>
+        <g class="needle" id="needle"><text class="hl" x="280" y="358" text-anchor="middle">H</text></g>
+        <path class="swoosh" d="M130 330 C 175 380, 300 330, 360 290 S 430 225, 458 196"/>
+        <path class="head" d="M468 186 l-46 6 l18 14 l-6 22 z"/>
+        <path class="star" d="M282 100 l7 24 l24 8 l-24 8 l-7 24 l-7 -24 l-24 -8 l24 -8 z"/>
+      </svg>
+      <a class="point p-n" href="https://shop.hardywu.com/make">Make<small>design your own</small></a>
+      <a class="point p-e" href="https://shop.hardywu.com/">Shop<small>ready-made</small></a>
+      <a class="point p-s" href="/games">Games<small>play free</small></a>
+      <a class="point p-w" href="/apps">AI Apps<small>powered by AI</small></a>
+      <span class="spark" style="left:4%;top:12%"></span><span class="spark" style="right:2%;top:24%;animation-delay:-.8s;width:10px;height:10px"></span>
+      <span class="spark" style="left:12%;bottom:8%;animation-delay:-1.6s;width:10px;height:10px;background:var(--teal)"></span><span class="spark" style="right:10%;bottom:14%;animation-delay:-2.1s"></span>
+    </div>
+  </div>
+"""
+HOME_JS = """
+const T=document.getElementById("ticks"),NS="http://www.w3.org/2000/svg";
+[0,90,180,270].forEach((a,i)=>{const g=document.createElementNS(NS,"g"),p=document.createElementNS(NS,"path");   // rotate the group, animate the arrowhead
+  g.setAttribute("transform",`rotate(${a} 280 280)`);p.setAttribute("d","M280 62 l-16 30 h32 z");p.setAttribute("class","tick");p.style.animationDelay=(1+i*.12)+"s";g.appendChild(p);T.appendChild(g);});
+[45,135,225,315].forEach((a,i)=>{const c=document.createElementNS(NS,"circle");const r=a*Math.PI/180;c.setAttribute("cx",280+200*Math.sin(r));c.setAttribute("cy",280-200*Math.cos(r));
+  c.setAttribute("r",9);c.setAttribute("class","dot");c.style.animationDelay=(1.4+i*.1)+"s";T.appendChild(c);});
+// the H turns like a compass needle toward the point you hover
+const needle=document.getElementById("needle");
+document.querySelectorAll(".point").forEach((p,i)=>{const deg=[0,90,180,-90][i];const back=()=>needle.style.transform="rotate(0)";
+  const go=()=>{needle.style.animation="none";needle.style.transform=`rotate(${deg}deg)`;};
+  p.addEventListener("mouseenter",go);p.addEventListener("focus",go);p.addEventListener("mouseleave",back);p.addEventListener("blur",back);});
+"""
 
 SHOP_HOST = "https://shop.hardywu.com"
 
@@ -2108,6 +2298,8 @@ def portfolio_section(section):
     sec = PORTFOLIO.get(section)
     if not sec:
         return p_page("Not found", "<h1>Section not found</h1>", '<a href="/">← hardywu.com</a>'), 404
+    if section == "games":
+        return games_page()
     def _thumb(slug, it):
         src = it.get("img") or (it.get("photo") if it.get("shop") else None)
         return (f'<img src="{src}" style="width:120px;height:120px;object-fit:cover;border-radius:16px;margin:0 auto 2px" alt="{it["name"]}">'
@@ -2117,7 +2309,41 @@ def portfolio_section(section):
         for slug, it in sec["items"].items()) or '<p class="tag">Coming soon.</p>'
     return p_page(f'{sec["title"]} — Hardy Wu', f"""
 <header><img src="/sec/{section}.png" style="width:96px;height:96px;object-fit:cover;border-radius:18px"><h1>{sec["title"]}</h1><p class="tag">{sec["blurb"]}</p></header>
-<div class="cards">{cards}</div>""", f'<a href="/">← hardywu.com</a>')
+<div class="cards">{cards}</div>""", "", switch=True, on=section)   # no "← hardywu.com": the logo goes home
+
+# The games page as agreed in the prototype (company/site/mocks/v2/games.html): "Games I made",
+# wide picture cards in rows of three, one short line each, and an orange Play button.
+GAME_TAGLINES = {"football-sim": "Broadcast-style 3D football with fictional clubs", "nova-blast": "Neon space shooter, a boss every fifth wave",
+    "critter-quest": "32 critters to catch and evolve", "zheng-shang-you": "The family card game", "elemental-latin": "Throw fire with “ignem iacio”",
+    "elementum": "A new 3D game, step 1", "nova-strike": "A fast-paced space shooter", "cmind-freecell": "A calm game of FreeCell",
+    "pokemon-adventure": "Creatures to catch and battle"}
+
+def games_page():
+    cards = "".join(
+        f'<a class="g clay press" href="/games/{slug}"><div class="pic">'
+        + (f'<img src="{it["img"]}" alt="">' if it.get("img") else f'<b>{html.escape(it.get("emoji", "🎮"))}</b>')
+        + f'</div><div class="b"><div><h3>{html.escape(it["name"])}</h3><small>{html.escape(GAME_TAGLINES.get(slug, ""))}</small></div><span class="play">Play</span></div></a>'
+        for slug, it in PORTFOLIO["games"]["items"].items())
+    return p_page("Games — Hardy Wu", f"""<style>
+.intro{{max-width:1200px;margin:24px auto 24px;padding:0 22px;text-align:left}}
+.intro h1 span{{display:inline-block;background:var(--mint);padding:0 16px;border-radius:26px;border:3px solid var(--rim);box-shadow:var(--clay);animation:boing 2.8s var(--spring) infinite}}
+@keyframes boing{{0%,70%,100%{{transform:none}}80%{{transform:scale(1.07) rotate(2deg)}}}}
+.intro .lead{{margin-top:14px}}
+.ggrid{{max-width:1200px;margin:0 auto;padding:0 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:22px;text-align:left}}
+.g{{overflow:hidden;display:flex;flex-direction:column;color:var(--ink)}}
+.g:hover{{transform:translateY(-5px) rotate(-.6deg)}}
+.g .pic{{height:190px;background:linear-gradient(135deg,var(--sky),var(--mint));display:grid;place-items:center;border-bottom:3px solid var(--rim);overflow:hidden}}
+.g img{{width:100%;height:100%;object-fit:cover;transition:transform .5s}}
+.g:hover img{{transform:scale(1.06)}}
+.g .pic b{{font-size:64px}}
+.g div.b{{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}}
+.g small{{display:block;color:var(--muted);font-weight:600;margin-top:2px}}
+.play{{flex:none;font-family:var(--fh);font-weight:900;background:var(--orange);color:var(--on-orange);padding:10px 16px;border-radius:16px;border:3px solid #ffd9a6;box-shadow:inset -4px -4px 0 rgba(160,85,0,.22)}}
+@media (max-width:900px){{.ggrid{{grid-template-columns:1fr 1fr}}}}
+@media (max-width:560px){{.ggrid{{grid-template-columns:1fr}}}}
+</style>
+<div class="intro"><h1>Games I <span>made</span></h1><p class="lead">Play right in your browser. Free, nothing to download.</p></div>
+<div class="ggrid">{cards}</div>""", switch=True, on="games")
 
 def portfolio_item(section, slug):
     if section == "3d":
@@ -2167,11 +2393,11 @@ async function placeOrder(){{
 }}
 </script></header>""", crumbs)
     btn = f'<a class="btn primary" href="{login_url_for(_key(slug))}">{it.get("link_label","Open")}</a>' if it.get("link") else ""
-    hero = (f'<img src="{it["img"]}" style="width:200px;height:200px;object-fit:cover;border-radius:24px">'
+    hero = (f'<img src="{it["img"]}" style="width:100%;max-width:420px;aspect-ratio:16/10;object-fit:cover;border-radius:24px;border:3px solid var(--rim);box-shadow:var(--clay-sm)">'
             if it.get("img") else f'<div style="font-size:64px">{it["emoji"]}</div>')
     return p_page(f'{it["name"]} — Hardy Wu', f"""
-<header>{hero}<h1>{it["name"]}</h1>
-<p class="tag" style="max-width:480px;margin:8px auto">{it["desc"]}</p>{btn}</header>""", crumbs)
+<header class="clay" style="max-width:640px;margin:20px auto 0;padding:34px 30px">{hero}<h1>{it["name"]}</h1>
+<p class="tag" style="max-width:480px;margin:8px auto">{it["desc"]}</p>{btn}</header>""", crumbs, switch=True, on=section)
 
 for _s in PORTFOLIO:
     app.add_url_rule(f"/{_s}", f"portfolio_sec_{_s}", (lambda s=_s: portfolio_section(s)))
@@ -2188,29 +2414,42 @@ def is_local_request():
 
 @app.before_request
 def require_passcode():
-    if request.method == "OPTIONS" or (is_local_request() and not is_portfolio_host()):
+    if request.method == "OPTIONS":
         return None
+    if is_local_request() and not is_portfolio_host():
+        # Programs on this Mac (the store, the tests, the site build) call the API freely; but a PERSON opening
+        # BookKeep's pages here must sign in like everyone else (Barbara, 2026-10-30).
+        if request.path.startswith("/api/") or request.path in PUBLIC_PATHS or session.get("authed") or "." in request.path.rsplit("/", 1)[-1]:
+            return None
+        return redirect("/login")
     if on_real_site() and request.scheme == "http" and request.method == "GET":
         return redirect("https://" + request.host + request.full_path.rstrip("?"), code=301)   # always secure
+    if is_office_host():                                 # office.hardywu.com: staff only, its own few paths
+        if request.path == "/":
+            return office_home()
+        return None if request.path in OFFICE_PATHS else redirect("/")
     if is_portfolio_host():
         p = request.path
         key = login_slug_from_host()
         if key is not None:                              # login<thing>.hardywu.com
-            if p in ("/api/visitor", "/api/login", "/api/verify", "/api/verify/resend", "/logo.png", "/favicon.png", "/track.js", "/signout"):
+            if p in ("/api/visitor", "/api/login", "/api/verify", "/api/verify/resend", "/logo.png", "/favicon.png", "/track.js", "/signout",
+                     "/auth/google", "/auth/google/callback", "/style/clay.css", "/style/theme.js"):
                 return None
             if p != "/":
                 return redirect("/")
             tgt = login_targets().get(key)
             if not tgt:
                 return redirect(SITE_ORIGIN + "/")
-            if key == "bookkeep":                        # BookKeep has real accounts: its own login
-                return redirect(APP_HOST) if session.get("authed") else LOGIN_HTML
+            if key == "bookkeep":                        # one sign-in page for everything (Barbara, 2026-10-30)
+                return redirect(APP_HOST) if session.get("authed") else VISITOR_HTML
             if visitor():                                # already signed in → straight through
                 back = request.args.get("next", "")
                 if key == "" and back.startswith("/") and not back.startswith("//"):
                     return redirect("https://play.hardywu.com" + back)   # e.g. Hardy's report
                 if key == "3d" and request.args.get("p"):
                     track("open", "The 3D store", SHOP_HOST); return redirect(shop_product_url(request.args.get("p")))
+                if key == "3d" and _shop_back("/?" + request.query_string.decode()):
+                    return redirect(_shop_back("/?" + request.query_string.decode()))
                 track("open", tgt["name"], dest(tgt))
                 return redirect(dest(tgt))
             return VISITOR_HTML
@@ -2222,7 +2461,7 @@ def require_passcode():
                             "/api/products", "/api/agent/order", "/openapi.json", "/llms.txt", "/robots.txt",
                             "/.well-known/ucp", "/terms")
                       or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/") or p.startswith("/api/reviews/") or p == "/api/orders/mine" or p.startswith("/api/coins/")
-                      or p.startswith("/products/") or p.startswith("/sec/")
+                      or p.startswith("/products/") or p.startswith("/sec/") or p.startswith("/style/")
                       or p.startswith("/item/"))
         ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p == "/costs" or p == "/coins" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
               or open_paths
@@ -2258,6 +2497,9 @@ def go_to(key):
         return redirect("http://127.0.0.1:5000/")
     if not visitor():
         return VISITOR_HTML
+    back = request.args.get("next", "")
+    if re.match(r"^http://127\.0\.0\.1(:\d+)?/", back):     # the local store preview sent them here
+        return redirect(back)
     track("open", tgt["name"], dest(tgt))
     return redirect(dest(tgt))
 
@@ -2269,14 +2511,14 @@ input{font-size:20px;padding:12px;border-radius:10px;border:1px solid #3a4560;ba
 button{font-size:19px;font-weight:700;padding:12px 34px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}
 .err{color:#ff9d9d;min-height:22px}
 p.small{color:#9aa4bd;font-size:13px}
-.devrow{margin:6px 0 4px;font-size:14px;color:#8a6a5a}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #ead6bb;background:#fffdf8;color:#5b3a2e;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#f2a65a;background:#d6ebf5;box-shadow:0 0 0 2px rgba(242,166,90,.35)}</style></head><body>
-<div class="card"><h1>📒 BookKeep</h1><p>Log in to BookKeep</p>
+.devrow{margin:6px 0 4px;font-size:14px;color:#4f6580}.dev{font-size:14px;padding:8px 14px;margin:0 3px;border-radius:10px;border:1px solid #d8e1ea;background:#ffffff;color:#032859;cursor:pointer;opacity:.7;width:auto;box-shadow:none;font-weight:600}.dev.on{opacity:1;border-color:#f8991d;background:#d9f0f1;box-shadow:0 0 0 2px rgba(248,153,29,.35)}</style></head><body>
+<div class="card"><h1>📒 BookKeep</h1><p>Log in to BookKeep</p><!--google-->
 <input id="nm" autofocus placeholder="Your name (e.g. Hardy)" autocomplete="name" maxlength="40">
 <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="80">
-<div class="devrow" id="devrow">Playing on &nbsp;<button type="button" class="dev" data-dev="phone" onclick="pickDev('phone')">📱 Phone</button><button type="button" class="dev" data-dev="computer" onclick="pickDev('computer')">💻 Computer</button></div>
 <div class="err" id="err"></div><button onclick="go()">Open my books</button>
 <p class="small">We email you a 6-digit code to make sure it's really you. You stay logged in for 90 days — closing the tab does not log you out.</p></div>
 <script>
+// phone or computer is detected quietly (it only tags feedback for Hardy); nobody is asked
 let device=(document.cookie.match(/(?:^|; )hw_device=(phone|computer)/)||[])[1]||((matchMedia("(pointer:coarse)").matches||navigator.maxTouchPoints>0)?"phone":"computer");
 function pickDev(v){device=v;for(const b of document.querySelectorAll(".dev"))b.classList.toggle("on",b.dataset.dev===v);}
 pickDev(device);
@@ -2290,7 +2532,7 @@ async function go(){
 for(const id of ["nm","em"]) document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 function showCode(j){
   const card=document.querySelector(".card");
-  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>30 seconds</b> to come in.</p>
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>10 minutes</b> to come in.</p>
    <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
    <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
    <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
@@ -2309,8 +2551,10 @@ async function resend(){
 
 @app.get("/login")
 def login_page():
-    # live, BookKeep's login lives at loginbookkeep.hardywu.com
-    return redirect("https://logbook.hardywu.com/") if on_real_site() else LOGIN_HTML
+    # live, BookKeep's sign-in lives at logbook.hardywu.com; it is the same page as the site's
+    if session.get("authed"):
+        return redirect("/")
+    return redirect("https://logbook.hardywu.com/") if on_real_site() else VISITOR_HTML
 
 # The creator (owner) sees the member list, grants discounts, and gets every
 # feature free. Creator = the owner email (BOOKKEEP_OWNER_EMAIL in .env), the
@@ -2319,11 +2563,8 @@ CREATOR = os.environ.get("BOOKKEEP_OWNER", "Hardy Wu").strip()
 OWNER_EMAIL = ensure_env_secret("BOOKKEEP_OWNER_EMAIL", lambda: "barbaratao@gmail.com").strip().lower()
 
 def is_owner():
-    if is_local_request():
-        return True
-    if (session.get("email") or "").strip().lower() == OWNER_EMAIL and OWNER_EMAIL:
-        return True
-    return session.get("name", "").strip().casefold() == CREATOR.casefold()
+    """An owner on the staff list (office.hardywu.com), or this Mac."""
+    return staff_role() == "owner"
 
 def member_row(name):
     con = db()
@@ -2354,6 +2595,8 @@ def bookkeep_login_next():
 def whoami():
     name = session.get("name")
     m = member_row(name) if name else None
+    if m and (m.get("email") or "").lower() != (session.get("email") or "").lower():
+        m = None                                         # same name, different person
     return jsonify(name=name, email=session.get("email"), owner=is_owner(),
                    discount=float(m["discount_pct"]) if m else 0)
 
@@ -3504,6 +3747,13 @@ def play_quest():
 def play_fifa_files(fname):
     return _nocache(send_from_directory(FIFA_DIR, fname, max_age=0))
 
+@app.get("/style/<name>")
+def site_style(name):
+    """The one clay style for every page (company/site/style/)."""
+    if name in {"clay.css", "theme.js"}:
+        return send_from_directory(SITE_DIR / "style", name, max_age=300)
+    return jsonify(error="Not found."), 404
+
 @app.get("/logo.png")
 def company_logo():
     return send_from_directory(IMG_DIR, "logo.png")
@@ -4016,6 +4266,323 @@ def admin_import_data():
                     out.write(src.read())
                 written += 1
     return jsonify(ok=True, files=written)
+
+# ============================ the office: office.hardywu.com ============================
+# Staff only. One page: links to every internal tool (by role), the staff list (owners),
+# recent staff actions, and "sign out everywhere". Staff sign in with Google or an emailed code.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_REDIRECT = "https://log.hardywu.com/auth/google/callback"   # one address for every sign-in page
+OFFICE_PATHS = ("/", "/auth/google", "/auth/google/callback", "/api/staff", "/api/staff/remove", "/api/staff/signout-all",
+                "/api/visitor", "/api/verify", "/api/verify/resend", "/signout", "/favicon.png", "/logo.png")
+
+def is_office_host():
+    return (request.host or "").split(":")[0].lower() == OFFICE_HOST
+
+OFFICE_TOOLS = [  # (label, what it is, link, roles)
+    ("🧾 Orders", "Every order: buyer, item, colours, address, status", "https://hardywu.com/orders", ("owner", "manager")),
+    ("🖨️ Print queue", "What to print next (BookKeep → Orders)", APP_HOST + "/", ("owner", "manager", "printer")),
+    ("💲 Costs", "What each piece costs and its margin", "https://hardywu.com/costs", ("owner", "manager")),
+    ("📊 Visitors", "Who visited and what they looked at", "https://hardywu.com/activity", ("owner", "manager")),
+    ("💬 Feedback", "What players and customers wrote", "https://hardywu.com/feedback", ("owner", "manager")),
+    ("📒 Books", "Hardy's bookkeeping", APP_HOST + "/", ("owner",)),
+    ("💳 Stripe", "Card payments, refunds and payouts", "https://dashboard.stripe.com", ("owner",)),
+    ("🛍️ The store", "shop.hardywu.com, as customers see it", "https://shop.hardywu.com", ("owner", "manager", "printer")),
+]
+
+def office_html(body):
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Office — Hardy's 3D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="icon" href="/favicon.png">
+<style>:root{{--ground:#f3f6f9;--card:#ffffff;--ink:#032859;--soft:#4f6580;--line:#d8e1ea;--accent:#f8991d;--link:#02737b}}
+body{{font-family:-apple-system,"Inter",sans-serif;background:var(--ground);color:var(--ink);margin:0;padding:24px 16px}}
+main{{max-width:880px;margin:0 auto}}h1{{margin:0 0 4px}}h2{{margin:28px 0 10px;font-size:19px}}.soft{{color:var(--soft);font-size:14px}}a{{color:var(--link)}}
+.card{{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:12px 0}}
+.tiles{{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}}
+.tile{{display:block;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-decoration:none;color:var(--ink)}}
+.tile:hover{{border-color:var(--accent)}}.tile b{{font-size:17px}}.tile span{{display:block;color:var(--soft);font-size:14px;margin-top:4px}}
+table{{border-collapse:collapse;width:100%;font-size:14px}}td,th{{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}
+input,select{{font-size:15px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}}
+button,.btn{{font-size:15px;font-weight:700;padding:9px 16px;border-radius:10px;border:0;background:var(--accent);color:#032859;cursor:pointer;text-decoration:none;display:inline-block}}
+button.plain{{background:none;border:1px solid var(--line);font-weight:600}}.google{{background:#fff;border:1px solid #dadce0;color:#3c4043}}
+.err{{color:#b3261e;min-height:20px;font-size:14px}}.signin{{max-width:380px;margin:40px auto;text-align:center}}.signin input{{width:88%;margin:6px 0}}</style></head>
+<body><main>{body}</main></body></html>"""
+
+def office_message(text):
+    return office_html(f'<div class="card signin"><h1>🏢 Office</h1><p>{text}</p><p><a href="/">Back to sign-in</a></p></div>')
+
+OFFICE_SIGNIN_JS = """<script>
+async function post(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{})});return [r,await r.json().catch(()=>({}))];}
+async function go(){const [r,j]=await post("/api/visitor",{name:nm.value,email:em.value,next:"/"});
+  if(!r.ok){err.textContent=j.error||"Please fill in both.";return;}
+  if(!j.verify){location.reload();return;}
+  box.innerHTML=`<p>We sent a 6-digit code to <b>${j.email}</b>. Type it within 10 minutes.</p><input id="cd" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus><div class="err" id="err"></div><button onclick="code()">Continue</button><p class="soft"><a href="#" onclick="resend();return false">Send a new code</a></p>`;
+  cd.addEventListener("keydown",e=>{if(e.key==="Enter")code();});}
+async function code(){const [r,j]=await post("/api/verify",{code:cd.value});if(r.ok)location.reload();else err.textContent=j.error||"That code didn't work.";}
+async function resend(){const [r,j]=await post("/api/verify/resend");err.textContent=r.ok?"A new code is on its way.":(j.error||"Could not send a new code.");}
+</script>"""
+
+def office_signin():
+    g = GOOGLE_BUTTON
+    return office_html(f"""<div class="card signin"><h1>🏢 Office</h1><p class="soft">Hardy's 3D staff only.</p>{g}
+<div id="box"><input id="nm" placeholder="Your name" autocomplete="name" maxlength="60"><input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="90">
+<div class="err" id="err"></div><button onclick="go()">Email me a code</button></div></div>{OFFICE_SIGNIN_JS}""")
+
+def office_home():
+    if not visitor():
+        return office_signin()
+    me = staff_member()
+    if not me:
+        return office_message(f"This page is for Hardy's 3D staff. You're signed in as <b>{html.escape(visitor())}</b>, "
+                              f"which isn't on the staff list. <br><br><a href='/signout'>Sign out</a> · <a href='https://shop.hardywu.com'>Go to the store</a>")
+    role = me["role"]
+    tiles = "".join(f'<a class="tile" href="{u}"><b>{t}</b><span>{d}</span></a>' for t, d, u, roles in OFFICE_TOOLS if role in roles)
+    out = [f"""<h1>🏢 Office</h1><p class="soft">Signed in as <b>{html.escape(me['name'] or me['email'])}</b> ({html.escape(me['email'])}) · {role}
+ · <a href="/signout">sign out</a> · <a href="#" onclick="outAll();return false">sign out on all my other devices</a></p>
+<div class="tiles">{tiles}</div>"""]
+    if role == "owner":
+        out.append("""<h2>Staff</h2><div class="card"><table id="staff"><tr><td class="soft">Loading…</td></tr></table>
+<p style="margin-top:14px"><input id="ne" type="email" placeholder="email" style="width:220px"> <input id="nn" placeholder="name" style="width:140px">
+<select id="nr"></select> <button onclick="add()">Add</button></p><div class="err" id="serr"></div>
+<p class="soft">Staff sign in here with Google or an emailed code — every time, and again after """ + str(STAFF_DAYS) + """ days.</p></div>""")
+    if role in ("owner", "manager"):
+        con = db(); _staff_tables(con)
+        acts = con.execute("SELECT * FROM staff_actions ORDER BY at DESC LIMIT 30").fetchall(); con.close()
+        rows = "".join(f"<tr><td>{html.escape(fmt_when(a['at']) if a['at'] else '')}</td><td>{html.escape(a['email'] or '')}</td>"
+                       f"<td>{html.escape(a['action'])} {html.escape(a['target'] or '')}</td><td>{html.escape(a['detail'] or '')}</td></tr>" for a in acts)
+        out.append(f'<h2>Recent staff actions</h2><div class="card"><table>{rows or "<tr><td class=soft>Nothing yet.</td></tr>"}</table></div>')
+    out.append(f"""<script>
+const ME={json.dumps(me['email'])};
+async function post(u,b){{const r=await fetch(u,{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify(b||{{}})}});return [r,await r.json().catch(()=>({{}}))];}}
+async function outAll(){{if(!confirm("Sign out on every other phone and computer? This one stays signed in."))return;const [r,j]=await post("/api/staff/signout-all",{{}});alert(r.ok?"Done. Every other device is signed out.":(j.error||"That didn't work."));}}
+async function load(){{const t=document.getElementById("staff");if(!t)return;const r=await fetch("/api/staff");const j=await r.json();
+  const opts=v=>Object.keys(j.roles).map(k=>`<option value="${{k}}" ${{k===v?"selected":""}}>${{k}}</option>`).join("");
+  nr.innerHTML=opts("printer");
+  t.innerHTML="<tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr>"+j.staff.map(s=>`<tr><td>${{s.email}}</td><td>${{s.name||""}}</td>
+   <td><select onchange="save('${{s.email}}','${{(s.name||"").replace(/'/g,"")}}',this.value)">${{opts(s.role)}}</select></td>
+   <td>${{s.email===ME?"(you)":`<button class="plain" onclick="outOther('${{s.email}}')">sign out</button> <button class="plain" onclick="rm('${{s.email}}')">remove</button>`}}</td></tr>`).join("")
+   +`<tr><td colspan=4 class="soft">${{Object.entries(j.roles).map(([k,v])=>`<b>${{k}}</b>: ${{v}}`).join("<br>")}}</td></tr>`;}}
+async function save(email,name,role){{const [r,j]=await post("/api/staff",{{email,name,role}});serr.textContent=r.ok?"":(j.error||"");load();}}
+async function add(){{const [r,j]=await post("/api/staff",{{email:ne.value,name:nn.value,role:nr.value}});serr.textContent=r.ok?"":(j.error||"");if(r.ok){{ne.value="";nn.value="";}}load();}}
+async function rm(email){{if(!confirm("Remove "+email+" from the staff list?"))return;const [r,j]=await post("/api/staff/remove",{{email}});serr.textContent=r.ok?"":(j.error||"");load();}}
+async function outOther(email){{const [r,j]=await post("/api/staff/signout-all",{{email}});serr.textContent=r.ok?email+" is signed out everywhere.":(j.error||"");}}
+load();
+</script>""")
+    return office_html("".join(out))
+
+def _staff_reset_cache():
+    global _staff_cache
+    _staff_cache = None
+
+@app.get("/api/staff")
+def staff_get():
+    if not is_owner():
+        return jsonify(error="Only an owner can see the staff list."), 403
+    return jsonify(staff=sorted(staff_list().values(), key=lambda r: (r["role"] != "owner", r["email"])), roles=STAFF_ROLES)
+
+@app.post("/api/staff")
+def staff_save():
+    """Add someone to the staff list, or change their name or role (owners only)."""
+    if not is_owner():
+        return jsonify(error="Only an owner can change the staff list."), 403
+    x = request.get_json(force=True)
+    email = str(x.get("email") or "").strip().lower()[:90]
+    name = str(x.get("name") or "").strip()[:60]
+    role = str(x.get("role") or "")
+    if "@" not in email or "." not in email.split("@")[-1]:
+        return jsonify(error="Please type a real email address."), 400
+    if role not in STAFF_ROLES:
+        return jsonify(error="Role must be one of: " + ", ".join(STAFF_ROLES) + "."), 400
+    old = staff_list().get(email)
+    if old and old["role"] == "owner" and role != "owner" and sum(r["role"] == "owner" for r in staff_list().values()) == 1:
+        return jsonify(error="There must always be at least one owner."), 400
+    con = db(); _staff_tables(con)
+    con.execute("""INSERT INTO staff(email,name,role,epoch,added_at,added_by) VALUES(?,?,?,0,?,?)
+                   ON CONFLICT(email) DO UPDATE SET name=COALESCE(NULLIF(excluded.name,''),staff.name), role=excluded.role""",
+                (email, name, role, now_iso(), _session_email()))
+    con.commit(); con.close(); _staff_reset_cache()
+    staff_log("staff", email, f"role → {role}" if old else f"added as {role}")
+    return jsonify(ok=True)
+
+@app.post("/api/staff/remove")
+def staff_remove():
+    if not is_owner():
+        return jsonify(error="Only an owner can change the staff list."), 403
+    email = str((request.get_json(force=True) or {}).get("email") or "").strip().lower()
+    row = staff_list().get(email)
+    if not row:
+        return jsonify(error="That email isn't on the staff list."), 404
+    if email == _session_email():
+        return jsonify(error="You can't remove yourself."), 400
+    if row["role"] == "owner" and sum(r["role"] == "owner" for r in staff_list().values()) == 1:
+        return jsonify(error="There must always be at least one owner."), 400
+    con = db(); con.execute("DELETE FROM staff WHERE email=?", (email,)); con.commit(); con.close(); _staff_reset_cache()
+    staff_log("staff", email, "removed")
+    return jsonify(ok=True)
+
+@app.post("/api/staff/signout-all")
+def staff_signout_all():
+    """End every sign-in of one staff member. Your own: every other device (this one stays in). Someone else's: owners only."""
+    me = staff_member()
+    if not me and not is_local_request():
+        return jsonify(error="Please sign in first."), 401
+    email = str((request.get_json(force=True) or {}).get("email") or "").strip().lower() or _session_email()
+    if email != _session_email() and not is_owner():
+        return jsonify(error="Only an owner can sign someone else out."), 403
+    if email not in staff_list():
+        return jsonify(error="That email isn't on the staff list."), 404
+    con = db(); con.execute("UPDATE staff SET epoch=epoch+1 WHERE email=?", (email,)); con.commit(); con.close(); _staff_reset_cache()
+    if email == _session_email():
+        session["staff_epoch"] = staff_list()[email]["epoch"]      # this device stays signed in
+    staff_log("signed out everywhere", email)
+    return jsonify(ok=True)
+
+# Sign in with Google, offered on every sign-in page. The button sends people to
+# log.hardywu.com/auth/google?next=<the page they were on>; they come back signed in.
+GOOGLE_BUTTON = ("" if not GOOGLE_CLIENT_ID else
+  '<a href="#" onclick="location.href=\'https://log.hardywu.com/auth/google?next=\'+encodeURIComponent(location.href);return false" '
+  'style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border:1px solid #dadce0;border-radius:12px;'
+  'padding:12px 16px;margin:14px 0 6px;color:#3c4043;font-weight:600;font-size:16px;text-decoration:none">'
+  '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/>'
+  '<path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/>'
+  '<path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/>'
+  '<path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>'
+  'Continue with Google</a><p style="font-size:13px;opacity:.75;margin:4px 0 2px">or use your email</p>')
+VISITOR_HTML = VISITOR_HTML.replace("<!--google-->", GOOGLE_BUTTON).replace("v=STYLE_V", "v=" + style_v())
+LOGIN_HTML = LOGIN_HTML.replace("<!--google-->", GOOGLE_BUTTON)
+
+def _safe_next(url):
+    """Only send people back to a hardywu.com page."""
+    import urllib.parse
+    u = urllib.parse.urlparse(url or "")
+    host = (u.hostname or "").lower()
+    return url if u.scheme == "https" and (host == "hardywu.com" or host.endswith(".hardywu.com")) else SITE_ORIGIN + "/"
+
+@app.get("/auth/google")
+def google_start():
+    if not GOOGLE_CLIENT_ID:
+        return office_message("Sign in with Google isn't switched on yet. Please use the emailed code."), 503
+    import urllib.parse
+    st, nonce = secrets.token_urlsafe(24), secrets.token_urlsafe(24)
+    session["g_state"], session["g_nonce"], session["g_next"] = st, nonce, _safe_next(request.args.get("next"))
+    q = urllib.parse.urlencode(dict(client_id=GOOGLE_CLIENT_ID, redirect_uri=GOOGLE_REDIRECT, response_type="code",
+                                    scope="openid email profile", state=st, nonce=nonce, prompt="select_account"))
+    return redirect("https://accounts.google.com/o/oauth2/v2/auth?" + q)
+
+def _google_claims(code):
+    """Swap Google's one-time code for the signed-in person's details. The id_token comes straight
+    from Google over HTTPS, so its contents can be read without checking the signature."""
+    import urllib.request, urllib.parse
+    body = urllib.parse.urlencode(dict(code=code, client_id=GOOGLE_CLIENT_ID, client_secret=GOOGLE_CLIENT_SECRET,
+                                       redirect_uri=GOOGLE_REDIRECT, grant_type="authorization_code")).encode()
+    req = urllib.request.Request("https://oauth2.googleapis.com/token", data=body, method="POST",
+                                 headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "hardywu.com"})
+    tok = json.loads(urllib.request.urlopen(req, timeout=20).read())
+    part = tok["id_token"].split(".")[1]
+    return json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
+
+@app.get("/auth/google/callback")
+def google_back():
+    st, nonce = session.pop("g_state", None), session.pop("g_nonce", None)
+    if not st or not hmac.compare_digest(request.args.get("state") or "", st) or not request.args.get("code"):
+        return office_message("That Google sign-in didn't finish. Please try again."), 400
+    try:
+        c = _google_claims(request.args["code"])
+    except Exception as e:                                       # noqa: BLE001
+        print(f"[google sign-in] {e}", flush=True)
+        return office_message("Google didn't answer. Please try again, or use the emailed code."), 502
+    email = str(c.get("email") or "").strip().lower()
+    if not (c.get("aud") == GOOGLE_CLIENT_ID and c.get("iss") in ("https://accounts.google.com", "accounts.google.com")
+            and c.get("nonce") == nonce and c.get("email_verified") is True and float(c.get("exp") or 0) > time.time() and email):
+        return office_message("That Google sign-in could not be checked. Please try again."), 400
+    con = db()
+    m = con.execute("SELECT name FROM members WHERE email=? ORDER BY last_seen DESC", (email,)).fetchone(); con.close()
+    row = staff_list().get(email)
+    name = (m["name"] if m else None) or (row and row["name"]) or str(c.get("name") or "").strip()[:60] or email.split("@")[0]
+    sign_in(name, email)
+    _trust(email)
+    if row:
+        staff_log("signed in with Google", email)
+    track("open", "signed in with Google", "")
+    return redirect(session.pop("g_next", None) or SITE_ORIGIN + "/")
+
+
+# ============================ the playground (shop.hardywu.com/make) ============================
+# Saved "Make your own" projects, one list per signed-in visitor, and the helper's daily allowance.
+# The store calls these through its own /api/playground/* routes, passing the visitor's cookie.
+PLAY_FREE_CHANGES = 10                         # free helper changes a day (Barbara to confirm)
+PLAY_MAX_PROJECTS, PLAY_MAX_BYTES = 40, 60_000
+
+def _play_tables(con):
+    con.execute("CREATE TABLE IF NOT EXISTS playground_projects(id TEXT PRIMARY KEY, email TEXT NOT NULL, data TEXT NOT NULL, updated TEXT NOT NULL)")
+    con.execute("CREATE TABLE IF NOT EXISTS playground_helper(email TEXT NOT NULL, day TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(email, day))")
+
+def _play_day():
+    return datetime.datetime.now(HOME_TZ).date().isoformat()   # free changes come back at midnight, Hardy's time
+
+def _play_left(con, em):
+    r = con.execute("SELECT used FROM playground_helper WHERE email=? AND day=?", (em, _play_day())).fetchone()
+    return max(0, PLAY_FREE_CHANGES - (r["used"] if r else 0))
+
+def _play_resets():
+    now = datetime.datetime.now(HOME_TZ)
+    return (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+@app.get("/api/playground/projects")
+def play_projects():
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in."), 401
+    con = db(); _play_tables(con)
+    rows = [dict(id=r["id"], updated=r["updated"], **json.loads(r["data"])) for r in
+            con.execute("SELECT * FROM playground_projects WHERE email=? ORDER BY updated DESC", (em,))]
+    left = _play_left(con, em); con.close()
+    return jsonify(projects=rows, helper=dict(left=left, free=PLAY_FREE_CHANGES, resets=_play_resets()))
+
+@app.post("/api/playground/projects")
+def play_save():
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in."), 401
+    x = request.get_json(force=True) or {}
+    pid = re.sub(r"[^a-z0-9]", "", str(x.get("id") or ""))[:24] or "p" + secrets.token_hex(6)
+    data = {k: x.get(k) for k in ("title", "model", "colors", "text", "font", "pic", "picName", "params", "step", "status", "asks")}
+    blob = json.dumps(data)
+    if len(blob) > PLAY_MAX_BYTES:
+        return jsonify(error="That project is too big to save."), 400
+    con = db(); _play_tables(con)
+    own = con.execute("SELECT email FROM playground_projects WHERE id=?", (pid,)).fetchone()
+    if own and own["email"] != em:
+        con.close(); return jsonify(error="Not your project."), 403
+    if not own and con.execute("SELECT COUNT(*) FROM playground_projects WHERE email=?", (em,)).fetchone()[0] >= PLAY_MAX_PROJECTS:
+        con.close(); return jsonify(error=f"You can keep up to {PLAY_MAX_PROJECTS} projects. Delete an old one first."), 400
+    con.execute("INSERT INTO playground_projects VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated",
+                (pid, em, blob, now_iso()))
+    con.commit(); con.close()
+    return jsonify(ok=True, id=pid)
+
+@app.post("/api/playground/projects/delete")
+def play_delete():
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in."), 401
+    pid = str((request.get_json(force=True) or {}).get("id") or "")
+    con = db(); _play_tables(con)
+    con.execute("DELETE FROM playground_projects WHERE id=? AND email=?", (pid, em)); con.commit(); con.close()
+    return jsonify(ok=True)
+
+@app.post("/api/playground/helper")
+def play_helper_use():
+    """Use one of today's free helper changes. 429 when they're all used."""
+    em = visitor()
+    if not em:
+        return jsonify(error="Please sign in."), 401
+    con = db(); _play_tables(con)
+    left = _play_left(con, em)
+    if left <= 0:
+        con.close(); return jsonify(error="That's all the free changes for today.", left=0, free=PLAY_FREE_CHANGES, resets=_play_resets()), 429
+    con.execute("INSERT INTO playground_helper VALUES(?,?,1) ON CONFLICT(email, day) DO UPDATE SET used=used+1", (em, _play_day()))
+    con.commit(); left = _play_left(con, em); con.close()
+    return jsonify(ok=True, left=left, free=PLAY_FREE_CHANGES, resets=_play_resets())
 
 init_db()                      # also under gunicorn, where __main__ never runs
 

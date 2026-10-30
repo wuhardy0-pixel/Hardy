@@ -32,8 +32,8 @@ export default async function ProductPage({ params }) {
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
     <Customizer product={product} colors={shop.colors} shippingCents={shop.shippingCents} shipDays={shop.shipDays || [3, 5]} initialReviews={r} addons={shop.addons} />
     {others.length > 0 && (
-      <section className="row-box">
-        <h2>Customers also look at</h2>
+      <section className="sec">
+        <div className="sec-head"><h2>Customers also look at</h2></div>
         <div className="grid">{others.map((p) => <ProductCard key={p.slug} p={p} reviews={reviews} shipDays={shop.shipDays || [3, 5]} />)}</div>
       </section>
     )}

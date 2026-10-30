@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hardy Wu — try new things</title>
+<link rel="stylesheet" href="clay.css">
+<script src="theme.js"></script>
+<style>
+.hero{max-width:1200px;margin:26px auto 0;padding:56px 50px;display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;min-height:calc(100vh - 150px)}
+.eyebrow{display:inline-block;font-family:var(--fh);font-weight:900;color:var(--teal);background:var(--mint);border:3px solid var(--rim);box-shadow:var(--clay-sm);padding:6px 14px;border-radius:16px;opacity:0;animation:fade .6s 2.1s forwards}
+.hero h1{font-size:var(--t-h1);margin:0}
+.hero h1 span{display:block;opacity:0;transform:translateY(30px) scale(.96);animation:rise .9s var(--spring) forwards}
+.hero h1 span:nth-child(1){animation-delay:1.4s}
+.hero h1 span:nth-child(2){animation-delay:1.6s}
+.hero h1 span:nth-child(3){animation-delay:1.8s}
+.hero h1 .new{color:var(--orange)}
+.hero h1 b{display:inline-block;background:var(--peach);color:var(--navy);padding:0 16px;border-radius:26px;border:3px solid var(--rim);box-shadow:var(--clay);animation:boing 3s 3.2s var(--spring) infinite}
+@keyframes boing{0%,70%,100%{transform:none}80%{transform:scale(1.07) rotate(-2deg)}}
+.hero .lead{margin:22px 0 14px;max-width:44ch;opacity:0;animation:fade .7s 2.3s forwards}
+.hero .slogan{font-family:var(--fh);font-weight:900;color:var(--teal);font-size:18px;margin:0 0 26px;opacity:0;animation:fade .7s 2.4s forwards}
+.ctas{display:flex;gap:14px;flex-wrap:wrap;opacity:0;animation:fade .7s 2.5s forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes fade{to{opacity:1}}
+
+/* the compass, as a clay disc that draws itself */
+.compass-wrap{position:relative;justify-self:center;width:min(500px,40vw);aspect-ratio:1}
+.disc{position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#fff6ec 70%);border:4px solid var(--rim);box-shadow:var(--clay);transform:scale(.6);opacity:0;animation:pop .8s .1s var(--spring) forwards}
+.compass{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ring{fill:none;stroke:var(--navy);stroke-width:4;stroke-dasharray:10 12;stroke-linecap:round;stroke-dashoffset:1400;animation:draw 1.6s .4s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.tick{fill:var(--navy);opacity:0;transform-box:fill-box;transform-origin:center;animation:pop .5s var(--spring) forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:scale(1)}}
+.dot{fill:var(--teal);opacity:0;animation:pop .4s var(--spring) forwards}
+.needle{transform-origin:280px 280px;transition:transform 1.1s var(--spring);animation:settle 2.2s .6s var(--spring) both}
+@keyframes settle{0%{transform:rotate(-200deg);opacity:0}30%{opacity:1}100%{transform:rotate(0)}}
+.hl{font-family:var(--fh);font-weight:900;font-size:220px;fill:var(--navy)}
+.swoosh{fill:none;stroke:url(#sw);stroke-width:18;stroke-linecap:round;stroke-dasharray:700;stroke-dashoffset:700;animation:draw 1s 1.2s cubic-bezier(.6,0,.2,1) forwards}
+.head{fill:var(--orange);opacity:0;animation:pop .35s 2s var(--spring) forwards}
+.star{fill:var(--orange);transform-origin:282px 130px;opacity:0;animation:pop .5s 2.1s var(--spring) forwards,twinkle 3s 2.8s ease-in-out infinite}
+@keyframes twinkle{50%{transform:scale(.8) rotate(20deg)}}
+.point{position:absolute;z-index:3;transform:var(--t);font-family:var(--fh);font-weight:900;font-size:16px;color:var(--navy);text-align:center;white-space:nowrap;
+  padding:10px 16px;border-radius:20px;border:3px solid var(--rim);background:var(--card);box-shadow:var(--clay-sm);opacity:0;animation:fade .5s forwards;transition:background .2s,transform .2s var(--spring)}
+.point small{display:block;font-family:var(--fb);font-weight:600;font-size:12px;color:var(--muted)}
+.point:hover,.point:focus-visible{background:var(--peach);transform:var(--t) scale(1.08)}
+.p-n{top:-3%;left:50%;--t:translateX(-50%);animation-delay:2.6s}
+.p-e{right:-10%;top:50%;--t:translateY(-50%);animation-delay:2.75s}
+.p-s{bottom:-3%;left:50%;--t:translateX(-50%);animation-delay:2.9s}
+.p-w{left:-10%;top:50%;--t:translateY(-50%);animation-delay:3.05s}
+/* little twinkling stars sprinkled around */
+.spark{position:absolute;width:14px;height:14px;background:var(--orange);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:tw 2.6s ease-in-out infinite}
+@keyframes tw{50%{transform:scale(.4) rotate(45deg);opacity:.4}}
+/* people who switch animations off see the finished picture straight away */
+@media (prefers-reduced-motion:reduce){.eyebrow,.hero h1 span,.hero .lead,.hero .slogan,.ctas,.disc,.tick,.dot,.head,.star,.point{opacity:1!important}
+  .hero h1 span,.disc{transform:none!important}.ring,.swoosh{stroke-dashoffset:0!important}}
+@media (max-width:900px){.hero{grid-template-columns:1fr;padding:30px 24px 60px;min-height:auto}.compass-wrap{width:74vw;margin-top:30px}.p-e{right:-6%}.p-w{left:-6%}}
+</style>
+</head>
+<body>
+<div class="mock">Prototype · Home</div>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+
+<header class="site-head clay">
+  <a class="brand" href="index.html"><img src="../assets/logo.png" alt="">Hardy Wu</a>
+  <nav><a class="chip press" href="shop.html">Shop</a><a class="chip press" href="make.html">Make your own</a><a class="chip press" href="games.html">Games</a>
+    <a class="chip dark press" href="shop.html"><svg class="i"><use href="#i-cart"/></svg>0</a></nav>
+</header>
+<svg width="0" height="0" style="position:absolute"><symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></symbol></svg>
+
+<main class="page">
+  <div class="hero clay">
+    <div>
+      <h1><span>Hardy's 3D:</span><span>you <b>design</b> it,</span><span class="new">Hardy prints it.</span></h1>
+      <p class="lead">Start from one of Hardy's models, make it yours with your colours, name and picture, and it arrives at your door. Or shop ready-made, or play a game.</p>
+      <p class="slogan">Try new things.</p>
+      <div class="ctas"><a class="btn press" href="make.html">Make your own 3D products →</a><a class="btn soft press" href="shop.html">Shop ready-made 3D products</a></div>
+    </div>
+    <div class="compass-wrap" id="cw">
+      <div class="disc"></div>
+      <svg class="compass" viewBox="0 0 560 560" aria-label="The Hardy Wu compass">
+        <defs><linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#02848d"/><stop offset=".55" stop-color="#4fb3a6"/><stop offset="1" stop-color="#f8991d"/></linearGradient></defs>
+        <circle class="ring" cx="280" cy="280" r="200"/>
+        <g id="ticks"></g>
+        <g class="needle" id="needle"><text class="hl" x="280" y="358" text-anchor="middle">H</text></g>
+        <path class="swoosh" d="M130 330 C 175 380, 300 330, 360 290 S 430 225, 458 196"/>
+        <path class="head" d="M468 186 l-46 6 l18 14 l-6 22 z"/>
+        <path class="star" d="M282 100 l7 24 l24 8 l-24 8 l-7 24 l-7 -24 l-24 -8 l24 -8 z"/>
+      </svg>
+      <a class="point p-n" href="make.html">Make<small>design your own</small></a>
+      <a class="point p-e" href="shop.html">Shop<small>ready-made</small></a>
+      <a class="point p-s" href="games.html">Games<small>play free</small></a>
+      <a class="point p-w" href="/apps">AI Apps<small>powered by AI</small></a>
+      <span class="spark" style="left:4%;top:12%"></span><span class="spark" style="right:2%;top:24%;animation-delay:-.8s;width:10px;height:10px"></span>
+      <span class="spark" style="left:12%;bottom:8%;animation-delay:-1.6s;width:10px;height:10px;background:var(--teal)"></span><span class="spark" style="right:10%;bottom:14%;animation-delay:-2.1s"></span>
+    </div>
+  </div>
+</main>
+<footer class="site-foot"><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+
+<script>
+const T=document.getElementById("ticks"),NS="http://www.w3.org/2000/svg";
+[0,90,180,270].forEach((a,i)=>{const g=document.createElementNS(NS,"g"),p=document.createElementNS(NS,"path");   // rotate the group, animate the arrowhead
+  g.setAttribute("transform",`rotate(${a} 280 280)`);p.setAttribute("d","M280 62 l-16 30 h32 z");p.setAttribute("class","tick");p.style.animationDelay=(1+i*.12)+"s";g.appendChild(p);T.appendChild(g);});
+[45,135,225,315].forEach((a,i)=>{const c=document.createElementNS(NS,"circle");const r=a*Math.PI/180;c.setAttribute("cx",280+200*Math.sin(r));c.setAttribute("cy",280-200*Math.cos(r));
+  c.setAttribute("r",9);c.setAttribute("class","dot");c.style.animationDelay=(1.4+i*.1)+"s";T.appendChild(c);});
+// the H turns like a compass needle toward the point you hover
+const needle=document.getElementById("needle");
+document.querySelectorAll(".point").forEach((p,i)=>{const deg=[0,90,180,-90][i];const back=()=>needle.style.transform="rotate(0)";
+  const go=()=>{needle.style.animation="none";needle.style.transform=`rotate(${deg}deg)`;};
+  p.addEventListener("mouseenter",go);p.addEventListener("focus",go);p.addEventListener("mouseleave",back);p.addEventListener("blur",back);});
+</script>
+</body>
+</html>

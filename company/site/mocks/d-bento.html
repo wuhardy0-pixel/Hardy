@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock D · Bento shop — Hardy's 3D</title>
+<!-- Built from UI UX Pro Max: E-commerce → "Vibrant & Block-based" + Bento Box Grid, Feature-Rich Showcase,
+     card hover lift 200ms + scale 1.02, large type 32px+, animated background pattern; fonts Syne + Manrope. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#032859;--teal:#02848d;--orange:#f8991d;--page:#f5f5f7;--card:#fff;--ink:#0b1f3e;--soft:#55667f;--r:24px;--gap:16px}
+*{box-sizing:border-box;margin:0}
+body{font-family:Manrope,system-ui,sans-serif;color:var(--ink);background:var(--page);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}:focus-visible{outline:3px solid var(--orange);outline-offset:3px;border-radius:10px}
+svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+.top{max-width:1240px;margin:0 auto;padding:20px 20px 0;display:flex;align-items:center;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;font-family:Syne;font-weight:800;font-size:22px;color:var(--navy)}
+.brand img{width:38px;height:38px}
+.search{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border-radius:999px;padding:10px 18px;color:var(--soft);box-shadow:0 1px 0 rgba(3,40,89,.06)}
+.search input{border:0;outline:0;font:inherit;flex:1;background:none;color:var(--ink)}
+.pill{display:flex;align-items:center;gap:8px;background:var(--navy);color:#fff;padding:11px 18px;border-radius:999px;font-weight:700}
+
+.bento{max-width:1240px;margin:20px auto 0;padding:0 20px;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:210px;gap:var(--gap)}
+.tile{position:relative;border-radius:var(--r);background:var(--card);overflow:hidden;padding:22px;display:flex;flex-direction:column;justify-content:space-between;
+  box-shadow:0 4px 6px rgba(0,0,0,.05);transition:transform .2s ease,box-shadow .2s ease;opacity:0;transform:translateY(18px);animation:in .6s cubic-bezier(.2,.8,.2,1) forwards}
+a.tile:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 18px 34px rgba(3,40,89,.14)}
+@keyframes in{to{opacity:1;transform:none}}
+.tile:nth-child(2){animation-delay:.08s}.tile:nth-child(3){animation-delay:.16s}.tile:nth-child(4){animation-delay:.24s}.tile:nth-child(5){animation-delay:.32s}
+.tile:nth-child(6){animation-delay:.4s}.tile:nth-child(7){animation-delay:.48s}.tile:nth-child(8){animation-delay:.56s}.tile:nth-child(9){animation-delay:.64s}
+.label{font-size:13px;font-weight:800;color:var(--teal);display:flex;align-items:center;gap:6px}
+h1,h2,h3{font-family:Syne;letter-spacing:-.02em;line-height:1}
+h1{font-size:clamp(40px,4.6vw,64px);font-weight:800}
+h2{font-size:30px;font-weight:800}
+h3{font-size:22px;font-weight:700}
+.price{font-family:Manrope;font-weight:800;font-size:22px}
+
+/* hero tile: navy with a moving layer-line pattern */
+.hero{grid-column:span 2;grid-row:span 2;background:var(--navy);color:#fff;padding:32px}
+.hero::before{content:"";position:absolute;inset:-40%;background:repeating-linear-gradient(-35deg,rgba(248,153,29,.16) 0 2px,transparent 2px 26px);animation:drift 14s linear infinite}
+@keyframes drift{to{transform:translate(52px,-36px)}}
+.hero>*{position:relative}
+.hero p{color:rgba(255,255,255,.78);font-size:18px;line-height:1.5;max-width:34ch;margin-top:16px}
+.hero .cta{align-self:flex-start;display:inline-flex;gap:10px;align-items:center;background:var(--orange);color:var(--navy);font-weight:800;padding:15px 22px;border-radius:16px;font-size:17px;transition:transform .2s}
+.hero .cta:hover{transform:translateX(4px)}
+
+.lunch{grid-column:span 2;grid-row:span 2;padding:0;background:#f0e3e6}
+.lunch img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lunch .cap{position:absolute;left:18px;right:18px;bottom:18px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-radius:18px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center}
+.lunch .name{font-family:Syne;font-weight:800;font-size:44px;color:var(--navy);position:absolute;left:24px;top:22px;background:rgba(255,255,255,.85);padding:6px 14px;border-radius:14px}
+.lunch .name::after{content:"";display:inline-block;width:3px;height:.85em;background:var(--orange);margin-left:4px;vertical-align:-.05em;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+.prod{padding:0}
+.prod img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .4s}
+a.prod:hover img{transform:scale(1.06)}
+.prod .cap{position:absolute;left:14px;right:14px;bottom:14px;display:flex;justify-content:space-between;align-items:center;background:var(--card);border-radius:14px;padding:10px 14px;font-weight:700}
+.prod .price{font-size:18px;color:var(--teal)}
+
+.colors{background:var(--teal);color:#fff}
+.colors .dots{display:flex;gap:8px;flex-wrap:wrap}
+.colors .dots i{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.85);animation:hop 2.4s ease-in-out infinite}
+.colors .dots i:nth-child(2){animation-delay:.15s}.colors .dots i:nth-child(3){animation-delay:.3s}.colors .dots i:nth-child(4){animation-delay:.45s}.colors .dots i:nth-child(5){animation-delay:.6s}.colors .dots i:nth-child(6){animation-delay:.75s}
+@keyframes hop{0%,60%,100%{transform:none}30%{transform:translateY(-10px)}}
+
+.ship{background:var(--orange);color:var(--navy)}
+.ship .road{height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,var(--navy) 0 18px,transparent 18px 30px);opacity:.35;animation:road 1s linear infinite}
+@keyframes road{to{background-position:30px 0}}
+.ship .van{position:absolute;right:22px;top:20px;animation:bump .5s ease-in-out infinite alternate}
+@keyframes bump{to{transform:translateY(-3px)}}
+
+.games{grid-column:span 2;background:#0b1f3e;color:#fff;padding:0;flex-direction:row}
+.games img{width:50%;height:100%;object-fit:cover}
+.games div{padding:22px;display:flex;flex-direction:column;justify-content:space-between}
+.games .label{color:var(--orange)}
+.games p{color:rgba(255,255,255,.7);line-height:1.45}
+
+section.row{max-width:1240px;margin:56px auto 0;padding:0 20px}
+.row-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}
+.row-head a{font-weight:800;color:var(--teal);display:flex;gap:6px;align-items:center}
+.snap{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:var(--gap);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:12px}
+.card{scroll-snap-align:start;background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.05);transition:transform .2s,box-shadow .2s}
+.card:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 18px 34px rgba(3,40,89,.12)}
+.card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#e8edf3}
+.card div{padding:14px 16px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:700}
+.card .price{color:var(--teal);font-size:18px}
+footer{max-width:1240px;margin:56px auto 0;padding:24px 20px 40px;color:var(--soft);display:flex;justify-content:space-between}
+
+@media (max-width:1000px){.bento{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:620px){.bento{grid-template-columns:1fr;grid-auto-rows:190px}.hero,.lunch,.games{grid-column:span 1}.hero{grid-row:span 2}.search{display:none}}
+@media (prefers-reduced-motion:reduce){*,*::before{animation:none!important;opacity:1!important;transform:none!important;transition:none!important}}
+.mock{position:fixed;right:14px;bottom:14px;z-index:9;background:var(--navy);color:#fff;font-weight:800;font-size:13px;padding:8px 12px;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="mock">Mock D · Bento shop</div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+  <symbol id="i-van" viewBox="0 0 24 24"><path d="M2 7h11v9H2zM13 10h4l3 3v3h-7"/><circle cx="6" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+  <symbol id="i-pad" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="12" r="1"/><circle cx="18" cy="14" r="1"/></symbol>
+</svg>
+
+<div class="top">
+  <a class="brand" href="#"><img src="assets/logo.png" alt="">Hardy's 3D</a>
+  <label class="search"><svg class="i"><use href="#i-search"/></svg><input placeholder="Search lunchboxes, fidgets, tools…" aria-label="Search"></label>
+  <a class="pill" href="#"><svg class="i"><use href="#i-cart"/></svg>Cart · 0</a>
+</div>
+
+<main class="bento">
+  <div class="tile hero">
+    <span class="label" style="color:var(--orange)"><svg class="i"><use href="#i-sparkle"/></svg>Printed to order by Hardy</span>
+    <div><h1>Make it<br>yours.</h1><p>Pick the colours, add a name or a picture, and Hardy prints it just for you.</p></div>
+    <a class="cta" href="#">Start customizing <svg class="i"><use href="#i-arrow"/></svg></a>
+  </div>
+
+  <a class="tile lunch" href="#">
+    <img src="assets/Sophia_Lunchbox_render.webp" alt="Pink lunchbox with a name on the lid">
+    <span class="name" id="nm">Sophia</span>
+    <div class="cap"><div><h3>Customizable Lunchbox</h3><span style="color:var(--soft);font-weight:600">Your colours · your name</span></div><span class="price">$35.99</span></div>
+  </a>
+
+  <a class="tile prod" href="#"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt="Paw fidget spinner"><div class="cap">Paw Spinners ×3<span class="price">$25.99</span></div></a>
+  <div class="tile colors"><span class="label" style="color:#fff">Filament colours</span><div><h3 style="margin-bottom:12px">Pick any combo</h3>
+    <div class="dots"><i style="background:#032859"></i><i style="background:#f8991d"></i><i style="background:#f6c6d0"></i><i style="background:#bfe1f6"></i><i style="background:#ffffff"></i><i style="background:#2b2b2b"></i></div></div></div>
+  <div class="tile ship"><svg class="i van" style="width:34px;height:34px"><use href="#i-van"/></svg><span class="label" style="color:var(--navy)">Shipping</span><div><h2>Free</h2><p style="font-weight:700;margin:4px 0 12px">anywhere in the US</p><div class="road"></div></div></div>
+  <a class="tile prod" href="#"><img src="assets/Flexi_Skeleton_photo.webp" alt="Flexi skeleton"><div class="cap">Flexi Skeleton<span class="price">$14.99</span></div></a>
+
+  <a class="tile games" href="#"><img src="assets/nova.png" alt="Nova Blast game"><div><span class="label"><svg class="i"><use href="#i-pad"/></svg>Also by Hardy</span><div><h3>Games you can play now</h3><p>Football Sim, Nova Blast, Critter Quest and more.</p></div><span style="font-weight:800;color:var(--orange)">Play free →</span></div></a>
+  <a class="tile prod" href="#"><img src="assets/Crab_Gauge_photo.webp" alt="Blue crab gauge"><div class="cap">Blue Crab Gauge<span class="price">$13.99</span></div></a>
+  <a class="tile prod" href="#"><img src="assets/Dual_Ruler_photo.webp" alt="Dual ruler"><div class="cap">Dual Ruler<span class="price">$3.50</span></div></a>
+</main>
+
+<section class="row">
+  <div class="row-head"><h2>Everything in the shop</h2><a href="#">See all <svg class="i"><use href="#i-arrow"/></svg></a></div>
+  <div class="snap">
+    <a class="card" href="#"><img src="assets/Sophia_Lunchbox_render.webp" alt=""><div>Customizable Lunchbox<span class="price">$35.99</span></div></a>
+    <a class="card" href="#"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt=""><div>Paw Spinners ×3<span class="price">$25.99</span></div></a>
+    <a class="card" href="#"><img src="assets/Flexi_Skeleton_photo.webp" alt=""><div>Flexi Skeleton<span class="price">$14.99</span></div></a>
+    <a class="card" href="#"><img src="assets/Crab_Gauge_photo.webp" alt=""><div>Blue Crab Gauge<span class="price">$13.99</span></div></a>
+    <a class="card" href="#"><img src="assets/Dual_Ruler_photo.webp" alt=""><div>Dual Ruler<span class="price">$3.50</span></div></a>
+  </div>
+</section>
+<footer><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+
+<script>
+// the name on the lunchbox lid types itself, name after name
+const names=["Sophia","Max","Lily","Ethan","Mia"],el=document.getElementById("nm");
+if(!matchMedia("(prefers-reduced-motion: reduce)").matches){let n=0,i=names[0].length,del=true;
+  setInterval(()=>{const w=names[n];if(del){i--;if(i<=0){del=false;n=(n+1)%names.length;}}else{i++;if(i>=names[n].length+6)del=true;}
+    el.textContent=names[n].slice(0,Math.max(0,Math.min(i,names[n].length)))||"​";},130);}
+</script>
+</body>
+</html>

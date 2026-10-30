@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shop ready-made — Hardy's 3D</title>
+<link rel="stylesheet" href="clay.css">
+<script src="theme.js"></script>
+<style>
+section{max-width:1200px;margin:60px auto 0;padding:0 14px}
+.btn{margin-top:20px}
+/* ---------- hero: the printer prints the headline (from mock B), in clay ---------- */
+.hero{max-width:1200px;margin:26px auto 0;padding:46px 46px 40px;display:grid;grid-template-columns:1.25fr 1fr;gap:30px;align-items:end}
+.printer{position:relative;padding-top:50px}
+.gantry{height:12px;background:var(--deep);border-radius:6px;position:absolute;left:-12px;right:-12px;top:var(--gy,100%);z-index:2;box-shadow:inset -2px -3px 0 rgba(0,0,0,.25)}
+.nozzle{position:absolute;top:-46px;left:var(--nx,0%);transform:translateX(-50%);transition:left .09s linear;width:56px}
+.word{font-family:var(--fh);font-weight:900;font-size:var(--t-hero);line-height:.95;letter-spacing:-.02em;clip-path:inset(var(--top,100%) 0 0 0);
+  background:repeating-linear-gradient(180deg,var(--navy) 0 5px,#0e3a75 5px 6px);-webkit-background-clip:text;background-clip:text;color:transparent}
+.word .o{background:repeating-linear-gradient(180deg,var(--orange) 0 5px,#e9870b 5px 6px);-webkit-background-clip:text;background-clip:text}
+.side p{font-size:var(--t-lead);line-height:1.55;color:var(--muted)}
+.readout{margin-top:18px;background:var(--deep);color:#cfe3ff;border-radius:22px;border:3px solid var(--deep-line);padding:14px 18px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-weight:600;font-size:14px;box-shadow:var(--clay)}
+.readout b{color:var(--orange)}
+.track{grid-column:1/-1;height:8px;background:rgba(255,255,255,.15);border-radius:4px;margin-top:8px;overflow:hidden}
+.track i{display:block;height:100%;width:var(--pct,0%);background:linear-gradient(90deg,var(--teal),var(--orange))}
+
+.head{display:flex;justify-content:space-between;align-items:end;margin:0 8px 18px}
+.head h2{font-size:var(--t-h2)}
+.head p{color:var(--muted)}
+
+/* ---------- bestsellers: the turntable (from mock C), in clay ---------- */
+.stage{position:relative;height:560px;border-radius:40px;overflow:hidden;background:radial-gradient(800px 360px at 50% 100%,#cdeef0 0%,#e7f5f6 45%,rgba(255,255,255,.6) 80%)}
+.scene{position:absolute;left:50%;top:46%;width:0;height:0;perspective:1400px}
+.ring{position:absolute;transform-style:preserve-3d;transition:transform 1s var(--spring)}
+.toy3{position:absolute;left:-115px;top:-145px;width:230px;height:290px;transform-style:preserve-3d;transition:transform 1s var(--spring)}
+.toy3 .c{width:100%;height:100%;border-radius:30px;background:var(--paper);border:3px solid var(--rim);box-shadow:var(--clay);overflow:hidden;display:flex;flex-direction:column;animation:bob 3.6s ease-in-out infinite}
+.toy3:nth-child(2) .c{animation-delay:-.7s}.toy3:nth-child(3) .c{animation-delay:-1.4s}.toy3:nth-child(4) .c{animation-delay:-2.1s}.toy3:nth-child(5) .c{animation-delay:-2.8s}
+@keyframes bob{50%{transform:translateY(-12px)}}
+.toy3 img{height:190px;width:100%;object-fit:cover;background:#eef4f8}
+.toy3 .c div{padding:12px 16px}
+.toy3 b{font-family:var(--fh);font-weight:900;font-size:19px;color:var(--navy);display:block}
+.toy3 span{font-family:var(--fh);font-weight:900;color:var(--teal);font-size:19px}
+.toy3.front .c{border-color:var(--orange)}
+.rank{position:absolute;left:12px;top:12px;background:var(--deep);color:#fff;font-family:var(--fh);font-weight:900;font-size:13px;padding:5px 10px;border-radius:12px}
+.plate{position:absolute;left:50%;bottom:-160px;width:1000px;height:300px;margin-left:-500px;border-radius:50%;background:radial-gradient(closest-side,#fff 0%,#f3fbfb 60%,var(--mint) 100%);box-shadow:inset 0 -14px 0 #8fd3d7}
+.plate::after{content:"";position:absolute;inset:26px 60px;border-radius:50%;border:3px dashed rgba(2,132,141,.35);animation:spin 40s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.controls{position:absolute;left:0;right:0;bottom:26px;display:flex;justify-content:center;align-items:center;gap:14px;z-index:3}
+.round{width:58px;height:58px;border-radius:20px;border:3px solid var(--deep-line);background:var(--deep);color:#fff;cursor:pointer;box-shadow:var(--clay);display:grid;place-items:center}
+.now{min-width:270px;text-align:center;padding:12px 20px;border-radius:20px;font-weight:700;background:var(--paper);border:3px solid var(--rim);box-shadow:var(--clay)}
+.now button{border:0;background:none;color:var(--orange);font-weight:800;cursor:pointer;margin-left:6px}
+
+/* ---------- everything ready-made ---------- */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.toy{padding:14px;display:flex;flex-direction:column;gap:12px}
+.toy .pic{border-radius:22px;overflow:hidden;aspect-ratio:1;box-shadow:inset 0 0 0 3px var(--rim);background:var(--paper);position:relative}
+.toy img{width:100%;height:100%;object-fit:cover}
+.toy .row{display:flex;justify-content:space-between;align-items:center;padding:0 6px 4px;gap:8px}
+.toy h3{font-size:19px}
+.toy small{color:var(--muted);font-weight:600}
+.add{width:48px;height:48px;flex:none;border-radius:16px;border:3px solid #ffd9a6;background:var(--orange);color:var(--on-orange);display:grid;place-items:center;cursor:pointer;
+  box-shadow:inset -4px -4px 0 rgba(160,85,0,.22),inset 3px 3px 0 rgba(255,255,255,.45)}
+.add.done{background:var(--teal);color:#fff;border-color:#7fd2d7}
+.mk{position:absolute;left:10px;bottom:10px;background:var(--deep);color:#fff;font-weight:700;font-size:13px;padding:6px 10px;border-radius:12px}
+.makeown{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;padding:30px 34px;background:var(--peach)}
+.makeown p{color:var(--navy);font-size:18px;margin-top:6px}
+@media (max-width:900px){.hero{grid-template-columns:1fr;padding:28px}.grid{grid-template-columns:repeat(2,1fr)}.toy3{transform:scale(.8)}.makeown{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.word{clip-path:none!important}.gantry{display:none}}
+</style>
+</head>
+<body>
+<div class="mock">Prototype · Shop</div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-l" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-r" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</svg>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+
+<header class="site-head clay">
+  <a class="brand" href="index.html"><img src="../assets/logo.png" alt="">Hardy's 3D</a>
+  <nav><a class="chip on press" href="shop.html">Shop</a><a class="chip press" href="make.html">Make your own</a><a class="chip press" href="games.html">Games</a>
+    <a class="chip dark press" href="#"><svg class="i"><use href="#i-cart"/></svg><span id="count">0</span></a></nav>
+</header>
+
+<main class="page">
+  <div class="hero clay">
+    <div class="printer">
+      <div class="gantry" id="gantry"><div class="nozzle" id="nozzle">
+        <svg viewBox="0 0 56 56" aria-hidden="true"><rect x="10" y="0" width="36" height="26" rx="8" fill="#032859"/><rect x="16" y="6" width="24" height="5" rx="2.5" fill="#02848d"/><path d="M22 26h12l-4 14h-4z" fill="#56688a"/><circle cx="28" cy="46" r="4" fill="#f8991d"><animate attributeName="r" values="3;5;3" dur=".6s" repeatCount="indefinite"/></circle></svg>
+      </div></div>
+      <h1 class="word" id="word">Printed<br>to <span class="o">order.</span></h1>
+    </div>
+    <div class="side">
+      <p>Ready-made pieces Hardy has designed and tested. Pick a colour and he prints yours. Free shipping in the US.</p>
+      <div class="readout" id="readout"><span>NOW PRINTING</span><b>your_next_order.gcode</b><span>LAYER</span><b id="layer">0 / 60</b><div class="track"><i id="pct"></i></div></div>
+      <a class="btn press" href="#all">See everything ↓</a>
+    </div>
+  </div>
+
+  <section>
+    <div class="head"><h2>Bestsellers</h2><p>Spin the table. Tap the front one to add it.</p></div>
+    <div class="stage clay">
+      <div class="plate" aria-hidden="true"></div>
+      <div class="scene"><div class="ring" id="ring"></div></div>
+      <div class="controls">
+        <button class="round press" id="prev" aria-label="Turn left"><svg class="i"><use href="#i-l"/></svg></button>
+        <div class="now" id="now" aria-live="polite"></div>
+        <button class="round press" id="next" aria-label="Turn right"><svg class="i"><use href="#i-r"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <section id="all">
+    <div class="head"><h2>Everything ready-made</h2><p>Each one comes in Hardy's colours of plastic.</p></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section>
+    <div class="makeown clay"><div><h2>Want one that's all yours?</h2><p>Change the colours, add a name or a picture in the playground. You only pay when you print.</p></div>
+      <a class="btn press" style="margin:0" href="make.html">Open the playground →</a></div>
+  </section>
+</main>
+<footer class="site-foot"><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+<div class="toast" id="toast" role="status">Added to your cart</div>
+
+<script>
+const P=[ // the turntable shows the top five; "rank" is a placeholder until real sales numbers are used
+  {n:"Paw Spinners ×3",p:25.99,img:"../assets/Paw_Fidget_Spinner_2026-10-28.webp"},
+  {n:"Customizable Lunchbox",p:35.99,img:"../assets/Sophia_Lunchbox_render.webp",make:true},
+  {n:"Flexi Skeleton",p:14.99,img:"../assets/Flexi_Skeleton_photo.webp"},
+  {n:"Blue Crab Gauge",p:13.99,img:"../assets/Crab_Gauge_photo.webp",make:true},
+  {n:"Dual Ruler",p:3.50,img:"../assets/Dual_Ruler_photo.webp",make:true}];
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches,$=id=>document.getElementById(id);
+
+// ---- cart + toast ----
+let n=0,tt;function added(btn,name){n++;$("count").textContent=n;$("toast").textContent=`${name} added to your cart`;$("toast").classList.add("show");clearTimeout(tt);tt=setTimeout(()=>$("toast").classList.remove("show"),1600);
+  if(btn){btn.classList.add("done");btn.querySelector("use").setAttribute("href","#i-check");setTimeout(()=>{btn.classList.remove("done");btn.querySelector("use").setAttribute("href","#i-plus");},1400);}}
+
+// ---- grid ----
+$("grid").innerHTML=P.map((t,k)=>`<div class="toy clay press"><div class="pic"><img src="${t.img}" alt="${t.n}">${t.make?`<a class="mk" href="make.html">or make your own</a>`:""}</div>
+  <div class="row"><div><h3>${t.n}</h3><span class="price">$${t.p.toFixed(2)}</span></div><button class="add press" data-k="${k}" aria-label="Add ${t.n} to cart"><svg class="i"><use href="#i-plus"/></svg></button></div></div>`).join("");
+$("grid").onclick=e=>{const b=e.target.closest(".add");if(b)added(b,P[b.dataset.k].n);};
+
+// ---- turntable ----
+const ring=$("ring");ring.innerHTML=P.map((t,k)=>`<div class="toy3"><div class="c"><span class="rank">#${k+1}</span><img src="${t.img}" alt="${t.n}"><div><b>${t.n}</b><span>$${t.p.toFixed(2)}</span></div></div></div>`).join("");
+const toys=[...ring.children],N=toys.length,R=420,step=360/N;let i=0,auto;
+function turn(to){i=to;ring.style.transform=`translateZ(-${R}px) rotateY(${-i*step}deg)`;
+  toys.forEach((t,k)=>t.style.transform=`rotateY(${k*step}deg) translateZ(${R}px) rotateY(${i*step-k*step}deg)`);
+  const k=((i%N)+N)%N;toys.forEach((t,j)=>t.classList.toggle("front",j===k));
+  $("now").innerHTML=`${P[k].n} · $${P[k].p.toFixed(2)}<button id="addfront">Add +</button>`;$("addfront").onclick=()=>added(null,P[k].n);}
+function restart(){clearInterval(auto);if(!still)auto=setInterval(()=>turn(i+1),3800);}
+$("next").onclick=()=>{turn(i+1);restart()};$("prev").onclick=()=>{turn(i-1);restart()};
+let sx=null;const st=document.querySelector(".stage");st.addEventListener("pointerdown",e=>sx=e.clientX);
+st.addEventListener("pointerup",e=>{if(sx!==null&&Math.abs(e.clientX-sx)>40){turn(i+(e.clientX<sx?1:-1));restart();}sx=null;});
+turn(0);restart();
+
+// ---- the headline prints itself, layer by layer ----
+const word=$("word"),g=$("gantry"),nz=$("nozzle"),LAYERS=60;
+function setLayer(k){const top=100-k/LAYERS*100;word.style.setProperty("--top",top+"%");g.style.setProperty("--gy",(50+top/100*word.offsetHeight)+"px");
+  $("layer").textContent=`${k} / ${LAYERS}`;$("pct").style.setProperty("--pct",(k/LAYERS*100)+"%");}
+if(still){setLayer(LAYERS);g.style.display="none";}
+else{let k=0,dir=1,x=0;setLayer(0);const t=setInterval(()=>{x+=dir*25;if(x>=100||x<=0){dir*=-1;x=Math.max(0,Math.min(100,x));k++;setLayer(k);}
+  nz.style.setProperty("--nx",x+"%");if(k>=LAYERS){clearInterval(t);setTimeout(()=>{g.style.transition="top .8s ease-in, opacity .6s";g.style.opacity=0;g.style.setProperty("--gy","0px")},400);}},28);}
+</script>
+</body>
+</html>

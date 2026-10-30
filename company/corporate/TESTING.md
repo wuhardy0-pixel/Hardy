@@ -38,3 +38,11 @@ Run `.venv/bin/python` on the script in corporate/tests/ucp_flow.py (Host play.h
 
 ## Store orders, your orders, reviews (2026-10-28)
 From this Mac: POST `/api/order/from-shop` with `ship_to`, `phone`, `email` → the order row carries them (Hardy's Orders tab shows the address). With a signed-in cookie jar: GET `/api/orders/mine` lists that email's orders (401 without); GET `/api/reviews/<slug>` is open and returns `{reviews,count,average}`; POST it `{stars,title,body}` signed in → one review per person per product (a second post replaces). Delete test orders (and their print_jobs) and test reviews afterwards.
+
+## Office and staff (2026-10-29)
+Run `.venv/bin/python tests/office_flow.py` from corporate/. It works on a copy of the database (nothing real changes) and covers: office.hardywu.com sign-in page, customers and "typed Hardy's name" refused, the three roles (owner / manager / printer), staff sign-ins expiring after 7 days, "sign out everywhere", the last-owner guard, staff always needing a code, and Google sign-in (Google's reply is faked). Pass = `ALL PASS`.
+
+Note: since 2026-10-29 the server emails sign-in codes (Resend), so the code is no longer handed back in the API reply. `tests/ucp_flow.py` signs in a test buyer that way and fails its three "signed-in buyer" steps against the live server; run it against a copy started without RESEND_API_KEY.
+
+## Playground (2026-10-29)
+Signed in (cookie jar): GET /api/playground/projects → {projects, helper:{left,free,resets}}; POST it {title, model, colors, ...} → {id}; POST /api/playground/helper ten times → the 11th is 429; POST /api/playground/projects/delete {id}. Not signed in → 401. Then delete the test rows (playground_projects, playground_helper WHERE email=…).

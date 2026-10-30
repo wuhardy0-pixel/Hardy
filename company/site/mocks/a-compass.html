@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock A · Compass — Hardy Wu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#032859;--night:#021a3d;--teal:#02848d;--orange:#f8991d;--paper:#f5f8fb;--ink:#0b1f3e;--soft:#56688a;--line:#dbe3ee}
+*{box-sizing:border-box;margin:0}
+body{font-family:"Instrument Sans",system-ui,sans-serif;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--orange);outline-offset:3px;border-radius:6px}
+
+/* ---------- hero: night sky + compass ---------- */
+.hero{position:relative;min-height:100vh;background:radial-gradient(1200px 700px at 70% 40%,#0a3b78 0%,var(--navy) 45%,var(--night) 100%);color:#fff;overflow:hidden;display:grid;grid-template-columns:1.05fr 1fr;align-items:center;padding:0 6vw}
+#sky{position:absolute;inset:0;width:100%;height:100%}
+.top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:22px 6vw;z-index:3}
+.brand{display:flex;align-items:center;gap:12px;font-family:Unbounded;font-weight:700;letter-spacing:.02em;text-decoration:none}
+.brand img{width:38px;height:38px;border-radius:10px;background:#fff;padding:3px}
+.top nav{display:flex;gap:28px;font-weight:500}
+.top nav a{text-decoration:none;opacity:.85}.top nav a:hover{opacity:1}
+.cart{border:1px solid rgba(255,255,255,.35);padding:8px 16px;border-radius:999px;text-decoration:none}
+
+.copy{position:relative;z-index:2;max-width:560px}
+.eyebrow{color:var(--orange);font-weight:600;font-size:15px;margin-bottom:18px;opacity:0;animation:rise .8s 2.2s forwards}
+h1{font-family:Unbounded;font-weight:800;font-size:clamp(44px,6.4vw,92px);line-height:.98;letter-spacing:-.03em}
+h1 span{display:block;opacity:0;transform:translateY(30px);animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards}
+h1 span:nth-child(1){animation-delay:1.5s}h1 span:nth-child(2){animation-delay:1.7s}
+h1 .new{position:relative;color:var(--orange)}
+.lead{font-size:19px;line-height:1.55;color:rgba(255,255,255,.78);margin:26px 0 34px;max-width:46ch;opacity:0;animation:rise .8s 2.4s forwards}
+.ctas{display:flex;gap:14px;flex-wrap:wrap;opacity:0;animation:rise .8s 2.6s forwards}
+.btn{font-weight:600;font-size:17px;padding:15px 26px;border-radius:14px;text-decoration:none;display:inline-flex;gap:10px;align-items:center}
+.btn.main{background:var(--orange);color:var(--navy)}
+.btn.main:hover{background:#ffab3d}
+.btn.ghost{border:1.5px solid rgba(255,255,255,.4)}
+.btn.ghost:hover{border-color:#fff}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* the compass */
+.compass-wrap{position:relative;z-index:2;justify-self:center;width:min(560px,42vw);aspect-ratio:1}
+.compass{width:100%;height:100%;overflow:visible}
+.ring{fill:none;stroke:#fff;stroke-width:3;stroke-dasharray:8 10;opacity:.75;stroke-dashoffset:1400;animation:draw 1.6s .2s ease-out forwards}
+.ring2{fill:none;stroke:rgba(255,255,255,.12);stroke-width:1}
+@keyframes draw{to{stroke-dashoffset:0}}
+.tick{fill:#fff;opacity:0;transform-box:fill-box;transform-origin:center;animation:pop .5s forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.2)}70%{opacity:1;transform:scale(1.2)}100%{opacity:1;transform:scale(1)}}
+.dot{fill:var(--teal);opacity:0;animation:pop .4s forwards}
+.needle{transform-origin:280px 280px;transition:transform 1.1s cubic-bezier(.3,1.6,.4,1);animation:settle 2.4s .6s cubic-bezier(.3,1.4,.4,1) both}
+@keyframes settle{0%{transform:rotate(-200deg);opacity:0}30%{opacity:1}100%{transform:rotate(0)}}
+.swoosh{fill:none;stroke:url(#sw);stroke-width:16;stroke-linecap:round;stroke-dasharray:700;stroke-dashoffset:700;animation:draw 1s 1.2s cubic-bezier(.6,0,.2,1) forwards}
+.head{fill:var(--orange);opacity:0;animation:pop .35s 2.05s forwards}
+.star{fill:var(--orange);transform-origin:282px 130px;opacity:0;animation:pop .5s 2.2s forwards,twinkle 3s 2.8s ease-in-out infinite}
+@keyframes twinkle{50%{transform:scale(.8) rotate(20deg);opacity:.7}}
+.hl{font-family:Unbounded;font-weight:800;font-size:200px;fill:#fff;opacity:0;animation:rise .8s .9s forwards}
+
+/* compass points = doors */
+.point{position:absolute;z-index:3;font-family:Unbounded;font-weight:700;font-size:14px;letter-spacing:.08em;text-decoration:none;color:#fff;
+  padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(6px);opacity:0;animation:fadein .6s forwards;white-space:nowrap}
+.point:hover,.point:focus-visible{background:var(--orange);color:var(--navy);border-color:var(--orange)}
+.point small{display:block;font-family:"Instrument Sans";font-weight:500;letter-spacing:0;font-size:12px;opacity:.75}
+.p-n{top:-4%;left:50%;animation-delay:2.7s}
+.p-e{right:-12%;top:50%;animation-delay:2.85s}
+.p-s{bottom:-4%;left:50%;animation-delay:3s}
+.p-w{left:-12%;top:50%;animation-delay:3.15s}
+.p-n,.p-s{--t:translateX(-50%)}.p-e,.p-w{--t:translateY(-50%)}
+.point{transform:var(--t)}
+@keyframes fadein{to{opacity:1}}
+
+.scroll-hint{position:absolute;bottom:26px;left:6vw;z-index:2;font-size:14px;color:rgba(255,255,255,.6);display:flex;gap:10px;align-items:center}
+.scroll-hint i{width:1px;height:34px;background:linear-gradient(#fff,transparent);animation:hint 1.8s infinite}
+@keyframes hint{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ---------- shop ---------- */
+section{padding:96px 6vw}
+.sec-head{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:34px}
+h2{font-family:Unbounded;font-weight:700;font-size:clamp(28px,3.4vw,44px);letter-spacing:-.02em;color:var(--navy)}
+.sec-head p{color:var(--soft);max-width:44ch;line-height:1.5}
+.grid{display:grid;grid-template-columns:2fr 1fr 1fr;grid-auto-rows:260px;gap:18px}
+.item{position:relative;border-radius:22px;overflow:hidden;background:#e6edf4;text-decoration:none;color:#fff}
+.item img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.item:hover img{transform:scale(1.04)}
+.item .tag{position:absolute;left:16px;right:16px;bottom:16px;display:flex;justify-content:space-between;align-items:end;gap:10px;
+  background:rgba(3,40,89,.82);backdrop-filter:blur(8px);padding:14px 16px;border-radius:14px}
+.item b{font-size:17px;font-weight:600}.item .price{font-family:Unbounded;font-weight:700;color:var(--orange)}
+.item.big{grid-row:span 2}
+.item.big .tag{padding:20px}.item.big b{font-size:22px}
+.custom{background:var(--navy);color:#fff;border-radius:22px;padding:26px;display:flex;flex-direction:column;justify-content:space-between}
+.custom h3{font-family:Unbounded;font-size:22px;line-height:1.2}
+.custom p{color:rgba(255,255,255,.75);line-height:1.5}
+.custom a{color:var(--orange);font-weight:600;text-decoration:none}
+
+/* ---------- games strip ---------- */
+.games{background:var(--navy);color:#fff}
+.games h2{color:#fff}.games .sec-head p{color:rgba(255,255,255,.7)}
+.reel{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:10px}
+.game{flex:0 0 340px;scroll-snap-align:start;border-radius:20px;overflow:hidden;background:#0a3b78;text-decoration:none}
+.game img{width:100%;height:200px;object-fit:cover;display:block}
+.game div{padding:16px 18px;display:flex;justify-content:space-between}
+.game span{color:var(--orange);font-weight:600}
+footer{padding:40px 6vw;color:var(--soft);font-size:14px;display:flex;justify-content:space-between}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:110px;padding-bottom:80px;gap:40px}
+  .compass-wrap{width:78vw}.top nav{display:none}
+  .p-e{right:-4%}.p-w{left:-4%}
+  .grid{grid-template-columns:1fr 1fr}.item.big{grid-column:span 2;grid-row:span 1}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;transition:none!important}}
+.mock{position:fixed;right:14px;bottom:14px;z-index:9;background:#fff;color:var(--navy);font:600 13px "Instrument Sans";padding:8px 12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+</style>
+</head>
+<body>
+<div class="mock">Mock A · Compass</div>
+
+<header class="hero">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div class="top">
+    <a class="brand" href="#"><img src="assets/logo.png" alt="">HARDY WU</a>
+    <nav><a href="#shop">Shop</a><a href="#games">Games</a><a href="#">Apps</a><a href="#">About</a></nav>
+    <a class="cart" href="#">Cart · 0</a>
+  </div>
+
+  <div class="copy">
+    <p class="eyebrow">Made by Hardy Wu</p>
+    <h1><span>Try</span><span class="new">new things.</span></h1>
+    <p class="lead">3D prints you can make your own, video games you can play right now, and the apps I build along the way.</p>
+    <div class="ctas"><a class="btn main" href="#shop">Shop the prints →</a><a class="btn ghost" href="#games">Play a game</a></div>
+  </div>
+
+  <div class="compass-wrap">
+    <svg class="compass" viewBox="0 0 560 560" aria-label="The Hardy Wu compass">
+      <defs><linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#02848d"/><stop offset=".55" stop-color="#4fb3a6"/><stop offset="1" stop-color="#f8991d"/></linearGradient></defs>
+      <circle class="ring2" cx="280" cy="280" r="250"/>
+      <circle class="ring" cx="280" cy="280" r="210"/>
+      <g id="ticks"></g>
+      <g class="needle" id="needle">
+        <text class="hl" x="280" y="350" text-anchor="middle">H</text>
+      </g>
+      <path class="swoosh" d="M120 330 C 170 380, 300 330, 360 290 S 440 220, 470 190"/>
+      <path class="head" d="M478 180 l-46 6 l18 14 l-6 22 z"/>
+      <path class="star" d="M282 96 l7 26 l26 8 l-26 8 l-7 26 l-7 -26 l-26 -8 l26 -8 z"/>
+    </svg>
+    <a class="point p-n" href="#shop">N · SHOP<small>3D prints</small></a>
+    <a class="point p-e" href="#games">E · GAMES<small>play free</small></a>
+    <a class="point p-s" href="#">S · APPS<small>BookKeep & more</small></a>
+    <a class="point p-w" href="#">W · ABOUT<small>who's Hardy</small></a>
+  </div>
+  <div class="scroll-hint"><i></i>Scroll</div>
+</header>
+
+<section id="shop">
+  <div class="sec-head"><h2>The print shop</h2><p>Printed to order in my workshop. Pick the colours, add a name, and it ships free anywhere in the US.</p></div>
+  <div class="grid">
+    <a class="item big" href="#"><img src="assets/Sophia_Lunchbox_render.webp" alt="Pink lunchbox with Sophia on the lid"><div class="tag"><b>Customizable Lunchbox</b><span class="price">$35.99</span></div></a>
+    <a class="item" href="#"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt="Blue paw fidget spinner"><div class="tag"><b>Paw Fidget Spinner ×3</b><span class="price">$25.99</span></div></a>
+    <a class="item" href="#"><img src="assets/Flexi_Skeleton_photo.webp" alt="Flexi skeleton"><div class="tag"><b>Flexi Skeleton</b><span class="price">$14.99</span></div></a>
+    <a class="item" href="#"><img src="assets/Crab_Gauge_photo.webp" alt="Blue crab gauge"><div class="tag"><b>Blue Crab Gauge</b><span class="price">$13.99</span></div></a>
+    <div class="custom"><h3>Your name, your colours, your picture.</h3><p>Every lid is printed just for you.</p><a href="#">Start customizing →</a></div>
+  </div>
+</section>
+
+<section class="games" id="games">
+  <div class="sec-head"><h2>Games I made</h2><p>No download, no account needed to look around. Sign in to save your score.</p></div>
+  <div class="reel">
+    <a class="game" href="#"><img src="assets/footballsim.png" alt=""><div><b>Football Sim</b><span>Play →</span></div></a>
+    <a class="game" href="#"><img src="assets/nova.png" alt=""><div><b>Nova Blast</b><span>Play →</span></div></a>
+    <a class="game" href="#"><img src="assets/quest.png" alt=""><div><b>Critter Quest</b><span>Play →</span></div></a>
+  </div>
+</section>
+<footer><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+
+<script>
+// compass ticks: 4 big triangles (N E S W) + 4 teal dots
+const T=document.getElementById("ticks"),NS="http://www.w3.org/2000/svg";
+[0,90,180,270].forEach((a,i)=>{const p=document.createElementNS(NS,"path");p.setAttribute("d","M280 50 l-16 30 h32 z");p.setAttribute("class","tick");
+  p.setAttribute("transform",`rotate(${a} 280 280)`);p.style.animationDelay=(1+i*.12)+"s";T.appendChild(p);});
+[45,135,225,315].forEach((a,i)=>{const c=document.createElementNS(NS,"circle");const r=a*Math.PI/180;c.setAttribute("cx",280+210*Math.sin(r));c.setAttribute("cy",280-210*Math.cos(r));
+  c.setAttribute("r",7);c.setAttribute("class","dot");c.style.animationDelay=(1.4+i*.1)+"s";T.appendChild(c);});
+// the needle (the H) turns toward whichever compass point you hover
+const needle=document.getElementById("needle");
+document.querySelectorAll(".point").forEach((p,i)=>{const deg=[0,90,180,270][i];const back=()=>needle.style.transform="rotate(0)";
+  p.addEventListener("mouseenter",()=>{needle.style.animation="none";needle.style.transform=`rotate(${deg===270?-90:deg}deg)`;});
+  p.addEventListener("focus",()=>p.dispatchEvent(new Event("mouseenter")));p.addEventListener("mouseleave",back);p.addEventListener("blur",back);});
+// drifting star field
+const cv=document.getElementById("sky"),cx=cv.getContext("2d");let W,H,stars=[];
+function size(){W=cv.width=cv.offsetWidth*devicePixelRatio;H=cv.height=cv.offsetHeight*devicePixelRatio;stars=Array.from({length:160},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.4+.3,s:Math.random()*.15+.03,t:Math.random()*6}))}
+size();addEventListener("resize",size);
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+(function loop(){cx.clearRect(0,0,W,H);for(const s of stars){s.t+=.02;if(!still){s.x-=s.s;if(s.x<0)s.x=W;}
+  cx.globalAlpha=.35+.35*Math.sin(s.t);cx.fillStyle="#fff";cx.beginPath();cx.arc(s.x,s.y,s.r*devicePixelRatio,0,7);cx.fill();}
+  requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>

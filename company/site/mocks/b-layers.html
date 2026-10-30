@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock B · Layer by layer — Hardy's 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,MONO@-15..0,300..1000,0..1,0..1&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#032859;--teal:#02848d;--orange:#f8991d;--bed:#f4f7fa;--grid:#e2e9f1;--ink:#0d2140;--soft:#5a6b86;--card:#fff}
+*{box-sizing:border-box;margin:0}
+body{font-family:Recursive,system-ui,sans-serif;font-variation-settings:"CASL" .3;color:var(--ink);-webkit-font-smoothing:antialiased;
+  background:var(--bed);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px}
+.mono{font-variation-settings:"MONO" 1,"CASL" 0;font-size:13px;letter-spacing:.02em}
+a{color:inherit}:focus-visible{outline:3px solid var(--orange);outline-offset:3px;border-radius:6px}
+
+header.bar{display:flex;align-items:center;justify-content:space-between;padding:18px 5vw;background:rgba(244,247,250,.85);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--grid)}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:19px;text-decoration:none;color:var(--navy)}
+.brand img{width:34px;height:34px}
+.bar nav{display:flex;gap:26px;font-weight:600}.bar nav a{text-decoration:none;color:var(--soft)}.bar nav a:hover{color:var(--navy)}
+.status{display:flex;align-items:center;gap:8px;color:var(--teal)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 0 rgba(2,132,141,.6);animation:pulse 1.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(2,132,141,0)}100%{box-shadow:0 0 0 0 rgba(2,132,141,0)}}
+
+/* ---------- hero: the printer prints the headline ---------- */
+.hero{padding:70px 5vw 40px;display:grid;grid-template-columns:1fr 360px;gap:40px;align-items:end}
+.printer{position:relative}
+.gantry{height:10px;background:var(--navy);border-radius:5px;position:absolute;left:-10px;right:-10px;top:var(--gy,100%);transition:top .25s linear;z-index:2}
+.nozzle{position:absolute;top:-44px;left:var(--nx,0%);transform:translateX(-50%);transition:left .09s linear;width:56px}
+.nozzle svg{display:block;width:56px;height:56px}
+.word{font-weight:1000;font-variation-settings:"CASL" 1;font-size:clamp(64px,11.5vw,184px);line-height:.92;letter-spacing:-.04em;color:var(--navy);
+  /* the visible part grows upward, layer by layer */
+  clip-path:inset(var(--top,100%) 0 0 0);
+  background:repeating-linear-gradient(180deg,var(--navy) 0 5px,#0a3670 5px 6px);-webkit-background-clip:text;background-clip:text;color:transparent}
+.word .o{background:repeating-linear-gradient(180deg,var(--orange) 0 5px,#e9870b 5px 6px);-webkit-background-clip:text;background-clip:text}
+.side{padding-bottom:18px}
+.side p{font-size:19px;line-height:1.55;color:var(--soft)}
+.side p b{color:var(--ink)}
+.readout{margin-top:22px;background:var(--navy);color:#cfe3ff;border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px}
+.readout b{color:var(--orange);font-weight:600}
+.bar-track{grid-column:1/-1;height:6px;background:rgba(255,255,255,.15);border-radius:3px;margin-top:8px;overflow:hidden}
+.bar-track i{display:block;height:100%;width:var(--pct,0%);background:linear-gradient(90deg,var(--teal),var(--orange))}
+.cta{display:inline-block;margin-top:22px;background:var(--orange);color:var(--navy);font-weight:800;padding:15px 24px;border-radius:12px;text-decoration:none;font-size:17px}
+.cta:hover{background:#ffab3d}
+
+/* ---------- products as print jobs ---------- */
+section{padding:60px 5vw}
+h2{font-weight:900;font-variation-settings:"CASL" 1;font-size:clamp(30px,3.6vw,48px);letter-spacing:-.02em;color:var(--navy);margin-bottom:8px}
+.sub{color:var(--soft);font-size:18px;margin-bottom:30px}
+.jobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.job{background:var(--card);border:1px solid var(--grid);border-radius:18px;overflow:hidden;text-decoration:none;display:flex;flex-direction:column}
+.job .pic{position:relative;aspect-ratio:4/3;background:#e9eef4;overflow:hidden}
+.job img{width:100%;height:100%;object-fit:cover}
+/* when a card scrolls into view the photo "prints" in from the bed up, once */
+.job .pic img{clip-path:inset(100% 0 0 0);transition:clip-path 1.4s steps(28)}
+.job.in .pic img{clip-path:inset(0 0 0 0)}
+.job .body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+.job h3{font-size:19px;font-weight:800;color:var(--navy)}
+.specs{display:flex;gap:8px;flex-wrap:wrap}
+.specs span{background:var(--bed);border:1px solid var(--grid);border-radius:8px;padding:4px 8px;color:var(--soft)}
+.job .row{display:flex;justify-content:space-between;align-items:center;margin-top:auto}
+.price{font-weight:900;font-size:22px;color:var(--teal)}
+.add{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer}
+.add:hover{background:#0a3b78}
+
+/* ---------- live lid preview ---------- */
+.lid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;background:var(--navy);color:#fff;border-radius:28px;margin:0 5vw 60px;padding:50px}
+.lid h2{color:#fff}.lid p{color:rgba(255,255,255,.75);font-size:18px;line-height:1.5}
+.lid label{display:block;margin:22px 0 8px;color:#cfe3ff}
+.lid input{font:inherit;font-size:20px;padding:12px 14px;border-radius:12px;border:0;width:100%;max-width:320px}
+.swatches{display:flex;gap:10px;margin-top:14px}
+.swatches button{width:38px;height:38px;border-radius:50%;border:3px solid transparent;cursor:pointer}
+.swatches button[aria-pressed=true]{border-color:#fff}
+.box{aspect-ratio:4/3;border-radius:22px;background:var(--lidc,#f6c6d0);display:grid;place-items:center;position:relative;transition:background .5s;
+  box-shadow:inset 0 -18px 0 rgba(0,0,0,.08),0 30px 60px rgba(0,0,0,.35)}
+.box span{font-weight:1000;font-variation-settings:"CASL" 1;font-size:clamp(36px,5vw,64px);color:var(--namec,#7a3e57);letter-spacing:-.02em}
+.box span::after{content:"";display:inline-block;width:4px;height:.9em;background:currentColor;margin-left:4px;vertical-align:-.1em;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+footer{padding:30px 5vw 50px;color:var(--soft)}
+@media (max-width:900px){.hero{grid-template-columns:1fr}.lid{grid-template-columns:1fr;padding:30px}.bar nav{display:none}}
+@media (prefers-reduced-motion:reduce){.word{clip-path:none!important}.gantry{display:none}.job .pic img{clip-path:none!important;transition:none}.status i,.box span::after{animation:none}}
+.mock{position:fixed;right:14px;bottom:14px;z-index:9;background:var(--navy);color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="mock">Mock B · Layer by layer</div>
+<header class="bar">
+  <a class="brand" href="#"><img src="assets/logo.png" alt="">Hardy's 3D</a>
+  <nav><a href="#shop">Shop</a><a href="#lid">Make it yours</a><a href="#">Games</a><a href="#">About</a></nav>
+  <span class="status mono"><i></i>Printer online</span>
+</header>
+
+<div class="hero">
+  <div class="printer" id="printer">
+    <div class="gantry" id="gantry"><div class="nozzle" id="nozzle">
+      <svg viewBox="0 0 56 56" aria-hidden="true"><rect x="10" y="0" width="36" height="26" rx="6" fill="#032859"/><rect x="16" y="6" width="24" height="5" rx="2.5" fill="#02848d"/><path d="M22 26h12l-4 14h-4z" fill="#56688a"/><circle cx="28" cy="46" r="4" fill="#f8991d"><animate attributeName="r" values="3;5;3" dur=".6s" repeatCount="indefinite"/></circle></svg>
+    </div></div>
+    <h1 class="word" id="word">Printed<br>to <span class="o">order.</span></h1>
+  </div>
+  <div class="side">
+    <p>Everything here is made <b>one layer at a time</b> by Hardy, in the colours you pick, with your name on it if you like.</p>
+    <div class="readout mono" id="readout">
+      <span>JOB</span><b>hero_headline.gcode</b>
+      <span>LAYER</span><b id="layer">0 / 60</b>
+      <span>FILAMENT</span><b>PLA · Navy + Orange</b>
+      <div class="bar-track"><i id="pct"></i></div>
+    </div>
+    <a class="cta" href="#shop">Browse the prints →</a>
+  </div>
+</div>
+
+<section id="shop">
+  <h2>On the print bed</h2>
+  <p class="sub">Real weights and print times for each piece. Free US shipping.</p>
+  <div class="jobs">
+    <a class="job" href="#"><div class="pic"><img src="assets/Sophia_Lunchbox_render.webp" alt="Pink lunchbox with Sophia on the lid"></div><div class="body"><h3>Customizable Lunchbox</h3><div class="specs mono"><span>260 g</span><span>14 h print</span><span>your name</span></div><div class="row"><span class="price">$35.99</span><button class="add">Customize</button></div></div></a>
+    <a class="job" href="#"><div class="pic"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt="Paw fidget spinner"></div><div class="body"><h3>Paw Fidget Spinner ×3</h3><div class="specs mono"><span>75 g</span><span>6 h print</span></div><div class="row"><span class="price">$25.99</span><button class="add">Add to cart</button></div></div></a>
+    <a class="job" href="#"><div class="pic"><img src="assets/Flexi_Skeleton_photo.webp" alt="Flexi skeleton"></div><div class="body"><h3>Flexi Skeleton</h3><div class="specs mono"><span>30 g</span><span>2.5 h print</span><span>poseable</span></div><div class="row"><span class="price">$14.99</span><button class="add">Add to cart</button></div></div></a>
+    <a class="job" href="#"><div class="pic"><img src="assets/Crab_Gauge_photo.webp" alt="Blue crab gauge"></div><div class="body"><h3>Blue Crab Gauge</h3><div class="specs mono"><span>22 g</span><span>1.5 h print</span></div><div class="row"><span class="price">$13.99</span><button class="add">Add to cart</button></div></div></a>
+    <a class="job" href="#"><div class="pic"><img src="assets/Dual_Ruler_photo.webp" alt="Dual ruler"></div><div class="body"><h3>Dual Ruler</h3><div class="specs mono"><span>23 g</span><span>1.2 h print</span><span>cm + inch</span></div><div class="row"><span class="price">$3.50</span><button class="add">Add to cart</button></div></div></a>
+  </div>
+</section>
+
+<div class="lid" id="lid">
+  <div>
+    <h2>Try your lid</h2>
+    <p>Type a name and pick colours. This is what Hardy prints.</p>
+    <label for="nm">Name on the lid</label>
+    <input id="nm" value="Sophia" maxlength="12">
+    <label>Lid colour</label>
+    <div class="swatches" id="sw">
+      <button aria-label="Pink" aria-pressed="true" style="background:#f6c6d0" data-l="#f6c6d0" data-n="#7a3e57"></button>
+      <button aria-label="Sky blue" aria-pressed="false" style="background:#bfe1f6" data-l="#bfe1f6" data-n="#032859"></button>
+      <button aria-label="Mint" aria-pressed="false" style="background:#bfe8d9" data-l="#bfe8d9" data-n="#02606a"></button>
+      <button aria-label="Navy" aria-pressed="false" style="background:#032859" data-l="#0b3b7a" data-n="#f8991d"></button>
+      <button aria-label="Orange" aria-pressed="false" style="background:#f8991d" data-l="#f8991d" data-n="#032859"></button>
+    </div>
+  </div>
+  <div class="box" id="box"><span id="name">Sophia</span></div>
+</div>
+<footer class="mono">© 2026 Hardy Wu · hardywu.com</footer>
+
+<script>
+// the hero headline is "printed": the nozzle zig-zags across while the visible part rises one layer at a time
+const word=document.getElementById("word"),g=document.getElementById("gantry"),nz=document.getElementById("nozzle"),pct=document.getElementById("pct"),layerEl=document.getElementById("layer");
+const LAYERS=60,still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function setLayer(n){const top=100-n/LAYERS*100;word.style.setProperty("--top",top+"%");g.style.setProperty("--gy",(top/100*word.offsetHeight)+"px");
+  layerEl.textContent=`${n} / ${LAYERS}`;pct.style.setProperty("--pct",(n/LAYERS*100)+"%");}
+if(still){setLayer(LAYERS);g.style.display="none";}
+else{let n=0,dir=1,x=0;setLayer(0);
+  const t=setInterval(()=>{x+=dir*25;if(x>=100||x<=0){dir*=-1;x=Math.max(0,Math.min(100,x));n++;setLayer(n);}
+    nz.style.setProperty("--nx",x+"%");
+    if(n>=LAYERS){clearInterval(t);setTimeout(()=>{g.style.transition="top .8s ease-in, opacity .6s";g.style.opacity=0;g.style.setProperty("--gy","-60px")},400);}},28);}
+// photos print in as their cards scroll into view
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}}),{threshold:.35});
+document.querySelectorAll(".job").forEach(j=>io.observe(j));
+// live lid preview
+const nm=document.getElementById("nm"),nameEl=document.getElementById("name"),box=document.getElementById("box");
+nm.addEventListener("input",()=>nameEl.textContent=nm.value||" ");
+document.querySelectorAll("#sw button").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("#sw button").forEach(x=>x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true");box.style.setProperty("--lidc",b.dataset.l);box.style.setProperty("--namec",b.dataset.n);}));
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+/* Hardy Wu — one clay style for every page (2026-10-29).
+   Logo colours (navy #032859, teal #02848d, orange #f8991d) on a warm cream ground with soft clay pastels.
+   One type system: Nunito for headings and buttons, DM Sans for everything else. */
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap");
+:root{
+  --navy:#032859;--teal:#02848d;--orange:#f8991d;
+  --bg:#fcf3e8;--ink:#2a2240;--muted:#7a6a63;--card:rgba(255,255,255,.78);
+  --peach:#ffcf9e;--pink:#f9c9d4;--mint:#bfe8df;--sky:#c9e3f5;--butter:#ffe7a8;
+  --fh:Nunito,sans-serif;--fb:"DM Sans",system-ui,sans-serif;
+  --deep:#032859;--deep-line:#2d4f86;--on-orange:#032859;--paper:#fff;--paper-hi:#fff4e6;--rim:#fff;--track:#f1e4d6;
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --clay:inset -6px -6px 14px rgba(120,70,40,.10),inset 6px 6px 14px rgba(255,255,255,.9),8px 12px 24px rgba(120,70,40,.14);
+  --clay-sm:inset -3px -3px 8px rgba(120,70,40,.10),inset 3px 3px 8px rgba(255,255,255,.9),4px 6px 12px rgba(120,70,40,.12);
+  /* type scale, used everywhere */
+  --t-hero:clamp(48px,7vw,96px);--t-h1:clamp(40px,5vw,68px);--t-h2:clamp(28px,3.2vw,42px);--t-h3:20px;--t-body:17px;--t-lead:19px;--t-small:14px;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--fb);font-size:var(--t-body);line-height:1.55;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--orange);outline-offset:4px;border-radius:20px}
+h1,h2,h3,.display{font-family:var(--fh),sans-serif;font-weight:900;letter-spacing:-.01em;color:var(--navy);line-height:1.02}
+h1{font-size:var(--t-h1)}h2{font-size:var(--t-h2)}h3{font-size:var(--t-h3)}
+.lead{font-size:var(--t-lead);color:var(--muted)}
+.small{font-size:var(--t-small);color:var(--muted)}
+svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* floating clay blobs behind every page */
+.blobs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;box-shadow:var(--clay);animation:float 9s ease-in-out infinite}
+.blob.b1{width:190px;height:190px;background:var(--peach);left:-60px;top:200px}
+.blob.b2{width:120px;height:120px;background:var(--mint);right:3%;top:110px;animation-delay:-3s}
+.blob.b3{width:86px;height:86px;background:var(--pink);left:-10px;bottom:8%;animation-delay:-5s}
+.blob.b4{width:60px;height:60px;background:var(--sky);right:2%;bottom:34%;animation-delay:-1.5s}
+@media (max-width:1320px){.blob.b3,.blob.b4{display:none}}   /* on narrower screens they would sit behind the page */
+@keyframes float{50%{transform:translate(14px,-20px) rotate(8deg)}}
+.page{position:relative;z-index:1}
+
+/* clay surfaces and the squishy press */
+.clay{background:var(--card);border:3px solid var(--rim);border-radius:32px;box-shadow:var(--clay);backdrop-filter:blur(6px)}
+.press{transition:transform .2s var(--spring)}
+.press:hover{transform:translateY(-4px)}
+.press:active{transform:scale(.94)}
+
+/* header, same on every page */
+.site-head{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:18px auto 0;padding:12px 14px 12px 20px;position:relative;z-index:5}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--fh);font-weight:900;font-size:22px;color:var(--navy)}
+.brand img{width:42px;height:42px}
+.site-head nav{display:flex;gap:10px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;font-weight:700;padding:11px 18px;border-radius:20px;border:3px solid var(--rim);box-shadow:var(--clay-sm);background:var(--card)}
+.chip.on{background:var(--peach)}
+.chip.dark{background:var(--deep);color:#fff;border-color:var(--deep-line)}
+.wrap{max-width:1200px;margin:0 auto;padding:0 14px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--fh);font-weight:900;font-size:18px;padding:15px 24px;border-radius:22px;border:3px solid #ffd9a6;background:var(--orange);color:var(--on-orange);cursor:pointer;
+  box-shadow:inset -5px -6px 0 rgba(160,85,0,.22),inset 4px 4px 0 rgba(255,255,255,.45),6px 10px 20px rgba(248,153,29,.35)}
+.btn.soft{background:var(--card);border-color:var(--rim);box-shadow:var(--clay-sm)}
+.btn.dark{background:var(--deep);color:#fff;border-color:var(--deep-line);box-shadow:inset -5px -6px 0 rgba(0,0,0,.25),inset 4px 4px 0 rgba(255,255,255,.12),6px 10px 20px rgba(3,40,89,.25)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.price{font-family:var(--fh);font-weight:900;color:var(--teal);font-size:20px}
+.site-foot{max-width:1200px;margin:60px auto 0;padding:20px 22px 44px;color:var(--muted);display:flex;justify-content:space-between;position:relative;z-index:1;font-size:var(--t-small)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,160%);background:var(--deep);color:#fff;font-weight:700;padding:14px 22px;border-radius:20px;border:3px solid var(--deep-line);transition:transform .45s var(--spring);z-index:50}
+.toast.show{transform:translate(-50%,0)}
+.mock{position:fixed;right:14px;bottom:14px;z-index:60;background:var(--orange);color:var(--on-orange);font-weight:800;font-size:13px;padding:8px 12px;border-radius:12px}
+@media (max-width:900px){.site-head nav .chip:not(.on):not(.dark){display:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ================= the Space style (from mock A): night sky, planets, glowing glass =================
+   Switch with the button in the header; the choice is remembered on this device (theme.js). */
+[data-theme="space"]{
+  /* same lettering as Cozy (mock F): only the colours and the night sky change */
+  --navy:#f1f5ff;--teal:#45d3d9;--bg:#021a3d;--ink:#e6edfb;--muted:#9fb3d6;--card:rgba(255,255,255,.06);
+  --peach:#1d4f92;--mint:#0f5b66;--pink:#4b2a7a;--sky:#173a72;--butter:#5c4512;
+  --deep:#0f3f80;--deep-line:rgba(255,255,255,.25);--paper:rgba(255,255,255,.08);--paper-hi:rgba(248,153,29,.16);--rim:rgba(255,255,255,.16);--track:rgba(255,255,255,.12);
+  --clay:inset 0 1px 0 rgba(255,255,255,.14),0 14px 36px rgba(0,0,0,.38),0 0 0 1px rgba(120,170,255,.06);
+  --clay-sm:inset 0 1px 0 rgba(255,255,255,.12),0 6px 16px rgba(0,0,0,.3);
+}
+[data-theme="space"] body{background:radial-gradient(1200px 700px at 70% 20%,#0a3b78 0%,#032859 45%,#021a3d 100%) fixed}
+[data-theme="space"] body::before{content:"";position:fixed;inset:-50%;z-index:0;pointer-events:none;opacity:.8;animation:stars 120s linear infinite;
+  background-image:radial-gradient(1.4px 1.4px at 20px 30px,#fff,transparent),radial-gradient(1px 1px at 90px 120px,#fff,transparent),radial-gradient(1.6px 1.6px at 160px 60px,#cfe3ff,transparent),
+    radial-gradient(1px 1px at 230px 170px,#fff,transparent),radial-gradient(1.2px 1.2px at 300px 90px,#fff,transparent),radial-gradient(2px 2px at 360px 220px,#ffd8a1,transparent);
+  background-size:400px 260px}
+@keyframes stars{to{transform:translate(-400px,130px)}}
+[data-theme="space"] .clay{backdrop-filter:blur(10px)}
+/* the blobs become planets */
+[data-theme="space"] .blob{box-shadow:inset -14px -14px 30px rgba(0,0,0,.45),0 0 40px rgba(120,170,255,.15)}
+[data-theme="space"] .blob.b1{background:radial-gradient(circle at 32% 30%,#ffd29a,#f8991d 55%,#9a4d00)}
+[data-theme="space"] .blob.b1::after{content:"";position:absolute;left:-30%;top:42%;width:160%;height:18%;border-radius:50%;border:5px solid rgba(255,214,160,.55);transform:rotate(-18deg)}
+[data-theme="space"] .blob.b2{background:radial-gradient(circle at 32% 30%,#9ff3f5,#02848d 60%,#014349)}
+[data-theme="space"] .blob.b3{background:radial-gradient(circle at 32% 30%,#d9c2ff,#7c4dbc 60%,#3a1d66)}
+[data-theme="space"] .blob.b4{background:radial-gradient(circle at 32% 30%,#ffffff,#c7d3e6 60%,#7d8aa3)}
+[data-theme="space"] .field{color:var(--ink);box-shadow:inset 0 2px 6px rgba(0,0,0,.3)}
+[data-theme="space"] .field::placeholder{color:#8aa0c6}
+[data-theme="space"] .btn{box-shadow:0 0 0 1px rgba(255,190,110,.4),0 8px 26px rgba(248,153,29,.35)}
+[data-theme="space"] .btn.soft{box-shadow:var(--clay-sm)}
+[data-theme="space"] .btn.dark,[data-theme="space"] .chip.dark{box-shadow:var(--clay-sm)}
+html.theme-anim *{transition:background-color .5s,color .5s,border-color .5s!important}
+
+/* the style switch */
+.theme-switch{display:inline-flex;gap:4px;padding:4px;border-radius:20px;border:3px solid var(--rim);background:var(--card);box-shadow:var(--clay-sm)}
+.theme-switch button{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:7px 12px;border-radius:15px;font-family:var(--fh);font-weight:800;font-size:14px;color:var(--muted);cursor:pointer}
+.theme-switch button[aria-pressed=true]{background:var(--orange);color:var(--on-orange)}
+.theme-switch svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:700px){.theme-switch button span{display:none}}
+
+/* Space versions of page parts that paint their own backgrounds */
+[data-theme="space"] .disc{background:radial-gradient(circle at 35% 30%,#123f80,#062652 70%);border-color:rgba(255,255,255,.16)}
+[data-theme="space"] .bed{background:radial-gradient(circle at 50% 115%,#124e8f 0%,#062652 60%,#041d42 100%)}
+[data-theme="space"] .bed::before{background-image:radial-gradient(rgba(160,200,255,.22) 1.6px,transparent 1.6px)}
+[data-theme="space"] .stage{background:radial-gradient(800px 360px at 50% 100%,#0f4c8a 0%,#08305f 50%,rgba(2,26,61,.4) 85%)}
+[data-theme="space"] .plate{background:radial-gradient(closest-side,#1a5aa0 0%,#0d3a72 60%,#0f5b66 100%);box-shadow:inset 0 -14px 0 #0b4a52,0 0 60px rgba(69,211,217,.25)}
+[data-theme="space"] .word{background:repeating-linear-gradient(180deg,#f1f5ff 0 5px,#b9c8e6 5px 6px);-webkit-background-clip:text;background-clip:text}
+[data-theme="space"] .toys .plinth{box-shadow:0 0 60px rgba(69,211,217,.3)}
+[data-theme="space"] .g .pic{background:linear-gradient(135deg,#123f80,#0f5b66)}
+[data-theme="space"] .btn.soft,[data-theme="space"] .mini:not(.go){color:var(--ink)}
+[data-theme="space"] .badge.done{color:#ffd58a}

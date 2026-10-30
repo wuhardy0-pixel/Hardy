@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock E · Story scroll — Hardy Wu</title>
+<!-- Built from UI UX Pro Max: Portfolio/Personal → "Motion-Driven + Minimalism & Swiss Style", Storytelling-Driven landing,
+     parallax 3-5 layers + scroll-triggered reveals (Intersection Observer), expressive variable typography; fonts Archivo + Space Grotesk. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#032859;--teal:#02848d;--orange:#f8991d;--paper:#fbfcfd;--ink:#081a33;--soft:#5b6b82;--line:#e3e9f0}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:"Space Grotesk",system-ui,sans-serif;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased}
+a{color:inherit}:focus-visible{outline:3px solid var(--orange);outline-offset:3px;border-radius:8px}
+.top{position:fixed;inset:0 0 auto 0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:18px 5vw;mix-blend-mode:normal}
+.brand{display:flex;gap:10px;align-items:center;font-family:Archivo;font-weight:800;font-variation-settings:"wdth" 110;text-decoration:none;color:var(--navy)}
+.brand img{width:34px;height:34px}
+.top nav{display:flex;gap:24px;font-weight:500}.top nav a{text-decoration:none;color:var(--soft)}.top nav a:hover{color:var(--navy)}
+.progress{position:fixed;left:0;top:0;height:4px;background:linear-gradient(90deg,var(--teal),var(--orange));width:var(--p,0%);z-index:11}
+
+/* ---------- opening: the name stretches as you scroll ---------- */
+.open{height:100vh;display:grid;place-items:center;position:relative;overflow:hidden}
+.layer{position:absolute;inset:0;pointer-events:none;will-change:transform}
+.l1{background:radial-gradient(600px 380px at 75% 30%,rgba(2,132,141,.12),transparent 70%)}
+.l2 span,.l3 span{position:absolute;border-radius:50%}
+.l2 span{width:14px;height:14px;background:var(--orange)}
+.l3 span{width:90px;height:90px;border:2px dashed rgba(3,40,89,.18)}
+.big{font-family:Archivo;font-weight:900;color:var(--navy);text-align:center;line-height:.86;letter-spacing:-.02em;
+  font-size:clamp(70px,15vw,230px);font-variation-settings:"wdth" var(--w,62)}
+.big em{font-style:normal;color:var(--orange)}
+.open p{position:absolute;bottom:12vh;left:0;right:0;text-align:center;color:var(--soft);font-size:18px}
+.open p b{color:var(--ink)}
+
+/* ---------- the story: four chapters with a sticky scene ---------- */
+.story{display:grid;grid-template-columns:1fr 1fr;gap:6vw;padding:0 5vw}
+.scene{position:sticky;top:0;height:100vh;display:grid;place-items:center}
+.stage{width:min(460px,38vw);aspect-ratio:1;border-radius:36px;background:var(--navy);position:relative;overflow:hidden;box-shadow:0 40px 80px rgba(3,40,89,.25)}
+.stage>div{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transform:scale(.92);transition:opacity .5s,transform .6s cubic-bezier(.2,.8,.2,1)}
+.stage>div.on{opacity:1;transform:none}
+.stage svg{width:72%;height:72%}
+.stage .tag{position:absolute;left:22px;top:20px;font-family:Archivo;font-weight:800;font-variation-settings:"wdth" 120;color:var(--orange);font-size:14px;letter-spacing:.04em}
+/* chapter 1: pencil sketch draws itself */
+.sk path{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-dasharray:600;stroke-dashoffset:600}
+.on .sk path{animation:draw 2s ease-out forwards}.on .sk path:nth-child(2){animation-delay:.4s}.on .sk path:nth-child(3){animation-delay:.8s}
+@keyframes draw{to{stroke-dashoffset:0}}
+/* chapter 2: wireframe box spins */
+.cad{animation:turn 8s linear infinite;transform-origin:center}
+@keyframes turn{to{transform:rotate(360deg)}}
+.cad path,.cad rect{fill:none;stroke:#59d3da;stroke-width:2.5}
+/* chapter 3: layers stack up */
+.print rect{fill:var(--orange);transform:scaleX(0);transform-origin:left;transform-box:fill-box}
+.on .print rect{animation:lay .35s forwards}
+@keyframes lay{to{transform:scaleX(1)}}
+/* chapter 4: parcel rolls off */
+.parcel{animation:roll 3s ease-in-out infinite}
+@keyframes roll{0%{transform:translateX(-30%)}50%{transform:translateX(10%)}100%{transform:translateX(-30%)}}
+
+.chapters{padding:20vh 0}
+.ch{min-height:90vh;display:flex;flex-direction:column;justify-content:center;max-width:470px}
+.ch .n{font-family:Archivo;font-weight:900;font-variation-settings:"wdth" 125;font-size:16px;color:var(--teal);margin-bottom:14px}
+.ch h2{font-family:Archivo;font-weight:900;font-size:clamp(38px,4.4vw,64px);line-height:.95;letter-spacing:-.02em;color:var(--navy);font-variation-settings:"wdth" 80}
+.ch p{font-size:19px;line-height:1.6;color:var(--soft);margin-top:18px}
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .6s,transform .6s cubic-bezier(.2,.8,.2,1)}
+.reveal.in{opacity:1;transform:none}
+.ch a.cta{align-self:flex-start;margin-top:26px;background:var(--orange);color:var(--navy);font-weight:700;padding:15px 24px;border-radius:14px;text-decoration:none}
+
+/* ---------- shelf ---------- */
+.shelf{padding:12vh 5vw;background:var(--navy);color:#fff}
+.shelf h2{font-family:Archivo;font-weight:900;font-size:clamp(36px,4vw,56px);font-variation-settings:"wdth" 75;margin-bottom:30px}
+.items{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.it{background:#0c3670;border-radius:20px;overflow:hidden;text-decoration:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.it:hover{transform:translateY(-6px)}
+.it img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.it div{padding:12px 14px;display:flex;justify-content:space-between;gap:8px;font-weight:500}
+.it b{color:var(--orange)}
+footer{padding:30px 5vw 50px;color:var(--soft);display:flex;justify-content:space-between}
+@media (max-width:900px){.story{grid-template-columns:1fr}.scene{height:60vh;top:60px}.stage{width:70vw}.items{grid-template-columns:repeat(2,1fr)}.top nav{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}.layer{transform:none!important}.sk path{stroke-dashoffset:0}.print rect{transform:none}}
+.mock{position:fixed;right:14px;bottom:14px;z-index:12;background:var(--teal);color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="mock">Mock E · Story scroll</div>
+<div class="progress" id="prog"></div>
+<header class="top"><a class="brand" href="#"><img src="assets/logo.png" alt="">HARDY WU</a><nav><a href="#how">How it's made</a><a href="#shop">Shop</a><a href="#">Games</a><a href="#">Apps</a></nav></header>
+
+<section class="open" id="open">
+  <div class="layer l1" data-speed=".15"></div>
+  <div class="layer l3" data-speed=".35"><span style="left:12%;top:22%"></span><span style="right:14%;top:62%"></span><span style="left:58%;top:12%;width:50px;height:50px"></span></div>
+  <div class="layer l2" data-speed=".6"><span style="left:22%;top:70%"></span><span style="right:26%;top:26%;background:var(--teal)"></span><span style="left:48%;bottom:18%;width:9px;height:9px"></span></div>
+  <h1 class="big" id="big">Idea<br>to <em>object.</em></h1>
+  <p>Scroll to see how <b>one lunchbox</b> gets made.</p>
+</section>
+
+<section class="story" id="how">
+  <div class="scene"><div class="stage" id="stage">
+    <div class="on"><span class="tag">01 · SKETCH</span>
+      <svg class="sk" viewBox="0 0 200 200"><path d="M40 80 h120 v80 h-120 z"/><path d="M40 80 l20 -26 h80 l20 26"/><path d="M70 120 q30 20 60 0"/></svg></div>
+    <div><span class="tag">02 · DESIGN</span>
+      <svg viewBox="0 0 200 200"><g class="cad"><rect x="50" y="70" width="100" height="70"/><path d="M50 70 l25 -22 h100 l-25 22 M150 140 l25 -22 v-70"/><path d="M75 48 v70 M75 118 h100" stroke-dasharray="4 5"/></g></svg></div>
+    <div><span class="tag">03 · PRINT</span>
+      <svg class="print" viewBox="0 0 200 200" id="printsvg"></svg></div>
+    <div><span class="tag">04 · SHIP</span>
+      <svg viewBox="0 0 200 200"><g class="parcel"><rect x="60" y="80" width="80" height="60" rx="6" fill="#f8991d"/><path d="M60 100 h80 M100 80 v60" stroke="#032859" stroke-width="5"/></g><path d="M20 160 h160" stroke="#59d3da" stroke-width="4" stroke-dasharray="14 10"/></svg></div>
+  </div></div>
+
+  <div class="chapters">
+    <div class="ch reveal" data-step="0"><span class="n">01</span><h2>It starts as a sketch.</h2><p>You tell Hardy what you want: a name on the lid, a bunny and a bear, pink and white. He draws it out first.</p></div>
+    <div class="ch reveal" data-step="1"><span class="n">02</span><h2>Then a 3D model.</h2><p>The sketch becomes a model on the computer, sized so the lid clicks shut and the handle holds a full lunch.</p></div>
+    <div class="ch reveal" data-step="2"><span class="n">03</span><h2>Printed layer by layer.</h2><p>The printer lays down hundreds of thin layers of plastic in the colours you chose. The lunchbox takes about 14 hours.</p></div>
+    <div class="ch reveal" data-step="3"><span class="n">04</span><h2>Packed and sent to you.</h2><p>Checked, packed and shipped free anywhere in the US.</p><a class="cta" href="#shop">Make your own →</a></div>
+  </div>
+</section>
+
+<section class="shelf" id="shop">
+  <h2 class="reveal">On the shelf right now</h2>
+  <div class="items">
+    <a class="it reveal" href="#"><img src="assets/Sophia_Lunchbox_render.webp" alt=""><div>Lunchbox<b>$35.99</b></div></a>
+    <a class="it reveal" href="#"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt=""><div>Paw Spinners<b>$25.99</b></div></a>
+    <a class="it reveal" href="#"><img src="assets/Flexi_Skeleton_photo.webp" alt=""><div>Flexi Skeleton<b>$14.99</b></div></a>
+    <a class="it reveal" href="#"><img src="assets/Crab_Gauge_photo.webp" alt=""><div>Crab Gauge<b>$13.99</b></div></a>
+    <a class="it reveal" href="#"><img src="assets/Dual_Ruler_photo.webp" alt=""><div>Dual Ruler<b>$3.50</b></div></a>
+  </div>
+</section>
+<footer><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+
+<script>
+const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+// chapter 3's layers
+const ps=document.getElementById("printsvg");
+for(let k=0;k<12;k++){const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("x",50);r.setAttribute("y",150-k*8);r.setAttribute("width",100);r.setAttribute("height",6);r.setAttribute("rx",2);
+  r.style.animationDelay=(k*.22)+"s";if(k%4===3)r.setAttribute("fill","#ffffff");ps.appendChild(r);}
+// parallax layers + the stretching headline + progress bar
+const layers=[...document.querySelectorAll(".layer")],big=document.getElementById("big"),prog=document.getElementById("prog");
+function onScroll(){const y=scrollY,h=innerHeight;
+  if(!still){layers.forEach(l=>l.style.transform=`translateY(${y*l.dataset.speed}px)`);big.style.setProperty("--w",Math.min(125,62+y/h*90));}
+  prog.style.setProperty("--p",(y/(document.body.scrollHeight-h)*100)+"%");}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+// reveals, and the scene follows whichever chapter is in view
+const scenes=[...document.querySelectorAll("#stage>div")];
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;e.target.classList.add("in");
+  const s=e.target.dataset.step;if(s!==undefined)scenes.forEach((d,k)=>d.classList.toggle("on",k==s));}),{threshold:.5});
+document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

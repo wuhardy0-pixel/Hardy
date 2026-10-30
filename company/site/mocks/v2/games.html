@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Games — Hardy Wu</title>
+<link rel="stylesheet" href="clay.css">
+<script src="theme.js"></script>
+<style>
+.intro{max-width:1200px;margin:40px auto 24px;padding:0 22px}
+.intro h1 span{display:inline-block;background:var(--mint);padding:0 16px;border-radius:26px;border:3px solid var(--rim);box-shadow:var(--clay);animation:boing 2.8s var(--spring) infinite}
+@keyframes boing{0%,70%,100%{transform:none}80%{transform:scale(1.07) rotate(2deg)}}
+.intro .lead{margin-top:14px}
+.grid{max-width:1200px;margin:0 auto;padding:0 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.g{overflow:hidden;display:flex;flex-direction:column}
+.g:hover{transform:translateY(-5px) rotate(-.6deg)}
+.g .pic{height:190px;background:linear-gradient(135deg,var(--sky),var(--mint));display:grid;place-items:center;border-bottom:3px solid var(--rim);overflow:hidden}
+.g img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.g:hover img{transform:scale(1.06)}
+.g .pic b{font-family:var(--fh);font-size:64px;color:var(--navy)}
+.g div.b{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.g small{display:block;color:var(--muted);font-weight:600;margin-top:2px}
+.play{flex:none;font-family:var(--fh);font-weight:900;background:var(--orange);color:var(--on-orange);padding:10px 16px;border-radius:16px;border:3px solid #ffd9a6;box-shadow:inset -4px -4px 0 rgba(160,85,0,.22)}
+@media (max-width:900px){.grid{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="mock">Prototype · Games</div>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+<header class="site-head clay">
+  <a class="brand" href="index.html"><img src="../assets/logo.png" alt="">Hardy Wu</a>
+  <nav><a class="chip press" href="shop.html">Shop</a><a class="chip press" href="make.html">Make your own</a><a class="chip on press" href="games.html">Games</a><a class="chip dark press" href="shop.html">Cart · 0</a></nav>
+</header>
+<main class="page"><div class="intro"><h1>Games I <span>made</span></h1><p class="lead">Play right in your browser. Free, nothing to download.</p></div>
+<div class="grid" id="grid"></div></main>
+<footer class="site-foot"><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+<script>
+const G=[["Football Sim","Broadcast-style 3D football with fictional clubs","footballsim.png"],["Nova Blast","Neon space shooter, a boss every fifth wave","nova.png"],["Nova Strike","A fast-paced space shooter","novastrike.png"],
+  ["Critter Quest","32 critters to catch and evolve","quest.png"],["Pokémon Adventure","Creatures to catch and battle","pokemonadv.png"],["C-Mind FreeCell","A calm game of FreeCell","freecell.png"],
+  ["争上游 Zheng Shang You","The family card game",""],["Elemental Latin","Throw fire with “ignem iacio”",""],["Elementum","A new 3D game, step 1",""]];
+document.getElementById("grid").innerHTML=G.map(([n,d,img])=>`<a class="g clay press" href="#"><div class="pic">${img?`<img src="../assets/${img}" alt="">`:`<b>${n.replace(/^[^A-Za-z]+/,"")[0]}</b>`}</div>
+  <div class="b"><div><h3>${n}</h3><small>${d}</small></div><span class="play">Play</span></div></a>`).join("");
+</script>
+</body>
+</html>

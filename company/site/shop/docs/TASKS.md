@@ -118,3 +118,13 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 - Hardy: 'fine, do 20% but think about the customer and competitors'. Floor now 20 %, .99 prices: lunchbox $35.99, crab gauge $13.99, ruler $13.99, 3-pack spinners $25.99, flexi skeleton $14.99; add-ons $1.99 / $3.49 / $3.49. Postage cost corrected (USPS July 2026). Competitor prices recorded per product (`market`) and shown on the cost sheet.
 - 2026-10-29 Hardy: ruler price $3.50 (rule: $0.03 × grams ÷ (1 − 0.8); weight set to 23.3 g). Catalog + COSTS.md updated, store rebuilt.
 - 2026-10-29 Hardy: 'add stripe to the Payment'. Card checkout ready: buyer fills our checkout page → Stripe's card page → webhook records the order on Hardy's server (dedup by session ref, table shop_refs) and emails; wording switches to card payment when STRIPE_SECRET_KEY is in .env.local at build. Tested with a signed fake webhook on a test copy. Waiting on: Hardy's Stripe account + keys.
+
+## 2026-10-29
+- Store restyled in the hardywu.com clay look (public/style/ = copy of company/site/style/): new header (Shop · Make your own · Games, Cozy/Space switch, cart), category chips, home = printing headline + featured turntable + clay product cards, new /make page (pick a base model → live customizer), every other page (product, search, cart, checkout, orders) restyled through globals.css. Reviewed on a preview copy (port 3011, Stripe test keys) before going live.
+- 2026-10-29: Header takes site/signInBase from layout (PREVIEW_SITE in a preview copy, real hosts otherwise); theme switch writes the shared hw_theme cookie.
+- 2026-10-30: Playground sign-in: "Your 3D printing playground"; the shop's printing-headline animation moved here with the words "Life is your creation." and removed from the shop home (Barbara).
+- 2026-10-30: Playground sign-in screen simplified (Barbara: "too busy"): one column — kicker, the printed headline "Life is your creation." with the printer head parking at the end, one line, one bouncing Sign in button. Prototype leftovers fixed: unscoped .gate rule and the stage nozzle rule that hid the head.
+- 2026-10-30: /make shows no search box or category chips (Barbara).
+- 2026-10-30: Store header uses the same account menu as hardywu.com (avatar + dropdown); the old "Sign in / Your orders" pill is gone (Barbara: consistent with Games and AI Apps).
+- 2026-10-30: Lunchbox gets a "Made for Sophia" lid render (unicorn + violin) as its second picture; background whitened from the Fusion render.
+- 2026-10-30: "About the shop" section removed from the store home (Barbara).

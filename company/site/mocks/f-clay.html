@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock F · Clay — Hardy's 3D</title>
+<!-- Built from UI UX Pro Max: Kids / casual games → "Claymorphism + Vibrant & Block-based": thick 3-4px borders, double (inner + outer) shadows,
+     radius 20-32px, soft press 200ms, spring bounce cubic-bezier(.34,1.56,.64,1), floating blobs drifting ±20px, no pure-white page;
+     fonts Nunito (black headings) + DM Sans. Brand colours softened into clay pastels. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#032859;--teal:#02848d;--orange:#f8991d;--bg:#eef3f9;--ink:#13294b;--muted:#566a87;
+  --clay-o:#ffcf8f;--clay-t:#a8e1e4;--clay-n:#b9c9ea;--clay-p:#f9c9d4;--card:rgba(255,255,255,.75);
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --clay:inset -6px -6px 14px rgba(3,40,89,.10),inset 6px 6px 14px rgba(255,255,255,.85),8px 10px 22px rgba(3,40,89,.14)}
+*{box-sizing:border-box;margin:0}
+body{font-family:"DM Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}:focus-visible{outline:4px solid var(--orange);outline-offset:4px;border-radius:20px}
+h1,h2,h3{font-family:Nunito;font-weight:900;letter-spacing:-.01em;color:var(--navy)}
+svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* floating clay blobs */
+.blobs{position:fixed;inset:0;z-index:0;pointer-events:none}
+.blob{position:absolute;border-radius:50%;box-shadow:var(--clay);animation:float 9s ease-in-out infinite}
+.b1{width:180px;height:180px;background:var(--clay-o);left:-40px;top:120px}
+.b2{width:120px;height:120px;background:var(--clay-t);right:6%;top:90px;animation-delay:-3s}
+.b3{width:90px;height:90px;background:var(--clay-p);right:30%;bottom:8%;animation-delay:-5s}
+.b4{width:60px;height:60px;background:var(--clay-n);left:30%;top:44%;animation-delay:-1.5s}
+@keyframes float{50%{transform:translate(14px,-20px) rotate(8deg)}}
+main,header{position:relative;z-index:1}
+
+.clay{background:var(--card);border:3px solid #fff;border-radius:32px;box-shadow:var(--clay);backdrop-filter:blur(6px)}
+.press{transition:transform .2s var(--spring)}
+.press:hover{transform:translateY(-4px)}
+.press:active{transform:scale(.94)}
+
+header{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:18px auto 0;padding:12px 14px 12px 20px}
+.brand{display:flex;align-items:center;gap:10px;font-family:Nunito;font-weight:900;font-size:22px;color:var(--navy)}
+.brand img{width:42px;height:42px}
+nav{display:flex;gap:10px}
+.chip{display:flex;align-items:center;gap:8px;font-weight:700;padding:11px 18px;border-radius:20px;border:3px solid #fff;box-shadow:var(--clay);background:var(--card)}
+.chip.cart{background:var(--navy);color:#fff;border-color:#2d4f86}
+
+.hero{max-width:1200px;margin:26px auto 0;padding:46px;display:grid;grid-template-columns:1.1fr 1fr;gap:30px;align-items:center}
+.hero h1{font-size:clamp(44px,5.4vw,78px);line-height:1}
+.hero h1 span{display:inline-block;background:var(--clay-o);padding:0 14px;border-radius:22px;box-shadow:var(--clay);border:3px solid #fff;animation:boing 2.8s var(--spring) infinite}
+@keyframes boing{0%,70%,100%{transform:none}80%{transform:scale(1.08) rotate(-2deg)}}
+.hero p{font-size:19px;line-height:1.55;color:var(--muted);margin:20px 0 28px;max-width:40ch}
+.btn{display:inline-flex;align-items:center;gap:10px;font-family:Nunito;font-weight:900;font-size:19px;padding:16px 26px;border-radius:22px;border:3px solid #ffd9a6;background:var(--orange);color:var(--navy);
+  box-shadow:inset -5px -6px 0 rgba(160,85,0,.22),inset 4px 4px 0 rgba(255,255,255,.45),6px 10px 20px rgba(248,153,29,.35)}
+.btn.alt{background:var(--card);border-color:#fff;box-shadow:var(--clay);margin-left:10px}
+.showcase{position:relative;aspect-ratio:1;display:grid;place-items:center}
+.plinth{position:absolute;bottom:8%;width:78%;height:22%;border-radius:50%;background:var(--clay-t);box-shadow:var(--clay)}
+.star{position:relative;width:70%;aspect-ratio:1;border-radius:40px;overflow:hidden;border:4px solid #fff;box-shadow:var(--clay);animation:bob 4s ease-in-out infinite;cursor:pointer;background:#fff}
+.star img{width:100%;height:100%;object-fit:cover;transition:opacity .3s}
+@keyframes bob{50%{transform:translateY(-14px) rotate(-2deg)}}
+.badge{position:absolute;right:6%;top:10%;background:var(--navy);color:#fff;font-family:Nunito;font-weight:900;font-size:22px;padding:14px 18px;border-radius:24px;border:3px solid #2d4f86;box-shadow:var(--clay);transform:rotate(8deg)}
+.pick{display:flex;gap:12px;justify-content:center;margin-top:18px}
+.pick button{width:54px;height:54px;border-radius:18px;border:3px solid #fff;box-shadow:var(--clay);background:#fff;overflow:hidden;cursor:pointer;padding:0}
+.pick button img{width:100%;height:100%;object-fit:cover}
+.pick button[aria-pressed=true]{outline:4px solid var(--orange);outline-offset:2px}
+
+section{max-width:1200px;margin:56px auto 0;padding:0 14px}
+section>h2{font-size:clamp(30px,3.4vw,44px);margin:0 0 20px 8px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.toy{padding:14px;display:flex;flex-direction:column;gap:12px}
+.toy .pic{border-radius:22px;overflow:hidden;aspect-ratio:1;box-shadow:inset 0 0 0 3px #fff;background:#fff}
+.toy img{width:100%;height:100%;object-fit:cover}
+.toy .row{display:flex;justify-content:space-between;align-items:center;padding:0 6px 4px}
+.toy h3{font-size:19px}
+.price{font-family:Nunito;font-weight:900;color:var(--teal);font-size:20px}
+.add{width:46px;height:46px;border-radius:16px;border:3px solid #ffd9a6;background:var(--orange);color:var(--navy);display:grid;place-items:center;cursor:pointer;
+  box-shadow:inset -4px -4px 0 rgba(160,85,0,.22),inset 3px 3px 0 rgba(255,255,255,.45)}
+.add.done{background:var(--teal);color:#fff;border-color:#7fd2d7}
+
+.gcards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.gcard{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.gcard img{height:180px;width:100%;object-fit:cover;border-bottom:3px solid #fff}
+.gcard div{padding:18px 20px;display:flex;justify-content:space-between;align-items:center}
+.gcard span{font-family:Nunito;font-weight:900;color:var(--orange)}
+.c1{background:#d7e3f7}.c2{background:#d6f1f2}.c3{background:#ffe8cc}
+footer{max-width:1200px;margin:56px auto 0;padding:20px 22px 44px;color:var(--muted);display:flex;justify-content:space-between;position:relative;z-index:1}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,140%);background:var(--navy);color:#fff;font-weight:700;padding:14px 22px;border-radius:20px;border:3px solid #2d4f86;transition:transform .45s var(--spring);z-index:5}
+.toast.show{transform:translate(-50%,0)}
+@media (max-width:900px){.hero{grid-template-columns:1fr;padding:28px}.grid{grid-template-columns:repeat(2,1fr)}.gcards{grid-template-columns:1fr}nav .chip:not(.cart){display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.mock{position:fixed;right:14px;bottom:14px;z-index:9;background:var(--orange);color:var(--navy);font-weight:800;font-size:13px;padding:8px 12px;border-radius:12px}
+</style>
+</head>
+<body>
+<div class="mock">Mock F · Clay</div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</svg>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+
+<header class="clay">
+  <a class="brand" href="#"><img src="assets/logo.png" alt="">Hardy's 3D</a>
+  <nav><a class="chip press" href="#shop">Shop</a><a class="chip press" href="#games">Games</a><a class="chip cart press" href="#"><svg class="i"><use href="#i-cart"/></svg><span id="count">0</span></a></nav>
+</header>
+
+<main>
+  <div class="hero clay">
+    <div>
+      <h1>Squishy fun,<br><span>printed</span> for you.</h1>
+      <p>Fidgets, toys and lunchboxes that Hardy 3D-prints in the colours you pick. Free shipping in the US.</p>
+      <a class="btn press" href="#shop">Shop now <svg class="i"><use href="#i-arrow"/></svg></a><a class="btn alt press" href="#games"><svg class="i"><use href="#i-play"/></svg>Play games</a>
+    </div>
+    <div>
+      <div class="showcase"><div class="plinth"></div>
+        <div class="star press" id="star"><img id="starimg" src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt="Paw fidget spinner"></div>
+        <div class="badge" id="badge">$25.99</div>
+      </div>
+      <div class="pick" role="group" aria-label="Pick a toy to show">
+        <button class="press" aria-pressed="true" data-img="assets/Paw_Fidget_Spinner_2026-10-28.webp" data-p="$25.99" aria-label="Paw spinners"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt=""></button>
+        <button class="press" aria-pressed="false" data-img="assets/Flexi_Skeleton_photo.webp" data-p="$14.99" aria-label="Flexi skeleton"><img src="assets/Flexi_Skeleton_photo.webp" alt=""></button>
+        <button class="press" aria-pressed="false" data-img="assets/Sophia_Lunchbox_render.webp" data-p="$35.99" aria-label="Lunchbox"><img src="assets/Sophia_Lunchbox_render.webp" alt=""></button>
+        <button class="press" aria-pressed="false" data-img="assets/Crab_Gauge_photo.webp" data-p="$13.99" aria-label="Crab gauge"><img src="assets/Crab_Gauge_photo.webp" alt=""></button>
+      </div>
+    </div>
+  </div>
+
+  <section id="shop">
+    <h2>Pick a favourite</h2>
+    <div class="grid">
+      <div class="toy clay press"><div class="pic"><img src="assets/Paw_Fidget_Spinner_2026-10-28.webp" alt="Paw fidget spinner"></div><div class="row"><div><h3>Paw Spinners ×3</h3><span class="price">$25.99</span></div><button class="add press" aria-label="Add paw spinners to cart"><svg class="i"><use href="#i-plus"/></svg></button></div></div>
+      <div class="toy clay press"><div class="pic"><img src="assets/Flexi_Skeleton_photo.webp" alt="Flexi skeleton"></div><div class="row"><div><h3>Flexi Skeleton</h3><span class="price">$14.99</span></div><button class="add press" aria-label="Add flexi skeleton to cart"><svg class="i"><use href="#i-plus"/></svg></button></div></div>
+      <div class="toy clay press"><div class="pic"><img src="assets/Sophia_Lunchbox_render.webp" alt="Custom lunchbox"></div><div class="row"><div><h3>Custom Lunchbox</h3><span class="price">$35.99</span></div><button class="add press" aria-label="Add lunchbox to cart"><svg class="i"><use href="#i-plus"/></svg></button></div></div>
+      <div class="toy clay press"><div class="pic"><img src="assets/Crab_Gauge_photo.webp" alt="Blue crab gauge"></div><div class="row"><div><h3>Crab Gauge</h3><span class="price">$13.99</span></div><button class="add press" aria-label="Add crab gauge to cart"><svg class="i"><use href="#i-plus"/></svg></button></div></div>
+    </div>
+  </section>
+
+  <section id="games">
+    <h2>Games by Hardy</h2>
+    <div class="gcards">
+      <a class="gcard clay press c1" href="#"><img src="assets/footballsim.png" alt=""><div><h3>Football Sim</h3><span>Play →</span></div></a>
+      <a class="gcard clay press c2" href="#"><img src="assets/nova.png" alt=""><div><h3>Nova Blast</h3><span>Play →</span></div></a>
+      <a class="gcard clay press c3" href="#"><img src="assets/quest.png" alt=""><div><h3>Critter Quest</h3><span>Play →</span></div></a>
+    </div>
+  </section>
+</main>
+<footer><span>© 2026 Hardy Wu</span><span>hardywu.com</span></footer>
+<div class="toast" id="toast" role="status">Added to your cart</div>
+
+<script>
+// pick a toy for the big plinth
+const star=document.getElementById("starimg"),badge=document.getElementById("badge");
+document.querySelectorAll(".pick button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".pick button").forEach(x=>x.setAttribute("aria-pressed","false"));b.setAttribute("aria-pressed","true");
+  star.style.opacity=0;setTimeout(()=>{star.src=b.dataset.img;badge.textContent=b.dataset.p;star.style.opacity=1;},180);});
+// squishy add-to-cart: the button turns into a tick and a toast pops up
+let n=0;const count=document.getElementById("count"),toast=document.getElementById("toast");let tt;
+document.querySelectorAll(".add").forEach(b=>b.onclick=e=>{e.stopPropagation();n++;count.textContent=n;b.classList.add("done");b.querySelector("use").setAttribute("href","#i-check");
+  toast.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove("show"),1600);
+  setTimeout(()=>{b.classList.remove("done");b.querySelector("use").setAttribute("href","#i-plus");},1400);});
+</script>
+</body>
+</html>

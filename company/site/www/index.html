@@ -1,78 +1,162 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Hardy Wu — Shop and video games</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Hardy Wu — try new things</title>
 <link rel="alternate" type="application/json" title="Product catalogue for AI agents" href="https://hardywu.com/products.json">
 <link rel="help" href="https://hardywu.com/llms.txt"><meta name="ai-agents" content="catalogue and checkout: https://hardywu.com/llms.txt">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style/clay.css?v=1793332453"><script src="/style/theme.js?v=1793332453"></script>
 <style>
-/* the little cat's colours (2026-10-29): cream, ginger, soft brown, pale blue — same as the store */
-:root{--ground:#f6ead8;--card:#fffaf2;--ink:#5b3a2e;--soft:#8a6a5a;--line:#ead6bb;--accent:#f2a65a;--accent-ink:#4a2e24;--link:#b45f1e;--blue:#d6ebf5}
-html{background:var(--ground)}
-body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
-  color:var(--ink);margin:0;text-align:center;min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;
-  background:radial-gradient(1100px 600px at 50% -10%,#fff3e2 0%,rgba(255,243,226,0) 60%),linear-gradient(180deg,#f7ecdc 0%,#f3e4cf 100%);
-  background-attachment:fixed}
-header{padding:34px 20px 10px}
-h1{margin:10px 0;font-size:clamp(34px,6vw,58px);font-weight:900;font-style:italic;text-transform:uppercase;
-  letter-spacing:-0.04em;line-height:.95;color:var(--ink)}
-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px}
-nav a,a.btn{background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;padding:14px 26px;border-radius:14px;font-weight:800;font-size:16px;letter-spacing:-0.01em}
-nav a:hover,a.btn:hover{border-color:var(--accent);background:var(--blue)}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;max-width:1000px;margin:24px auto;padding:0 20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-decoration:none;color:var(--ink);
-  box-shadow:0 6px 20px rgba(90,65,40,.10);transition:transform .15s,border-color .15s,box-shadow .15s}
-.card:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 30px rgba(90,65,40,.16)}
-.card .big{font-size:44px}
-.card h2{margin:14px 0 6px;font-weight:900;font-style:italic;text-transform:uppercase;font-size:21px;letter-spacing:-0.035em;color:var(--ink)}
-.card p{color:var(--soft);margin:0;font-size:14px;line-height:1.5}
-.tag{color:var(--soft);font-size:17px;font-weight:500}
-.crumbs{color:var(--soft);font-size:14px;padding-top:16px} .crumbs a{color:var(--link);text-decoration:none;font-weight:600}
-a.btn.primary{background:var(--accent);border-color:#d9823b;color:var(--accent-ink);display:inline-block;margin-top:20px;font-size:20px;padding:16px 34px;box-shadow:0 6px 18px rgba(217,130,59,.28)}
-a.btn.primary:hover{filter:brightness(1.05);color:var(--accent-ink)}
-footer{color:var(--soft);font-size:12.5px;padding:40px 0 24px;letter-spacing:.04em}
-.whobar{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;color:var(--soft);font-size:12.5px;padding:12px 16px 0}
-.whobar a{color:var(--link);text-decoration:none;font-weight:700}
+/* the older pages' building blocks, in the clay style */
+main.page{text-align:center}
+main.page .hero{text-align:left}
+main.page header{padding:34px 20px 10px}
+main.page header h1{margin:10px 0}
+.tag{color:var(--muted);font-size:var(--t-lead)}
+.muted{color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:22px;max-width:1100px;margin:24px auto;padding:0 20px}
+.card{display:block;background:var(--card);border:3px solid var(--rim);border-radius:32px;box-shadow:var(--clay);padding:22px 18px;color:var(--ink);transition:transform .2s var(--spring)}
+.card:hover{transform:translateY(-5px)}
+.card h2{margin:14px 0 6px;font-size:var(--t-h3)} .card p{color:var(--muted);margin:0;font-size:15px} .card .big{font-size:44px}
+.crumbs{color:var(--muted);font-size:var(--t-small);padding:18px 16px 0} .crumbs a{color:var(--teal);font-weight:700}
+a.btn.primary{margin-top:20px}
+/* the account menu: a round avatar in the header; the menu drops down from it */
+.acct{position:relative}
+.avatar{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;border:3px solid var(--rim);background:var(--card);box-shadow:var(--clay-sm);cursor:pointer;font-family:var(--fh);font-weight:900;color:var(--navy);font-size:15px}
+.avatar i{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font-style:normal;font-size:14px;letter-spacing:.02em}
+[data-theme="space"] .avatar i{background:var(--orange);color:#032859}
+.avatar svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;transition:transform .2s}
+.avatar[aria-expanded="true"] svg{transform:rotate(180deg)}
+.menu{position:absolute;right:0;top:calc(100% + 10px);min-width:270px;background:#fff;border:3px solid var(--rim);border-radius:24px;box-shadow:0 24px 60px rgba(60,35,20,.28),0 0 0 1px rgba(120,70,40,.06);padding:8px;display:none;z-index:30;text-align:left;animation:menuin .25s var(--spring)}
+[data-theme="space"] .menu{background:#0b3466;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.menu.open{display:block}
+@keyframes menuin{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
+.menu .who{padding:10px 14px 12px;border-bottom:2px dashed var(--line, rgba(120,70,40,.14))}
+.menu .who b{display:block;font-family:var(--fh);font-size:16px;color:var(--navy)}
+.menu .who span{font-size:13px;color:var(--muted);word-break:break-all}
+.menu .grp{padding:6px 14px 2px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.menu a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;color:var(--ink);font-weight:600;font-size:15px}
+.menu a:hover{background:var(--paper-hi);text-decoration:none}
+.menu a.out{margin:8px 6px 4px;justify-content:center;background:var(--orange);color:var(--on-orange);font-family:var(--fh);font-weight:900;border:3px solid #ffd9a6;border-radius:16px;box-shadow:inset -4px -4px 0 rgba(160,85,0,.22),inset 3px 3px 0 rgba(255,255,255,.45)}
+.menu a.out:hover{background:#ffab3d}
+.menu .ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media (max-width:900px){.avatar span{display:none}.avatar{padding-right:8px}}
+.aihint{font-size:12px;color:var(--muted);margin:10px 0 0;position:relative;z-index:1;text-align:center} .aihint a{color:var(--teal)}
 </style><script type="application/ld+json">{"@context": "https://schema.org", "@type": "Organization", "name": "Hardy Wu", "url": "https://hardywu.com", "logo": "https://hardywu.com/logo.png", "sameAs": ["https://shop.hardywu.com", "https://bookkeep.hardywu.com"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "ItemList", "name": "Hardy's 3D prints", "itemListElement": [{"@type": "ListItem", "position": 1, "item": {"@type": "Product", "name": "Blue Crab Gauge", "url": "https://shop.hardywu.com/products/crab-gauge", "image": "https://play.hardywu.com/products/crab-gauge/Crab_Gauge_photo.webp", "description": "A handy blue-crab measuring gauge with an embossed scale \u2014 check your catch in seconds, then hang it back on its hook.", "offers": {"@type": "Offer", "price": "13.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 2, "item": {"@type": "Product", "name": "Customizable Lunchbox", "url": "https://shop.hardywu.com/products/customizable-lunchbox", "image": "https://play.hardywu.com/products/customizable-lunchbox/Sophia_Lunchbox_render.webp", "description": "A hinged, printed lunchbox with a carry handle \u2014 pick your colors, add a name, and send a picture your kid loves to get it printed right on the front. Made to order, one of a kind.", "offers": {"@type": "Offer", "price": "35.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 3, "item": {"@type": "Product", "name": "Dual Ruler", "url": "https://shop.hardywu.com/products/dual-ruler", "image": "https://play.hardywu.com/products/dual-ruler/Dual_Ruler_photo.webp", "description": "A sturdy ruler with centimeters along one edge and inches along the other, with crisp raised markings.", "offers": {"@type": "Offer", "price": "3.50", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 4, "item": {"@type": "Product", "name": "Paw Fidget Spinner (pack of 3)", "url": "https://shop.hardywu.com/products/fidget-spinner", "image": "https://play.hardywu.com/products/fidget-spinner/Paw_Fidget_Spinner_2026-10-28.webp", "description": "Three paw-print fidget spinners in one pack: white paw prints on the arms and a centre button that spins in a groove, no bearing needed. Body in the color you pick; want three different colors? Say so in the color request box.", "offers": {"@type": "Offer", "price": "25.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}, {"@type": "ListItem", "position": 5, "item": {"@type": "Product", "name": "Flexi Skeleton", "url": "https://shop.hardywu.com/products/flexi-skeleton", "image": "https://play.hardywu.com/products/flexi-skeleton/Flexi_Skeleton_photo.webp", "description": "A big-headed flexi skeleton with jointed limbs and a toothy grin \u2014 it flops, sits, and poses. Printed in the color you choose.", "offers": {"@type": "Offer", "price": "14.99", "priceCurrency": "USD", "availability": "https://schema.org/InStock"}}}]}</script>
 </head><body>
-<div class="whobar"></div>
+<div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+<div class="site-head clay">
+  <a class="brand" href="/" aria-label="Hardy Wu home"><img src="/logo.png" alt="Hardy Wu"></a>
+  <nav><a class="chip press" href="https://shop.hardywu.com/">Shop</a><a class="chip press" href="https://shop.hardywu.com/make">Make your own</a><a class="chip press" href="/games">Games</a><a class="chip press" href="/apps">AI Apps</a><div class="acct" id="acct"></div></nav>
+</div>
+<script>window.__me=undefined;
+(function(){const I={orders:'<svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>',
+ apps:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>',
+ list:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',eye:'<svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+ chat:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',office:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 21V5l8-3 8 3v16M9 9h2M13 9h2M9 13h2M13 13h2M10 21v-4h4v4"/></svg>',
+ out:'<svg class="ic" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M13 4h6v16h-6"/></svg>',chev:'<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'};
+function esc(s){return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+window.hwAccount=function(me){const box=document.getElementById("acct");if(!box)return;
+ if(!me||!me.name){box.innerHTML='<a class="chip dark press" href="'+esc(window.__signin||"/go/home")+'">Sign in</a>';return;}
+ const first=me.name.trim().split(/\s+/)[0],ini=me.name.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+ const shop=me.shop||"https://shop.hardywu.com";let items='<a href="'+esc(shop)+'/orders">'+I.orders+'Your orders</a>'+(me.family?'<a href="/apps">'+I.apps+'Apps</a>':'');
+ if(me.hardy)items+='<div class="grp">Hardy\u2019s pages</div><a href="/orders">'+I.list+'Orders</a><a href="/activity">'+I.eye+'Who visited</a><a href="/feedback">'+I.chat+'Feedback</a>';
+ if(me.staff)items+='<a href="https://office.hardywu.com/">'+I.office+'Office</a>';
+ box.innerHTML='<button class="avatar" aria-haspopup="menu" aria-expanded="false"><i>'+esc(ini)+'</i><span>'+esc(first)+'</span>'+I.chev+'</button>'+
+  '<div class="menu" role="menu"><div class="who"><b>'+esc(me.name)+'</b><span>'+esc(me.email)+'</span></div>'+items+'<a class="out" href="/signout">'+I.out+'Sign out</a></div>';
+ const b=box.querySelector(".avatar"),m=box.querySelector(".menu");const set=o=>{m.classList.toggle("open",o);b.setAttribute("aria-expanded",o);};
+ b.onclick=e=>{e.stopPropagation();set(!m.classList.contains("open"));};document.addEventListener("click",e=>{if(!box.contains(e.target))set(false);});
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")set(false);});};
+if(window.__me!==undefined)hwAccount(window.__me);})();</script>
+<main class="page">
 <div class="crumbs"></div>
-<p style="font-size:12px;color:var(--soft);margin:14px 0 0">🤖 AI assistants: the catalogue, cart and checkout are described at <a href="https://hardywu.com/llms.txt" style="color:var(--link)">hardywu.com/llms.txt</a></p>
-
-
 <style>
-.top{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 16px 4px;flex-wrap:wrap}
-.top img{width:52px;height:52px;border-radius:12px} .top .nm{font-weight:900;font-style:italic;font-size:26px;letter-spacing:-.03em}
-.top .sl{color:var(--soft);font-size:14px;width:100%}
-.row{max-width:1180px;margin:18px auto 6px;padding:0 16px;text-align:left}
-.row h2{font-size:24px;font-weight:900;margin:0 0 12px;display:flex;align-items:baseline;gap:12px}
-.row h2 a{font-size:14px;font-weight:700;color:var(--link);text-decoration:none}
-nav a:first-child{background:var(--accent);border-color:#d9823b;color:var(--accent-ink)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--ink);box-shadow:0 4px 14px rgba(90,65,40,.08);
-  display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
-.tile:hover{border-color:var(--accent);transform:translateY(-3px)}
-.tile img,.tile-ph{width:100%;aspect-ratio:1;object-fit:cover;background:var(--blue);display:block}
-.tile-ph{display:flex;align-items:center;justify-content:center;font-size:54px}
-.tile b{padding:10px 12px 2px;font-size:15px;line-height:1.3} .tile span{padding:0 12px 12px;font-size:20px;font-weight:700;color:var(--link)}
-.coinad{display:block;max-width:1148px;margin:6px auto 0;padding:12px 16px;border-radius:14px;background:#f1e2c8;border:1px solid #dcc39a;color:var(--ink);text-decoration:none;font-size:15px}
-.coinad:hover{border-color:var(--accent)} @media(max-width:1180px){.coinad{margin:6px 16px 0}}
-.tile i{margin:-8px 12px 12px;font-style:normal;font-weight:700;color:#b23b3b;font-size:13px}
-.tile{min-width:0}
-@media(max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .tile b{font-size:14px} .tile span{font-size:17px} .top .nm{font-size:22px}}
-</style>
-<div class="top"><img src="/logo.png" alt="Hardy Wu logo"><span class="nm">HARDY WU</span><div class="sl">Made by Hardy Wu · try new things</div></div>
-<nav><a href="/3d">🛍️ Shop</a><a href="/games">🎮 Video Games</a></nav>
+.hero{max-width:1200px;margin:26px auto 0;padding:56px 50px;display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;min-height:calc(100vh - 150px)}
+.eyebrow{display:inline-block;font-family:var(--fh);font-weight:900;color:var(--teal);background:var(--mint);border:3px solid var(--rim);box-shadow:var(--clay-sm);padding:6px 14px;border-radius:16px;opacity:0;animation:fade .6s 2.1s forwards}
+.hero h1{font-size:var(--t-h1);margin:0}
+.hero h1 span{display:block;opacity:0;transform:translateY(30px) scale(.96);animation:rise .9s var(--spring) forwards}
+.hero h1 span:nth-child(1){animation-delay:1.4s}
+.hero h1 span:nth-child(2){animation-delay:1.6s}
+.hero h1 span:nth-child(3){animation-delay:1.8s}
+.hero h1 .new{color:var(--orange)}
+.hero h1 b{display:inline-block;background:var(--peach);color:var(--navy);padding:0 16px;border-radius:26px;border:3px solid var(--rim);box-shadow:var(--clay);animation:boing 3s 3.2s var(--spring) infinite}
+@keyframes boing{0%,70%,100%{transform:none}80%{transform:scale(1.07) rotate(-2deg)}}
+.hero .lead{margin:22px 0 14px;max-width:44ch;opacity:0;animation:fade .7s 2.3s forwards}
+.hero .slogan{font-family:var(--fh);font-weight:900;color:var(--teal);font-size:18px;margin:0 0 26px;opacity:0;animation:fade .7s 2.4s forwards}
+.ctas{display:flex;gap:14px;flex-wrap:wrap;opacity:0;animation:fade .7s 2.5s forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes fade{to{opacity:1}}
 
-<section class="row"><h2>🛍️ Shop <a href="/3d">See all →</a></h2><div class="tiles"><a class="tile" href="https://shop.hardywu.com/products/crab-gauge"><img src="/products/crab-gauge/Crab_Gauge_photo.webp" alt="Blue Crab Gauge" loading="lazy"><b>Blue Crab Gauge</b><span>$13.99</span></a><a class="tile" href="https://shop.hardywu.com/products/customizable-lunchbox"><img src="/products/customizable-lunchbox/Sophia_Lunchbox_render.webp" alt="Customizable Lunchbox" loading="lazy"><b>Customizable Lunchbox</b><span>$35.99</span></a><a class="tile" href="https://shop.hardywu.com/products/dual-ruler"><img src="/products/dual-ruler/Dual_Ruler_photo.webp" alt="Dual Ruler" loading="lazy"><b>Dual Ruler</b><span>$3.50</span></a><a class="tile" href="https://shop.hardywu.com/products/fidget-spinner"><img src="/products/fidget-spinner/Paw_Fidget_Spinner_2026-10-28.webp" alt="Paw Fidget Spinner (pack of 3)" loading="lazy"><b>Paw Fidget Spinner (pack of 3)</b><span>$25.99</span></a><a class="tile" href="https://shop.hardywu.com/products/flexi-skeleton"><img src="/products/flexi-skeleton/Flexi_Skeleton_photo.webp" alt="Flexi Skeleton" loading="lazy"><b>Flexi Skeleton</b><span>$14.99</span></a></div></section>
-<section class="row"><h2>🎮 Video Games <a href="/games">See all →</a></h2><div class="tiles"><a class="tile" href="/games/football-sim"><img src="/item/footballsim.png" alt="Football Sim" loading="lazy"><b>Football Sim</b><span>Play free</span></a><a class="tile" href="/games/nova-blast"><img src="/item/nova.png" alt="Nova Blast" loading="lazy"><b>Nova Blast</b><span>Play free</span></a><a class="tile" href="/games/critter-quest"><img src="/item/quest.png" alt="Critter Quest" loading="lazy"><b>Critter Quest</b><span>Play free</span></a><a class="tile" href="/games/zheng-shang-you"><div class="tile-ph">🎮</div><b>争上游 Zheng Shang You</b><span>Play free</span></a><a class="tile" href="/games/elemental-latin"><div class="tile-ph">🎮</div><b>Elemental Latin</b><span>Play free</span></a><a class="tile" href="/games/elementum"><div class="tile-ph">🎮</div><b>Elementum</b><span>Play free</span></a><a class="tile" href="/games/nova-strike"><img src="/item/novastrike.png" alt="Nova Strike" loading="lazy"><b>Nova Strike</b><span>Play free</span></a><a class="tile" href="/games/cmind-freecell"><img src="/item/freecell.png" alt="C-Mind FreeCell" loading="lazy"><b>C-Mind FreeCell</b><span>Play free</span></a><a class="tile" href="/games/pokemon-adventure"><img src="/item/pokemonadv.png" alt="Pokémon Adventure" loading="lazy"><b>Pokémon Adventure</b><span>Play free</span></a></div></section>
-<footer>hardywu.com — Try New Things 🛠️</footer>
-<script>(async()=>{try{
- const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
- if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
- b.append("signed in as ",n," · ");if(j.coins!==undefined){const c=document.createElement("a");c.href="/coins";c.textContent="🪙 "+j.coins+" coins";b.append(c," · ");}const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
- if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="📊 see who visited";b.append(" · ",a);
-   const o=document.createElement("a");o.href="/orders";o.textContent="🧾 orders";b.append(" · ",o);}
- if(j.family){const a=document.createElement("a");a.href="/apps";a.textContent="📱 Apps";b.append(" · ",a);}
-}catch(e){}})()</script></body></html>
+/* the compass, as a clay disc that draws itself */
+.compass-wrap{position:relative;justify-self:center;width:min(500px,40vw);aspect-ratio:1}
+.disc{position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#fff6ec 70%);border:4px solid var(--rim);box-shadow:var(--clay);transform:scale(.6);opacity:0;animation:pop .8s .1s var(--spring) forwards}
+.compass{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ring{fill:none;stroke:var(--navy);stroke-width:4;stroke-dasharray:10 12;stroke-linecap:round;stroke-dashoffset:1400;animation:draw 1.6s .4s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.tick{fill:var(--navy);opacity:0;transform-box:fill-box;transform-origin:center;animation:pop .5s var(--spring) forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:scale(1)}}
+.dot{fill:var(--teal);opacity:0;animation:pop .4s var(--spring) forwards}
+.needle{transform-origin:280px 280px;transition:transform 1.1s var(--spring);animation:settle 2.2s .6s var(--spring) both}
+@keyframes settle{0%{transform:rotate(-200deg);opacity:0}30%{opacity:1}100%{transform:rotate(0)}}
+.hl{font-family:var(--fh);font-weight:900;font-size:220px;fill:var(--navy)}
+.swoosh{fill:none;stroke:url(#sw);stroke-width:18;stroke-linecap:round;stroke-dasharray:700;stroke-dashoffset:700;animation:draw 1s 1.2s cubic-bezier(.6,0,.2,1) forwards}
+.head{fill:var(--orange);opacity:0;animation:pop .35s 2s var(--spring) forwards}
+.star{fill:var(--orange);transform-origin:282px 130px;opacity:0;animation:pop .5s 2.1s var(--spring) forwards,twinkle 3s 2.8s ease-in-out infinite}
+@keyframes twinkle{50%{transform:scale(.8) rotate(20deg)}}
+.point{position:absolute;z-index:3;transform:var(--t);font-family:var(--fh);font-weight:900;font-size:16px;color:var(--navy);text-align:center;white-space:nowrap;
+  padding:10px 16px;border-radius:20px;border:3px solid var(--rim);background:var(--card);box-shadow:var(--clay-sm);opacity:0;animation:fade .5s forwards;transition:background .2s,transform .2s var(--spring)}
+.point small{display:block;font-family:var(--fb);font-weight:600;font-size:12px;color:var(--muted)}
+.point:hover,.point:focus-visible{background:var(--peach);transform:var(--t) scale(1.08)}
+.p-n{top:-3%;left:50%;--t:translateX(-50%);animation-delay:2.6s}
+.p-e{right:-10%;top:50%;--t:translateY(-50%);animation-delay:2.75s}
+.p-s{bottom:-3%;left:50%;--t:translateX(-50%);animation-delay:2.9s}
+.p-w{left:-10%;top:50%;--t:translateY(-50%);animation-delay:3.05s}
+/* little twinkling stars sprinkled around */
+.spark{position:absolute;width:14px;height:14px;background:var(--orange);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:tw 2.6s ease-in-out infinite}
+@keyframes tw{50%{transform:scale(.4) rotate(45deg);opacity:.4}}
+/* people who switch animations off see the finished picture straight away */
+@media (prefers-reduced-motion:reduce){.eyebrow,.hero h1 span,.hero .lead,.hero .slogan,.ctas,.disc,.tick,.dot,.head,.star,.point{opacity:1!important}
+  .hero h1 span,.disc{transform:none!important}.ring,.swoosh{stroke-dashoffset:0!important}}
+@media (max-width:900px){.hero{grid-template-columns:1fr;padding:30px 24px 60px;min-height:auto}.compass-wrap{width:74vw;margin-top:30px}.p-e{right:-6%}.p-w{left:-6%}}
+</style><div class="hero clay">
+    <div>
+      <h1><span>Hardy's 3D:</span><span>you <b>design</b> it,</span><span class="new">Hardy prints it.</span></h1>
+      <p class="lead">Start from one of Hardy's models, make it yours with your colours, name and picture, and it arrives at your door. Or shop ready-made, or play a game.</p>
+      <p class="slogan">Try new things.</p>
+      <div class="ctas"><a class="btn press" href="https://shop.hardywu.com/make">Make your own 3D products →</a><a class="btn soft press" href="https://shop.hardywu.com/">Shop ready-made 3D products</a></div>
+    </div>
+    <div class="compass-wrap" id="cw">
+      <div class="disc"></div>
+      <svg class="compass" viewBox="0 0 560 560" aria-label="The Hardy Wu compass">
+        <defs><linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#02848d"/><stop offset=".55" stop-color="#4fb3a6"/><stop offset="1" stop-color="#f8991d"/></linearGradient></defs>
+        <circle class="ring" cx="280" cy="280" r="200"/>
+        <g id="ticks"></g>
+        <g class="needle" id="needle"><text class="hl" x="280" y="358" text-anchor="middle">H</text></g>
+        <path class="swoosh" d="M130 330 C 175 380, 300 330, 360 290 S 430 225, 458 196"/>
+        <path class="head" d="M468 186 l-46 6 l18 14 l-6 22 z"/>
+        <path class="star" d="M282 100 l7 24 l24 8 l-24 8 l-7 24 l-7 -24 l-24 -8 l24 -8 z"/>
+      </svg>
+      <a class="point p-n" href="https://shop.hardywu.com/make">Make<small>design your own</small></a>
+      <a class="point p-e" href="https://shop.hardywu.com/">Shop<small>ready-made</small></a>
+      <a class="point p-s" href="/games">Games<small>play free</small></a>
+      <a class="point p-w" href="/apps">AI Apps<small>powered by AI</small></a>
+      <span class="spark" style="left:4%;top:12%"></span><span class="spark" style="right:2%;top:24%;animation-delay:-.8s;width:10px;height:10px"></span>
+      <span class="spark" style="left:12%;bottom:8%;animation-delay:-1.6s;width:10px;height:10px;background:var(--teal)"></span><span class="spark" style="right:10%;bottom:14%;animation-delay:-2.1s"></span>
+    </div>
+  </div>
+<script>
+const T=document.getElementById("ticks"),NS="http://www.w3.org/2000/svg";
+[0,90,180,270].forEach((a,i)=>{const g=document.createElementNS(NS,"g"),p=document.createElementNS(NS,"path");   // rotate the group, animate the arrowhead
+  g.setAttribute("transform",`rotate(${a} 280 280)`);p.setAttribute("d","M280 62 l-16 30 h32 z");p.setAttribute("class","tick");p.style.animationDelay=(1+i*.12)+"s";g.appendChild(p);T.appendChild(g);});
+[45,135,225,315].forEach((a,i)=>{const c=document.createElementNS(NS,"circle");const r=a*Math.PI/180;c.setAttribute("cx",280+200*Math.sin(r));c.setAttribute("cy",280-200*Math.cos(r));
+  c.setAttribute("r",9);c.setAttribute("class","dot");c.style.animationDelay=(1.4+i*.1)+"s";T.appendChild(c);});
+// the H turns like a compass needle toward the point you hover
+const needle=document.getElementById("needle");
+document.querySelectorAll(".point").forEach((p,i)=>{const deg=[0,90,180,-90][i];const back=()=>needle.style.transform="rotate(0)";
+  const go=()=>{needle.style.animation="none";needle.style.transform=`rotate(${deg}deg)`;};
+  p.addEventListener("mouseenter",go);p.addEventListener("focus",go);p.addEventListener("mouseleave",back);p.addEventListener("blur",back);});
+</script>
+</main>
+<footer class="site-foot"><span>© 2026 Hardy Wu</span><span>hardywu.com · try new things</span></footer>
+<script>window.__me=undefined;window.__signin="https://log.hardywu.com/?next="+encodeURIComponent(location.pathname);
+(async()=>{try{const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});hwAccount(await r.json());}catch(e){hwAccount({});}})()</script></body></html>

@@ -22,18 +22,14 @@ BASE = "https://hardywu.com"
 LIVE = "https://play.hardywu.com"   # the server, on a name Cloudflare never redirects
 c = server.app.test_client()
 
-WHOBAR_JS = """<script>(async()=>{try{
- const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});const j=await r.json();
- if(!j.name)return;const b=document.querySelector(".whobar"),n=document.createElement("b");n.textContent=j.name;
- b.append("signed in as ",n," \u00b7 ");if(j.coins!==undefined){const c=document.createElement("a");c.href="/coins";c.textContent="\U0001FA99 "+j.coins+" coins";b.append(c," \u00b7 ");}const o=document.createElement("a");o.href="/signout";o.textContent="sign out";b.append(o);
- if(j.hardy){const a=document.createElement("a");a.href="/activity";a.textContent="\U0001F4CA see who visited";b.append(" \u00b7 ",a);
-   const o=document.createElement("a");o.href="/orders";o.textContent="\U0001F9FE orders";b.append(" \u00b7 ",o);}
- if(j.family){const a=document.createElement("a");a.href="/apps";a.textContent="\U0001F4F1 Apps";b.append(" \u00b7 ",a);}
-}catch(e){}})()</script>"""
+# the static pages can't know who is signed in: they ask the server and build the same account menu
+ACCOUNT_FETCH = """<script>window.__me=undefined;window.__signin="https://log.hardywu.com/?next="+encodeURIComponent(location.pathname);
+(async()=>{try{const r=await fetch("https://play.hardywu.com/api/me",{credentials:"include"});hwAccount(await r.json());}catch(e){hwAccount({});}})()</script>"""
 
 def clean(html):
     # no visit tracking on the static copy; the sign-in bar is filled in by asking the server
-    html = html.replace('<script src="/track.js" defer></script>', WHOBAR_JS)
+    html = re.sub(r'<script>window\.__me=\{.*?\};window\.__signin="[^"]*";', '<script>window.__me=undefined;', html, count=1, flags=re.S)
+    html = html.replace('<script src="/track.js" defer></script>', ACCOUNT_FETCH)
     return html
 
 def page(path, dest):
@@ -63,6 +59,8 @@ for sec, sdef in server.PORTFOLIO.items():
         pages.append(page(f"/{sec}/{slug}", OUT / sec / f"{slug}.html"))
 for img in ("/logo.png", "/favicon.png"):
     file(img, OUT / img.lstrip("/"))
+for f in ("clay.css", "theme.js"):                          # the one clay style (company/site/style/)
+    file(f"/style/{f}", OUT / "style" / f)
 for name in ("apps", "games", "3d", "robotics"):
     file(f"/sec/{name}.png", OUT / "sec" / f"{name}.png")
 for m in sorted(set(re.findall(r'"/item/([^"]+)"', "".join(p.read_text() for p in pages)))):

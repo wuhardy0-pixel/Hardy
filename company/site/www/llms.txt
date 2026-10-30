@@ -8,7 +8,7 @@
 - Flow for agents: search_catalog → create_cart / update_cart (add, change, remove) → create_checkout with buyer + US address → send the buyer to continue_url to APPROVE → poll get_checkout until completed. Nothing is ordered without the buyer's approval.
 - Simpler order API (OpenAPI): https://play.hardywu.com/openapi.json — POST https://play.hardywu.com/api/agent/order
 - Human storefront: https://shop.hardywu.com (asks for a name and email first)
-- Payment: none taken online. Hardy emails the buyer to arrange payment. Free shipping within the US, US only. Contact barbaratao@gmail.com.
+- Payment: by card at checkout on shop.hardywu.com (Stripe); for orders placed through this API, Hardy emails the buyer to arrange payment. Free shipping within the US, US only. Contact barbaratao@gmail.com.
 
 ## Products
 - Blue Crab Gauge — 13.99 USD: A handy blue-crab measuring gauge with an embossed scale — check your catch in seconds, then hang it back on its hook. (colours: Purple, White, Black, Blue, Orange, Red, Transparent (clear)) → https://shop.hardywu.com/products/crab-gauge

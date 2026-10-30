@@ -2,55 +2,38 @@ import Link from "next/link";
 import { shop, products } from "../lib/catalog";
 import { reviewSummaries } from "../lib/reviews";
 import ProductCard from "../components/ProductCard";
+import Turntable from "../components/Turntable";
 
 export const dynamic = "force-dynamic";
 
+// The shop: featured pieces spin on a turntable, then everything ready-made as clay cards.
+// (The "Printed to order" printing headline moved to the playground's sign-in screen, Barbara 2026-10-30.)
+const FEATURED = ["fidget-spinner", "customizable-lunchbox", "flexi-skeleton", "crab-gauge", "dual-ruler"];   // Hardy can reorder these
+
 export default async function Home() {
   const reviews = await reviewSummaries(products.map((p) => p.slug));
-  const lunch = products.find((p) => p.slug === "customizable-lunchbox") || products[0];
-  const cats = shop.categories || [];
   const shipDays = shop.shipDays || [3, 5];
+  const featured = [...FEATURED.map((s) => products.find((p) => p.slug === s)).filter(Boolean), ...products.filter((p) => !FEATURED.includes(p.slug))]
+    .filter((p) => p.in_stock !== false).slice(0, 6);
   return (
     <main>
-      <section className="hero">
-        <div className="hero-text">
-          <div className="kicker">Back in stock</div>
-          <h1>The customizable lunchbox — your colors, your name on the lid</h1>
-          <p>Pick the box and lid colors, add a name, and Hardy prints it to order. Free shipping anywhere in the US.</p>
-          <Link href={`/products/${lunch.slug}`} className="btn-yellow">Customize yours · ${lunch.price.toFixed(2)}</Link>
-        </div>
-        <div className="hero-img"><img src={lunch.photos[0]} alt={lunch.name} /></div>
+      {featured.length >= 3 && (
+        <section className="sec" style={{ marginTop: 22 }}>
+          <div className="sec-head"><h2>Featured</h2><p>Spin the table. Tap the front one to see it.</p></div>
+          <Turntable items={featured} />
+        </section>
+      )}
+
+      <section className="sec" id="all">
+        <div className="sec-head"><h2>Everything ready-made</h2><p>Each one comes in Hardy's colours of plastic.</p></div>
+        <div className="grid">{products.map((p) => <ProductCard key={p.slug} p={p} reviews={reviews} shipDays={shipDays} />)}</div>
       </section>
 
-      <section className="tiles">
-        {cats.map((c) => {
-          const p = products.find((x) => x.category === c);
-          return (
-            <Link key={c} href={`/s?c=${encodeURIComponent(c)}`} className="tile">
-              <h3>{c}</h3>
-              {p && <img src={p.photos[0]} alt={c} loading="lazy" />}
-              <span>Shop {c.toLowerCase()} →</span>
-            </Link>
-          );
-        })}
-        <Link href="/s?custom=1" className="tile">
-          <h3>Make it yours</h3>
-          <img src="/products/crab-gauge/preview/frames/front_3.webp" alt="Customizable" loading="lazy" />
-          <span>Everything with your color, name or picture →</span>
-        </Link>
+      <section className="sec">
+        <div className="makeown"><div><h2>Want one that's all yours?</h2><p>Change the colours, add a name or a picture. You only pay when you print.</p></div>
+          <a className="btn press" href="/make">Make your own →</a></div>
       </section>
 
-      <section className="row-box" id="products">
-        <h2>All products · made to order by Hardy</h2>
-        <div className="grid">
-          {products.map((p) => <ProductCard key={p.slug} p={p} reviews={reviews} shipDays={shipDays} />)}
-        </div>
-      </section>
-
-      <section className="about" id="about">
-        <h2>About the shop</h2>
-        <p>{shop.about}</p>
-      </section>
     </main>
   );
 }
