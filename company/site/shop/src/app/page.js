@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const FEATURED = ["crab-gauge", "dual-ruler"];   // Hardy can reorder these
 
 export default async function Home() {
-  const reviews = await reviewSummaries(ready.map((p) => p.slug));
+  const reviews = await reviewSummaries([...ready, ...templates].map((p) => p.slug));
   const shipDays = shop.shipDays || [3, 5];
   const featured = [...FEATURED.map((s) => ready.find((p) => p.slug === s)).filter(Boolean), ...ready.filter((p) => !FEATURED.includes(p.slug))]
     .filter((p) => p.in_stock !== false).slice(0, 6);
@@ -31,7 +31,10 @@ export default async function Home() {
       </section>
 
       <section className="sec">
-        <div className="makeown"><div><h2>Want one that's all yours?</h2><p>Start from a template{templates.length ? ` like the ${templates[0].name.replace(/^Customizable /, "").toLowerCase()}` : ""}, add your own picture and name, and pay only when you print.</p></div>
+        {/* the templates first, each opening its full page with pictures and videos; then the call to make your own (Barbara 2026-10-31) */}
+        {templates.length > 0 && <><div className="sec-head"><h2>Make it all yours</h2><p>Your picture, your name, your colours.</p></div>
+          <div className="grid" style={{ marginBottom: 18 }}>{templates.map((p) => <ProductCard key={p.slug} p={p} reviews={reviews} shipDays={shipDays} />)}</div></>}
+        <div className="makeown"><div><h2>Make your own now!</h2><p>Start from a template{templates.length ? ` like the ${templates[0].name.replace(/^Customizable /, "").toLowerCase()}` : ""}, add your own picture and name, and pay only when you print.</p></div>
           <a className="btn press" href="/make">Make your own →</a></div>
       </section>
 

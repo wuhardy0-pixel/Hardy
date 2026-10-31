@@ -1,7 +1,7 @@
 /* Hardy Wu — one clay style for every page (2026-10-29).
    Logo colours (navy #032859, teal #02848d, orange #f8991d) on a warm cream ground with soft clay pastels.
    One type system: Nunito for headings and buttons, DM Sans for everything else. */
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Sans:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap");
 :root{
   --navy:#032859;--teal:#02848d;--orange:#f8991d;
   --bg:#fcf3e8;--ink:#2a2240;--muted:#7a6a63;--card:rgba(255,255,255,.78);
@@ -116,3 +116,23 @@ html.theme-anim *{transition:background-color .5s,color .5s,border-color .5s!imp
 [data-theme="space"] .g .pic{background:linear-gradient(135deg,#123f80,#0f5b66)}
 [data-theme="space"] .btn.soft,[data-theme="space"] .mini:not(.go){color:var(--ink)}
 [data-theme="space"] .badge.done{color:#ffd58a}
+
+/* Space style: buttons look like a spaceship control panel, not soft clay (Barbara 2026-10-31: "a little boyish") */
+[data-theme="space"]{--cut:9px}
+[data-theme="space"] .btn,[data-theme="space"] .chip,[data-theme="space"] .pill,[data-theme="space"] .theme-switch,
+[data-theme="space"] .theme-switch button,[data-theme="space"] .mini,[data-theme="space"] .add,[data-theme="space"] .avatar{
+  border-radius:4px;font-family:"Chakra Petch",var(--fh);font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+[data-theme="space"] .chip,[data-theme="space"] .pill,[data-theme="space"] .theme-switch,[data-theme="space"] .avatar,[data-theme="space"] .mini:not(.go){
+  background:linear-gradient(180deg,rgba(18,58,110,.85),rgba(6,30,66,.9));border:2px solid rgba(69,211,217,.55);color:#dff6ff;box-shadow:inset 0 0 12px rgba(69,211,217,.18)}
+[data-theme="space"] .chip.on,[data-theme="space"] .pill.on{background:linear-gradient(180deg,#0f7f88,#0a4f5e);border-color:#45d3d9;color:#fff;box-shadow:0 0 0 1px #45d3d9,inset 0 0 14px rgba(69,211,217,.5)}
+[data-theme="space"] .chip.dark{background:linear-gradient(180deg,#1b2f55,#0b1a33);border-color:rgba(255,157,46,.7);color:#ffd9a6}
+[data-theme="space"] .btn,[data-theme="space"] .add{background:linear-gradient(180deg,#ffa53a,#e0701a);border:2px solid #ffc27a;color:#06172f;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+[data-theme="space"] .btn.soft{background:linear-gradient(180deg,rgba(18,58,110,.85),rgba(6,30,66,.9));border-color:rgba(69,211,217,.55);color:#dff6ff}
+[data-theme="space"] .btn.dark{background:linear-gradient(180deg,#1b2f55,#0b1a33);border-color:rgba(255,157,46,.7);color:#ffd9a6}
+[data-theme="space"] .theme-switch{padding:3px}
+[data-theme="space"] .theme-switch button{--cut:6px;border:0;font-size:12px}
+[data-theme="space"] .theme-switch button[aria-pressed=true]{background:#45d3d9;color:#03203f}
+[data-theme="space"] .press{transition:transform .12s ease-out}
+[data-theme="space"] .press:hover{transform:translateY(-2px)}
+[data-theme="space"] .press:active{transform:translateY(1px)}
