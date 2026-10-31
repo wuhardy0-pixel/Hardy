@@ -15,7 +15,7 @@ export default async function ProductPage({ params }) {
   const product = getProduct(params.slug);
   if (!product) notFound();
   const reviews = await reviewSummaries(products.map((p) => p.slug));
-  const others = products.filter((p) => p.slug !== product.slug);
+  const others = products.filter((p) => p.slug !== product.slug && p.kind !== "template");   // suggestions come from the Shop
   // schema.org Product data so search engines and AI shopping agents understand the page
   const r = reviews[product.slug] || {};
   const ld = {
@@ -31,6 +31,27 @@ export default async function ProductPage({ params }) {
   return (<>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
     <Customizer product={product} colors={shop.colors} shippingCents={shop.shippingCents} shipDays={shop.shipDays || [3, 5]} initialReviews={r} addons={shop.addons} />
+    {/* Amazon-style details under the buy box, when the catalog has them (Barbara 2026-10-31) */}
+    {(product.videos || []).map((v) => (
+      <section className="sec pdp-more" key={v.src}><div className="sec-head"><h2>{v.title || "Watch how it works"}</h2></div>
+        <div className="pdp-video"><video controls preload="metadata" poster={v.poster} src={v.src} /><div><h3>{v.length}</h3><p>{v.blurb}</p></div></div></section>
+    ))}
+    {product.problem?.length > 0 && (
+      <section className="sec pdp-more"><div className="sec-head"><h2>The problem it solves</h2></div>
+        <div className="pdp-problem">{product.problem.map(([h, t]) => <div key={h}><h3>{h}</h3><p>{t}</p></div>)}</div></section>
+    )}
+    {product.facts?.length > 0 && (
+      <section className="sec pdp-more"><div className="sec-head"><h2>Product details</h2></div>
+        <dl className="pdp-facts">{product.facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></section>
+    )}
+    {product.aplus?.length > 0 && (
+      <section className="sec pdp-more"><div className="sec-head"><h2>From the maker</h2></div>
+        <div className="pdp-aplus">{product.aplus.map((i) => <img key={i} src={product.photos[i - 1]} alt="" loading="lazy" />)}</div></section>
+    )}
+    {product.qa?.length > 0 && (
+      <section className="sec pdp-more"><div className="sec-head"><h2>Questions and answers</h2></div>
+        <dl className="pdp-qa">{product.qa.map(([q, a]) => <div key={q}><dt>{q}</dt><dd>{a}</dd></div>)}</dl></section>
+    )}
     {others.length > 0 && (
       <section className="sec">
         <div className="sec-head"><h2>Customers also look at</h2></div>

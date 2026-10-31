@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { shop, products } from "../../lib/catalog";
+import { shop, ready as products } from "../../lib/catalog";   // the Shop searches ready-made pieces only
 import { reviewSummaries } from "../../lib/reviews";
 import Stars from "../../components/Stars";
 
@@ -29,9 +29,6 @@ export default async function Search({ searchParams }) {
         <h4>Price</h4>
         <Link href={link({ price: "" })} className={!price ? "on" : ""}>Any price</Link>
         {PRICE.map(([id, label]) => <Link key={id} href={link({ price: id })} className={price === id ? "on" : ""}>{label}</Link>)}
-        <h4>Personalization</h4>
-        <Link href={link({ custom: "" })} className={!custom ? "on" : ""}>Everything</Link>
-        <Link href={link({ custom: "1" })} className={custom ? "on" : ""}>Name or picture</Link>
         <h4>Colors in stock</h4>
         {shop.colors.map((col) => <span key={col.name} style={{ display: "block", fontSize: 12.5 }}><i style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: col.hex, border: "1px solid #bbb", marginRight: 6 }} />{col.name}{col.stock === "low" ? " · only a little left" : ""}</span>)}
       </aside>

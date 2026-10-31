@@ -100,7 +100,7 @@ export default function Header({ shopName, categories, site, signInBase, absolut
       {!making && <div className="subnav">{/* the playground has no shop search or categories (Barbara, 2026-10-30) */}
         <form className="search clay" onSubmit={search} role="search">
           <svg className="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lunchboxes, fidgets, tools…" aria-label="Search" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the shop…" aria-label="Search" />
         </form>
         <div className="cats">
           <Link className={`pill${path === "/s" && !cat && !params.get("custom") && !params.get("k") ? " on" : ""}`} href="/s">All</Link>

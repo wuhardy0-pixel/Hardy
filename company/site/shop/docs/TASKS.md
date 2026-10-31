@@ -128,3 +128,4 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 - 2026-10-30: Store header uses the same account menu as hardywu.com (avatar + dropdown); the old "Sign in / Your orders" pill is gone (Barbara: consistent with Games and AI Apps).
 - 2026-10-30: Lunchbox gets a "Made for Sophia" lid render (unicorn + violin) as its second picture; background whitened from the Fusion render.
 - 2026-10-30: "About the shop" section removed from the store home (Barbara).
+- 2026-10-31: Fidget spinner and flexi skeleton retired (Barbara: not good enough). catalog.json marks them `retired`; the store (src/lib/catalog.js) and corporate/server.py skip retired products; categories cut to Tools. Tested on the preview store; live store rebuild, server restart and www rebuild still to do.

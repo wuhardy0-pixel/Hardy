@@ -129,7 +129,7 @@ a { color: var(--link); } a:hover { text-decoration: underline; }
 .pdp-thumbs button { width: 60px; height: 60px; border: 3px solid var(--rim); border-radius: 16px; background: var(--paper); overflow: hidden; padding: 0; font-size: 11px; color: var(--ink); box-shadow: var(--clay-sm); }
 .pdp-thumbs button.sel { border-color: var(--orange); }
 .pdp-thumbs img { width: 100%; height: 100%; object-fit: cover; }
-.pdp-main { aspect-ratio: 4/3; background: #fff; border-radius: 24px; overflow: hidden; display: grid; place-items: center; box-shadow: inset 0 0 0 3px var(--rim); } .pdp-main img, .pdp-main canvas { width: 100%; height: 100%; object-fit: contain; }
+.pdp-main { aspect-ratio: 1; background: #fff; border-radius: 24px; overflow: hidden; display: grid; place-items: center; box-shadow: inset 0 0 0 3px var(--rim); } .pdp-main img, .pdp-main canvas { width: 100%; height: 100%; object-fit: contain; }
 .pdp-form h1 { font-size: var(--t-h2); margin-bottom: 6px; }
 .pdp-brand { font-size: 14px; margin-bottom: 4px; } .pdp-desc { color: var(--muted); margin: 8px 0 10px; }
 .price-big { font-family: var(--fh); font-weight: 900; font-size: 30px; color: var(--teal); margin: 6px 0 2px; } .price-big sup { font-size: 14px; position: relative; top: -12px; }
@@ -220,3 +220,24 @@ select.textbox option { color: #04122f; }
 .menu a.out:hover { background: #ffab3d; }
 .menu .ic { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 @media (max-width: 900px) { .avatar span { display: none; } .avatar { padding-right: 8px; } }
+
+/* Amazon-style product details (Barbara 2026-10-31) */
+.pdp-thumbs button.vid { position: relative; }
+.pdp-thumbs button.vid span { position: absolute; inset: 0; display: grid; place-items: end center; padding-bottom: 6px; background: rgba(10,25,45,.35); color: #fff; font-family: var(--fh), sans-serif; font-weight: 900; font-size: 10px; letter-spacing: .04em; }
+.pdp-thumbs button.vid span::before { content: ""; position: absolute; top: 14px; left: 50%; margin-left: -6px; border-left: 14px solid #fff; border-top: 9px solid transparent; border-bottom: 9px solid transparent; }
+.pdp-main video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.bullets b { color: var(--ink); }
+.pdp-more { margin-top: 36px; }
+.pdp-video { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+.pdp-video video { width: 100%; border-radius: 22px; background: #000; box-shadow: var(--clay-sm); }
+.pdp-video p { font-size: 17px; line-height: 1.6; color: var(--muted); }
+.pdp-problem { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; background: var(--paper); border-radius: 24px; padding: 24px 28px; box-shadow: inset 0 0 0 3px var(--rim); }
+.pdp-problem h3 { font-size: 20px; margin: 0 0 6px; } .pdp-problem p { margin: 0; line-height: 1.55; color: var(--muted); }
+.pdp-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; margin: 0; }
+.pdp-facts div { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rim); }
+.pdp-facts dt { font-weight: 700; } .pdp-facts dd { margin: 0; color: var(--muted); }
+.pdp-aplus { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.pdp-aplus img { width: 100%; border-radius: 22px; display: block; box-shadow: inset 0 0 0 3px var(--rim); }
+.pdp-qa dt { font-weight: 700; margin-top: 14px; } .pdp-qa dt::before { content: "Q: "; color: var(--orange); }
+.pdp-qa dd { margin: 4px 0 0; color: var(--muted); line-height: 1.55; } .pdp-qa dd::before { content: "A: "; font-weight: 700; }
+@media (max-width: 900px) { .pdp-video, .pdp-problem, .pdp-aplus, .pdp-facts { grid-template-columns: 1fr; } }

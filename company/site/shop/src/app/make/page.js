@@ -1,4 +1,4 @@
-import { shop, products } from "../../lib/catalog";
+import { shop, templates } from "../../lib/catalog";
 import { MARKUP } from "./markup";
 import { SITE, SIGNIN } from "../layout";
 
@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 // prices come from the catalog, so the price here is the price at checkout.
 export default function Make() {
   const order = (p) => (p.slug === "customizable-lunchbox" ? 0 : 1);   // the lunchbox first
-  const models = Object.fromEntries(products.filter((p) => (p.text || p.image) && p.in_stock !== false).sort((a, b) => order(a) - order(b)).map((p) => [p.slug, {
+  // templates only: ready-made pieces are sold in the Shop (Barbara 2026-10-30)
+  const models = Object.fromEntries(templates.filter((p) => p.in_stock !== false).sort((a, b) => order(a) - order(b)).map((p) => [p.slug, {
     name: p.name, short: p.name.replace(/^(Customizable|Blue) /, ""), price: p.price, photo: p.photos[0],
     zones: p.zones || ["Color"], textZone: p.preview?.canvasTextZone || null, hours: p.cost?.printHours || 2,
   }]));

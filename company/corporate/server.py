@@ -143,7 +143,7 @@ try:
 except Exception:
     _cat = {"products": [], "colors": []}
 SHOP_COLORS = [c.get("name") for c in _cat.get("colors", [])]
-SHOP_PRODUCTS = {p["slug"]: p for p in _cat.get("products", [])}
+SHOP_PRODUCTS = {p["slug"]: p for p in _cat.get("products", []) if not p.get("retired")}   # retired ones are not shown or sold (Barbara 2026-10-31)
 _EMOJI = {"crab-gauge": "🦀", "customizable-lunchbox": "🍱", "dual-ruler": "📏"}
 for _slug, _p in SHOP_PRODUCTS.items():
     PORTFOLIO["3d"]["items"][_slug] = {

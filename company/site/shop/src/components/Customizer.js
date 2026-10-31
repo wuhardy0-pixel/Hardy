@@ -287,7 +287,10 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
   const [me, setMe] = useState(null);
 
   const hasPreview = !!product.preview;
-  const [showLive, setShowLive] = useState(hasPreview);
+  // Products with a full Amazon-style picture set open on the main picture; the Live preview is still one click away (Barbara 2026-10-31)
+  const [showLive, setShowLive] = useState(hasPreview && (product.photos || []).length < 5);
+  // gallery = pictures with the videos after the fourth picture, like Amazon
+  const media = [...product.photos.slice(0, 4).map((src) => ({ src })), ...(product.videos || []).map((v) => ({ video: v.src, poster: v.poster })), ...product.photos.slice(4).map((src) => ({ src }))];
   const storageKey = `customize:${product.slug}`;
   const hexOf = useMemo(() => { const map = Object.fromEntries(colors.map((c) => [c.name, c.hex])); return (name) => map[name]; }, [colors]);
   const stockOf = useMemo(() => Object.fromEntries(colors.map((c) => [c.name, c.stock || "plenty"])), [colors]);
@@ -357,8 +360,9 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
       <div className="pdp-photos">
         <div className="pdp-thumbs">
           {hasPreview && <button className={showLive ? "sel" : ""} onClick={() => setShowLive(true)} style={{ color: "var(--accent)", fontWeight: 700 }}>✨ Live</button>}
-          {product.photos.map((src, i) => (
-            <button key={src} className={!showLive && i === photo ? "sel" : ""} onClick={() => { setShowLive(false); setPhoto(i); }} aria-label={`Photo ${i + 1}`}><img src={src} alt="" /></button>
+          {media.map((m, i) => (
+            <button key={m.src || m.video} className={`${!showLive && i === photo ? "sel" : ""}${m.video ? " vid" : ""}`} onClick={() => { setShowLive(false); setPhoto(i); }} onMouseEnter={() => { setShowLive(false); setPhoto(i); }} aria-label={m.video ? "Video" : `Photo ${i + 1}`}>
+              <img src={m.src || m.poster} alt="" />{m.video && <span>VIDEO</span>}</button>
           ))}
         </div>
         <div>
@@ -368,7 +372,9 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
               text={product.preview?.frames?.some((f) => f.textArea) ? text.trim() : null} textColorHex={textColorHex} palette={colors}
               placement={placement} onPlace={setPlace} />
           ) : (
-            <div className="pdp-main"><img src={product.photos[photo] || product.photos[0]} alt={product.name} /></div>
+            media[photo]?.video
+              ? <div className="pdp-main"><video key={media[photo].video} src={media[photo].video} poster={media[photo].poster} controls autoPlay muted playsInline /></div>
+              : <div className="pdp-main"><img src={(media[photo] || media[0]).src} alt={product.name} /></div>
           )}
           {hasPreview && showLive && <p className="hint" style={{ marginTop: 8 }}>This is how it will be printed, in this orientation. Drag the model to spin it; <b>drag your picture or your name to move them</b>, and use the sliders for size. The real print may vary slightly.</p>}
         </div>
@@ -379,9 +385,9 @@ export default function Customizer({ product, colors, shippingCents, shipDays, i
         <div className="pdp-brand">Made to order by <a href="https://hardywu.com/">Hardy Wu</a> · {product.category}</div>
         <Stars average={reviews.average} count={reviews.count} link="#reviews" />
         <div className="price-big"><sup>$</sup>{product.price.toFixed(2)}<span style={{ fontSize: 13, color: "var(--ink-soft)", fontWeight: 400 }}> base price</span></div>
-        <div className="price-note">+${AD.text} for a name, +${AD.image} for a picture, +${AD.extraColor} per extra color · <b style={{ color: "var(--ok)" }}>FREE shipping</b> (US)</div>
+        <div className="price-note">{[product.text && `+$${AD.text} for a name`, product.image && `+$${AD.image} for a picture`, (product.zones || []).length > 1 && `+$${AD.extraColor} per extra color`].filter(Boolean).join(", ")}{(product.text || product.image || (product.zones || []).length > 1) ? " · " : ""}<b style={{ color: "var(--ok)" }}>FREE shipping</b> (US)</div>
         <p className="pdp-desc">{product.description}</p>
-        {product.bullets?.length > 0 && <><div className="sec-title">About this item</div><ul className="bullets">{product.bullets.map((b) => <li key={b}>{b}</li>)}</ul></>}
+        {product.bullets?.length > 0 && <><div className="sec-title">About this item</div><ul className="bullets">{product.bullets.map((b) => { const m = b.match(/^([A-Z0-9 ,'’&-]{4,}\.)\s+(.*)$/); return <li key={b}>{m ? <><b>{m[1]}</b> {m[2]}</> : b}</li>; })}</ul></>}
 
         <div className="sec-title">Make it yours</div>
         {activeZones.map((zone, zi) => (
