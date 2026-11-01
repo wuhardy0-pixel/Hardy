@@ -1337,12 +1337,17 @@ def start_verification(name, email, flow, nxt):
     import secrets, time
     code = f"{secrets.randbelow(10**6):06d}"
     session.permanent = True
-    session.update(pv_name=name, pv_email=email, pv_flow=flow, pv_next=nxt,
-                   pv_hash=_code_hash(code), pv_exp=time.time() + VERIFY_SECONDS, pv_tries=0)
+    # Pressing "Sign in" twice sends two emails; every code sent in the last 10 minutes keeps working
+    # (up to the last 3), so typing the first email's code doesn't fail (Barbara, 2026-11-01).
+    now, old = time.time(), []
+    if session.get("pv_email") == email and now < float(session.get("pv_exp") or 0):
+        old = [h for h in (session.get("pv_hashes") or [session.get("pv_hash")]) if h][-2:]
+    session.update(pv_name=name, pv_email=email, pv_flow=flow, pv_next=nxt, pv_hash=_code_hash(code),
+                   pv_hashes=old + [_code_hash(code)], pv_exp=now + VERIFY_SECONDS, pv_tries=0)
     if mail_configured():
         send_mail(email, f"{code} is your hardywu.com sign-in code",
                   f"Hi {name},\n\nYour sign-in code for hardywu.com is:\n\n    {code}\n\n"
-                  f"It works for {VERIFY_SECONDS} seconds — type it in straight away (there is a 'Send a new code' link if it runs out). "
+                  f"It works for {VERIFY_SECONDS // 60} minutes. If it runs out, press 'Send a new code' on the sign-in page. "
                   f"If you didn't ask for it, just ignore this email.\n\n— Hardy Wu")
     out = {"ok": True, "verify": True, "email": email}
     if not mail_configured() and _from_this_mac():
@@ -1365,7 +1370,7 @@ def with_device(payload):
     return resp
 
 def _forget_verification():
-    for k in ("pv_name", "pv_email", "pv_flow", "pv_next", "pv_hash", "pv_exp", "pv_tries"):
+    for k in ("pv_name", "pv_email", "pv_flow", "pv_next", "pv_hash", "pv_hashes", "pv_exp", "pv_tries"):
         session.pop(k, None)
 
 def _trust(email):
@@ -1386,7 +1391,7 @@ def verify_code():
     if tries > VERIFY_TRIES:
         _forget_verification()
         return jsonify(error="Too many tries. Please start again."), 400
-    if len(code) != 6 or _code_hash(code) != session.get("pv_hash"):
+    if len(code) != 6 or _code_hash(code) not in (session.get("pv_hashes") or [session.get("pv_hash")]):
         return jsonify(error="That code didn't match. Check the email and try again."), 400
     name, email, flow, nxt = session["pv_name"], session["pv_email"], session.get("pv_flow"), session.get("pv_next") or "/"
     _forget_verification()
