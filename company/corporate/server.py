@@ -1214,7 +1214,7 @@ def track(kind, label, path, seconds=0, detail=""):
             who["clicks"] = who["clicks"][-400:]           # keep the most recent trail
         _act_save(data)
 
-VISITOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Welcome — hardywu.com</title>
+VISITOR_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Sign in — hardywu.com</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="/style/clay.css?v=STYLE_V"><script src="/style/theme.js?v=STYLE_V"></script>
@@ -1239,13 +1239,13 @@ button:active{transform:scale(.95)}
 <div class="blobs" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
 <div class="card">
  <img class="logo" src="/logo.png" alt="Hardy Wu">
- <h1>Try New<br>Things.</h1>
- <p>Welcome to <b>hardywu.com</b>: 3D prints you can make your own, and video games.<br>Tell us who you are to come in.</p>
+ <h1>Sign in</h1>
+ <p>Sign in to play the games, use the AI apps and make your own 3D prints.<br>New here? Type your name and email, and that sets up your account.</p>
  <!--google-->
  <input id="nm" autofocus placeholder="Your name" autocomplete="name" maxlength="60">
  <input id="em" type="email" placeholder="Your email" autocomplete="email" maxlength="90">
  <div class="err" id="err"></div>
- <button onclick="go()">Enter the site →</button>
+ <button onclick="go()">Sign in →</button>
  <p class="small">We email you a 6-digit code to check it's really you, and keep your name and email so Hardy knows who visited. Nothing is shared with anyone else.</p>
 </div>
 <script>
@@ -1262,7 +1262,7 @@ async function go(){
 for(const el of [nm,em])el.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 function showCode(j){
   const card=document.querySelector(".card");
-  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>10 minutes</b> to come in.</p>
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>10 minutes</b> to finish signing in.</p>
    <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
    <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
    <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
@@ -2532,7 +2532,7 @@ async function go(){
 for(const id of ["nm","em"]) document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")go();});
 function showCode(j){
   const card=document.querySelector(".card");
-  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>10 minutes</b> to come in.</p>
+  card.innerHTML=`<h1>Check your email</h1><p>We sent a 6-digit code to <b>${j.email}</b>.<br>Type it in within <b>10 minutes</b> to finish signing in.</p>
    <input id="cd" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" autofocus>
    <div class="err" id="err2"></div><button onclick="verify()">Continue →</button>
    <p class="small"><a href="#" onclick="resend();return false" style="color:inherit">Send a new code</a> &nbsp;·&nbsp; <a href="" style="color:inherit">Wrong email? Start over</a></p>`;
