@@ -129,3 +129,7 @@ Late additions (2026-08-14 → 17, all built & demo-verified): per-zone color pi
 - 2026-10-30: Lunchbox gets a "Made for Sophia" lid render (unicorn + violin) as its second picture; background whitened from the Fusion render.
 - 2026-10-30: "About the shop" section removed from the store home (Barbara).
 - 2026-10-31: Fidget spinner and flexi skeleton retired (Barbara: not good enough). catalog.json marks them `retired`; the store (src/lib/catalog.js) and corporate/server.py skip retired products; categories cut to Tools. Tested on the preview store; live store rebuild, server restart and www rebuild still to do.
+- 2026-10-31: Two original fidgets added (Cheeky Click Spinner, Twisty Blep Ball), designed from scratch with make_fidgets.py in products/prints/items/cheeky-click-spinner; Amazon-style pages live; Fidgets category back. Hardy to test-print before the first order ships.
+- 2026-11-01: Barbara: Cheeky Click Spinner and Twisty Blep Ball taken off the website (retired in catalog.json; printer files kept).
+- 2026-11-01: Barbara: ruler, lunchbox and lunchbox-assembly videos redrawn in the crab video's picture-book style (drawn classroom, desk, lunch room, kitchen around the real 3D product; mocks/studio/scenes.js). Store uses *-v2.mp4 / *-poster-v2.jpg.
+- 2026-11-01: Barbara picked the 'Chatter lively' voice (Chatterbox, MIT). All four videos re-voiced with excited scripts at 80% speed; store uses *-v3.mp4.

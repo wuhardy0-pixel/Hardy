@@ -116,8 +116,8 @@ PORTFOLIO = {
             "elemental-latin": {"name": "Elemental Latin", "emoji": "🔥",
                 "desc": "Elemental powers with Latin names. Throw fire with “ignem iacio” — only if the endings are right. A 3D world you walk through; spells that spray real fire, water and lightning. Duel human rivals in the arena, tame wild creatures by calling them in the vocative, forge your own skills.",
                 "link": "/play/latin", "link_label": "Play"},
-            "elementum": {"name": "Elementum", "emoji": "🏃",
-                "desc": "Step 1 of a new 3D game: a body that walks, runs, turns, jumps and climbs blocks in a gray world, with a camera that follows behind. Keyboard + mouse, or joystick on a phone.",
+            "elementum": {"name": "Elementum", "emoji": "🏃", "img": "/item/elementum.png",
+                "desc": "A 3D adventure in a walled Roman town. Start with nothing: chop wood, help the villagers, haggle at the market and forge weapons by solving math puzzles that grow with you — then head out the gates to fight monster packs with 28 elemental spells. Play with friends in your own room.",
                 "link": "/play/elementum", "link_label": "Play"},
             "nova-strike": {"name": "Nova Strike", "emoji": "🚀", "img": "/item/novastrike.png",
                 "desc": "A fast-paced space shooter on itch.io.",
@@ -135,6 +135,18 @@ PORTFOLIO = {
     "robotics": {"title": "Robotics", "emoji": "🤖", "blurb": "Robot projects. Coming soon.", "hidden": True,   # part of the Shop now
         "items": {}},
 }
+# every game has two painted covers (2026-11-18): cute for the Cozy style, neon for Space — site/images/item_<slug>_<style>.jpg
+for _slug, _it in PORTFOLIO["games"]["items"].items():
+    if (IMG_DIR / f"item_{_slug}_cozy.jpg").exists():
+        _it["img"], _it["img_space"] = f"/item/{_slug}_cozy.jpg", f"/item/{_slug}_space.jpg"
+
+def cover_imgs(it, style=""):
+    """The item's picture; with a Space twin, both are sent and the style switch shows one (clay.css .th-cozy / .th-space)."""
+    st = f' style="{style}"' if style else ""
+    if not it.get("img_space"):
+        return f'<img src="{it["img"]}" alt=""{st}>'
+    return f'<img class="th-cozy" src="{it["img"]}" alt=""{st}><img class="th-space" src="{it["img_space"]}" alt=""{st}>'
+
 
 # Real catalog from Hardy's 3D Business (names, prices, photos).
 SHOP_DIR = SITE_DIR / "shop"
@@ -2320,13 +2332,13 @@ def portfolio_section(section):
 # wide picture cards in rows of three, one short line each, and an orange Play button.
 GAME_TAGLINES = {"football-sim": "Broadcast-style 3D football with fictional clubs", "nova-blast": "Neon space shooter, a boss every fifth wave",
     "critter-quest": "32 critters to catch and evolve", "zheng-shang-you": "The family card game", "elemental-latin": "Throw fire with “ignem iacio”",
-    "elementum": "A new 3D game, step 1", "nova-strike": "A fast-paced space shooter", "cmind-freecell": "A calm game of FreeCell",
+    "elementum": "Spells, monsters and math — build up from nothing", "nova-strike": "A fast-paced space shooter", "cmind-freecell": "A calm game of FreeCell",
     "pokemon-adventure": "Creatures to catch and battle"}
 
 def games_page():
     cards = "".join(
         f'<a class="g clay press" href="/games/{slug}"><div class="pic">'
-        + (f'<img src="{it["img"]}" alt="">' if it.get("img") else f'<b>{html.escape(it.get("emoji", "🎮"))}</b>')
+        + (cover_imgs(it) if it.get("img") else f'<b>{html.escape(it.get("emoji", "🎮"))}</b>')
         + f'</div><div class="b"><div><h3>{html.escape(it["name"])}</h3><small>{html.escape(GAME_TAGLINES.get(slug, ""))}</small></div><span class="play">Play</span></div></a>'
         for slug, it in PORTFOLIO["games"]["items"].items())
     return p_page("Games — Hardy Wu", f"""<style>
@@ -2398,7 +2410,7 @@ async function placeOrder(){{
 }}
 </script></header>""", crumbs)
     btn = f'<a class="btn primary" href="{login_url_for(_key(slug))}">{it.get("link_label","Open")}</a>' if it.get("link") else ""
-    hero = (f'<img src="{it["img"]}" style="width:100%;max-width:420px;aspect-ratio:16/10;object-fit:cover;border-radius:24px;border:3px solid var(--rim);box-shadow:var(--clay-sm)">'
+    hero = (cover_imgs(it, "width:100%;max-width:420px;aspect-ratio:16/10;object-fit:cover;border-radius:24px;border:3px solid var(--rim);box-shadow:var(--clay-sm)")
             if it.get("img") else f'<div style="font-size:64px">{it["emoji"]}</div>')
     return p_page(f'{it["name"]} — Hardy Wu', f"""
 <header class="clay" style="max-width:640px;margin:20px auto 0;padding:34px 30px">{hero}<h1>{it["name"]}</h1>
@@ -2468,7 +2480,7 @@ def require_passcode():
                       or p.startswith("/ucp/") or p.startswith("/order/") or p.startswith("/api/zsy/") or p.startswith("/api/reviews/") or p == "/api/orders/mine" or p.startswith("/api/coins/")
                       or p.startswith("/products/") or p.startswith("/sec/") or p.startswith("/style/")
                       or p.startswith("/item/"))
-        ok = (p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p == "/costs" or p == "/coins" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
+        ok = (p.startswith("/api/elementum/") or p == "/" or p == "/activity" or p == "/orders" or p == "/feedback" or p == "/costs" or p == "/coins" or p.startswith("/play/") or p.startswith("/approve/") or p == "/news" or p.startswith("/api/news/") or p.startswith("/go/")
               or open_paths
               or any(p == f"/{sec}" or p.startswith(f"/{sec}/") for sec in PORTFOLIO))
         if not ok:
@@ -2476,11 +2488,13 @@ def require_passcode():
         if open_paths:
             return None
         # browsing is open to everyone; playing a game (or Hardy's report) asks who you are
-        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback", "/news", "/costs") or p.startswith("/api/news/")   # /approve/ checks its own code first
+        needs_login = p.startswith("/play/") or p in ("/activity", "/orders", "/feedback", "/news", "/costs") or p.startswith("/api/news/") or p.startswith("/api/elementum/")   # /approve/ checks its own code first
+        if needs_login and not visitor() and p.startswith("/api/elementum/"):
+            return jsonify(error="Please sign in."), 401   # Elementum multiplayer: a game call, not a page
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
-        if visitor() and "." not in p.rsplit("/", 1)[-1]:
+        if visitor() and "." not in p.rsplit("/", 1)[-1] and not p.startswith("/api/elementum/"):   # not the game's 7-a-second updates
             track("view", friendly_label(p), p)  # note that they opened this page (a game's picture/script files are not pages)
         return None
     if request.path in PUBLIC_PATHS or session.get("authed"):
@@ -2888,7 +2902,8 @@ def section_image(name):
 @app.get("/item/<name>")
 def item_image(name):
     if name in {"bookkeep.png", "footballsim.png", "nova.png", "quest.png",
-                "novastrike.png", "pokemonadv.png", "freecell.png"}:
+                "novastrike.png", "pokemonadv.png", "freecell.png", "elementum.png"} or (
+            re.fullmatch(r"[a-z0-9-]+_(cozy|space)\.jpg", name) and (IMG_DIR / ("item_" + name)).exists()):
         return send_from_directory(IMG_DIR, "item_" + name)
     return jsonify(error="Not found."), 404
 
@@ -3727,9 +3742,66 @@ def play_latin():
 def play_elementum():
     return _nocache(send_from_directory(GAMES_DIR / "elementum", "index.html", max_age=0))
 
+# Elementum multiplayer: everyone in the world sends where they are ~7 times a second and gets everyone else back.
+# Kept in memory only (nothing is written to disk); a player who goes quiet for 10 s disappears. Names come from the sign-in.
+ELEM_PLAYERS, _elem_lock = {}, threading.Lock()
+ELEM_HOUSES = {}   # room -> {slot: {id, name, locked}}: one house per player in a room, freed when they leave
+ELEM_HOUSE_SLOTS = 6
+
+@app.post("/api/elementum/state")
+def elementum_state():
+    j = request.get_json(silent=True) or {}
+    pid = str(j.get("id", ""))
+    if not re.fullmatch(r"[A-Za-z0-9]{6,24}", pid):
+        return jsonify(error="bad id"), 400
+    def num(k, lo, hi):
+        try:
+            return max(lo, min(hi, float(j.get(k) or 0)))
+        except (TypeError, ValueError):
+            return 0.0
+    name = (session.get("v_name") or "").strip().split(" ")[0][:16] or "Player"
+    room = re.sub(r"[^A-Z0-9]", "", str(j.get("room") or "").upper())[:6] or "PUBLIC"   # you only see players in the same room
+    now = time.time()
+    me = dict(id=pid, name=name, x=round(num("x", -200, 200), 2), y=round(num("y", -5, 60), 2), z=round(num("z", -200, 200), 2),
+              yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
+              held=str(j.get("held") or "")[:4], fx=str(j.get("fx") or "")[:24], bf=str(j.get("bf") or "")[:4], room=room, t=now)
+    with _elem_lock:
+        ELEM_PLAYERS[pid] = me
+        for k in [k for k, v in ELEM_PLAYERS.items() if now - v["t"] > 10]:
+            del ELEM_PLAYERS[k]
+        others = [{k: v for k, v in p.items() if k != "t"} for k, p in ELEM_PLAYERS.items() if k != pid and p["room"] == room]
+        # houses: free the ones whose owner left (or moved rooms), give this player one, and let the owner lock or unlock it
+        for r, hs in ELEM_HOUSES.items():
+            for slot in [sl for sl, h in hs.items() if h["id"] not in ELEM_PLAYERS or ELEM_PLAYERS[h["id"]]["room"] != r]:
+                del hs[slot]
+        hs = ELEM_HOUSES.setdefault(room, {})
+        mine = next((sl for sl, h in hs.items() if h["id"] == pid), None)
+        if mine is None:
+            mine = next((sl for sl in range(ELEM_HOUSE_SLOTS) if sl not in hs), None)
+            if mine is not None:
+                hs[mine] = dict(id=pid, name=name, locked=False)
+        if mine is not None:
+            hs[mine]["name"] = name
+            if isinstance(j.get("lock"), bool):
+                hs[mine]["locked"] = j["lock"]
+        houses = [dict(slot=sl, name=h["name"], locked=h["locked"], mine=(sl == mine)) for sl, h in hs.items()]
+    return jsonify(players=others, you=name, room=room, houses=houses)
+
+@app.post("/api/elementum/room")
+def elementum_new_room():
+    """A fresh private room code nobody is using right now (4 letters/digits, no look-alikes such as O/0 or I/1)."""
+    abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    with _elem_lock:
+        used = {p["room"] for p in ELEM_PLAYERS.values()}
+    for _ in range(50):
+        code = "".join(secrets.choice(abc) for _ in range(4))
+        if code not in used:
+            return jsonify(room=code)
+    return jsonify(error="try again"), 503
+
 @app.get("/play/elementum/<path:name>")
 def play_elementum_asset(name):
-    if not name.endswith((".js", ".png", ".webp", ".json")) or ".." in name:
+    if not name.endswith((".js", ".png", ".webp", ".json", ".glb")) or ".." in name:
         return jsonify(error="Not found."), 404
     return send_from_directory(GAMES_DIR / "elementum", name, max_age=0)
 

@@ -35,7 +35,7 @@ const PROJ_FS=`uniform float uTime,uGrow;uniform vec3 c1,c2,c3;uniform sampler2D
 function comet(el,len){const r=RAMP[el]||RAMP.fire;const m=shader(PROJ_VS,PROJ_FS,{uGrow:{value:1},c1:v3(r[0]),c2:v3(r[1]),c3:v3(r[2])});
   const g=new THREE.Group();const body=new THREE.Mesh(new THREE.CylinderGeometry(.03,.2,1,16,6,true),m);body.scale.y=len||1.3;body.position.y=(len||1.3)/2;g.add(body);
   const head=new THREE.Mesh(new THREE.SphereGeometry(.14,12,10),new THREE.MeshBasicMaterial({color:new THREE.Color(r[0][0],r[0][1],r[0][2]),transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false}));g.add(head);
-  const l=new THREE.PointLight(HEX[el]||0xffffff,1.6,4);g.add(l);g.userData.mat=m;g.userData.aim=d=>g.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),d.clone().normalize());g.userData.dispose=()=>{scene.remove(g);SHADERS.delete(m);};return g;}
+  g.userData.mat=m;g.userData.aim=d=>g.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),d.clone().normalize());g.userData.dispose=()=>{scene.remove(g);SHADERS.delete(m);};return g;}
 // impact sphere (impact_sphere): a noisy shell that opens up as uF goes 1→0
 const IMP_N=`float sn(vec2 uv){float pm=max(uv.y,1.-uv.y)*2.-1.;pm=1.-pow(pm,8.);return min(texture2D(uNoise,uv+.2*uTime).r,1.)*pm;}`;
 const IMP_VS=`uniform float uTime,uF;uniform sampler2D uNoise;varying vec2 vUv;`+IMP_N+`void main(){vUv=uv;vec3 p=position+normal*sn(uv)*.25*uF+normal*.15*uF;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`;
@@ -60,7 +60,7 @@ function flare(p,dir,el,size,dur){const r=RAMP[el]||RAMP.light;const m=shader(ST
 // a flame that follows an object for a while (burning / frosting / soaking status)
 function burning(obj,el,dur,size,offset){const f=flame(el,size||1,{speed:1.5});const off=offset||new THREE.Vector3(0,1.3,0);f.position.copy(obj.position).add(off);scene.add(f);const m=f.userData.mat;
   tween(dur||1.2,t=>{m.uniforms.uAmount.value=t<.15?t/.15:1-Math.max(0,(t-.6)/.4);f.position.copy(obj.position).add(off);},()=>{scene.remove(f);SHADERS.delete(m);});return f;}
-function step(dt){tAcc+=dt;tweens=tweens.filter(w=>{w.t+=dt;const t=Math.min(1,w.t/w.dur);w.fn(t);if(t>=1){w.done&&w.done();return false;}return true;});SHADERS.forEach(m=>{m.uniforms.uTime.value=tAcc;});}
+function step(dt){tAcc+=dt;{const run=tweens;tweens=[];const keep=run.filter(w=>{w.t+=dt;const t=Math.min(1,w.t/w.dur);w.fn(t);if(t>=1){w.done&&w.done();return false;}return true;});tweens=keep.concat(tweens);}SHADERS.forEach(m=>{m.uniforms.uTime.value=tAcc;});}
 function init(s,c){scene=s;cam=c;NOISE=noiseTex();}
 return{init,step,flame,comet,impact,stars,beam,flare,burning,tween,RAMP,HEX,get live(){return SHADERS.size;}};
 })();

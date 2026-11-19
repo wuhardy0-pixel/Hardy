@@ -136,3 +136,6 @@ html.theme-anim *{transition:background-color .5s,color .5s,border-color .5s!imp
 [data-theme="space"] .press{transition:transform .12s ease-out}
 [data-theme="space"] .press:hover{transform:translateY(-2px)}
 [data-theme="space"] .press:active{transform:translateY(1px)}
+
+/* pictures with a Cozy and a Space version: show the one that matches the style switch */
+.th-space{display:none!important}[data-theme="space"] .th-space{display:inline-block!important}[data-theme="space"] .th-cozy{display:none!important}

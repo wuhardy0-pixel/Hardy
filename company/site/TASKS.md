@@ -27,3 +27,4 @@
 - 2026-10-29: "Apps" added to the top menu beside Games (site and store), Barbara.
 - 2026-10-29: Apps renamed "AI Apps" (menu + compass "powered by AI"); items "AI Bookkeeping" and "AI News Tracker"; the two mid-page bubbles moved to the edges (Barbara).
 - 2026-10-29: Section pages (AI Apps, Games) lose the "← hardywu.com" link (Barbara); the logo goes home. Style files load with a version tag so browsers never show a stale copy.
+- 2026-11-18 Barbara: new game covers — every game on the Games page has two painted covers (Gemini, from real screenshots of the game): cute pastel for the Cozy style, neon for Space; the style switch swaps them (clay.css .th-cozy/.th-space, server.py cover_imgs). Files site/images/item_<slug>_<style>.jpg (~45–100 KB), script site/tools/game_covers.py. www rebuilt; checked both styles on the Games page and a game page.

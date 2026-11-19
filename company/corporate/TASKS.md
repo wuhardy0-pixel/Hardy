@@ -62,3 +62,5 @@ History before 2026-09-10: see `../products/apps/bookkeep/TASKS.md` (the server 
 - 2026-10-30: BookKeep pages on this Mac (127.0.0.1:5000) now require sign-in like the real site; API calls from programs on the Mac (store, tests, build) stay open. Found by Barbara in the local preview.
 - 2026-10-30: BookKeep uses the same sign-in page as the rest of hardywu.com (the old "Log in to BookKeep" page is no longer shown).
 - 2026-10-30: Product feed / llms.txt payment policy updated: card at checkout on shop.hardywu.com (Stripe); agent orders still arranged by email.
+- 2026-11-01: Barbara: the sign-in gate now reads as a Sign in page (heading, button 'Sign in →', explains it unlocks games, AI apps and Make your own).
+- 2026-11-01: Barbara: sign-in 'not working' — pressing Sign in twice sent two codes and only the newest worked. Now the last 3 codes within 10 min all work; email says '10 minutes' (was '600 seconds').
