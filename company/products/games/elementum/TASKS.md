@@ -31,6 +31,8 @@
 - 2026-11-18 Barbara: new cover picture for the Elementum card on hardywu.com (Gemini, from the hero concept; site/images/item_elementum.png, originals in concept/cover_*.webp) and a new description/tagline replacing "step 1".
 - 2026-11-18 Barbara: the Magna Rifle can be crafted at the forge too (Ferrum + Lignum, math-hidden amounts like every recipe); checked in the browser.
 - 2026-11-18 Barbara: characters match the game covers — hero recoloured in models/hero.glb (cream tunic, dark green trousers, gold buckle, cream sleeves) plus a dark-brown fringe under the hood (LOOK.heroHair); Demon brighter red, Yeti white with a blue face, Mushroom King red cap and cream body (material colours in their .glb). Tested in the browser, forge test passes.
+- 2026-11-18 Barbara (bug): the training dummies could be hit before the training center was built. They now stay hidden and can't be hit (no bars, no wood/coin drops) until you build it; then they pop up. Tested: punches do nothing before, hit after.
+- 2026-11-18 Barbara: you can drop items — G drops what you hold, or ⬇️ Drop in the bag. It lands in front of you for 5 minutes and is only picked back up after you walk away and return. Tested in the browser.
 
 ## Next (one step at a time, as Hardy asks)
 - Step 3 candidates: elemental crystals on the guns (burn/soak/charge status from the GDD), the Latin casts, a real map, other players, sounds.

@@ -409,10 +409,15 @@ function dropItem(at,it,life){const f=itemInfo(it);const hex=it.t==="spell"?FX.H
   bob.position.y=.9;g.add(bob);
   const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.44,30),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
   scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||60});}
+// dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
+function dropOwn(i){const it=INV[i];if(!it||P.down)return false;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=0;
+  if(it.t==="weapon")it.ammo=null;dropItem(at,it,300);PICKUPS[PICKUPS.length-1].hold=true;INV[i]=null;if(i===SEL)select(SEL);invHud();hud();
+  const f=itemInfo(it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`dropped ${f.icon} ${f.name}`,"spell");return true;}
 function stepPickups(dt){for(let i=PICKUPS.length-1;i>=0;i--){const d=PICKUPS[i];d.t+=dt;d.life-=dt;d.bob.position.y=.9+Math.sin(d.t*3)*.12;if(d.bob.isMesh)d.bob.rotation.y+=dt*2.2;d.ring.scale.setScalar(1+Math.sin(d.t*4)*.08);
     if(d.life<6)d.g.visible=Math.sin(d.t*16)>-.2;
     const dx=P.pos.x-d.g.position.x,dz=P.pos.z-d.g.position.z,dist=Math.hypot(dx,dz);
-    if(!P.down&&dist<3&&P.pos.y<2){if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.icon} ${f.name}`,"spell");scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
+    if(d.hold&&dist>3.5)d.hold=false;
+    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.icon} ${f.name}`,"spell");scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
       else{d.g.position.x+=dx/dist*dt*6;d.g.position.z+=dz/dist*dt*6;}}
     if(d.life<=0){scene.remove(d.g);PICKUPS.splice(i,1);}}}
 // ---------------- mining: crystal veins and iron rocks; shoot them to break them, they grow back ----------------
@@ -658,7 +663,7 @@ function stepVillagers(){VILLAGERS.forEach(v=>{if(!v.q)newQuest(v);const key=!v.
   const act=VILLAGERS.filter(v=>v.q.accepted);$("#quests").innerHTML=act.map(v=>`<div>${questDone(v.q)?"✅":"📜"} ${v.name}: ${esc(qShort(v.q))}</div>`).join("");
   VILLAGERS.forEach(v=>{const q=workQ(v),c=v.home;c.mark.visible=!!q;if(q){const at=q.job==="fence"?c.garden:c.pos;c.mark.position.set(at.x,(q.job==="fence"?2:CH+CR+1.4)+Math.sin(tAcc*3)*.08,at.z);}});}
 // --- the training center (Palaestra): a site you build; once it stands, the dummies inside shoot at you — but only while you are inside it
-const TRAIN={built:false,x0:-11,x1:11,z0:-25,z1:-6,coins:25,site:[],plan:null};
+const TRAIN={built:false,x0:-11,x1:11,z0:-25,z1:-6,coins:25,site:[],plan:null,dummies:[]};
 // the builder's plan never says how much wood and iron: it's written as math problems at your level
 function trainPlan(){if(!TRAIN.plan){const L=ri(6,10),F=ri(4,7);TRAIN.plan={solved:false,tries:0,cost:{lignum:L,ferrum:F},parts:[{m:"lignum",...CRAFT.amount(L,MATH.lv)},{m:"ferrum",...CRAFT.amount(F,MATH.lv)}]};}return TRAIN.plan;}
 const inTraining=p=>TRAIN.built&&p.x>TRAIN.x0&&p.x<TRAIN.x1&&p.z>TRAIN.z0&&p.z<TRAIN.z1;
@@ -674,6 +679,7 @@ function buildTraining(){if(TRAIN.built)return "done";const pl=trainPlan();if(!p
   [[-2.4,TRAIN.z1],[2.4,TRAIN.z1]].forEach(([x,z])=>{const p=LOOK.M(new THREE.CylinderGeometry(.18,.22,3.2,10),LOOK.toon(0xeee2c8),.015);p.position.set(x,1.6,z);scene.add(p);
     const f=new THREE.Mesh(new THREE.PlaneGeometry(.9,1.4),new THREE.MeshLambertMaterial({color:0x2f6fb5,side:THREE.DoubleSide}));f.position.set(x,2.4,z-.25);scene.add(f);});
   const sg=label("🏛️ Palaestra — the dummies fight back in here",0x9fd6ff);sg.scale.set(4.8,.9,1);sg.position.set(0,3.8,TRAIN.z1);scene.add(sg);
+  TRAIN.dummies.forEach((d,i)=>{d.unbuilt=false;d.hp=d.max;d.g.visible=true;d.g.scale.setScalar(.01);tween(.5+i*.12,t=>d.g.scale.setScalar(Math.max(.01,t)),()=>{d.down=false;});});
   FX.stars(new THREE.Vector3(0,2,TRAIN.z1),"gold",6,2);shake(.15);return "ok";}
 ACTS.push({pos:new THREE.Vector3(0,0,TRAIN.z1+1),r:3.2,label:"🔨 Build the training center",hidden:()=>TRAIN.built,run:()=>toggleBag(true,"build")});
 // --- a fountain in the square, and guards at the gates
@@ -747,7 +753,8 @@ function dummy(x,z,name){const D=LOOK.dummy();const {g,bodyM,headM,tgt,tgt2,bar:
   const d={g,name,hp:100,max:100,down:false,parts:[bodyM,headM,tgt,tgt2,arms],mats:[bm,hm],bar:null,gun,gunCool:rnd(2,5)};bodyM.userData={dummy:d,part:"body"};headM.userData={dummy:d,part:"head"};tgt.userData={dummy:d,part:"body"};tgt2.userData={dummy:d,part:"body"};arms.userData={dummy:d,part:"body"};
   makeBar(d);DUMMIES.push(d);return d;}
 function makeBar(d){const bar=document.createElement("div");bar.className="dbar";bar.innerHTML=`<span>${d.name}</span><div><i></i></div>`;$("#bars").appendChild(bar);d.bar=bar;d.barI=bar.querySelector("i");d.barS=bar.querySelector("span");}
-[[-6,-14,"Dummy A"],[-3,-16,"Dummy B"],[0,-15,"Dummy C"],[3,-16,"Dummy D"],[6,-14,"Dummy E"],[0,-9,"Dummy F (close)"]].forEach(([x,z,n])=>dummy(x,z,n));
+// the dummies only stand once the training center is built (buildTraining brings them in); until then nothing there can be hit
+[[-6,-14,"Dummy A"],[-3,-16,"Dummy B"],[0,-15,"Dummy C"],[3,-16,"Dummy D"],[6,-14,"Dummy E"],[0,-9,"Dummy F (close)"]].forEach(([x,z,n])=>{const d=dummy(x,z,n);d.down=d.unbuilt=true;d.g.visible=false;TRAIN.dummies.push(d);});
 // ---------------- monsters: each has a home, wanders, hunts you when you come near and casts its own spells ----------------
 // Quaternius "Ultimate Monsters" (CC0, models/monsters/*.glb). They live outside the town walls and never come in. Walls stop their spells; they come back 25 s after you beat them.
 const QA={idle:"Idle",walk:"Walk",run:"Run",cast:"Weapon",hit:"HitReact",death:"Death",punch:"Punch"};
@@ -871,7 +878,7 @@ function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held()
 // ---------------- input ----------------
 const keys={};let look={yaw:0,pitch:.22},stick={x:0,y:0},jumpQ=false,runBtn=false,paused=false,started=false,camSide=1;
 addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input"))return;keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
-  if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
+  if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
 addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.deltaY>0?1:-1));},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
 const touch=matchMedia("(pointer:coarse)").matches||"ontouchstart" in window;if(touch)document.body.classList.add("touch");
@@ -975,7 +982,7 @@ function updateCam(dt){const d=4.2,eye=P.pos.clone().add(new THREE.Vector3(0,1.5
 function resize(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
 addEventListener("resize",resize);resize();
 // monster bars are hidden while you are in town, so they don't show through the walls
-function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos));d.bar.style.display=vis?"":"none";if(!vis)return;
+function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos));d.bar.style.display=vis?"":"none";if(!vis)return;
   d.bar.style.left=(p.x+1)/2*innerWidth+"px";d.bar.style.top=(1-p.y)/2*innerHeight+"px";d.barI.style.width=(100*d.hp/d.max)+"%";d.barI.classList.toggle("low",d.hp<35);d.barS.textContent=d.down?d.name+" · down":d.name;});}
 
 // ---------------- the bag (E) and the forge: tidy the hotbar, and craft by solving the forge's math problems ----------------
@@ -998,7 +1005,7 @@ function slot(i){const it=INV[i],f=itemInfo(it);return `<div class="slot${i===ba
 function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .tabs button[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===bagTab));
   if(bagTab==="items"){let h=`<p class="tip">Tap an item, then tap another slot to move or swap it. The bottom row is your hotbar (keys 1–9).</p><div class="grid">`;
     for(let i=9;i<36;i++)h+=slot(i);h+=`</div><div class="grid hot">`;for(let i=0;i<9;i++)h+=slot(i);h+=`</div>`;
-    const f=itemInfo(INV[bagPick>=0?bagPick:SEL]);h+=`<p class="info">${f?`${f.icon} <b>${esc(f.name)}</b> — ${esc(f.what||"")}${f.num?` · crystal number <b>${f.num}</b>`:""}`:"&nbsp;"}</p>`;box.innerHTML=h;return;}
+    const fi=bagPick>=0?bagPick:SEL,f=itemInfo(INV[fi]);h+=`<p class="info">${f?`${f.icon} <b>${esc(f.name)}</b> — ${esc(f.what||"")}${f.num?` · crystal number <b>${f.num}</b>`:""} <button class="drop" data-drop="${fi}">⬇️ Drop</button>`:"&nbsp;"}</p>`;box.innerHTML=h;return;}
   if(bagTab==="quest"){const v=QV;if(!v||P.pos.distanceTo(v.pos)>4){box.innerHTML=`<p class="tip">Villagers with a ❗ over their head need help. Walk up to one and press T.</p>`;return;}
     const q=v.q;let h=`<h3>${esc(v.name)}</h3><p class="say">“${esc(q.text)}”</p><p>Reward: <b>${q.pay} 🪙</b></p>`;
     if(!q.accepted)h+=`<button class="go" id="qAccept">👍 I'll help</button>`;
@@ -1056,8 +1063,9 @@ function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAF
   const up=first&&MATH.lv<8&&setLevel(MATH.lv+1);if(!up){MATH.wrong=0;MATH.moved="";}
   forgeMsg=`✨ You made ${rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.LEVELS[MATH.lv]}.`:" A new set of problems is ready for the next one.");
   FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.4,0)),"gold",5,1.4);renderBag();}
-$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
+$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
   if(t.dataset.slot!==undefined){const i=+t.dataset.slot;if(bagPick<0){if(INV[i])bagPick=i;}else{const a=INV[bagPick];INV[bagPick]=INV[i];INV[i]=a;bagPick=-1;select(SEL);}renderBag();return;}
+  if(t.dataset.drop!==undefined){dropOwn(+t.dataset.drop);bagPick=-1;renderBag();return;}
   if(t.dataset.rec){forgeId=t.dataset.rec;tray={};forgeMsg="";renderBag();return;}
   if(t.dataset.food){const f=FOODS[t.dataset.food];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet — sell something at Mercator's stall.";}else if(addItem({t:"food",id:t.dataset.food,n:1})){COINS-=f.price;coinHud();forgeOk=true;forgeMsg=`${f.icon} ${f.name} is in your bag.`;}else{forgeOk=false;forgeMsg="Your bag is full.";}renderBag();return;}
   if(t.dataset.tochest!==undefined){const i=+t.dataset.tochest,k=CHEST.indexOf(null);if(INV[i]&&k>=0){CHEST[k]=INV[i];INV[i]=null;select(SEL);}renderBag();return;}
@@ -1093,7 +1101,7 @@ $("#startBtn").onclick=()=>{$("#start").classList.add("hidden");started=true;set
 $("#pauseBtn").onclick=togglePause;$("#resumeBtn").onclick=togglePause;$("#respawnBtn").onclick=respawn;
 $("#resetBtn").onclick=()=>{respawn();look.yaw=0;look.pitch=.22;paused=false;$("#pause").classList.add("hidden");};
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&started&&!paused)togglePause();});
-if(!touch)$("#hint").textContent="WASD walk · click to use · 1–9 hotbar · E bag & forge · T trade · R reload · Q crystal";
+if(!touch)$("#hint").textContent="WASD walk · click to use · 1–9 hotbar · E bag & forge · G drop · T trade · R reload · Q crystal";
 equip("rifle",null);select(0);   // you start with nothing: fists only — chop trees, mine rocks, help the villagers, buy your first guncoinHud();
 const clock=new THREE.Clock();
 function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDelta());tAcc+=dt;
@@ -1101,5 +1109,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   if(started&&!paused&&!bagOpen)step(dt);else animate(dt);SPARK.step(dt);PUFF.step(dt);FX.step(dt);updateCam(dt);placeBars();
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 frame();
-window.__el={workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={dropOwn,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
