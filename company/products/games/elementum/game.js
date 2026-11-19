@@ -364,6 +364,19 @@ function stepMagic(dt){G.spellCool=Math.max(0,(G.spellCool||0)-dt);
 // item = {t:"weapon",id,ammo} | {t:"spell",id,uses} | {t:"mat",id,n} | {t:"potion",id:"potion",n}
 const MAT=CRAFT.MATERIALS;const INV=new Array(36).fill(null);let SEL=0;
 const WICON={rifle:"🔫",shotgun:"💥",staff:"🪄",repeater:"⚡",cannon:"💣",arcus:"🏹"};
+// how to get each item: shown in the bag under the item, and all together in the 📖 Guide tab
+function howToGet(it){if(!it)return "";const make=id=>CRAFT.RECIPES.some(r=>r.give?(r.give.t==="food"&&r.give.id===id)||(r.give.t==="scroll"&&it.t==="spell"&&SPELLS[it.id].el===r.give.el):(r.out||r.id)===id);
+  const mons=k=>Object.values(ENEMY_TYPES).filter(T=>T.core===k||(T.drops||[]).includes(k)).map(T=>T.name);
+  if(it.t==="coin")return "Sell things to Mercator, finish villagers' quests and jobs, solve Try Your Hardest problems, beat monsters.";
+  if(it.t==="mat"){const k=it.id,m=MAT[k];
+    if(k==="ferrum")return "Break the grey iron rocks (punch or shoot them) · buy from Mercator.";
+    if(k==="lignum")return "Chop trees (punch or shoot them) · knock down training dummies · buy from Mercator.";
+    if(m.core)return `Mine glowing ${m.el} crystals · buy from Mercator · dropped by ${mons(k).join(", ")||"monsters"}.`;
+    return `Beat the ${mons(k).join(" or ")} out in the wilds.`;}
+  if(it.t==="weapon")return "Make it at the ⚒️ Forge"+(it.id==="rifle"?" · or buy it from Mercator for 30 🪙.":".");
+  if(it.t==="potion")return "Make it at the ⚒️ Forge · or buy it from Mercator.";
+  if(it.t==="food")return "Buy it from the cook's 🍞 stall · or cook it at the ⚒️ Forge (Cook food).";
+  if(it.t==="spell")return `Monsters drop spell scrolls · Mercator sells a few · make a ${SPELLS[it.id].el} scroll at the ⚒️ Forge.`;return "";}
 function itemInfo(it){if(!it)return null;if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
@@ -377,6 +390,7 @@ function addItem(it){it=Object.assign({},it);if(it.t==="coin"){COINS+=it.n;coinH
 // a new item never lands in the slot in your hand: the nearest free hotbar slot beside it (right, then left, further out), then the bag; your hand only if nothing else is free
 function freeSlot(){for(let k=1;k<9;k++)for(const i of [SEL+k,SEL-k])if(i>=0&&i<9&&!INV[i])return i;
   for(let i=9;i<INV.length;i++)if(!INV[i])return i;return INV[SEL]?-1:SEL;}
+function canAdd(it){if(freeSlot()>=0)return true;if(it.t==="spell")return INV.some(s=>s&&s.t==="spell"&&s.id===it.id);return INV.some(s=>s&&s.t===it.t&&s.id===it.id&&s.n<64);}
 function countMat(id){return INV.reduce((a,s)=>a+(s&&s.t==="mat"&&s.id===id?s.n:0),0);}
 function takeMat(id,n){for(let i=0;i<INV.length&&n>0;i++){const s=INV[i];if(s&&s.t==="mat"&&s.id===id){const k=Math.min(s.n,n);s.n-=k;n-=k;if(!s.n)INV[i]=null;}}invHud();}
 // what is in your hand decides what click / FIRE does
@@ -685,6 +699,26 @@ function buildTraining(){if(TRAIN.built)return "done";const pl=trainPlan();if(!p
   TRAIN.dummies.forEach((d,i)=>{d.unbuilt=false;d.hp=d.max;d.g.visible=true;d.g.scale.setScalar(.01);tween(.5+i*.12,t=>d.g.scale.setScalar(Math.max(.01,t)),()=>{d.down=false;});});
   FX.stars(new THREE.Vector3(0,2,TRAIN.z1),"gold",6,2);shake(.15);return "ok";}
 ACTS.push({pos:new THREE.Vector3(0,0,TRAIN.z1+1),r:3.2,label:"🔨 Build the training center",hidden:()=>TRAIN.built,run:()=>toggleBag(true,"build")});
+// --- the contest board: "Try Your Hardest Math Problem!" — story problems for grades 5–8 (solve it AND explain it in writing), plus AMC 8 and MATHCOUNTS-style puzzles
+const CONTEST={tier:null,q:null,draft:"",ans:"",msg:"",ok:false,solved:0,pos:new THREE.Vector3(8,0,3)};
+{const g=new THREE.Group();g.position.copy(CONTEST.pos);g.rotation.y=Math.atan2(-8,-3);scene.add(g);const st=LOOK.toon(0xe6dccb),wd=LOOK.toon(0x8a5a32);
+  const slab=LOOK.M(new THREE.BoxGeometry(2.2,1.5,.18),st,.02);slab.position.y=1.45;g.add(slab);
+  [-0.9,0.9].forEach(x=>{const l=LOOK.M(new THREE.BoxGeometry(.16,.8,.16),wd,.01);l.position.set(x,.4,0);g.add(l);});
+  const face=new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.2),new THREE.MeshBasicMaterial({color:0x2a3b52}));face.position.set(0,1.45,.1);g.add(face);
+  const ic=iconSprite("🏆");ic.scale.setScalar(.8);ic.position.set(0,1.5,.2);g.add(ic);
+  const sg=label("🏆 Try Your Hardest!",0xffd27a);sg.scale.set(3.6,.68,1);sg.position.set(0,2.75,0);g.add(sg);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});const m=block(CONTEST.pos.x,CONTEST.pos.z,1.4,2,1.4,0x8a5a32);m.material.visible=false;m.castShadow=false;}
+function contestNew(tier){CONTEST.tier=tier||CONTEST.tier||CRAFT.tierFor(MATH.lv);CONTEST.q={...CRAFT.contest(CONTEST.tier),tries:0,done:false};CONTEST.draft="";CONTEST.ans="";CONTEST.msg="";CONTEST.ok=false;}
+// answer + writing: the explanation must be there (8+ words), like the real contest where the writing counts too
+function contestAnswer(ans,why){const q=CONTEST.q;if(!q||q.done)return {ok:false,msg:""};
+  if(String(why||"").trim().split(/\s+/).filter(w=>/\w/.test(w)).length<8)return {ok:false,msg:"✍️ First explain how you solved it — at least one or two full sentences (8 words or more). In the contest, your writing counts as much as the answer!"};
+  if(ans===null||isNaN(ans))return {ok:false,msg:"Type your answer as a number."};
+  if(ans===q.a){q.done=true;q.won=true;const T=CRAFT.TIERS[CONTEST.tier];COINS+=T.pay;coinHud();CONTEST.solved++;let extra="";
+    if(CONTEST.tier==="mathcounts"){const id=pick(DROP_SPELLS);if(addItem({t:"spell",id,uses:SPELLS[id].uses}))extra=` and a ${SPELLS[id].icon} ${SPELLS[id].name} scroll`;}
+    FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.6,0)),"gold",7,1.6);return {ok:true,msg:`🏆 Correct${q.tries===0?" on the first try":""}! You earned ${T.pay} 🪙${extra}. ${q.why}`};}
+  q.tries++;if(q.tries>=3){q.done=true;return {ok:false,msg:`Not this time — the answer is ${q.a}. ${q.why} Try another one: every hard problem you meet makes the next one easier.`};}
+  return {ok:false,msg:`Not quite — ${3-q.tries} ${3-q.tries===1?"try":"tries"} left. Hint: ${q.hint}`};}
+ACTS.push({pos:CONTEST.pos,r:3,label:"🏆 Try Your Hardest Math Problem!",run:()=>{if(!CONTEST.q)contestNew();toggleBag(true,"contest");}});
 // --- a fountain in the square, and guards at the gates
 {const g=new THREE.Group();g.position.set(-12,0,2);scene.add(g);const st=LOOK.toon(0xe6dccb);
   const basin=LOOK.M(new THREE.CylinderGeometry(2.2,2.4,.6,24),st,.02);basin.position.y=.3;g.add(basin);
@@ -880,7 +914,7 @@ function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held()
 
 // ---------------- input ----------------
 const keys={};let look={yaw:0,pitch:.22},stick={x:0,y:0},jumpQ=false,runBtn=false,paused=false,started=false,camSide=1;
-addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input"))return;keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
+addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
   if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
 addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.deltaY>0?1:-1));},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
@@ -990,16 +1024,18 @@ function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new TH
 
 // ---------------- the bag (E) and the forge: tidy the hotbar, and craft by solving the forge's math problems ----------------
 // the math level adapts: a forge right on the first try moves you up a level; two wrong tries on the same problems move you down
-const MATH={lv:5,wrong:0,moved:""};try{const v=+localStorage.getItem("elementum.mathLevel");if(v>=1&&v<=8)MATH.lv=v;}catch(e){}
+const MATH={lv:5,wrong:0,moved:""};try{const v=+localStorage.getItem("elementum.mathLevel");if(v>=1&&v<=8)MATH.lv=v;CRAFT.style=localStorage.getItem("elementum.mathBook")||"us";}catch(e){}
+// the math book: "us" (the US grades and contests) or "china" (义务教育数学课程标准, grade by grade, in English). New problems right away.
+function setBook(b){CRAFT.style=b;try{localStorage.setItem("elementum.mathBook",CRAFT.style);}catch(e){}for(const k in DRAWS)delete DRAWS[k];tray={};}
 function setLevel(v,why){const old=MATH.lv;MATH.lv=Math.max(1,Math.min(8,v));MATH.wrong=0;MATH.moved=MATH.lv>old?"up":MATH.lv<old?"down":"";try{localStorage.setItem("elementum.mathLevel",MATH.lv);}catch(e){}
   for(const k in DRAWS)delete DRAWS[k];tray={};if(TRAIN.plan&&!TRAIN.plan.solved)TRAIN.plan=null;return MATH.lv!==old;}
 // haggling, jobs and building adapt too: right on the first try twice in a row → harder; wrong twice → easier
 function mathRight(){MATH.streak=(MATH.streak||0)+1;MATH.wrong=0;if(MATH.streak>=2&&MATH.lv<8){MATH.streak=0;setLevel(MATH.lv+1);return "up";}return "";}
 function mathWrong(){MATH.streak=0;MATH.wrong++;if(MATH.wrong>=2&&MATH.lv>1){setLevel(MATH.lv-1);return "down";}return "";}
-const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.LEVELS[MATH.lv]}!`:r==="down"?` (The problems are a little easier now: ${CRAFT.LEVELS[MATH.lv]}.)`:"";
+const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)}!`:r==="down"?` (The problems are a little easier now: ${CRAFT.levelName(MATH.lv)}.)`:"";
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
-const CTX_TABS={market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
+const CTX_TABS={contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
 function toggleBag(open,tab){if(!started||P.down)return;bagOpen=open===undefined?!bagOpen:open;if(tab&&tab!==bagTab&&tab!=="work")forgeMsg="";if(tab)bagTab=tab;else if(CTX_TABS[bagTab])bagTab="items";
   const ct=$("#ctxTab");ct.classList.toggle("hidden",!CTX_TABS[bagTab]);if(CTX_TABS[bagTab]){ct.dataset.tab=bagTab;ct.textContent=CTX_TABS[bagTab];}$("#bag").classList.toggle("hidden",!bagOpen);G.firing=false;bagPick=-1;
   if(bagOpen){if(document.exitPointerLock)document.exitPointerLock();renderBag();}}
@@ -1008,7 +1044,7 @@ function slot(i){const it=INV[i],f=itemInfo(it);return `<div class="slot${i===ba
 function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .tabs button[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===bagTab));
   if(bagTab==="items"){let h=`<p class="tip">Tap an item, then tap another slot to move or swap it. The bottom row is your hotbar (keys 1–9).</p><div class="grid">`;
     for(let i=9;i<36;i++)h+=slot(i);h+=`</div><div class="grid hot">`;for(let i=0;i<9;i++)h+=slot(i);h+=`</div>`;
-    const fi=bagPick>=0?bagPick:SEL,f=itemInfo(INV[fi]);h+=`<p class="info">${f?`${f.icon} <b>${esc(f.name)}</b> — ${esc(f.what||"")}${f.num?` · crystal number <b>${f.num}</b>`:""} <button class="drop" data-drop="${fi}">⬇️ Drop</button>`:"&nbsp;"}</p>`;box.innerHTML=h;return;}
+    const fi=bagPick>=0?bagPick:SEL,f=itemInfo(INV[fi]);h+=`<p class="info">${f?`${f.icon} <b>${esc(f.name)}</b> — ${esc(f.what||"")}${f.num?` · crystal number <b>${f.num}</b>`:""} <button class="drop" data-drop="${fi}">⬇️ Drop</button><br><small class="how">How to get it: ${esc(howToGet(INV[fi]))}</small>`:"&nbsp;"}</p>`;box.innerHTML=h;return;}
   if(bagTab==="quest"){const v=QV;if(!v||P.pos.distanceTo(v.pos)>4){box.innerHTML=`<p class="tip">Villagers with a ❗ over their head need help. Walk up to one and press T.</p>`;return;}
     const q=v.q;let h=`<h3>${esc(v.name)}</h3><p class="say">“${esc(q.text)}”</p><p>Reward: <b>${q.pay} 🪙</b></p>`;
     if(!q.accepted)h+=`<button class="go" id="qAccept">👍 I'll help</button>`;
@@ -1016,7 +1052,7 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     box.innerHTML=h+`<p class="msg ok">${esc(forgeMsg)}</p>`;return;}
   if(bagTab==="work"){const v=QW,q=v&&workQ(v);if(!q){box.innerHTML=`<p class="tip">Villagers with a ❗ sometimes need a roof fixed, a wall patched or a fence built. Say yes, then go to their cottage (look for the 🔨) and press T.</p><p class="msg ok">${esc(forgeMsg)}</p>`;return;}
     const w=q.w,m=MAT[w.m],title={roof:`🔨 Fix ${v.name}'s roof`,patch:`🔨 Patch ${v.name}'s wall`,fence:`🔨 Build ${v.name}'s garden fence`}[q.job];
-    let h=`<div class="work"><h3>${esc(title)}</h3><div class="level">🧠 Math level: <b>${CRAFT.LEVELS[MATH.lv]}</b></div><p class="say">${esc(w.text)}</p><p class="have">Each ${w.unit} is one ${m.icon} ${m.name}. You have <b>${countMat(w.m)}</b>.</p>`;
+    let h=`<div class="work"><h3>${esc(title)}</h3><div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b></div><p class="say">${esc(w.text)}</p><p class="have">Each ${w.unit} is one ${m.icon} ${m.name}. You have <b>${countMat(w.m)}</b>.</p>`;
     h+=w.solved?`<p>You worked it out: <b>${w.n} ${w.unit}s</b>.</p><button class="go" id="workGo">🔨 Use ${w.n} ${m.icon}</button>`:`<div class="answer"><input id="workIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="workGo">🔨 Use that many</button></div>`;
     box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div>`;return;}
   if(bagTab==="food"){const near=P.pos.distanceTo(COOK.pos)<4.5;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
@@ -1035,7 +1071,23 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
       const q=pt.steps.length===1?`${esc(pt.steps[0])}<i>→ that many ${m.icon} ${m.name}.</i>`:`(a) ${esc(pt.steps[0])} Call the answer <b>A</b>.<br>(b) ${esc(pt.steps[1])} Call the answer <b>B</b>.<i>→ it takes <b>${pt.how}</b> ${m.icon} ${m.name}.</i>`;
       need+=`<li>${q}${pl.solved?`<b>${pl.cost[pt.m]} ${m.icon} ${m.name}</b> <small>(you have ${countMat(pt.m)})</small>`:`<div class="answer">${m.icon} ${m.name}: <input data-plan="${pt.m}" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"> <small>(you have ${countMat(pt.m)})</small></div>`}</li>`;});
     box.innerHTML=`<h3>🏛️ Build the Palaestra (training center)</h3><p class="tip">Low stone walls go up around the dummies, with a gate on the north side. Once it stands, the dummies inside fight back — but only while you are inside. The builder's plan is written as math: work out how much wood and iron it takes.</p>
-      <div class="level">🧠 Math level: <b>${CRAFT.LEVELS[MATH.lv]}</b></div><ol class="plan">${need}</ol><p>🪙 ${TRAIN.coins} denarii <small>(you have ${COINS})</small></p><button class="go" id="buildGo">🔨 Build it</button><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;return;}
+      <div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b></div><ol class="plan">${need}</ol><p>🪙 ${TRAIN.coins} denarii <small>(you have ${COINS})</small></p><button class="go" id="buildGo">🔨 Build it</button><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;return;}
+  if(bagTab==="contest"){const q=CONTEST.q,T=CRAFT.TIERS[CONTEST.tier];if(!q){box.innerHTML=`<p class="tip">Find the 🏆 board in the town square and press T.</p>`;return;}
+    let h=`<div class="work contest"><h3>🏆 Try Your Hardest Math Problem!</h3>
+      <div class="rules"><b>For grades 5–8.</b> Read the problem carefully — read it twice. Solve it, type your answer, and then <b>explain your thinking in writing</b>: what you worked out first, what you did next, and why it works. Use paper and pencil; no calculator. You have 3 tries — a hint appears after the first miss, and after the third you will see the answer and how to solve it.</div>
+      <div class="tiers">${Object.entries(CRAFT.TIERS).map(([k,t])=>`<button data-tier="${k}" class="${k===CONTEST.tier?"on":""}">${t.icon} ${esc(t.name)}<small>${esc(t.who)} · ${t.pay} 🪙</small></button>`).join("")}</div>
+      <p class="say">${esc(q.q)}</p>`;
+    if(!q.done)h+=`<div class="answer"><input id="conIn" type="number" inputmode="numeric" placeholder="?" autocomplete="off" value="${esc(CONTEST.ans)}"></div><textarea id="conWhy" rows="3" placeholder="Explain how you solved it, in sentences…">${esc(CONTEST.draft)}</textarea><button class="go" id="conGo">✍️ Hand it in</button>`;
+    else h+=`<button class="go" id="conNew">➡️ Next problem</button>`;
+    box.innerHTML=h+`<p class="msg ${CONTEST.ok?"ok":""}">${esc(CONTEST.msg)}</p>${CONTEST.solved?`<p class="have">Solved this visit: <b>${CONTEST.solved}</b></p>`:""}</div>`;return;}
+  if(bagTab==="guide"){const row=it=>{const f=itemInfo(it);return `<li><span>${f.icon}</span><b>${esc(f.name)}</b> — ${esc(howToGet(it))}</li>`;};
+    let h=`<p class="tip">Everything in Elementum, and how to get it. Most things can also be made at the ⚒️ Forge — the forge hides the amounts in math problems.</p><div class="guide">`;
+    h+=`<h4>Materials</h4><ul>${Object.keys(MAT).map(k=>row({t:"mat",id:k,n:1})).join("")}</ul>`;
+    h+=`<h4>Weapons</h4><ul>${Object.keys(WEAPONS).map(k=>row({t:"weapon",id:k})).join("")}</ul>`;
+    h+=`<h4>Potions</h4><ul>${row({t:"potion",id:"potion",n:1})}${row({t:"potion",id:"fortis",n:1})}</ul>`;
+    h+=`<h4>Food</h4><ul>${Object.keys(FOODS).map(k=>row({t:"food",id:k,n:1})).join("")}</ul>`;
+    h+=`<h4>Spells</h4><ul>${Object.keys(SPELLS).map(k=>row({t:"spell",id:k,uses:SPELLS[k].uses})).join("")}</ul>`;
+    h+=`<h4>Coins</h4><ul>${row({t:"coin",n:1})}</ul></div>`;box.innerHTML=h;return;}
   if(bagTab==="market"){const near=nearMerchant();let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
     if(!near){box.innerHTML=h+`<p class="tip">The merchant's stall 🪙 is in town, on the platform north of the start. Walk up to the counter to trade.</p>`;return;}
     if(HAG)h+=`<div class="haggle"><p class="say">🪙 Mercator: “${esc(HAG.d.t)}”</p><p>${HAG.sell?"How many coins does he pay you for all of them?":"How many coins do you pay?"} <small class="tip">(Right → the deal is yours. Wrong → no deal.)</small></p><div class="answer"><input id="hagIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="hagGo">🤝 Deal</button><button id="hagNo">✖ Never mind</button></div></div>`;
@@ -1045,7 +1097,8 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     OFFERS.forEach((o,k)=>{const f=itemInfo(o);if(o.t==="weapon"&&INV.some(s=>s&&s.t==="weapon"&&s.id===o.id))return;const hg=o.price>=10&&!o.noHag;h+=`<div class="deal"><button data-buy="${k}" class="${COINS<o.price?"poor":""}">${f.icon} ${esc(f.name)}${o.t==="spell"?` (${o.uses} uses)`:""}<b>${o.price} 🪙</b></button>${hg?`<button class="hag" data-haggle="${k}" title="Haggle">🤝</button>`:""}</div>`;});
     h+=`</div></div></div><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;box.innerHTML=h;return;}
   const rec=recipe(forgeId),dr=drawFor(forgeId);
-  let h=`<div class="level">🧠 Math level: <b>${CRAFT.LEVELS[MATH.lv]}</b> <span class="meter">${[1,2,3,4,5,6,7,8].map(l=>`<i class="${l<=MATH.lv?"on":""}"></i>`).join("")}</span>${MATH.moved==="up"?` <em class="up">⬆ level up!</em>`:MATH.moved==="down"?` <em class="down">⬇ a little easier</em>`:""}<small>Right on the first try → harder. Stuck twice → easier.</small></div><div class="forge"><div class="recipes">`;CRAFT.RECIPES.forEach(r=>{h+=`<button data-rec="${r.id}" class="${r.id===forgeId?"on":""}">${r.icon} ${esc(r.name)}<small>${esc(r.what)}</small></button>`;});h+=`</div><div class="card">`;
+  let h=`<div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b> <span class="meter">${[1,2,3,4,5,6,7,8].map(l=>`<i class="${l<=MATH.lv?"on":""}"></i>`).join("")}</span>${MATH.moved==="up"?` <em class="up">⬆ level up!</em>`:MATH.moved==="down"?` <em class="down">⬇ a little easier</em>`:""}<small>Right on the first try → harder. Stuck twice → easier.</small><div class="book">📚 Math book: <button data-book="us" class="${CRAFT.style==="us"?"on":""}">🇺🇸 US</button><button data-book="china" class="${CRAFT.style==="china"?"on":""}">🇨🇳 China standard</button></div></div><div class="forge"><div class="recipes">`;
+  let grp=null;CRAFT.RECIPES.forEach(r=>{const g=r.group||"gear";if(g!==grp){grp=g;h+=`<b class="grp">${{gear:"⚔️ Weapons & potions",food:"🍳 Cook food",scroll:"📜 Spell scrolls"}[g]}</b>`;}h+=`<button data-rec="${r.id}" class="${r.id===forgeId?"on":""}">${r.icon} ${esc(r.name)}<small>${esc(r.what)}</small></button>`;});h+=`</div><div class="card">`;
   h+=`<h3>${rec.icon} ${esc(rec.name)}</h3><p class="tip">The forge never says what it needs. Solve each problem: the answer is how many of that material to put in, or which crystal core. Wrong mix? It only tells you how many parts are right.</p><ol>`;
   dr.parts.forEach(pt=>{const m=pt.m&&MAT[pt.m];
     if(pt.kind==="amount"){if(pt.steps.length===1)h+=`<li>${esc(pt.steps[0])}<i>→ put in that many ${m.icon} ${esc(m.name)}.</i></li>`;
@@ -1058,16 +1111,23 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
   h+=`</div><button class="go" id="forgeGo">⚒️ Forge</button><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div></div>`;box.innerHTML=h;}
 function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAFT.check(dr.need,tray);
   if(!res.ok){forgeOk=false;MATH.wrong++;MATH.moved="";
-    if(MATH.wrong>=2&&MATH.lv>1){setLevel(MATH.lv-1);forgeMsg=`The forge sputters — ${res.right} of ${res.total} parts are right. New, easier problems are ready (${CRAFT.LEVELS[MATH.lv]}).`;}
+    if(MATH.wrong>=2&&MATH.lv>1){setLevel(MATH.lv-1);forgeMsg=`The forge sputters — ${res.right} of ${res.total} parts are right. New, easier problems are ready (${CRAFT.levelName(MATH.lv)}).`;}
     else forgeMsg=`The forge sputters — ${res.right} of ${res.total} parts are right. Check your math!`;renderBag();return;}
-  const out=rec.out||rec.id;const it=out==="potion"||out==="fortis"?{t:"potion",id:out,n:rec.gives||1}:{t:"weapon",id:out};
-  if(!INV.includes(null)&&it.t==="weapon"){forgeOk=false;forgeMsg="Your bag is full — make room first.";renderBag();return;}
+  const out=rec.out||rec.id,gv=rec.give;let it;
+  if(gv&&gv.t==="food")it={t:"food",id:gv.id,n:1};
+  else if(gv&&gv.t==="scroll"){const ids=Object.keys(SPELLS).filter(k=>SPELLS[k].el===gv.el);const id=pick(ids);it={t:"spell",id,uses:SPELLS[id].uses};}
+  else it=out==="potion"||out==="fortis"?{t:"potion",id:out,n:rec.gives||1}:{t:"weapon",id:out};
+  if(!canAdd(it)){forgeOk=false;forgeMsg="Your bag is full — make room first.";renderBag();return;}
   Object.entries(tray).forEach(([k,n])=>{if(n>0)takeMat(k,n);});addItem(it);const first=MATH.wrong===0;tray={};delete DRAWS[forgeId];forgeOk=true;
   const up=first&&MATH.lv<8&&setLevel(MATH.lv+1);if(!up){MATH.wrong=0;MATH.moved="";}
-  forgeMsg=`✨ You made ${rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.LEVELS[MATH.lv]}.`:" A new set of problems is ready for the next one.");
+  forgeMsg=`✨ You made ${it.t==="spell"?`${SPELLS[it.id].icon} ${SPELLS[it.id].name}`:rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.levelName(MATH.lv)}.`:" A new set of problems is ready for the next one.");
   FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.4,0)),"gold",5,1.4);renderBag();}
-$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
+$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
   if(t.dataset.slot!==undefined){const i=+t.dataset.slot;if(bagPick<0){if(INV[i])bagPick=i;}else{const a=INV[bagPick];INV[bagPick]=INV[i];INV[i]=a;bagPick=-1;select(SEL);}renderBag();return;}
+  if(t.dataset.book){setBook(t.dataset.book);forgeMsg=t.dataset.book==="china"?"📚 China standard: the problems now follow what Chinese schools teach in each grade.":"📚 US math book.";forgeOk=true;renderBag();return;}
+  if(t.dataset.tier){contestNew(t.dataset.tier);renderBag();return;}
+  if(t.id==="conNew"){contestNew();renderBag();return;}
+  if(t.id==="conGo"){const i=$("#conIn"),w=$("#conWhy");CONTEST.ans=i?i.value:"";CONTEST.draft=w?w.value:"";const r=contestAnswer(i&&i.value!==""?parseInt(i.value,10):null,CONTEST.draft);CONTEST.ok=r.ok;CONTEST.msg=r.msg;renderBag();return;}
   if(t.dataset.drop!==undefined){dropOwn(+t.dataset.drop);bagPick=-1;renderBag();return;}
   if(t.dataset.rec){forgeId=t.dataset.rec;tray={};forgeMsg="";renderBag();return;}
   if(t.dataset.food){const f=FOODS[t.dataset.food];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet — sell something at Mercator's stall.";}else if(addItem({t:"food",id:t.dataset.food,n:1})){COINS-=f.price;coinHud();forgeOk=true;forgeMsg=`${f.icon} ${f.name} is in your bag.`;}else{forgeOk=false;forgeMsg="Your bag is full.";}renderBag();return;}
@@ -1090,7 +1150,8 @@ $("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot]
   if(t.dataset.mat){const k=t.dataset.mat;if((tray[k]||0)<countMat(k))tray[k]=(tray[k]||0)+1;forgeMsg="";renderBag();return;}
   if(t.dataset.tray){const k=t.dataset.tray;tray[k]=Math.max(0,(tray[k]||0)-1);forgeMsg="";renderBag();return;}
   if(t.id==="forgeGo")forgeNow();});
-$("#bagBody").addEventListener("keydown",e=>{if(e.key!=="Enter"||!e.target.matches("input"))return;e.preventDefault();const b=$("#hagGo")||$("#workGo")||$("#buildGo");if(b)b.click();});
+$("#bagBody").addEventListener("keydown",e=>{if(e.key!=="Enter"||!e.target.matches("input"))return;e.preventDefault();if(e.target.matches("textarea"))return;const b=$("#hagGo")||$("#workGo")||$("#buildGo")||$("#conGo");if(b)b.click();});
+$("#bagBody").addEventListener("input",e=>{if(e.target.id==="conWhy")CONTEST.draft=e.target.value;if(e.target.id==="conIn")CONTEST.ans=e.target.value;});
 document.querySelectorAll("#bag .tabs button[data-tab]").forEach(b=>b.addEventListener("click",()=>{bagTab=b.dataset.tab;bagPick=-1;renderBag();}));
 $("#bagClose").addEventListener("click",()=>toggleBag(false));
 $("#online").addEventListener("click",()=>toggleRoom());$("#roomClose").addEventListener("click",()=>toggleRoom(false));
@@ -1112,5 +1173,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   if(started&&!paused&&!bagOpen)step(dt);else animate(dt);SPARK.step(dt);PUFF.step(dt);FX.step(dt);updateCam(dt);placeBars();
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 frame();
-window.__el={dropOwn,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

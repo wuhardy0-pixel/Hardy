@@ -91,6 +91,12 @@ body.touch #quests{top:calc(env(safe-area-inset-top,0px) + 232px)}#bag .say{font
 #bag .deal{display:flex;gap:5px}#bag .deal>button:first-child{flex:1}#bag .list button.hag{flex:none;justify-content:center;padding:8px 9px;background:rgba(255,210,122,.16);border-color:rgba(255,210,122,.45)}
 #bag .haggle{background:rgba(255,210,122,.08);border:1px solid rgba(255,210,122,.4);border-radius:12px;padding:10px 12px;margin:0 0 12px}#bag .haggle p{margin:4px 0}
 #bag .answer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}#bag .answer .go{margin:0}#bag .answer button{font-size:15px}
+#bag .contest .rules{font-size:13px;line-height:1.45;background:rgba(255,210,122,.08);border:1px solid rgba(255,210,122,.35);border-radius:10px;padding:8px 10px;margin:6px 0}
+#bag .contest .tiers{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}#bag .contest .tiers button,#bag .book button{margin:0;padding:5px 9px;font-size:13px;border-radius:10px;background:rgba(255,255,255,.07);color:#fff;border:1px solid var(--line)}
+#bag .contest .tiers button small{display:block;font-size:11px;color:var(--muted)}#bag .contest .tiers button.on,#bag .book button.on{background:var(--gold);color:#222;border-color:var(--gold)}#bag .contest .tiers button.on small{color:#333}
+#bag .contest textarea{width:100%;box-sizing:border-box;margin:8px 0;font:15px system-ui,sans-serif;padding:8px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.1);color:#fff;resize:vertical}
+#bag .book{margin-top:6px;font-size:13px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}#bag .recipes .grp{font-size:12px;color:var(--gold);margin:6px 0 2px}
+#bag .info .how{color:var(--muted);font-size:12px}#bag .guide h4{margin:10px 0 4px;color:var(--gold)}#bag .guide ul{list-style:none;margin:0;padding:0;font-size:13px;line-height:1.5}#bag .guide li span{display:inline-block;width:24px}
 #bag .answer input{width:96px;font:800 22px ui-monospace,Menlo,monospace;text-align:center;padding:7px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.1);color:#fff}
 #bag .plan li i{display:block;color:#ffe08a;font-style:normal;font-size:13px;margin-top:2px}#bag .work .have{color:var(--muted);font-size:14px}#bag .plan li{margin-bottom:10px}#bag .plan li .answer{margin-top:4px}
 #grades{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:6px 0 14px}#grades button{margin:0;padding:7px 10px;font-size:13px;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;border:1px solid var(--line)}#grades button.on{background:var(--gold);color:#222;border-color:var(--gold)}
@@ -145,7 +151,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);
   <a href="/games">← back to Hardy Wu</a>
 </div></div>
 <div class="overlay hidden" id="bag"><div class="bagbox">
-  <div class="tabs"><button data-tab="items" class="on">🎒 Bag</button><button data-tab="forge">⚒️ Forge</button><button data-tab="market" id="ctxTab" class="hidden">🪙 Market</button><button id="bagClose">✕ Close</button></div>
+  <div class="tabs"><button data-tab="items" class="on">🎒 Bag</button><button data-tab="forge">⚒️ Forge</button><button data-tab="guide">📖 Guide</button><button data-tab="market" id="ctxTab" class="hidden">🪙 Market</button><button id="bagClose">✕ Close</button></div>
   <div id="bagBody"></div>
 </div></div>
 <div class="overlay hidden" id="room"><div class="bagbox">

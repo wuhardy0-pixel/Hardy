@@ -34,6 +34,9 @@
 - 2026-11-18 Barbara (bug): the training dummies could be hit before the training center was built. They now stay hidden and can't be hit (no bars, no wood/coin drops) until you build it; then they pop up. Tested: punches do nothing before, hit after.
 - 2026-11-18 Barbara: you can drop items — G drops what you hold, or ⬇️ Drop in the bag. It lands in front of you for 5 minutes and is only picked back up after you walk away and return. Tested in the browser.
 - 2026-11-18 Barbara: new items no longer land in the slot in your hand — they go to the nearest free hotbar slot beside it (right, then left), then the bag; your hand only when nothing else is free. Tested.
+- 2026-11-18 Barbara: 🏆 Try Your Hardest Math Problem board in the square (grades 5–8): story problems in the style of the Actuarial Foundation's Hardest Math Problem contest — answer AND explain in writing (8+ words), 3 tries, hint, then the answer and why. Also AMC 8 and MATHCOUNTS-style tiers. Our own problems (the contests' own belong to them); answers computed by code, 6000 checked by an independent solver, 0 wrong.
+- 2026-11-18 Barbara: 📚 Math book switch in the Forge: 🇺🇸 US or 🇨🇳 China standard (义务教育数学课程标准) — grade-by-grade problems in English (鸡兔同笼, 植树问题, 找次品, 鸽巢原理, 盈亏问题 …). 32000 checked independently, 0 wrong.
+- 2026-11-18 Barbara: everything can be made — the Forge now also cooks all 7 foods and makes a spell scroll of each element. 📖 Guide tab lists every item and how to get it; the bag shows 'How to get it' under the selected item.
 
 ## Next (one step at a time, as Hardy asks)
 - Step 3 candidates: elemental crystals on the guns (burn/soak/charge status from the GDD), the Latin casts, a real map, other players, sounds.
