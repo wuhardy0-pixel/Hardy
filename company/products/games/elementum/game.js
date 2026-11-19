@@ -129,6 +129,7 @@ function fire(){const w=WEAPONS[G.id];if(!held()||held().t!=="weapon"||G.cool>0|
   const n=w.pellets||1;for(let i=0;i<n;i++){const r=aimRay(w.spread);const hit=firstHit(r);const to=hit?hit.point:r.ray.at(w.range,new THREE.Vector3());tracer(m,to,hex);
     if(hit){const dm=hit.object.userData.dummy,nd=hit.object.userData.node,tr=hit.object.userData.tree,pp=hit.object.userData.person;const wn=()=>hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;
       if(pp){dent(hit.point,to.clone().sub(m).normalize().negate(),pp.o.g);hurtPerson(pp,Math.round(w.dmg*.6),hit.point);continue;}
+      if(hit.object.userData.player){hitPlayer(hit.object.userData.player,Math.round(w.dmg*.5*(w.pellets?1:1)),hit.point);continue;}
       if(nd){dent(hit.point,wn(),nd.g);mineHit(nd,w.dmg,hit.point);continue;}if(tr){dent(hit.point,wn(),tr.g);chopHit(tr,w.dmg,hit.point);continue;}if(dm){const headshot=hit.object.userData.part==="head";if(w.weak&&dm.enemy){damage(dm,1,hit.point,false,{el});if(tAcc-(G.weakTip||-9)>4){G.weakTip=tAcc;popNum(hit.point.clone().add(new THREE.Vector3(0,.8,0)),"🛡 too tough for the Magna Rifle — craft a weapon or cast spells","burn");}}
       else damage(dm,Math.round(w.dmg*(headshot?w.head:1)),hit.point,headshot,{el});}
       else{const nn=hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;if(nn&&hit.object.userData.block){if(hit.object.material.visible)wallHit(hit.object.userData.block,hit.point,nn,w.pellets?.4:1);else dent(hit.point,nn);}
@@ -152,7 +153,7 @@ function mark(p,n,size,hex,op,parent,life){const m=new THREE.Mesh(markGeo,new TH
   m.scale.setScalar(size);m.position.copy(p).addScaledVector(n,.03);m.lookAt(p.clone().add(n));m.rotateZ(Math.random()*6.28);m.renderOrder=3;
   if(parent){parent.updateMatrixWorld(true);parent.attach(m);}else scene.add(m);
   MARKS.push({m,t:life||90,op});if(MARKS.length>240){const o=MARKS.shift();o.m.removeFromParent();o.m.material.dispose();}}
-function scorch(p,r,el){if(p.y>1.5||r<.3)return;if(SCORCHED.some(q=>q.t>tAcc-3&&Math.hypot(q.x-p.x,q.z-p.z)<r*.5))return;SCORCHED.push({x:p.x,z:p.z,t:tAcc});if(SCORCHED.length>40)SCORCHED.shift();
+function scorch(p,r,el){if(p.y>1.5||r<.3)return;if(SCORCHED.some(q=>q.t>tAcc-3&&Math.hypot(q.x-p.x,q.z-p.z)<r*.5))return;SCORCHED.push({x:p.x,z:p.z,t:tAcc});if(SCORCHED.length>40)SCORCHED.shift();share({k:"scorch",x:R2(p.x),z:R2(p.z),r:R2(r),el});
   const g=new THREE.Vector3(p.x,.02,p.z),up=new THREE.Vector3(0,1,0),hex=el==="ice"?0xd8f2ff:el==="water"?0x24402e:0x0d0b08;
   mark(g,up,r*.8,hex,.9);for(let i=0;i<3;i++)mark(g.clone().add(new THREE.Vector3(rnd(-.4,.4)*r,0,rnd(-.4,.4)*r)),up,r*rnd(.3,.5),hex,.7);}
 function dent(p,n,parent){if(n)mark(p,n,rnd(.07,.13),0x1a1410,.78,parent);}
@@ -188,7 +189,7 @@ function holeAt(b,p){for(const m of b.marks){if(!m.hole)continue;const v=p.clone
 function blockAt(p){for(const b of BLOCKS){if(b.pass)continue;if(Math.abs(p.x-b.x)<b.w/2&&Math.abs(p.z-b.z)<b.d/2&&p.y>b.y&&p.y<b.y+b.h&&!holeAt(b,p))return b;}return null;}
 function faceNormal(b,p){return axisN(new THREE.Vector3((p.x-b.x)/(b.w/2),(p.y-b.y-b.h/2)/(b.h/2),(p.z-b.z)/(b.d/2)));}
 function firstHit(r){for(const h of r.intersectObjects(hitTargets(),false)){const b=h.object.userData.block;if(b&&(b.pass||holeAt(b,h.point)))continue;return h;}return null;}
-function wallHit(b,p0,n0,power){if(!b||!b.mesh.material.visible)return;const n=axisN(n0);const keep=o=>{(b.fx||(b.fx=[])).push(o);return o;};
+function wallHit(b,p0,n0,power){if(!b||!b.mesh.material.visible)return;{const bi=BLOCKS.indexOf(b);if(bi>=0&&bi<WORLD.STATIC)share({k:"wall",b:bi,p:[R2(p0.x),R2(p0.y),R2(p0.z)],n:[R2(n0.x),R2(n0.y),R2(n0.z)],pw:power});}const n=axisN(n0);const keep=o=>{(b.fx||(b.fx=[])).push(o);return o;};
   const half=n.x?b.w/2:n.y?b.h/2:b.d/2,ctr=new THREE.Vector3(b.x,b.y+b.h/2,b.z);const p=p0.clone();if(n.x)p.x=ctr.x+n.x*half;else if(n.y)p.y=ctr.y+n.y*half;else p.z=ctr.z+n.z*half;   // onto the face
   let m=b.marks.find(k=>k.n.equals(n)&&k.p.distanceTo(p)<Math.max(.22,k.r+.12));
   if(m&&m.hole)return;
@@ -259,6 +260,7 @@ function casterOf(d){if(!d){const a=aimPoint(80);return {enemy:null,pos:P.pos.cl
 const PLAYER_C=()=>({enemy:null,pos:P.pos.clone(),fwd:fwdFlat()});
 // everything a spell hits: an enemy's spell hits only you; yours hit dummies and monsters
 function hitArea(c,p,r,dmg,el,o){o=o||{};const hits=[];
+  if(!c.enemy)for(const id in MP.others){const a=MP.others[id];if(o.skip&&o.skip.has(a))continue;const q=a.g.position;const dist=Math.hypot(q.x-p.x,q.z-p.z);if(dist<r&&Math.abs(p.y-q.y-1)<r+1.5){if(o.skip)o.skip.add(a);hitPlayer(a,Math.max(1,Math.round(dmg*.5*(o.falloff?(1-dist/r)*.6+.4:1))),q.clone().add(new THREE.Vector3(0,1.2,0)));}}
   if(!c.enemy)PEOPLE.forEach(pp=>{if(pp.down||(o.skip&&o.skip.has(pp)))return;const q=pp.o.g.position;const dist=Math.hypot(q.x-p.x,q.z-p.z);if(dist>=r||Math.abs(p.y-1)>r+1.5)return;if(o.skip)o.skip.add(pp);hurtPerson(pp,Math.max(1,Math.round(dmg*.5)),q.clone().add(new THREE.Vector3(0,1.2,0)));});
   if(c.enemy){if(o.skip&&o.skip.has(P)||inTown(P.pos))return hits;   // the town is a safe zone   // a spike line or a wave hits you once, not once per spike
     if(!P.down&&P.pos.clone().add(new THREE.Vector3(0,.9,0)).distanceTo(p)<r+.3){if(o.skip)o.skip.add(P);hurt(Math.max(2,Math.round(dmg*EK)));if(o.slow)P.slowT=Math.max(P.slowT,o.slow);if(o.push){const v=P.pos.clone().sub(p);v.y=0;v.normalize();P.vel.addScaledVector(v,o.push);P.vel.y=Math.max(P.vel.y,3);P.dash=.25;}hits.push(P);}return hits;}
@@ -428,6 +430,7 @@ function punch(){if(P.down||!started||paused||bagOpen||G.cool>0)return;G.cool=.4
   if(RIG)RIG.up(punchN%2?"Unarmed_Melee_Attack_Punch_A":"Unarmed_Melee_Attack_Punch_B",{once:true,dur:.4,restart:true,then:()=>RIG.up("2H_Ranged_Aiming")});mpFx("punch");
   setTimeout(()=>{const f=fwdFlat(),at=P.pos.clone().add(new THREE.Vector3(0,1.1,0)).addScaledVector(f,.9);let hit=false;
     DUMMIES.forEach(d=>{if(d.down||hit)return;const v=d.g.position.clone().sub(P.pos);v.y=0;const dist=v.length();if(dist<2.1&&v.normalize().dot(f)>.45){hit=true;damage(d,d.enemy?4:9,d.g.position.clone().add(new THREE.Vector3(0,1.2,0)),false,{el:"plain"});}});
+    if(!hit)for(const id in MP.others){const o=MP.others[id];const v=o.g.position.clone().sub(P.pos);v.y=0;if(!hit&&v.length()<1.8&&v.normalize().dot(f)>.45){hit=true;hitPlayer(o,8,o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}}
     if(!hit)PEOPLE.forEach(pp=>{if(pp.down||hit)return;const v=pp.o.g.position.clone().sub(P.pos);v.y=0;if(v.length()<1.8&&v.normalize().dot(f)>.45){hit=true;hurtPerson(pp,6,pp.o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}});
     if(!hit)TREES.forEach(tr=>{if(tr.down||hit)return;const v=tr.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2&&v.normalize().dot(f)>.4){hit=true;chopHit(tr,7,tr.g.position.clone().add(new THREE.Vector3(0,1.1,0)));}});
     if(!hit)NODES.forEach(n=>{if(n.down||hit)return;const v=n.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2.3&&v.normalize().dot(f)>.4){hit=true;mineHit(n,7,n.g.position.clone().add(new THREE.Vector3(0,.8,0)));}});
@@ -439,24 +442,25 @@ function invHud(){const hb=$("#hotbar");if(!hb)return;let h="";for(let i=0;i<9;i
 const PICKUPS=[];
 function iconSprite(text,px){const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d");x.font=`${px||88}px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText(text,64,70);
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;return new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,transparent:true}));}
-function dropItem(at,it,life){const f=itemInfo(it);const hex=it.t==="spell"?FX.HEX[SPELLS[it.id].el]:it.t==="weapon"?0xffd27a:0xffffff;
+function dropItem(at,it,life,sid){const f=itemInfo(it);const hex=it.t==="spell"?FX.HEX[SPELLS[it.id].el]:it.t==="weapon"?0xffd27a:0xffffff;
   const g=new THREE.Group();g.position.set(at.x+rnd(-.8,.8),0,at.z+rnd(-.8,.8));let bob;
   if(it.t==="spell"){bob=new THREE.Mesh(new THREE.OctahedronGeometry(.2),glow(hex,1.8));const lb=label(f.icon+" "+f.name,hex);lb.position.y=1.65;g.add(lb);}
   else{bob=iconSprite(f.icon);bob.scale.setScalar(.75);if((it.n||0)>1){const lb=label("×"+it.n,0xffffff);lb.scale.set(1.2,.22,1);lb.position.y=1.5;g.add(lb);}}
   bob.position.y=.9;g.add(bob);
   const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.44,30),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
-  scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||60});}
+  scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||60,sid:sid||null});return PICKUPS[PICKUPS.length-1];}
+function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);setKey("drop:"+d.sid,{it:d.it,x:R2(d.g.position.x),z:R2(d.g.position.z)});}
 // dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
 function dropOwn(i){const it=INV[i];if(!it||P.down)return false;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=0;
-  if(it.t==="weapon")it.ammo=null;dropItem(at,it,300);PICKUPS[PICKUPS.length-1].hold=true;INV[i]=null;if(i===SEL)select(SEL);invHud();hud();
+  if(it.t==="weapon")it.ammo=null;const dp=dropItem(at,it,300);dp.hold=true;shareDrop(dp);INV[i]=null;if(i===SEL)select(SEL);invHud();hud();
   const f=itemInfo(it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`dropped ${f.icon} ${f.name}`,"spell");return true;}
 function stepPickups(dt){for(let i=PICKUPS.length-1;i>=0;i--){const d=PICKUPS[i];d.t+=dt;d.life-=dt;d.bob.position.y=.9+Math.sin(d.t*3)*.12;if(d.bob.isMesh)d.bob.rotation.y+=dt*2.2;d.ring.scale.setScalar(1+Math.sin(d.t*4)*.08);
     if(d.life<6)d.g.visible=Math.sin(d.t*16)>-.2;
     const dx=P.pos.x-d.g.position.x,dz=P.pos.z-d.g.position.z,dist=Math.hypot(dx,dz);
     if(d.hold&&dist>3.5)d.hold=false;
-    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.icon} ${f.name}`,"spell");scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
+    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1&&d.sid&&MP.ok){share({k:"take",id:d.sid});scene.remove(d.g);PICKUPS.splice(i,1);continue;}if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.icon} ${f.name}`,"spell");scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
       else{d.g.position.x+=dx/dist*dt*6;d.g.position.z+=dz/dist*dt*6;}}
-    if(d.life<=0){scene.remove(d.g);PICKUPS.splice(i,1);}}}
+    if(d.life<=0){if(d.sid)setKey("drop:"+d.sid,null);scene.remove(d.g);PICKUPS.splice(i,1);}}}
 // ---------------- mining: crystal veins and iron rocks; shoot them to break them, they grow back ----------------
 const NODES=[];
 const NODE_SPOTS=[["ferrum",14,9],["ferrum",-16,-3],["ferrum",22,-15],["ferrum",-14,44],["ferrum",8,48],["ferrum",-44,-46],
@@ -471,9 +475,10 @@ function makeNode(kind,x,z){for(let k=0;k<8&&BLOCKS.some(b=>Math.abs(x-b.x)<b.w/
 NODE_SPOTS.forEach(([k,x,z])=>makeNode(k,x,z));
 function mineHit(n,dmg,at){if(n.down)return;n.hp-=dmg;const hex=n.kind==="ferrum"?0xd8dde4:FX.HEX[MAT[n.kind].el];sparks(at,10,hex);for(let i=0;i<3;i++)PUFF.emit(at,rnd3(1.5),C(0x9a948c).multiplyScalar(.5),.5,{drag:2});
   popNum(at,`⛏ ${Math.max(0,Math.ceil(n.hp))}`,"burn");n.shards.forEach(s=>s.position.x+=rnd(-.02,.02));
-  if(n.hp>0)return;n.down=true;const at2=n.g.position.clone();shake(.06);for(let i=0;i<22;i++)SPARK.emit(at2.clone().add(new THREE.Vector3(0,.8,0)),rnd3(1).normalize().multiplyScalar(rnd(2,6)),C(hex),rnd(.4,.8),{grav:8});
+  if(n.hp>0)return;nodeBreak(n,true);}
+function nodeBreak(n,mine){const hex=n.kind==="ferrum"?0xd8dde4:FX.HEX[MAT[n.kind].el];n.down=true;const at2=n.g.position.clone();if(mine){shake(.06);share({k:"node",i:NODES.indexOf(n)});}for(let i=0;i<22;i++)SPARK.emit(at2.clone().add(new THREE.Vector3(0,.8,0)),rnd3(1).normalize().multiplyScalar(rnd(2,6)),C(hex),rnd(.4,.8),{grav:8});
   tween(.3,t=>n.g.scale.setScalar(Math.max(.01,1-t)),()=>{n.g.visible=false;});
-  if(n.kind==="ferrum")dropItem(at2,{t:"mat",id:"ferrum",n:ri(2,3)});else dropItem(at2,{t:"mat",id:n.kind,n:Math.random()<.35?2:1});
+  if(mine){if(n.kind==="ferrum")dropItem(at2,{t:"mat",id:"ferrum",n:ri(2,3)});else dropItem(at2,{t:"mat",id:n.kind,n:Math.random()<.35?2:1});}
   setTimeout(()=>{n.hp=n.max;n.down=false;n.g.visible=true;tween(.5,t=>n.g.scale.setScalar(Math.max(.01,t)));},45000);}
 const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 // a ray from a to b: does a wall stand in between? (holes let it through)
@@ -610,8 +615,10 @@ function makeTree(x,z){const g=new THREE.Group();g.position.set(x,0,z);scene.add
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});const t={g,trunk,hp:35,max:35,down:false,s};trunk.userData.tree=t;TREES.push(t);return t;}
 function chopHit(t,dmg,at){if(t.down)return;t.hp-=dmg;for(let i=0;i<6;i++)SPARK.emit(at,rnd3(1.5),C(0xb98a55),.5,{grav:6});for(let i=0;i<3;i++)PUFF.emit(t.g.position.clone().add(new THREE.Vector3(rnd(-1,1),rnd(2,3.4)*t.s,rnd(-1,1))),new THREE.Vector3(0,-1,0),C(0x4fa346).multiplyScalar(.5),.6,{drag:2});
   popNum(at,`🪓 ${Math.max(0,Math.ceil(t.hp))}`,"burn");t.g.rotation.z=rnd(-.03,.03);
-  if(t.hp>0)return;t.down=true;const side=Math.random()<.5?1:-1;tween(.9,k=>{t.g.rotation.z=side*k*k*1.45;},()=>{tween(.5,k=>t.g.scale.setScalar(Math.max(.01,1-k)),()=>{t.g.visible=false;});});
-  dropItem(t.g.position.clone(),{t:"mat",id:"lignum",n:ri(2,4)});shake(.05);
+  if(t.hp>0)return;treeFall(t,true);}
+// a tree falls (loot only for whoever felled it; the others just see it fall), and grows back after 45 s
+function treeFall(t,mine){t.down=true;const side=Math.random()<.5?1:-1;tween(.9,k=>{t.g.rotation.z=side*k*k*1.45;},()=>{tween(.5,k=>t.g.scale.setScalar(Math.max(.01,1-k)),()=>{t.g.visible=false;});});
+  if(mine){dropItem(t.g.position.clone(),{t:"mat",id:"lignum",n:ri(2,4)});shake(.05);share({k:"tree",i:TREES.indexOf(t)});}
   setTimeout(()=>{t.hp=t.max;t.down=false;t.g.rotation.z=0;t.g.visible=true;tween(.8,k=>t.g.scale.setScalar(Math.max(.01,k)));},45000);}
 // a grove inside the walls on each side, and woods out in the wilds
 for(let i=0;i<9;i++)makeTree(31+(i%3)*5+rnd(-1,1),-30+Math.floor(i/3)*7+rnd(-1,1));
@@ -650,7 +657,7 @@ function makeCottage(v,i){const [x,z,gx,gz,gw,gd]=COTTAGE_AT[v.name];const c={x,
   pg.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([[x0,z0],[x1,z0],[x1,z1],[x0,z1],[x0,z0]].map(([a,b])=>new THREE.Vector3(a,.5,b))),new THREE.LineBasicMaterial({color:0xd8b06a})));
   c.fence=fg;c.plan=pg;c.mark=iconSprite("🔨");c.mark.scale.setScalar(.7);c.mark.visible=false;scene.add(c.mark);return c;}
 // st: "ok" (never damaged) | "broken" (a job is waiting) | "fixed" (your planks / iron plates / fence show)
-function cottageState(c,kind,st){
+function cottageState(c,kind,st){const cv=VILLAGERS.find(v=>v.home===c);if(cv)setKey(`cot:${cv.name}:${kind}`,st);
   if(kind==="fence"){c.plan.visible=st==="broken";if(st==="fixed")c.fenced=true;if(st==="fixed"&&!c.fence.visible){c.fence.visible=true;c.fence.scale.y=.02;tween(.7,k=>c.fence.scale.y=Math.max(.02,k));}else c.fence.visible=st==="fixed";return;}
   const hs=kind==="roof"?c.roofHoles:c.wallHoles,mat=kind==="roof"?c.roofMat:c.wallMat;hs.forEach(m=>m.visible=st!=="ok");mat.color.setHex(st==="broken"?0x22160e:kind==="roof"?0xd8a65e:0x9aa4ae);}
 VILLAGERS.forEach((v,i)=>{v.home=makeCottage(v,i);});
@@ -708,8 +715,8 @@ const inTraining=p=>TRAIN.built&&p.x>TRAIN.x0&&p.x<TRAIN.x1&&p.z>TRAIN.z0&&p.z<T
   pts.forEach(([x,z])=>{const s=LOOK.M(new THREE.CylinderGeometry(.06,.08,1.2,6),LOOK.toon(0x8a5a32),.01);s.position.set(x,.6,z);scene.add(s);TRAIN.site.push(s);});
   const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([[-2,TRAIN.z1],...pts].map(([x,z])=>new THREE.Vector3(x,1,z))),rope);scene.add(l);TRAIN.site.push(l);
   const sg=label("🔨 Palaestra — training center: build it here",0xffd27a);sg.scale.set(4.6,.86,1);sg.position.set(0,2.4,TRAIN.z1+.6);scene.add(sg);TRAIN.sign=sg;}
-function buildTraining(){if(TRAIN.built)return "done";const pl=trainPlan();if(!pl.solved)return "plan";for(const k in pl.cost)if(countMat(k)<pl.cost[k])return "mats";if(COINS<TRAIN.coins)return "coins";
-  for(const k in pl.cost)takeMat(k,pl.cost[k]);COINS-=TRAIN.coins;coinHud();TRAIN.built=true;TRAIN.site.forEach(o=>scene.remove(o));scene.remove(TRAIN.sign);
+function buildTraining(free){if(TRAIN.built)return "done";if(!free){const pl=trainPlan();if(!pl.solved)return "plan";for(const k in pl.cost)if(countMat(k)<pl.cost[k])return "mats";if(COINS<TRAIN.coins)return "coins";
+  for(const k in pl.cost)takeMat(k,pl.cost[k]);COINS-=TRAIN.coins;coinHud();setKey("train",1);}TRAIN.built=true;TRAIN.site.forEach(o=>scene.remove(o));scene.remove(TRAIN.sign);
   const H=1.6,tone=0xc8b48a,walls=[[TRAIN.x0,(TRAIN.z0+TRAIN.z1)/2,.8,TRAIN.z1-TRAIN.z0],[TRAIN.x1,(TRAIN.z0+TRAIN.z1)/2,.8,TRAIN.z1-TRAIN.z0],[(TRAIN.x0-2)/2,TRAIN.z1,-2-TRAIN.x0,.8],[(TRAIN.x1+2)/2,TRAIN.z1,TRAIN.x1-2,.8]];
   walls.forEach(([x,z,w,d],i)=>{const m=block(x,z,w,H,d,tone);m.scale.y=.02;m.position.y=.02;tween(.6+i*.1,t=>{const k=Math.max(.02,t);m.scale.y=k;m.position.y=H*k/2;});
     for(let k=0;k<10;k++)PUFF.emit(new THREE.Vector3(x+rnd(-w/2,w/2),.2,z+rnd(-d/2,d/2)),new THREE.Vector3(rnd(-1,1),rnd(1,2.5),rnd(-1,1)),C(0xb8a07a).multiplyScalar(.5),.8,{drag:2});});
@@ -764,21 +771,22 @@ function lawSay(t){const b=$("#law");b.textContent=t;b.classList.remove("hidden"
 function hurtPerson(pp,n,at){if(pp.down||LAW.jailT>0)return;pp.hp-=n;popNum(at,pp.guard?`🛡️ -${n}`:`-${n}`,"burn");
   if(pp.o.rig&&pp.guard&&pp.o.rig.clips.Hit_A&&!LAW.wanted)pp.o.rig.full("Hit_A",{once:true,restart:true,dur:.5,then:()=>pp.o.rig.clearFull()});
   if(pp.guard){if(pp.hp<=0){pp.hp=pp.max;}if(!LAW.wanted)crime(`You attacked a guard!`);return;}
-  if(pp.hp<=0){pp.down=true;pp.o.g.rotation.x=0;tween(.5,t=>{pp.o.g.rotation.z=t*Math.PI/2*.95;});setTimeout(()=>{pp.hp=pp.max;pp.down=false;tween(.6,t=>{pp.o.g.rotation.z=(1-t)*Math.PI/2*.95;});},60000);
-    crime(`You knocked out ${pp.name}!`);return;}
+  if(pp.hp<=0){knockOut(pp);share({k:"ko",name:pp.name});crime(`You knocked out ${pp.name}!`);return;}
   if(!LAW.wanted){LAW.warned++;lawSay(LAW.warned>=3?"🛡️ Guard: That's it!":`🛡️ Guard: Hey! Leave ${pp.name} alone! (${LAW.warned}/3)`);if(LAW.warned>=3)crime(`You kept hurting ${pp.name}!`);}}
-function crime(why){LAW.wanted=true;LAW.why=why;lawSay(`🚨 ${why} The guards are coming for you!`);}
-function jail(){LAW.times++;LAW.wanted=false;LAW.warned=0;LAW.jailT=30+15*Math.min(4,LAW.times-1);P.pos.copy(JAIL.cell);P.vel.set(0,0,0);P.hp=Math.max(P.hp,30);hud();toggleBag(false);
+function knockOut(pp){pp.down=true;pp.o.g.rotation.x=0;tween(.5,t=>{pp.o.g.rotation.z=t*Math.PI/2*.95;});setTimeout(()=>{pp.hp=pp.max;pp.down=false;tween(.6,t=>{pp.o.g.rotation.z=(1-t)*Math.PI/2*.95;});},60000);}
+function crime(why){setKey("law:"+MP.id,1);LAW.wanted=true;LAW.why=why;lawSay(`🚨 ${why} The guards are coming for you!`);}
+function jail(){setKey("law:"+MP.id,null);LAW.times++;LAW.wanted=false;LAW.warned=0;LAW.jailT=30+15*Math.min(4,LAW.times-1);P.pos.copy(JAIL.cell);P.vel.set(0,0,0);P.hp=Math.max(P.hp,30);hud();toggleBag(false);
   PEOPLE.forEach(pp=>{if(pp.guard){pp.hp=pp.max;pp.o.g.position.copy(pp.home);pp.o.g.rotation.set(0,pp.face,0);if(pp.o.rig){pp.o.rig.clearFull();pp.o.rig.base("Idle");}}});shake(.2);}
 function stepLaw(dt){const b=$("#law");
   if(LAW.jailT>0){LAW.jailT-=dt;b.classList.remove("hidden");b.textContent=`🔒 Jail! ${LAW.why} Free in ${Math.ceil(LAW.jailT)} s`;
     P.pos.x=clamp(P.pos.x,JAIL.x-JAIL.w/2+.6,JAIL.x+JAIL.w/2-.6);P.pos.z=clamp(P.pos.z,JAIL.z-JAIL.d/2+.6,JAIL.z+JAIL.d/2-.6);
     if(LAW.jailT<=0){P.pos.copy(JAIL.out);b.classList.add("hidden");lawSay("🔓 You're free. Be kind to the people of Oppidum!");}return;}
   for(const pp of PEOPLE){if(!pp.guard)continue;const g=pp.o.g,r=pp.o.rig;pp.cool-=dt;
-    const to=LAW.wanted&&!P.down?P.pos:pp.home;const v=to.clone().sub(g.position);v.y=0;const d=v.length();
-    if(LAW.wanted&&d<1.5){g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base("Idle");if(pp.cool<=0){pp.cool=.9;if(r)r.full("1H_Melee_Attack_Chop",{once:true,restart:true,dur:.6,then:()=>r.clearFull()});
+    let chase=LAW.wanted&&!P.down?P.pos:null;if(!chase)for(const id of WORLD.wanted){const a=MP.others[id];if(a){chase=a.g.position;break;}}const to=chase||pp.home;const v=to.clone().sub(g.position);v.y=0;const d=v.length();
+    if(chase&&!LAW.wanted&&d<1.5){g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base("Idle");}
+    else if(LAW.wanted&&d<1.5){g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base("Idle");if(pp.cool<=0){pp.cool=.9;if(r)r.full("1H_Melee_Attack_Chop",{once:true,restart:true,dur:.6,then:()=>r.clearFull()});
         setTimeout(()=>{if(!LAW.wanted)return;hurt(30);popNum(P.pos.clone().add(new THREE.Vector3(0,2.4,0)),"🛡️ Guard!","burn");if(P.hp<=40||P.down){P.down=false;$("#down").classList.add("hidden");jail();lawSay("🚔 The guards caught you — off to jail!");}},300);}}
-    else if(d>.3){const sp=LAW.wanted?9.5:3;g.position.addScaledVector(v.normalize(),Math.min(d,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base(LAW.wanted?"Running_A":"Running_A",{speed:LAW.wanted?1.2:.6});}
+    else if(d>.3){const sp=chase?9.5:3;g.position.addScaledVector(v.normalize(),Math.min(d,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base(LAW.wanted?"Running_A":"Running_A",{speed:LAW.wanted?1.2:.6});}
     else{g.rotation.y=pp.face;if(r)r.base("Idle");}}}
 function stepLife(dt){stepVillagers();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
@@ -793,7 +801,7 @@ function mpFx(s){MP.fxN++;MP.fx=s+":"+MP.fxN;}
 // rooms: the public world, or a private room with a 4-letter code you share (or a link with ?room=CODE)
 const cleanRoom=c=>String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6)||"PUBLIC";
 MP.room=cleanRoom(new URLSearchParams(location.search).get("room")||(()=>{try{return localStorage.getItem("elementum.room");}catch(e){return "";}})());MP.list=[];
-function setRoom(code){MP.room=cleanRoom(code);try{localStorage.setItem("elementum.room",MP.room);}catch(e){}
+function setRoom(code){MP.room=cleanRoom(code);WORLD.seq=0;WORLD.wanted.clear();try{localStorage.setItem("elementum.room",MP.room);}catch(e){}
   for(const id in MP.others){scene.remove(MP.others[id].g);delete MP.others[id];}MP.list=[];
   try{const u=new URL(location.href);if(MP.room==="PUBLIC")u.searchParams.delete("room");else u.searchParams.set("room",MP.room);history.replaceState(null,"",u);}catch(e){}
   MP.t=0;renderRoom();}
@@ -816,6 +824,7 @@ function nameTag(text){const c=document.createElement("canvas");c.width=512;c.he
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,depthTest:false,transparent:true}));s.scale.set(1.9,.48,1);s.renderOrder=10;return s;}
 function mpAvatar(p){const g=new THREE.Group();g.position.set(p.x,p.y,p.z);scene.add(g);const o={g,rig:null,tag:null,name:"",hp:-1,to:new THREE.Vector3(p.x,p.y,p.z),yaw:p.yaw,lastFx:p.fx};
   const ring=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:0x7fd3ff,transparent:true,opacity:.7,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
+  o.id=p.id;o.hb=new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,1.9,8),new THREE.MeshBasicMaterial({visible:false}));o.hb.position.y=.95;o.hb.userData.player=o;g.add(o.hb);
   LOOK.loadRig("/play/elementum/models/hero.glb",false,r=>{if(!r||!o.g.parent)return;o.rig=r;LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;g.add(r.root);r.base("Idle",{snap:true});});return o;}
 function mpApply(list){const seen=new Set();
   for(const p of list){seen.add(p.id);let o=MP.others[p.id];if(!o)o=MP.others[p.id]=mpAvatar(p);
@@ -827,14 +836,43 @@ function mpApply(list){const seen=new Set();
       else if(SPELLS[k]){const el=SPELLS[k].el;FX.stars(at,el,3,1.2);flash(at,FX.HEX[el],4,.25);popNum(at.clone().add(new THREE.Vector3(0,1.2,0)),SPELLS[k].icon+" "+SPELLS[k].name,"spell");}}}
   for(const id in MP.others)if(!seen.has(id)){scene.remove(MP.others[id].g);delete MP.others[id];}
   const n=Object.keys(MP.others).length;$("#online").textContent=`👥 ${MP.room==="PUBLIC"?"Public":"Room "+MP.room} · ${MP.ok?n+1:"…"}`;}
+// ---------------- the shared world: what you do, the others in your room see — and the other way round ----------------
+// Each update sends what changed (events) and gets back what the others did. Things that last (the training center, cottages, items on the ground)
+// are "keys", so someone who joins later sees them too. Monsters and the training dummies' health stay each player's own.
+const WORLD={out:[],seq:0,remote:false,wanted:new Set(),STATIC:0};
+function share(ev){if(WORLD.remote)return;WORLD.out.push(ev);if(WORLD.out.length>120)WORLD.out.splice(0,WORLD.out.length-120);}
+const setKey=(key,val)=>share({k:"key",key,val});
+const V3=a=>new THREE.Vector3(a[0],a[1],a[2]),R2=v=>Math.round(v*100)/100;
+function worldApply(fn){WORLD.remote=true;try{fn();}catch(e){console.warn("world",e);}finally{WORLD.remote=false;}}
+function applyKey(key,val){
+  if(key==="train"){if(val&&!TRAIN.built)buildTraining(true);return;}
+  if(key.startsWith("cot:")){const [,name,kind]=key.split(":");const v=VILLAGERS.find(x=>x.name===name);if(!v||!val)return;const q=workQ(v);if(q&&q.job===kind)return;cottageState(v.home,kind,val);return;}
+  if(key.startsWith("drop:")){const id=key.slice(5);const i=PICKUPS.findIndex(d=>d.sid===id);
+    if(val===null){if(i>=0){scene.remove(PICKUPS[i].g);PICKUPS.splice(i,1);}return;}
+    if(i<0&&val&&val.it){dropItem(new THREE.Vector3(val.x,0,val.z),val.it,300,id);}return;}
+  if(key.startsWith("law:")){const id=key.slice(4);if(val)WORLD.wanted.add(id);else WORLD.wanted.delete(id);}}
+function applyEv(ev){
+  if(ev.k==="key")return applyKey(ev.key,ev.val);
+  if(ev.k==="hit"){if(ev.to!==MP.id||P.down||LAW.jailT>0)return;hurt(Math.max(1,Math.min(200,ev.n|0)));popNum(P.pos.clone().add(new THREE.Vector3(0,2.5,0)),`⚔️ ${ev.by||"a player"} -${ev.n|0}`,"burn");return;}
+  if(ev.k==="tree"){const t=TREES[ev.i];if(t&&!t.down){t.hp=0;treeFall(t,false);}return;}
+  if(ev.k==="node"){const n=NODES[ev.i];if(n&&!n.down){n.hp=0;nodeBreak(n,false);}return;}
+  if(ev.k==="wall"){const b=BLOCKS[ev.b];if(b&&ev.b<WORLD.STATIC)wallHit(b,V3(ev.p),V3(ev.n),ev.pw||1);return;}
+  if(ev.k==="scorch")return scorch(new THREE.Vector3(ev.x,0,ev.z),ev.r,ev.el);
+  if(ev.k==="ko"){const pp=PEOPLE.find(x=>x.name===ev.name&&!x.guard);if(pp&&!pp.down)knockOut(pp);return;}
+  if(ev.k==="dummy"){const d=TRAIN.dummies[ev.i];if(d&&!d.down&&!d.unbuilt){d.down=true;dummyFall(d);}return;}}
+// hitting another player: they lose that much health in their own game
+function hitPlayer(o,n,at){if(!o||!o.id||n<=0)return;share({k:"hit",to:o.id,n:Math.round(n)});popNum(at||o.g.position.clone().add(new THREE.Vector3(0,2.2,0)),`⚔️ -${Math.round(n)}`,"burn");
+  if(at)dent(at,P.pos.clone().sub(at).setY(0).normalize(),o.g);}
 function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.position.lerp(o.to,Math.min(1,dt*10));let d=o.yaw-o.g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));o.g.rotation.y+=d*Math.min(1,dt*10);
     if(!o.glow){o.glow=new THREE.Mesh(new THREE.TorusGeometry(.7,.05,8,32),new THREE.MeshBasicMaterial({color:0xffd36a,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));o.glow.rotation.x=Math.PI/2;o.glow.position.y=.15;o.g.add(o.glow);}
     o.glow.visible=!!o.might;if(o.might){o.glow.rotation.z+=dt*2;if(Math.random()<dt*10)SPARK.emit(o.g.position.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.8),rnd(-.5,.5))),new THREE.Vector3(0,1.2,0),C(0xffd36a),.6,{grav:-.5});}
     if(o.rig){o.rig.base(o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const it=held(),body={lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
+  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
-    .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;return;}MP.ok=true;MP.you=j.you||"";MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen&&!document.activeElement.matches("input"))renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;});}
+    .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;
+      worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
+      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.icon} ${f.name}`,"spell");}});MP.you=j.you||"";MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen&&!document.activeElement.matches("input"))renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
 
 // ---------------- the range in town: dummies with health bars (and slow guns) ----------------
 const DUMMIES=[];
@@ -924,7 +962,7 @@ function stepDummyGuns(dt){for(const d of DUMMIES){if(!d.gun||d.down)continue;co
     if(!done&&!P.down&&segDist(p0,p,P.pos.clone().add(new THREE.Vector3(0,1,0)))<.6){hurt(2);done=true;}
     if(done){sparks(p,6,0xff8a4a);scene.remove(b.s);DSHOTS.splice(i,1);}}}
 
-function hitTargets(){const t=[...SOLIDS];PEOPLE.forEach(pp=>{if(!pp.down)t.push(pp.hb);});NODES.forEach(n=>{if(!n.down)t.push(n.rock);});TREES.forEach(tr=>{if(!tr.down)t.push(tr.trunk);});DUMMIES.forEach(d=>{if(!d.down)t.push(...d.parts);});return t;}
+function hitTargets(){const t=[...SOLIDS];for(const id in MP.others)if(MP.others[id].hb)t.push(MP.others[id].hb);PEOPLE.forEach(pp=>{if(!pp.down)t.push(pp.hb);});NODES.forEach(n=>{if(!n.down)t.push(n.rock);});TREES.forEach(tr=>{if(!tr.down)t.push(tr.trunk);});DUMMIES.forEach(d=>{if(!d.down)t.push(...d.parts);});return t;}
 function damage(d,n,at,headshot,o){o=o||{};if(d.down)return;if(P.mightT>0)n=Math.round(n*1.5);else if(P.strongT>0)n=Math.round(n*1.25);   // Potio Fortis, grilled fish
   const el=o.el||"plain",hex=FX.HEX[el];d.hp=Math.max(0,d.hp-n);popNum(at,(headshot?"HEAD ":"")+"-"+n,headshot?"head":"");sparks(at,12,hex);
   if(!o.area){FX.impact(at,el,headshot?1.0:.7);FX.stars(at,el,headshot?3:2,.9);}
@@ -936,7 +974,8 @@ function damage(d,n,at,headshot,o){o=o||{};if(d.down)return;if(P.mightT>0)n=Math
   if(d.hp<=0){d.down=true;P.downed++;questKill(d);$("#sub").textContent=`Oppidum and the wilds · knocked down: ${P.downed}`;
     if(d.enemy){enemyDown(d);return;}
     dropItem(d.g.position,{t:"mat",id:"lignum",n:2});dropItem(d.g.position,{t:"coin",n:ri(1,3)});if(Math.random()<.4){const id=pick(DROP_SPELLS);dropItem(d.g.position,{t:"spell",id,uses:SPELLS[id].uses});}
-    tween(.45,t=>{d.g.rotation.x=-t*t*Math.PI/2;},()=>{setTimeout(()=>{d.hp=d.max;tween(.4,t=>{d.g.rotation.x=-(1-t)*Math.PI/2;},()=>{d.down=false;d.g.rotation.x=0;});},3000);});}}
+    if(TRAIN.dummies.includes(d))share({k:"dummy",i:TRAIN.dummies.indexOf(d)});dummyFall(d);}}
+function dummyFall(d){tween(.45,t=>{d.g.rotation.x=-t*t*Math.PI/2;},()=>{setTimeout(()=>{d.hp=d.max;tween(.4,t=>{d.g.rotation.x=-(1-t)*Math.PI/2;},()=>{d.down=false;d.g.rotation.x=0;});},3000);});}
 // what the crystal does on a hit, beyond the damage
 function status(d,el,at){const hex=FX.HEX[el];
   if(el==="ice"){d.slowT=Math.max(d.slowT||0,2.5);d.mats.forEach(m=>m.color.setHex(0xbfe8ff));setTimeout(()=>d.mats.forEach(m=>m.color.setHex(m.userData.base)),1500);}
@@ -949,7 +988,7 @@ function status(d,el,at){const hex=FX.HEX[el];
     for(let i=0;i<10;i++)SPARK.emit(at,rnd3(1).normalize().multiplyScalar(rnd(2,5)),C(hex),.25,{drag:2});}}
 function popNum(p,text,cls){const v=p.clone().project(cam);if(v.z>1)return;const el=document.createElement("span");el.className=cls||"";el.textContent=text;el.style.left=(v.x+1)/2*innerWidth+"px";el.style.top=(1-v.y)/2*innerHeight+"px";$("#nums").appendChild(el);setTimeout(()=>el.remove(),900);}
 // beaten: everything you carry falls where you are (like Minecraft); coins and the house chest stay with you
-function dropAll(){const at=P.pos.clone();at.y=0;let n=0;for(let i=0;i<INV.length;i++){const it=INV[i];if(!it)continue;if(it.t==="weapon")it.ammo=null;dropItem(at,it,300);INV[i]=null;n++;}
+function dropAll(){const at=P.pos.clone();at.y=0;let n=0;for(let i=0;i<INV.length;i++){const it=INV[i];if(!it)continue;if(it.t==="weapon")it.ammo=null;shareDrop(dropItem(at,it,300));INV[i]=null;n++;}
   G.item=null;select(SEL);invHud();return n;}
 function hurt(n){if(P.down||n<=0)return;const at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
   if(P.invulnT>0){popNum(at,"blocked","spell");return;}
@@ -1227,6 +1266,7 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   {const run=tweens;tweens=[];const keep=run.filter(w=>{w.t+=dt;const t=Math.min(1,w.t/w.dur);w.fn(t);if(t>=1){w.done&&w.done();return false;}return true;});tweens=keep.concat(tweens);}   // tweens started inside a finishing tween are kept
   if(started&&!paused&&!bagOpen)step(dt);else animate(dt);SPARK.step(dt);PUFF.step(dt);FX.step(dt);updateCam(dt);placeBars();
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
+WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

@@ -3744,6 +3744,11 @@ def play_elementum():
 ELEM_PLAYERS, _elem_lock = {}, threading.Lock()
 ELEM_HOUSES = {}   # room -> {slot: {id, name, locked}}: one house per player in a room, freed when they leave
 ELEM_HOUSE_SLOTS = 6
+# the shared world of each room (2026-11-18): what one player does, everyone in the room sees — the training center built, cottages fixed,
+# trees felled, rocks mined, wall holes, scorch marks, people knocked out, things dropped on the ground, and hits between players.
+# "keys" is what a newcomer needs (built things, items lying around); "events" is the recent stream (numbered, so each client asks for what's new).
+ELEM_WORLD = {}   # room -> {"seq": int, "events": [(seq, sender_id, ev)], "keys": {key: value}}
+ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take"}
 
 @app.post("/api/elementum/state")
 def elementum_state():
@@ -3762,6 +3767,11 @@ def elementum_state():
     me = dict(id=pid, name=name, x=round(num("x", -200, 200), 2), y=round(num("y", -5, 60), 2), z=round(num("z", -200, 200), 2),
               yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
               held=str(j.get("held") or "")[:4], fx=str(j.get("fx") or "")[:24], bf=str(j.get("bf") or "")[:4], room=room, t=now)
+    evs = j.get("ev") if isinstance(j.get("ev"), list) else []
+    try:
+        since = int(j.get("since") or 0)
+    except (TypeError, ValueError):
+        since = 0
     with _elem_lock:
         ELEM_PLAYERS[pid] = me
         for k in [k for k, v in ELEM_PLAYERS.items() if now - v["t"] > 10]:
@@ -3782,7 +3792,39 @@ def elementum_state():
             if isinstance(j.get("lock"), bool):
                 hs[mine]["locked"] = j["lock"]
         houses = [dict(slot=sl, name=h["name"], locked=h["locked"], mine=(sl == mine)) for sl, h in hs.items()]
-    return jsonify(players=others, you=name, room=room, houses=houses)
+        # the shared world: rooms nobody is in any more are forgotten
+        live = {p["room"] for p in ELEM_PLAYERS.values()}
+        for r in [r for r in ELEM_WORLD if r not in live]:
+            del ELEM_WORLD[r]
+        w = ELEM_WORLD.setdefault(room, {"seq": 0, "events": [], "keys": {}})
+        won = []
+        for ev in evs[:40]:
+            if not isinstance(ev, dict) or ev.get("k") not in ELEM_EV_KINDS or len(json.dumps(ev)) > 600:
+                continue
+            ev = dict(ev, by=name)
+            if ev["k"] == "take":   # picking up something from the ground: the first one to ask gets it
+                key = "drop:" + str(ev.get("id", ""))[:24]
+                if key not in w["keys"]:
+                    continue
+                won.append(w["keys"].pop(key))
+                ev = {"k": "key", "key": key, "val": None, "by": name}
+            elif ev["k"] == "key":
+                key = str(ev.get("key", ""))[:40]
+                if not re.fullmatch(r"[a-z]+:[A-Za-z0-9_:-]{1,32}|train", key):
+                    continue
+                if ev.get("val") is None:
+                    w["keys"].pop(key, None)
+                elif key in w["keys"] or len(w["keys"]) < 400:
+                    w["keys"][key] = ev.get("val")
+            w["seq"] += 1
+            w["events"].append((w["seq"], pid, ev))
+        del w["events"][:-600]
+        oldest = w["events"][0][0] if w["events"] else w["seq"] + 1
+        out = dict(players=others, you=name, room=room, houses=houses, seq=w["seq"], won=won,
+                   events=[e for s, by, e in w["events"] if s > since and by != pid])
+        if since <= 0 or since < oldest - 1 or since > w["seq"]:
+            out["keys"], out["events"] = w["keys"], []   # first call, or too far behind: the whole picture (old one-off events are skipped)
+    return jsonify(out)
 
 @app.post("/api/elementum/room")
 def elementum_new_room():
