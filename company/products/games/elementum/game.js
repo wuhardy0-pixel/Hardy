@@ -373,7 +373,10 @@ const held=()=>INV[SEL];
 function addItem(it){it=Object.assign({},it);if(it.t==="coin"){COINS+=it.n;coinHud();return true;}
   if(it.t==="mat"||it.t==="potion"||it.t==="food"){for(const s of INV)if(s&&s.t===it.t&&s.id===it.id&&s.n<64){const k=Math.min(64-s.n,it.n);s.n+=k;it.n-=k;if(!it.n)break;}if(!it.n){invHud();return true;}}
   if(it.t==="spell"){const s=INV.find(s=>s&&s.t==="spell"&&s.id===it.id);if(s){s.uses=Math.min(12,s.uses+it.uses);invHud();return true;}}
-  const i=INV.indexOf(null);if(i<0)return false;INV[i]=it;if(i===SEL)select(SEL);invHud();return true;}
+  const i=freeSlot();if(i<0)return false;INV[i]=it;if(i===SEL)select(SEL);invHud();return true;}
+// a new item never lands in the slot in your hand: the nearest free hotbar slot beside it (right, then left, further out), then the bag; your hand only if nothing else is free
+function freeSlot(){for(let k=1;k<9;k++)for(const i of [SEL+k,SEL-k])if(i>=0&&i<9&&!INV[i])return i;
+  for(let i=9;i<INV.length;i++)if(!INV[i])return i;return INV[SEL]?-1:SEL;}
 function countMat(id){return INV.reduce((a,s)=>a+(s&&s.t==="mat"&&s.id===id?s.n:0),0);}
 function takeMat(id,n){for(let i=0;i<INV.length&&n>0;i++){const s=INV[i];if(s&&s.t==="mat"&&s.id===id){const k=Math.min(s.n,n);s.n-=k;n-=k;if(!s.n)INV[i]=null;}}invHud();}
 // what is in your hand decides what click / FIRE does
