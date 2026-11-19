@@ -174,3 +174,9 @@ Barbara asked: "add math more like bargaining percentages and fixing roofs and p
 - Fixed: monster health bars showed through the town walls (a comment had swallowed the line's code).
 - **Magna Rifle recipe** (2026-11-18): the first recipe in the forge — Ferrum and Lignum, amounts hidden in math as usual — so you can make
   your first gun instead of buying it from Mercator for 30 🪙.
+
+## Town rules (2026-11-18)
+- 🏆 Try Your Hardest board (grades 5–8 story problems + writing; AMC 8 / MATHCOUNTS style tiers) east of the start.
+- 📚 Forge math book: US or China standard (grade-by-grade, in English).
+- The Forge makes everything that isn't gathered: weapons, potions, all foods, a spell scroll of each element. 📖 Guide tab: how to get every item.
+- Hurting townspeople brings the guards; they jail you in Carcer for 30–90 s.

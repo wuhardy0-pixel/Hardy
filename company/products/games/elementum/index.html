@@ -97,6 +97,7 @@ body.touch #quests{top:calc(env(safe-area-inset-top,0px) + 232px)}#bag .say{font
 #bag .contest textarea{width:100%;box-sizing:border-box;margin:8px 0;font:15px system-ui,sans-serif;padding:8px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.1);color:#fff;resize:vertical}
 #bag .book{margin-top:6px;font-size:13px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}#bag .recipes .grp{font-size:12px;color:var(--gold);margin:6px 0 2px}
 #bag .info .how{color:var(--muted);font-size:12px}#bag .guide h4{margin:10px 0 4px;color:var(--gold)}#bag .guide ul{list-style:none;margin:0;padding:0;font-size:13px;line-height:1.5}#bag .guide li span{display:inline-block;width:24px}
+#law{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 118px);transform:translateX(-50%);z-index:6;background:rgba(150,20,20,.88);color:#fff;font:700 16px system-ui,sans-serif;padding:8px 16px;border-radius:12px;border:2px solid #ffb3b3;text-align:center;max-width:90vw;pointer-events:none}#law.hidden{display:none}
 #bag .answer input{width:96px;font:800 22px ui-monospace,Menlo,monospace;text-align:center;padding:7px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.1);color:#fff}
 #bag .plan li i{display:block;color:#ffe08a;font-style:normal;font-size:13px;margin-top:2px}#bag .work .have{color:var(--muted);font-size:14px}#bag .plan li{margin-bottom:10px}#bag .plan li .answer{margin-top:4px}
 #grades{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:6px 0 14px}#grades button{margin:0;padding:7px 10px;font-size:13px;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;border:1px solid var(--line)}#grades button.on{background:var(--gold);color:#222;border-color:var(--gold)}
@@ -122,7 +123,7 @@ body.touch #quests{top:calc(env(safe-area-inset-top,0px) + 232px)}#bag .say{font
 kbd{font:600 12px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:#fff}
 </style></head><body>
 <canvas id="gl"></canvas>
-<div id="vig"></div><div id="nums"></div><div id="bars"></div><div id="xh"><i></i></div>
+<div id="law" class="hidden"></div><div id="vig"></div><div id="nums"></div><div id="bars"></div><div id="xh"><i></i></div>
 <div id="hotbar"></div><div id="coins">🪙 0</div><div id="buffs"></div><div id="quests"></div><button id="online">👥 Public · …</button><div id="sleep"></div><button id="trade" class="hidden">Use (T)</button>
 <div id="hp"><div class="lbl">HP <span id="hpn">100</span></div><div class="bar"><i id="hpbar"></i></div></div>
 <div id="wep"><b id="wname">Magna Rifle</b><span id="ammo">30 / 30</span><div class="rl"><i id="rlbar"></i></div><div class="sm" id="crys">Carbo crystal · fire</div><div class="sm">1–9 hotbar · E bag &amp; forge · R reload</div></div>

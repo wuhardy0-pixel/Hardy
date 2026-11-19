@@ -127,9 +127,12 @@ function fire(){const w=WEAPONS[G.id];if(!held()||held().t!=="weapon"||G.cool>0|
   const m=muzzleWorld();const d0=aimRay(0).ray.direction.clone();muzzle(m,d0,hex,w.flash);FX.flare(m,d0,el,w.flash*1.3,.22);FX.stars(m,el,1,w.flash*.9);
   if(w.projectile){const r=aimRay(0);const hit=firstHit(r);const to=hit?hit.point:r.ray.at(w.range,new THREE.Vector3());bolt(m,to.clone().sub(m).normalize(),el,{size:w.boltSize,speed:w.boltSpeed,r:w.r,dmg:w.dmg,power:w.power});hud();return;}
   const n=w.pellets||1;for(let i=0;i<n;i++){const r=aimRay(w.spread);const hit=firstHit(r);const to=hit?hit.point:r.ray.at(w.range,new THREE.Vector3());tracer(m,to,hex);
-    if(hit){const dm=hit.object.userData.dummy,nd=hit.object.userData.node,tr=hit.object.userData.tree;if(nd){mineHit(nd,w.dmg,hit.point);continue;}if(tr){chopHit(tr,w.dmg,hit.point);continue;}if(dm){const headshot=hit.object.userData.part==="head";if(w.weak&&dm.enemy){damage(dm,1,hit.point,false,{el});if(tAcc-(G.weakTip||-9)>4){G.weakTip=tAcc;popNum(hit.point.clone().add(new THREE.Vector3(0,.8,0)),"🛡 too tough for the Magna Rifle — craft a weapon or cast spells","burn");}}
+    if(hit){const dm=hit.object.userData.dummy,nd=hit.object.userData.node,tr=hit.object.userData.tree,pp=hit.object.userData.person;const wn=()=>hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;
+      if(pp){dent(hit.point,to.clone().sub(m).normalize().negate(),pp.o.g);hurtPerson(pp,Math.round(w.dmg*.6),hit.point);continue;}
+      if(nd){dent(hit.point,wn(),nd.g);mineHit(nd,w.dmg,hit.point);continue;}if(tr){dent(hit.point,wn(),tr.g);chopHit(tr,w.dmg,hit.point);continue;}if(dm){const headshot=hit.object.userData.part==="head";if(w.weak&&dm.enemy){damage(dm,1,hit.point,false,{el});if(tAcc-(G.weakTip||-9)>4){G.weakTip=tAcc;popNum(hit.point.clone().add(new THREE.Vector3(0,.8,0)),"🛡 too tough for the Magna Rifle — craft a weapon or cast spells","burn");}}
       else damage(dm,Math.round(w.dmg*(headshot?w.head:1)),hit.point,headshot,{el});}
-      else{const nn=hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;if(nn&&hit.object.userData.block)wallHit(hit.object.userData.block,hit.point,nn,w.pellets?.4:1);
+      else{const nn=hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;if(nn&&hit.object.userData.block){if(hit.object.material.visible)wallHit(hit.object.userData.block,hit.point,nn,w.pellets?.4:1);else dent(hit.point,nn);}
+        if(hit.object===ground)mark(hit.point,new THREE.Vector3(0,1,0),rnd(.12,.2),el==="ice"?0xd8f2ff:0x15110c,.7);
         sparks(hit.point,8,hex,nn);FX.impact(hit.point,el,.45);if(i===0)FX.stars(hit.point,el,1,.5);}}}
   hud();}
 // the staff fires a slow glowing bolt that explodes where it lands
@@ -138,7 +141,22 @@ function bolt(from,dir,el,o){o=o||{};const g=FX.comet(el||"lightning",o.size||1.
   BOLTS.push({g,v:dir.clone().multiplyScalar(o.speed||26),life:o.life||3,el:el||"lightning",r:o.r,dmg:o.dmg,power:o.power,c:o.c||null,grav:o.grav||0,slow:o.slow,orb:o.orb||null,zap:0});}
 function explode(p,el,o){o=o||{};const R=o.r||3.2,DM=o.dmg||WEAPONS.staff.dmg;const hex=FX.HEX[el];ring(p,hex,6*R/3.2);FX.impact(p,el,R);FX.stars(p,el,4,2.2);flash(p,hex,8,.35);shake(.12);
   for(let i=0;i<60;i++)SPARK.emit(p,rnd3(1).normalize().multiplyScalar(rnd(3,9)),Math.random()<.5?C(hex):C(0xffffff),rnd(.3,.7),{grav:6,drag:1.2});for(let i=0;i<10;i++)PUFF.emit(p,rnd3(1.5),C(hex).multiplyScalar(.5),.5,{drag:2});
-  hitArea(o.c||PLAYER_C(),p,R,DM,el,{falloff:true,slow:o.slow});}
+  scorch(p,R*.7,el);hitArea(o.c||PLAYER_C(),p,R,DM,el,{falloff:true,slow:o.slow});}
+// ---------------- marks: blasts and fire leave black scorched grass; shots leave dents and soot on trees, rocks, stalls and people. They fade after a while ----------------
+const MARKS=[],markGeo=new THREE.CircleGeometry(1,20),SCORCHED=[];
+const markTex=(()=>{const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d");   // a ragged burn: solid in the middle, broken into specks toward the edge
+  for(let i=0;i<1400;i++){const a=Math.random()*6.28,r=60*Math.sqrt(Math.random());if(Math.random()>1.15-r/60*1.1)continue;const px=64+Math.cos(a)*r,py=64+Math.sin(a)*r;
+    x.fillStyle=`rgba(255,255,255,${(.35+.5*(1-r/60)).toFixed(2)})`;x.beginPath();x.arc(px,py,rnd(2,6)*(1.4-r/60),0,6.28);x.fill();}
+  return new THREE.CanvasTexture(c);})();
+function mark(p,n,size,hex,op,parent,life){const m=new THREE.Mesh(markGeo,new THREE.MeshBasicMaterial({color:hex,map:markTex,transparent:true,opacity:op,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4}));
+  m.scale.setScalar(size);m.position.copy(p).addScaledVector(n,.03);m.lookAt(p.clone().add(n));m.rotateZ(Math.random()*6.28);m.renderOrder=3;
+  if(parent){parent.updateMatrixWorld(true);parent.attach(m);}else scene.add(m);
+  MARKS.push({m,t:life||90,op});if(MARKS.length>240){const o=MARKS.shift();o.m.removeFromParent();o.m.material.dispose();}}
+function scorch(p,r,el){if(p.y>1.5||r<.3)return;if(SCORCHED.some(q=>q.t>tAcc-3&&Math.hypot(q.x-p.x,q.z-p.z)<r*.5))return;SCORCHED.push({x:p.x,z:p.z,t:tAcc});if(SCORCHED.length>40)SCORCHED.shift();
+  const g=new THREE.Vector3(p.x,.02,p.z),up=new THREE.Vector3(0,1,0),hex=el==="ice"?0xd8f2ff:el==="water"?0x24402e:0x0d0b08;
+  mark(g,up,r*.8,hex,.9);for(let i=0;i<3;i++)mark(g.clone().add(new THREE.Vector3(rnd(-.4,.4)*r,0,rnd(-.4,.4)*r)),up,r*rnd(.3,.5),hex,.7);}
+function dent(p,n,parent){if(n)mark(p,n,rnd(.07,.13),0x1a1410,.78,parent);}
+function stepMarks(dt){for(let i=MARKS.length-1;i>=0;i--){const k=MARKS[i];k.t-=dt;if(k.t<6)k.m.material.opacity=k.op*Math.max(0,k.t/6);if(k.t<=0){k.m.removeFromParent();k.m.material.dispose();MARKS.splice(i,1);}}}
 // shortest distance from point q to the segment a-b
 function segDist(a,b,q){const ab=b.clone().sub(a);const t=clamp(q.clone().sub(a).dot(ab)/Math.max(1e-6,ab.lengthSq()),0,1);return a.clone().addScaledVector(ab,t).distanceTo(q);}
 function stepBolts(dt){for(let i=BOLTS.length-1;i>=0;i--){const b=BOLTS[i];if(b.grav){b.v.y-=b.grav*dt;b.g.userData.aim(b.v);}const p0=b.g.position.clone();b.g.position.addScaledVector(b.v,dt);b.life-=dt;const p=b.g.position;const near=q=>segDist(p0,p,q);SPARK.emit(p,rnd3(.6),C(FX.HEX[b.el]),.3);
@@ -241,6 +259,7 @@ function casterOf(d){if(!d){const a=aimPoint(80);return {enemy:null,pos:P.pos.cl
 const PLAYER_C=()=>({enemy:null,pos:P.pos.clone(),fwd:fwdFlat()});
 // everything a spell hits: an enemy's spell hits only you; yours hit dummies and monsters
 function hitArea(c,p,r,dmg,el,o){o=o||{};const hits=[];
+  if(!c.enemy)PEOPLE.forEach(pp=>{if(pp.down||(o.skip&&o.skip.has(pp)))return;const q=pp.o.g.position;const dist=Math.hypot(q.x-p.x,q.z-p.z);if(dist>=r||Math.abs(p.y-1)>r+1.5)return;if(o.skip)o.skip.add(pp);hurtPerson(pp,Math.max(1,Math.round(dmg*.5)),q.clone().add(new THREE.Vector3(0,1.2,0)));});
   if(c.enemy){if(o.skip&&o.skip.has(P)||inTown(P.pos))return hits;   // the town is a safe zone   // a spike line or a wave hits you once, not once per spike
     if(!P.down&&P.pos.clone().add(new THREE.Vector3(0,.9,0)).distanceTo(p)<r+.3){if(o.skip)o.skip.add(P);hurt(Math.max(2,Math.round(dmg*EK)));if(o.slow)P.slowT=Math.max(P.slowT,o.slow);if(o.push){const v=P.pos.clone().sub(p);v.y=0;v.normalize();P.vel.addScaledVector(v,o.push);P.vel.y=Math.max(P.vel.y,3);P.dash=.25;}hits.push(P);}return hits;}
   DUMMIES.forEach(d=>{if(d.down||(o.skip&&o.skip.has(d)))return;const q=d.g.position;const dist=Math.hypot(q.x-p.x,q.z-p.z);if(dist>=r||Math.abs(p.y-(q.y+1))>r+1.5)return;
@@ -409,6 +428,7 @@ function punch(){if(P.down||!started||paused||bagOpen||G.cool>0)return;G.cool=.4
   if(RIG)RIG.up(punchN%2?"Unarmed_Melee_Attack_Punch_A":"Unarmed_Melee_Attack_Punch_B",{once:true,dur:.4,restart:true,then:()=>RIG.up("2H_Ranged_Aiming")});mpFx("punch");
   setTimeout(()=>{const f=fwdFlat(),at=P.pos.clone().add(new THREE.Vector3(0,1.1,0)).addScaledVector(f,.9);let hit=false;
     DUMMIES.forEach(d=>{if(d.down||hit)return;const v=d.g.position.clone().sub(P.pos);v.y=0;const dist=v.length();if(dist<2.1&&v.normalize().dot(f)>.45){hit=true;damage(d,d.enemy?4:9,d.g.position.clone().add(new THREE.Vector3(0,1.2,0)),false,{el:"plain"});}});
+    if(!hit)PEOPLE.forEach(pp=>{if(pp.down||hit)return;const v=pp.o.g.position.clone().sub(P.pos);v.y=0;if(v.length()<1.8&&v.normalize().dot(f)>.45){hit=true;hurtPerson(pp,6,pp.o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}});
     if(!hit)TREES.forEach(tr=>{if(tr.down||hit)return;const v=tr.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2&&v.normalize().dot(f)>.4){hit=true;chopHit(tr,7,tr.g.position.clone().add(new THREE.Vector3(0,1.1,0)));}});
     if(!hit)NODES.forEach(n=>{if(n.down||hit)return;const v=n.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2.3&&v.normalize().dot(f)>.4){hit=true;mineHit(n,7,n.g.position.clone().add(new THREE.Vector3(0,.8,0)));}});
     if(hit){shake(.05);for(let i=0;i<8;i++)PUFF.emit(at,rnd3(1.2),C(0xffffff).multiplyScalar(.4),.35,{drag:3});}},150);}
@@ -725,8 +745,42 @@ ACTS.push({pos:CONTEST.pos,r:3,label:"🏆 Try Your Hardest Math Problem!",run:(
   const water=new THREE.Mesh(new THREE.CircleGeometry(2,24),new THREE.MeshBasicMaterial({color:0x6fc8f0,transparent:true,opacity:.85}));water.rotation.x=-Math.PI/2;water.position.y=.55;g.add(water);
   const col=LOOK.M(new THREE.CylinderGeometry(.25,.35,1.8,12),st,.015);col.position.y=1.2;g.add(col);const bowl=LOOK.M(new THREE.CylinderGeometry(.8,.4,.35,16),st,.015);bowl.position.y=2.1;g.add(bowl);
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});const m=block(-12,2,4.2,.6,4.2,0xe6dccb);m.material.visible=false;m.castShadow=false;TOWN.fountain=new THREE.Vector3(-12,2.3,2);}
-npc("guard.glb",-5.5,TOWN.z1-2.5,Math.PI);npc("guard.glb",5.5,TOWN.z1-2.5,Math.PI);npc("guard.glb",TOWN.x1-2.5,-12.5,-Math.PI/2);npc("guard.glb",TOWN.x0+2.5,2.5,Math.PI/2);
-function stepLife(dt){stepVillagers();stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+// ---------------- the law in Oppidum: hurt a townsperson and a guard warns you; knock someone out (or hit a guard) and every guard swarms you.
+// Guards are very strong and very fast, and they can't really be beaten. When they catch you, you go to the jail (Carcer) until your time is up.
+const PEOPLE=[];
+function personize(o,name,guard){const hb=new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,1.9,8),new THREE.MeshBasicMaterial({visible:false}));hb.position.y=.95;o.g.add(hb);
+  const pp={o,name,guard:!!guard,hp:guard?3000:100,max:guard?3000:100,down:false,hb,home:o.g.position.clone(),face:o.g.rotation.y,cool:0};hb.userData.person=pp;PEOPLE.push(pp);return pp;}
+const GUARDS=[[-5.5,TOWN.z1-2.5,Math.PI],[5.5,TOWN.z1-2.5,Math.PI],[TOWN.x1-2.5,-12.5,-Math.PI/2],[TOWN.x0+2.5,2.5,Math.PI/2],[-2.5,TOWN.z0+2.5,0],[2.5,TOWN.z0+2.5,0]].map(([x,z,f])=>{
+  const o=npc("guard.glb",x,z,f);const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(m.name==="1H_Sword"||m.name==="Round_Shield")m.visible=true;});},300);return personize(o,"Guard",true);});
+VILLAGERS.forEach(v=>personize(v.o,v.name));TOWNFOLK.filter(o=>!PEOPLE.some(pp=>pp.o===o)).forEach(o=>personize(o,"the cook"));
+const JAIL={x:14.5,z:-29,w:6,d:5,cell:new THREE.Vector3(14.5,0,-29.5),out:new THREE.Vector3(14.5,0,-24)};
+{const t=0x9a9488,H=3;block(JAIL.x,JAIL.z-JAIL.d/2,JAIL.w,H,.4,t);block(JAIL.x-JAIL.w/2,JAIL.z,.4,H,JAIL.d,t);block(JAIL.x+JAIL.w/2,JAIL.z,.4,H,JAIL.d,t);
+  const front=block(JAIL.x,JAIL.z+JAIL.d/2,JAIL.w,H,.25,t);front.material.visible=false;front.castShadow=false;   // the barred front: bars you can see through
+  const iron=LOOK.toon(0x3a3d44);for(let i=0;i<=12;i++){const b=LOOK.M(new THREE.CylinderGeometry(.05,.05,H,6),iron,.006);b.position.set(JAIL.x-JAIL.w/2+.25+i*(JAIL.w-.5)/12,H/2,JAIL.z+JAIL.d/2);scene.add(b);}
+  const roof=LOOK.M(new THREE.BoxGeometry(JAIL.w+.6,.3,JAIL.d+.6),LOOK.toon(0x6b6458),.01);roof.position.set(JAIL.x,H+.15,JAIL.z);scene.add(roof);
+  const sg=label("🔒 Carcer — the town jail",0xcfd6e0);sg.scale.set(3.8,.72,1);sg.position.set(JAIL.x,H+1.1,JAIL.z+JAIL.d/2);scene.add(sg);}
+const LAW={warned:0,wanted:false,jailT:0,times:0,why:""};
+function lawSay(t){const b=$("#law");b.textContent=t;b.classList.remove("hidden");clearTimeout(lawSay.t);lawSay.t=setTimeout(()=>{if(!LAW.wanted&&LAW.jailT<=0)b.classList.add("hidden");},4000);}
+function hurtPerson(pp,n,at){if(pp.down||LAW.jailT>0)return;pp.hp-=n;popNum(at,pp.guard?`🛡️ -${n}`:`-${n}`,"burn");
+  if(pp.o.rig&&pp.guard&&pp.o.rig.clips.Hit_A&&!LAW.wanted)pp.o.rig.full("Hit_A",{once:true,restart:true,dur:.5,then:()=>pp.o.rig.clearFull()});
+  if(pp.guard){if(pp.hp<=0){pp.hp=pp.max;}if(!LAW.wanted)crime(`You attacked a guard!`);return;}
+  if(pp.hp<=0){pp.down=true;pp.o.g.rotation.x=0;tween(.5,t=>{pp.o.g.rotation.z=t*Math.PI/2*.95;});setTimeout(()=>{pp.hp=pp.max;pp.down=false;tween(.6,t=>{pp.o.g.rotation.z=(1-t)*Math.PI/2*.95;});},60000);
+    crime(`You knocked out ${pp.name}!`);return;}
+  if(!LAW.wanted){LAW.warned++;lawSay(LAW.warned>=3?"🛡️ Guard: That's it!":`🛡️ Guard: Hey! Leave ${pp.name} alone! (${LAW.warned}/3)`);if(LAW.warned>=3)crime(`You kept hurting ${pp.name}!`);}}
+function crime(why){LAW.wanted=true;LAW.why=why;lawSay(`🚨 ${why} The guards are coming for you!`);}
+function jail(){LAW.times++;LAW.wanted=false;LAW.warned=0;LAW.jailT=30+15*Math.min(4,LAW.times-1);P.pos.copy(JAIL.cell);P.vel.set(0,0,0);P.hp=Math.max(P.hp,30);hud();toggleBag(false);
+  PEOPLE.forEach(pp=>{if(pp.guard){pp.hp=pp.max;pp.o.g.position.copy(pp.home);pp.o.g.rotation.set(0,pp.face,0);if(pp.o.rig){pp.o.rig.clearFull();pp.o.rig.base("Idle");}}});shake(.2);}
+function stepLaw(dt){const b=$("#law");
+  if(LAW.jailT>0){LAW.jailT-=dt;b.classList.remove("hidden");b.textContent=`🔒 Jail! ${LAW.why} Free in ${Math.ceil(LAW.jailT)} s`;
+    P.pos.x=clamp(P.pos.x,JAIL.x-JAIL.w/2+.6,JAIL.x+JAIL.w/2-.6);P.pos.z=clamp(P.pos.z,JAIL.z-JAIL.d/2+.6,JAIL.z+JAIL.d/2-.6);
+    if(LAW.jailT<=0){P.pos.copy(JAIL.out);b.classList.add("hidden");lawSay("🔓 You're free. Be kind to the people of Oppidum!");}return;}
+  for(const pp of PEOPLE){if(!pp.guard)continue;const g=pp.o.g,r=pp.o.rig;pp.cool-=dt;
+    const to=LAW.wanted&&!P.down?P.pos:pp.home;const v=to.clone().sub(g.position);v.y=0;const d=v.length();
+    if(LAW.wanted&&d<1.5){g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base("Idle");if(pp.cool<=0){pp.cool=.9;if(r)r.full("1H_Melee_Attack_Chop",{once:true,restart:true,dur:.6,then:()=>r.clearFull()});
+        setTimeout(()=>{if(!LAW.wanted)return;hurt(30);popNum(P.pos.clone().add(new THREE.Vector3(0,2.4,0)),"🛡️ Guard!","burn");if(P.hp<=40||P.down){P.down=false;$("#down").classList.add("hidden");jail();lawSay("🚔 The guards caught you — off to jail!");}},300);}}
+    else if(d>.3){const sp=LAW.wanted?9.5:3;g.position.addScaledVector(v.normalize(),Math.min(d,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base(LAW.wanted?"Running_A":"Running_A",{speed:LAW.wanted?1.2:.6});}
+    else{g.rotation.y=pp.face;if(r)r.base("Idle");}}}
+function stepLife(dt){stepVillagers();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -870,7 +924,7 @@ function stepDummyGuns(dt){for(const d of DUMMIES){if(!d.gun||d.down)continue;co
     if(!done&&!P.down&&segDist(p0,p,P.pos.clone().add(new THREE.Vector3(0,1,0)))<.6){hurt(2);done=true;}
     if(done){sparks(p,6,0xff8a4a);scene.remove(b.s);DSHOTS.splice(i,1);}}}
 
-function hitTargets(){const t=[...SOLIDS];NODES.forEach(n=>{if(!n.down)t.push(n.rock);});TREES.forEach(tr=>{if(!tr.down)t.push(tr.trunk);});DUMMIES.forEach(d=>{if(!d.down)t.push(...d.parts);});return t;}
+function hitTargets(){const t=[...SOLIDS];PEOPLE.forEach(pp=>{if(!pp.down)t.push(pp.hb);});NODES.forEach(n=>{if(!n.down)t.push(n.rock);});TREES.forEach(tr=>{if(!tr.down)t.push(tr.trunk);});DUMMIES.forEach(d=>{if(!d.down)t.push(...d.parts);});return t;}
 function damage(d,n,at,headshot,o){o=o||{};if(d.down)return;if(P.mightT>0)n=Math.round(n*1.5);else if(P.strongT>0)n=Math.round(n*1.25);   // Potio Fortis, grilled fish
   const el=o.el||"plain",hex=FX.HEX[el];d.hp=Math.max(0,d.hp-n);popNum(at,(headshot?"HEAD ":"")+"-"+n,headshot?"head":"");sparks(at,12,hex);
   if(!o.area){FX.impact(at,el,headshot?1.0:.7);FX.stars(at,el,headshot?3:2,.9);}
@@ -902,6 +956,7 @@ function hurt(n){if(P.down||n<=0)return;const at=P.pos.clone().add(new THREE.Vec
   if(P.shield>0){const a=Math.min(P.shield,n);P.shield-=a;n-=a;popNum(at,"🫧 -"+a,"spell");if(n<=0)return;}
   if(P.toughT>0)n=Math.max(1,Math.round(n*.75));   // cheese
   P.hp=Math.max(0,P.hp-n);P.lastHit=tAcc;$("#vig").classList.add("on");setTimeout(()=>$("#vig").classList.remove("on"),160);shake(.08);hud();   // no healing by itself: only spells and potions heal
+  if(P.hp<=0&&LAW.wanted){P.hp=1;return;}
   if(P.hp<=0){P.down=true;toggleBag(false);const n=dropAll();$("#downMsg").textContent=n?`Everything you carried (${n} ${n===1?"stack":"stacks"}) is lying where you fell — go back for it within 5 minutes. Your coins and your chest are safe.`:"Health is back to full when you come back.";$("#down").classList.remove("hidden");if(document.exitPointerLock)document.exitPointerLock();}}
 function respawn(){P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=0;$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
@@ -1173,5 +1228,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   if(started&&!paused&&!bagOpen)step(dt);else animate(dt);SPARK.step(dt);PUFF.step(dt);FX.step(dt);updateCam(dt);placeBars();
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 frame();
-window.__el={CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
