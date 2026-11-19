@@ -205,6 +205,12 @@ function rig(gltf,split){const root=gltf.scene;const bones={};const mats=new Set
   return {root,bones,mats:[...mats],clips,update,
     base:(n,o)=>set("base",n,o),up:(n,o)=>set("up",n,o),full:(n,o)=>set("full",n,o),
     clearFull(){L.full.cur=null;},debug(){const o={};for(const ln in L)for(const k in L[ln].acts){const e=L[ln].acts[k];if(e.w>.01)o[ln+':'+k]=+e.w.toFixed(2)+'@'+e.a.time.toFixed(2)+'x'+e.a.timeScale.toFixed(2);}return o;},get fullName(){return L.full.cur;},get upName(){return L.up.cur;}};}
+// the hero's dark-brown fringe under the hood, as on the game cover (2026-11-18): a band plus spiky locks on the head bone
+function heroHair(r){const head=r&&r.bones.head;if(!head)return;const mat=new T.MeshStandardMaterial({color:0x3a2418,roughness:1,flatShading:true});const g=new T.Group();
+  const band=new T.Mesh(new T.CylinderGeometry(.5,.5,.12,14,1,false,-.75,1.5),mat);band.position.y=.55;band.scale.x=.82;g.add(band);
+  [[-.26,-.02,-.5,.19],[-.15,-.04,-.2,.24],[-.02,-.03,.05,.22],[.11,-.04,.25,.24],[.24,-.03,.45,.19]].forEach(([x,y,rz,h])=>{
+    const m=new T.Mesh(new T.ConeGeometry(.09,h,5),mat);m.scale.z=.45;m.rotation.set(Math.PI-.3,0,rz);m.position.set(x,.52+y,.47);g.add(m);});
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});head.add(g);}
 function loadRig(url,split,cb){if(!T.GLTFLoader){cb(null);return;}new T.GLTFLoader().load(url,g=>cb(rig(g,split)),undefined,e=>{console.warn("model",url,e);cb(null);});}
-return {hero,dummy,world,blockMesh,column,toon,M,loadRig};
+return {hero,dummy,world,blockMesh,column,toon,M,loadRig,heroHair};
 })();

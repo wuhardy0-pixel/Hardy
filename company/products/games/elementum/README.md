@@ -29,7 +29,7 @@ blocks drawn as Roman columns, cypress trees, bushes and flowers. Pivots and siz
 
 **Characters + walls (2026-11-17).** Barbara: "the character is ugly and change the attacker you know the black thing" and "the bullets are going
 through the walls ... it should cause a dent in the wall and the dent gets bigger until it makes a hole, it shouldn't damage me".
-- Hero = KayKit "Rogue_Hooded" (green hooded ranger), attacker = KayKit "Skeleton_Mage" — both by Kay Lousberg, CC0 (free for any use,
+- Hero = KayKit "Rogue_Hooded" (green hooded ranger; recoloured to match the game cover — cream tunic, dark trousers, plus a hair fringe from look.js), attacker = KayKit "Skeleton_Mage" — both by Kay Lousberg, CC0 (free for any use,
   credit appreciated: www.kaylousberg.com). Trimmed to the animations used into `models/hero.glb` and `models/skeleton_mage.glb`.
   `gltf-loader.js` is three.js r158's GLTFLoader made into a plain script. `LOOK.loadRig` plays them in layers: legs (idle / walk /
   run / backwards / strafe / jump) under arms (aim / shoot / reload), whole-body for hit, death and spells; the chest bends to the aim.

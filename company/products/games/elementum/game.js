@@ -84,7 +84,7 @@ const body=new THREE.Group();scene.add(body);
 const HERO=LOOK.hero();const {hips,torso,head,armL,armR,legL,legR}=HERO;body.add(hips);
 // the hero: KayKit's hooded ranger (models/hero.glb, CC0) with real animations; the shape-built body above shows until it loads (or if it can't)
 let RIG=null;const gunMount=new THREE.Group();scene.add(gunMount);
-LOOK.loadRig("/play/elementum/models/hero.glb",true,r=>{if(!r)return;RIG=r;r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;body.add(r.root);hips.visible=false;
+LOOK.loadRig("/play/elementum/models/hero.glb",true,r=>{if(!r)return;RIG=r;LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;body.add(r.root);hips.visible=false;
   r.base("Idle",{snap:true});r.up("2H_Ranged_Aiming",{snap:true});});
 const shadowDisc=new THREE.Mesh(new THREE.CircleGeometry(.35,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.18,depthWrite:false}));shadowDisc.rotation.x=-Math.PI/2;shadowDisc.position.y=.015;body.add(shadowDisc);
 const P={pos:new THREE.Vector3(0,0,0),vel:new THREE.Vector3(),yaw:0,onGround:true,run:false,phase:0,speed:0,hp:100,maxHp:100,lastHit:-99,down:false,downed:0};
@@ -719,7 +719,7 @@ function nameTag(text){const c=document.createElement("canvas");c.width=512;c.he
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,depthTest:false,transparent:true}));s.scale.set(1.9,.48,1);s.renderOrder=10;return s;}
 function mpAvatar(p){const g=new THREE.Group();g.position.set(p.x,p.y,p.z);scene.add(g);const o={g,rig:null,tag:null,name:"",hp:-1,to:new THREE.Vector3(p.x,p.y,p.z),yaw:p.yaw,lastFx:p.fx};
   const ring=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:0x7fd3ff,transparent:true,opacity:.7,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
-  LOOK.loadRig("/play/elementum/models/hero.glb",false,r=>{if(!r||!o.g.parent)return;o.rig=r;r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;g.add(r.root);r.base("Idle",{snap:true});});return o;}
+  LOOK.loadRig("/play/elementum/models/hero.glb",false,r=>{if(!r||!o.g.parent)return;o.rig=r;LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;g.add(r.root);r.base("Idle",{snap:true});});return o;}
 function mpApply(list){const seen=new Set();
   for(const p of list){seen.add(p.id);let o=MP.others[p.id];if(!o)o=MP.others[p.id]=mpAvatar(p);
     o.to.set(p.x,p.y,p.z);o.yaw=p.yaw;o.sp=p.sp;o.air=p.air;o.might=p.bf==="S";
