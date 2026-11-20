@@ -3762,7 +3762,7 @@ def elementum_state():
         except (TypeError, ValueError):
             return 0.0
     name = (session.get("v_name") or "").strip().split(" ")[0][:16] or "Player"
-    room = re.sub(r"[^A-Z0-9]", "", str(j.get("room") or "").upper())[:20] or "PUBLIC"   # you only see players in the same room (a code, or a name the players chose)
+    room = re.sub(r"[^A-Z0-9]", "", str(j.get("room") or "").upper())[:6] or "PUBLIC"   # you only see players in the same room (PUBLIC, or a private room's code)
     now = time.time()
     me = dict(id=pid, name=name, x=round(num("x", -200, 200), 2), y=round(num("y", -5, 60), 2), z=round(num("z", -200, 200), 2),
               yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
@@ -3820,23 +3820,51 @@ def elementum_state():
             w["events"].append((w["seq"], pid, ev))
         del w["events"][:-600]
         oldest = w["events"][0][0] if w["events"] else w["seq"] + 1
-        out = dict(players=others, you=name, room=room, houses=houses, seq=w["seq"], won=won,
+        if room != "PUBLIC":
+            rr = ELEM_ROOMS.setdefault(room, {"name": "Room " + room, "t": now})
+            rr["t"] = now
+        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won,
                    events=[e for s, by, e in w["events"] if s > since and by != pid])
         if since <= 0 or since < oldest - 1 or since > w["seq"]:
             out["keys"], out["events"] = w["keys"], []   # first call, or too far behind: the whole picture (old one-off events are skipped)
     return jsonify(out)
 
+# private rooms work like Kahoot (Barbara, 2026-11-20): you name your room, the game hands you a 6-digit code, friends join with the code
+# and see the name. Kept in memory; a room nobody has played in for a day is forgotten.
+ELEM_ROOMS = {}   # code -> {"name": str, "t": last used}
+
+def _room_name(raw):
+    return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9 '!&.,-]", "", str(raw or ""))).strip()[:24]
+
 @app.post("/api/elementum/room")
 def elementum_new_room():
-    """A fresh private room code nobody is using right now (4 letters/digits, no look-alikes such as O/0 or I/1)."""
-    abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    """Make a private room: a name the player chose, and a fresh 6-digit code nobody is using."""
+    j = request.get_json(silent=True) or {}
+    first = (session.get("v_name") or "").strip().split(" ")[0][:16] or "Player"
+    name = _room_name(j.get("name")) or f"{first}'s room"
+    now = time.time()
     with _elem_lock:
-        used = {p["room"] for p in ELEM_PLAYERS.values()}
-    for _ in range(50):
-        code = "".join(secrets.choice(abc) for _ in range(4))
-        if code not in used:
-            return jsonify(room=code)
+        for c in [c for c, r in ELEM_ROOMS.items() if now - r["t"] > 86400]:
+            del ELEM_ROOMS[c]
+        used = set(ELEM_ROOMS) | {p["room"] for p in ELEM_PLAYERS.values()}
+        for _ in range(50):
+            code = str(secrets.randbelow(900000) + 100000)
+            if code not in used:
+                ELEM_ROOMS[code] = {"name": name, "t": now}
+                return jsonify(room=code, name=name)
     return jsonify(error="try again"), 503
+
+@app.get("/api/elementum/room/<code>")
+def elementum_find_room(code):
+    """Joining with a code: is there such a room, and what is it called?"""
+    code = re.sub(r"[^0-9]", "", code)[:6]
+    with _elem_lock:
+        r = ELEM_ROOMS.get(code)
+        if r is None and any(p["room"] == code for p in ELEM_PLAYERS.values()):
+            r = ELEM_ROOMS[code] = {"name": "Room " + code, "t": time.time()}   # a room from before a restart, still being played in
+    if r is None:
+        return jsonify(error="No room with that code. Check the numbers."), 404
+    return jsonify(room=code, name=r["name"])
 
 @app.get("/play/elementum/<path:name>")
 def play_elementum_asset(name):

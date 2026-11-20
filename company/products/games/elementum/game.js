@@ -798,37 +798,46 @@ function stepLife(dt){stepVillagers();stepLaw(dt);stepMarks(dt);stepHouses(dt);T
 // ~7 times a second we send where we are to the server (/api/elementum/state) and get everyone else back. Monsters stay each player's own.
 const MP={id:(()=>{let s="";const a="abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";for(let i=0;i<12;i++)s+=a[Math.floor(Math.random()*a.length)];return s;})(),others:{},busy:false,t:0,fx:"",fxN:0,ok:false,you:""};
 function mpFx(s){MP.fxN++;MP.fx=s+":"+MP.fxN;}
-// rooms: the public world, or a private room you name ("Hardy's Castle") or a 4-letter code — share the name or a link with ?room=...
-// The room is the name's letters and digits in capitals, so "hardys castle" and "Hardy's Castle" are the same room.
-const cleanRoom=c=>String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,20)||"PUBLIC";
-const roomLabel=c=>String(c||"").replace(/[^A-Za-z0-9 '!&-]/g,"").replace(/\s+/g," ").trim().slice(0,24);
+// rooms work like Kahoot: the public world, or a private room you give a name — the game hands you a 6-digit code, friends join with
+// the code (or a link with ?room=CODE) and see the room's name. The code is never the name (Barbara, 2026-11-20).
+const cleanRoom=c=>String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6)||"PUBLIC";
 MP.room=cleanRoom(new URLSearchParams(location.search).get("room")||(()=>{try{return localStorage.getItem("elementum.room");}catch(e){return "";}})());MP.list=[];
-MP.roomName=roomLabel(new URLSearchParams(location.search).get("room")||(()=>{try{return localStorage.getItem("elementum.roomName");}catch(e){return "";}})());
-if(cleanRoom(MP.roomName)!==MP.room)MP.roomName="";
-function setRoom(code){MP.room=cleanRoom(code);MP.roomName=MP.room==="PUBLIC"?"":roomLabel(code);WORLD.seq=0;WORLD.wanted.clear();try{localStorage.setItem("elementum.room",MP.room);localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}
+MP.roomName=(()=>{try{return localStorage.getItem("elementum.roomName")||"";}catch(e){return "";}})();
+function setRoom(code,name){const was=MP.room;MP.room=cleanRoom(code);if(name!==undefined||MP.room!==was)MP.roomName=MP.room==="PUBLIC"?"":(name||"");WORLD.seq=0;WORLD.wanted.clear();
+  try{localStorage.setItem("elementum.room",MP.room);localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}
   for(const id in MP.others){scene.remove(MP.others[id].g);delete MP.others[id];}MP.list=[];
-  try{const u=new URL(location.href);if(MP.room==="PUBLIC")u.searchParams.delete("room");else u.searchParams.set("room",MP.roomName||MP.room);history.replaceState(null,"",u);}catch(e){}
+  try{const u=new URL(location.href);if(MP.room==="PUBLIC")u.searchParams.delete("room");else u.searchParams.set("room",MP.room);history.replaceState(null,"",u);}catch(e){}
   MP.t=0;renderRoom(true);}
-function newRoom(){fetch("/api/elementum/room",{method:"POST",credentials:"include"}).then(r=>r.json()).then(j=>{if(j.room)setRoom(j.room);else $("#roomMsg").textContent=j.error==="Please sign in."?"Sign in first, then make a room.":"Could not make a room right now — try again.";}).catch(()=>{$("#roomMsg").textContent="Could not make a room right now — try again.";});}
+const roomErr=(j,fallback)=>j&&j.error==="Please sign in."?"Sign in first, then try again.":(j&&j.error)||fallback;
+function newRoom(name){fetch("/api/elementum/room",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({name:name||""})})
+  .then(r=>r.json()).then(j=>{if(j.room){setRoom(j.room,j.name);$("#roomMsg").textContent="Room made! Give your friends the code "+j.room+".";}else $("#roomMsg").textContent=roomErr(j,"Could not make a room right now — try again.");})
+  .catch(()=>{$("#roomMsg").textContent="Could not make a room right now — try again.";});}
+function joinRoom(code){code=String(code||"").replace(/[^0-9]/g,"");if(code.length!==6){$("#roomMsg").textContent="The code is 6 numbers — ask whoever made the room.";return;}
+  fetch("/api/elementum/room/"+code,{credentials:"include"}).then(r=>r.json()).then(j=>{if(j.room){setRoom(j.room,j.name);$("#roomMsg").textContent="You joined "+j.name+".";}else $("#roomMsg").textContent=roomErr(j,"No room with that code.");})
+  .catch(()=>{$("#roomMsg").textContent="Could not reach the game right now — try again.";});}
 let roomOpen=false;
 function toggleRoom(open){roomOpen=open===undefined?!roomOpen:open;$("#room").classList.toggle("hidden",!roomOpen);if(roomOpen){G.firing=false;if(document.exitPointerLock)document.exitPointerLock();renderRoom(true);}}
 // the buttons are drawn once (when the panel opens or the room changes); only the player list refreshes with each update — redrawing the
 // buttons 7 times a second swallowed clicks, so "New private room" and "Join" seemed to do nothing (fixed 2026-11-20)
 function roomPlayers(){const el=$("#roomPlayers");if(!el)return;const where=p=>inTown(p)?"🏰 in town":"⚔️ in the wilds";const me={name:(MP.you||"You")+" (you)",hp:Math.round(P.hp),x:P.pos.x,z:P.pos.z,y:0};
   const rows=[me,...MP.list].map(p=>{const d=Math.round(Math.hypot(p.x-P.pos.x,p.z-P.pos.z));return `<li><b>${esc(p.name)}</b><span>❤ ${p.hp} · ${where(new THREE.Vector3(p.x,0,p.z))}${p===me?"":` · ${d} m away`}</span></li>`;}).join("");
-  el.innerHTML=`<h3>Playing here now (${MP.list.length+1})</h3><ul class="players">${rows}</ul>${MP.ok?"":`<p class="tip">Connecting… (multiplayer works on play.hardywu.com)</p>`}`;}
+  el.innerHTML=`<h3>Playing here now (${MP.list.length+1})</h3><ul class="players">${rows}</ul>${MP.ok?"":`<p class="tip">Connecting… (multiplayer works on play.hardywu.com)</p>`}`;
+  const t=$("#roomTitle");if(t&&MP.roomName&&t.textContent!==MP.roomName)t.textContent=MP.roomName;}
 function renderRoom(full){if(!roomOpen)return;if(!full&&$("#roomPlayers")){roomPlayers();return;}
-  const pub=MP.room==="PUBLIC",shown=MP.roomName||MP.room;const link=location.origin+location.pathname+"?room="+encodeURIComponent(shown);
-  $("#roomBody").innerHTML=`<div class="code"><small>${pub?"You are in the":"Private room"}</small><b class="${shown.length>8?"long":""}">${pub?"Public world":esc(shown)}</b>${pub?"":`<button id="copyLink">📋 Copy invite link</button>`}</div>
-    <p class="tip">${pub?"Everyone who isn't in a private room plays here. Make a private room to play only with friends.":"Only players who type this same room name are in your world. Tell your friends the name, or send them the link."}</p>
+  const pub=MP.room==="PUBLIC";const link=location.origin+location.pathname+"?room="+MP.room;
+  $("#roomBody").innerHTML=`<div class="code">${pub?`<small>You are in the</small><b class="long">Public world</b>`:`<b class="long" id="roomTitle">${esc(MP.roomName||"Private room")}</b><small>Room code</small><b>${MP.room}</b><button id="copyLink">📋 Copy invite link</button>`}</div>
+    <p class="tip">${pub?"Everyone who isn't in a private room plays here. Make a private room to play only with friends.":"Only players with this code are in your world. Tell your friends the code, or send them the link."}</p>
     <div id="roomPlayers"></div>
-    <div class="join"><input id="roomCode" maxlength="24" placeholder="Room name or code" autocomplete="off"><button id="joinRoom">Go to room</button></div>
-    <p class="tip">Type any name, like <i>Hardy's Castle</i>. If nobody is in that room yet, it's made for you. Capitals and spaces don't matter.</p>
-    <div class="row"><button id="makeRoom">🎲 Make a room with a secret code</button>${pub?"":`<button id="goPublic" class="g">🌍 Back to the public world</button>`}</div><p class="msg" id="roomMsg"></p>`;
+    <h3>Join a friend's room</h3>
+    <div class="join"><input id="roomCode" maxlength="6" inputmode="numeric" placeholder="6-digit code" autocomplete="off"><button id="joinRoom">Join</button></div>
+    <h3>Make your own room</h3>
+    <div class="join"><input id="roomName" maxlength="24" placeholder="Name your room" autocomplete="off"><button id="makeRoom">🔒 Make room</button></div>
+    <p class="tip">You get a code to give your friends. Your room's name is what everyone sees.</p>
+    ${pub?"":`<div class="row"><button id="goPublic" class="g">🌍 Back to the public world</button></div>`}<p class="msg" id="roomMsg"></p>`;
   roomPlayers();
-  const go=()=>{const v=$("#roomCode").value;if(cleanRoom(v)==="PUBLIC"){$("#roomMsg").textContent=v.trim()?"Use letters or numbers in the room name.":"Type a room name, or the code your friend gave you.";return;}setRoom(v);$("#roomMsg").textContent="You're in "+(MP.roomName||MP.room)+" now.";};
-  $("#joinRoom").onclick=go;$("#roomCode").onkeydown=e=>{if(e.key==="Enter")go();};
-  $("#makeRoom").onclick=newRoom;if($("#goPublic"))$("#goPublic").onclick=()=>setRoom("PUBLIC");
+  $("#joinRoom").onclick=()=>joinRoom($("#roomCode").value);$("#roomCode").onkeydown=e=>{if(e.key==="Enter")joinRoom($("#roomCode").value);};
+  $("#makeRoom").onclick=()=>newRoom($("#roomName").value);$("#roomName").onkeydown=e=>{if(e.key==="Enter")newRoom($("#roomName").value);};
+  if($("#goPublic"))$("#goPublic").onclick=()=>setRoom("PUBLIC");
   if($("#copyLink"))$("#copyLink").onclick=()=>{(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>{$("#roomMsg").textContent="Link copied — paste it to a friend.";},()=>{$("#roomMsg").textContent=link;});};}
 function nameTag(text){const c=document.createElement("canvas");c.width=512;c.height=128;const x=c.getContext("2d");x.font="700 52px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";
   const w=Math.min(500,x.measureText(text).width+48);x.fillStyle="rgba(20,20,24,.62)";x.beginPath();x.roundRect(256-w/2,22,w,84,40);x.fill();x.fillStyle="#fff";x.fillText(text,256,66);
@@ -883,7 +892,7 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
-      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.icon} ${f.name}`,"spell");}});MP.you=j.you||"";MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
+      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.icon} ${f.name}`,"spell");}});MP.you=j.you||"";if(j.room===MP.room&&j.roomName&&j.roomName!==MP.roomName){MP.roomName=j.roomName;try{localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}}MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
 
 // ---------------- the range in town: dummies with health bars (and slow guns) ----------------
 const DUMMIES=[];
@@ -1279,5 +1288,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
