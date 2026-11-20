@@ -39,6 +39,7 @@
 - 2026-11-18 Barbara: everything can be made — the Forge now also cooks all 7 foods and makes a spell scroll of each element. 📖 Guide tab lists every item and how to get it; the bag shows 'How to get it' under the selected item.
 - 2026-11-18 Barbara: marks — blasts and fire leave black scorched grass (frost for ice); shots leave dents/soot on trees, rocks, stalls, the ground and people (walls already dented). Fade after 90 s.
 - 2026-11-18 Barbara: the law — townspeople (villagers, the cook) and guards can be hit. Hurting someone: a guard warns you (3 warnings); knocking someone out or hitting a guard: all 6 guards swarm you (very fast, hit hard, can't be beaten). Caught → Carcer, the town jail (barred cell north of the square), 30 s (+15 s each time, up to 90 s), then you're let out. You don't lose your things. Knocked-out people get up after 60 s. guard.glb re-trimmed from KayKit Knight with run/chop/hit + sword and shield.
+- 2026-11-20 Barbara: private rooms fixed — the room panel was redrawn 7 times a second, swallowing clicks on "New private room" and "Join". Buttons now draw once; only the player list refreshes. Rooms can have names ("Hardy's Castle"; capitals, spaces and punctuation don't matter, up to 20 letters/digits) or a secret 4-letter code. Two-browser test: make, join by code, join by name typed differently — all see each other.
 
 ## Next (one step at a time, as Hardy asks)
 - Step 3 candidates: elemental crystals on the guns (burn/soak/charge status from the GDD), the Latin casts, a real map, other players, sounds.

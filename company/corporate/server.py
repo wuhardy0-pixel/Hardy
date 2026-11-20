@@ -3762,7 +3762,7 @@ def elementum_state():
         except (TypeError, ValueError):
             return 0.0
     name = (session.get("v_name") or "").strip().split(" ")[0][:16] or "Player"
-    room = re.sub(r"[^A-Z0-9]", "", str(j.get("room") or "").upper())[:6] or "PUBLIC"   # you only see players in the same room
+    room = re.sub(r"[^A-Z0-9]", "", str(j.get("room") or "").upper())[:20] or "PUBLIC"   # you only see players in the same room (a code, or a name the players chose)
     now = time.time()
     me = dict(id=pid, name=name, x=round(num("x", -200, 200), 2), y=round(num("y", -5, 60), 2), z=round(num("z", -200, 200), 2),
               yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
