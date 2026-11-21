@@ -37,7 +37,9 @@ block(0,-24,22,2.6,1,0x7e7e82);
 const TOWN={x0:-45,x1:45,z0:-36,z1:42,gate:3};   // walls on the edges; each gate is 6 m wide, in the middle of its side (east and west gates line up with the range, z = -5)
 // Nova Urbs, the new city, joins on to the east (2026-11-21): the old east gate leads into it; both are safe from monsters
 const CITY={x0:TOWN.x1,x1:135,z0:TOWN.z0,z1:TOWN.z1,gz:-5,XS:[50,72,94,116],ZS:[-5,17]};
-const inTown=(p,m)=>{m=m||0;return p.x>TOWN.x0-m&&p.x<CITY.x1+m&&p.z>TOWN.z0-m&&p.z<TOWN.z1+m;};
+// the gas station just outside the east gate is safe ground too (guards there; monsters keep out and can't hurt you)
+const GAS_SAFE={x0:CITY.x1,x1:157,z0:-31,z1:-1};
+const inTown=(p,m)=>{m=m||0;return (p.x>TOWN.x0-m&&p.x<CITY.x1+m&&p.z>TOWN.z0-m&&p.z<TOWN.z1+m)||(p.x>GAS_SAFE.x0-m&&p.x<GAS_SAFE.x1+m&&p.z>GAS_SAFE.z0-m&&p.z<GAS_SAFE.z1+m);};
 {const H=6,T=1.6,TW=3,TH=8,gz=-5;const tone=0x9e968a;
   // north and south walls, with a gate at x = 0
   [TOWN.z0,TOWN.z1].forEach(z=>{const a=TOWN.gate+TW,len=TOWN.x1-a;block(a+len/2,z,len,H,T,tone);block(-(a+len/2),z,len,H,T,tone);
@@ -1348,7 +1350,10 @@ const GAS={pumps:[new THREE.Vector3(143,0,-17),new THREE.Vector3(149,0,-17)],pri
   const pad=new THREE.Mesh(new THREE.PlaneGeometry(16,12),new THREE.MeshLambertMaterial({color:0x6a6a70}));pad.rotation.x=-Math.PI/2;pad.position.set(x,.015,z+1);scene.add(pad);
   building(x,z-9,6,4,1,1,{name:"Benzina — gas station",colors:[0xe8e4dc,0xc8302a],awning:0xc8302a,enter:true,floor:0x8a8a90});
   const road=new THREE.Mesh(new THREE.PlaneGeometry(14,7),new THREE.MeshLambertMaterial({color:0x5a5a60}));road.rotation.x=-Math.PI/2;road.position.set(CITY.x1+7,.014,CITY.gz);scene.add(road);
-  makeCar(141,-13,Math.PI,0x8a4fb0);makeCar(151,-13,Math.PI,0xe08a3a);}
+  makeCar(141,-13,Math.PI,0x8a4fb0);makeCar(151,-13,Math.PI,0xe08a3a);
+  // two guards watch the pumps
+  [[139.5,-21,Math.PI/2],[152.5,-21,-Math.PI/2]].forEach(([gx,gz,f])=>{const o=npc("guard.glb",gx,gz,f);const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(m.name==="1H_Sword"||m.name==="Round_Shield")m.visible=true;});},300);personize(o,"Guard",true);});
+  const sg=label("Safe here — guarded",0x9dffb0);sg.scale.set(3.4,.6,1);sg.position.set(x,5.4,z+3.6);scene.add(sg);}
 const CAR_ACT={pos:new THREE.Vector3(),car:null};
 ACTS.push({pos:CAR_ACT.pos,r:2.8,label:()=>P.inCar?(nearPump()?`Fill up the tank (${fillCost()} denarii)`:"Get out of the car"):CAR_ACT.car?`Get in the car (fuel ${Math.round(CAR_ACT.car.fuel/CAR_ACT.car.max*100)}%)`:"",hidden:()=>!P.inCar&&!CAR_ACT.car,
   run:()=>{if(P.inCar){if(nearPump()){const c=fillCost();if(!c)return lawSay("The tank is already full.");if(COINS<c)return lawSay(`Filling up costs ${c} — you have ${COINS}.`);COINS-=c;coinHud();P.inCar.fuel=P.inCar.max;lawSay("Tank full!");return;}exitCar();}else enterCar(CAR_ACT.car);}});
