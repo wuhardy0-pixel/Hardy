@@ -63,6 +63,15 @@ function why(s){const L=s.L,W=s.W,st=init(L),out=[];
   if(W.o.vents!=="closed"&&st.o.vents==="closed")out.push("Open vents let the cool night air in.");if(W.o.barrels>0)out.push("The water barrels soaked up heat when it was warm and gave it back when it got cold.");
   if(W.o.cellar==="yes")out.push("The cellar kept the floor close to the steady temperature of the ground.");if(W.o.pot==="yes")out.push("Water evaporating from the clay pot carried heat away.");
   if(L.fuel)out.push(`You used ${s.fuelUsed.toFixed(1)} loads of firewood.`);return out.join(" ");}
+function whyFail(s){const L=s.L,W=s.W,out=[];
+  out.push("Heat always moves from warm to cold — out of a warm room in winter, into a cool room in summer — and it moves faster through some materials than others.");
+  if(L.ice)out.push("Heat from the warm air and the sun got through the walls and roof and melted the ice. Stone and wood let heat through quite fast; materials full of trapped, still air — sawdust, straw, wool — slow it right down. That's why old ice houses had walls stuffed with sawdust.");
+  else if(s.minT<L.lo){const f=Object.entries(s.coldFlows||{}).filter(([k,v])=>v<0).sort((a,b)=>a[1]-b[1])[0];const where=f?{left:"the left wall",right:"the right wall",roof:"the roof",floor:"the floor",window:"the window",drafts:"gaps letting cold air in","night vents":"the open vents"}[f[0]]:"the walls";
+    out.push(`At night the outside got cold and the room's heat poured out — most of it through ${where}. ${f&&f[0]==="drafts"?"Moving air carries heat away very fast; a draft is like leaving a door a little open.":f&&f[0]==="window"?"Thin glass lets heat straight through, especially at night.":"A thin layer of stone or wood is like a thin blanket. Air trapped in straw or wool is a thick one."}${L.fuel&&s.fuel<=0?" The fire couldn't keep up: it was making heat, but the heat leaked out as fast as it came, and the firewood ran out.":""}`);}
+  else if(s.maxT>L.hi){const f=Object.entries(s.hotFlows||{}).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1])[0];
+    out.push(f&&f[0]==="roof"?"The sun beat down on the roof. Dark colors soak up sunlight and get very hot, and that heat came down into the room.":f&&f[0]==="sun through the window"?"Sunshine came straight through the window and warmed everything it touched, like a car in summer.":"Heat from outside and inside built up during the day with nothing to cool it.");
+    out.push("Heavy things like stone and water warm up slowly, so they soak up heat in the day; cool night air can carry heat away if it's allowed in.");}
+  return out.join(" ");}
 // ---------------- drawing: a cut-through room and a temperature chart ----------------
 function tempColor(T){const k=Math.max(0,Math.min(1,(T+5)/40));return `rgb(${Math.round(60+190*k)},${Math.round(120+60*Math.sin(k*Math.PI))},${Math.round(230-200*k)})`;}
 function geo(cv){const w=cv.width,h=cv.height,rw=w*.46,rh=h*.48,x0=w*.06,y0=h*.2;return {w,h,rw,rh,x0,y0,th:Math.max(8,w*.018)};}
@@ -121,5 +130,5 @@ const IDEAS={insulate:{name:"Insulate",note:"Straw, wool or sawdust in the walls
   shutters:{name:"Night shutters",note:"Windows lose lots of heat at night — close wooden shutters over them.",apply:W=>{W.o.shutters="yes";}}};
 function build(L,ideas,thick){const W=init(L);ideas.forEach(id=>IDEAS[id].apply(W,L));if(thick)["left","right","roof"].forEach(p=>{while(W.parts[p].length<3)W.parts[p].push(thick);});return W;}
 window.ENG=window.ENG||{};
-window.ENG.heat={name:"Heat",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,useTool,setOpt,canvasRatio:.55,MATS,OPTS};
+window.ENG.heat={name:"Heat",tools,init,ser,de,cost,start,step,judge,explain,why,whyFail,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,useTool,setOpt,canvasRatio:.55,MATS,OPTS};
 })();

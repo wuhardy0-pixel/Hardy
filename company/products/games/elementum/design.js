@@ -76,7 +76,7 @@ function draw(){const cv=$("#dCanvas");if(!cv)return;const L=Lv(cur),E=eng();con
   const el=$("#dCost");if(el){const c=E.cost(W,L);el.innerHTML=`Cost: <b class="${c>L.budget?"over":""}">${c}</b> / ${L.budget}`;}}
 function finish(r){result=r;const id=cur,s=S(id),E=eng();
   if(r.ok){const lv=lvOf(id),first=!s.solved;s.solved=true;s.next=Math.min(2,lv+1);s.best={lv,eng:SC.byId[id].eng,data:E.ser(W)};save();say(`<b>It works!</b>${r.note?" "+r.note:""}${E.why?`<br><b>Magistra Cornelia:</b> ${E.why(sim)}`:""}`);if(hooks.onSolved)hooks.onSolved(SC.byId[id],lv,first,s.best);}
-  else{const ex=E.explain(sim);ST.prof[ex.tag]=(ST.prof[ex.tag]||0)+1;save();say(ex.msg);}draw();}
+  else{const ex=E.explain(sim);ST.prof[ex.tag]=(ST.prof[ex.tag]||0)+1;save();const wf=E.whyFail?E.whyFail(sim):"";say(`${ex.msg}${wf?`<br><b>Magistra Cornelia — why it didn't work:</b> ${wf}`:""}`);}draw();}
 function loop(t){cancelAnimationFrame(raf);if(!openFlag||!sim)return;raf=requestAnimationFrame(loop);const dt=lastT&&t?Math.min(1/15,(t-lastT)/1000):1/60;lastT=t||0;if(result)return;
   const E=eng();E.step(sim,dt);const r=E.judge(sim);draw();if(r)finish(r);}
 // ---------------- your projects: every problem you've heard about ----------------
@@ -115,7 +115,8 @@ const SHELVES={"Science":["Why is the sky blue?","How do magnets work?","What ma
   "Animals":["How do bees make honey?","Why do cats purr?","How do fish breathe underwater?","How do birds fly?"],"Ancient Rome":["How did the Romans build aqueducts?","What did Roman children eat?","How were Roman roads built?","What was the Colosseum?"],
   "Math":["What is pi?","Why does a circle have 360 degrees?","Who invented the number zero?","What are prime numbers?"],"Building":["How do bridges stay up?","Why are triangles strong?","What is a cantilever?","How do skyscrapers stand in the wind?"],
   "Gardens":["How do bees pollinate flowers?","What do ladybugs eat?","How do plants grow from seeds?","What is compost?"],"Water & weather":["Why does it rain?","What is a hurricane?","How do floods happen?","Where does tap water come from?"],
-  "Heat & cold":["How does insulation work?","Why are dark things hotter in the sun?","How did people keep food cold long ago?","What is temperature?"],"Inventions":["How does a lever work?","How does a pulley work?","Who invented the printing press?","How do clocks work?"]};
+  "Heat & cold":["How does insulation work?","Why are dark things hotter in the sun?","How did people keep food cold long ago?","What is temperature?"],"Designs":["How does a truss bridge work?","How does a beam bridge work?","How does an arch bridge work?","How does a suspension bridge work?","What is a cantilever bridge?","Why are A-frames so stable?","How does a roof truss work?","What are guy ropes and why do they hold things up?","What is companion planting?","How does a French drain work?","How do rain gardens work?","How does a straw-bale house stay warm?","How does a passive solar house work?"],
+  "Inventions":["How does a lever work?","How does a pulley work?","Who invented the printing press?","How do clocks work?"]};
 function forYou(){const q=[];SC.list.forEach(sc=>{const s=S(sc.id);if(s.facts.length&&!s.solved)q.push(...sc.books);});return [...new Set(q)].slice(0,8);}
 function openLibrary(o){hooks=o||{};cur=null;mode="library";show();if(hooks.shelf)libShelf(hooks.shelf,true);else if(hooks.computer)libComputer(true);else libHome();}
 function libHome(msg){const fy=forYou();let h=head("Bibliotheca — the library")+`<div class="dbody">${msg?`<p class="bad">${esc(msg)}</p>`:""}

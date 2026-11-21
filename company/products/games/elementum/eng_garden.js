@@ -94,6 +94,20 @@ function why(s){const L=s.L,{hp,pol}=score(s);const nm={ladybug:"Your ladybugs a
   if(s.repel)out.push(`The smell of your marigolds turned pests away ${s.repel} times, and shiny tape and scarecrows kept birds off.`.replace(", and shiny tape and scarecrows kept birds off",s.items.some(i=>i.t==="scarecrow"||i.t==="tape")?", and the scarecrow and tape scared birds off":""));
   if(L.bees)out.push(`Bees still reached the flowers — ${Math.round(pol*100)}% were pollinated${s.items.some(i=>i.t==="flowers")?", helped by your wildflowers bringing more bees":""}.`);
   if(s.items.some(i=>i.t==="poison"))out.push("It worked with poison — but the poison also killed helpful animals.");return out.join(" ");}
+function whyFail(s){const L=s.L,{hp,pol}=score(s);const tot=Object.values(s.dmg).reduce((a,b)=>a+b,0)||1;const worst=Object.entries(s.dmg).sort((a,b)=>b[1]-a[1])[0];const out=[];
+  const how={aphid:"Aphids are tiny and fly in on the wind, then land on the leaves and suck the plant's juice. They multiply very fast, so a few soon become thousands. Nothing in your garden ate them or kept them away for long enough.",
+    whitefly:"Whiteflies drift in and sit under the leaves, sucking the juice. Their smell-sense is how they find plants — and how marigolds can confuse them.",
+    cater:"Caterpillars don't come from outside: butterflies lay eggs right on the leaves, and the eggs hatch on your plants. So fences and traps don't help — only stopping the butterflies landing, or animals that eat caterpillars, do.",
+    slug:"Slugs hide in the day and come out at night, sliding along the ground on a trail of slime. They can't fly or climb fences, but they go under and around anything with a gap.",
+    bird:"Birds are clever: they come back to food they've found before, and they quickly learn that a scarecrow never moves. Only something they physically can't get through keeps them off for good.",
+    rabbit:"Rabbits walk in from the field and nibble everything. A fence works only if it goes all the way around — rabbits test every gap until they find one.",
+    mouse:"Mice can squeeze through tiny holes and chew through sacks to reach grain. Only containers they can't chew, or animals that hunt them, keep the grain safe.",
+    moth:"Codling moths fly in and lay eggs on the young fruit; the larvae then tunnel into the apple. You have to stop the moths before they lay eggs."};
+  if(worst&&hp<L.need)out.push(`${PESTS[worst[0]].name[0].toUpperCase()+PESTS[worst[0]].name.slice(1)} did ${Math.round(worst[1]/tot*100)}% of the damage. ${how[worst[0]]}`);
+  if(L.bees&&pol<L.bees){if(s.beesKilled)out.push(`Poison doesn't choose who it kills: ${s.beesKilled} bees died too. Many fruits only form when a bee carries pollen from flower to flower — no bees, no fruit, however healthy the plant.`);
+    else if(s.plants.some(p=>p.net))out.push("Nets keep pests off, but they keep bees off too — and the flowers under them were never pollinated, so they couldn't make fruit.");
+    else out.push("Too few bees came. Bees go where there are lots of flowers to feed on; a garden with only the crop doesn't attract many.");}
+  return out.join(" ");}
 function side(k){const [x,y]=k.split(",").map(Number);return x<=0?"left":x>=C-1?"right":y<=0?"top":"bottom";}
 // ---------------- drawing ----------------
 function view(cv){const sc=Math.min(cv.width/(C+1),cv.height/(R+1));const ox=(cv.width-C*sc)/2,oy=(cv.height-R*sc)/2;return {sc,X:x=>ox+(x+.5)*sc,Y:y=>oy+(y+.5)*sc,ix:px=>Math.round((px-ox)/sc-.5),iy:py=>Math.round((py-oy)/sc-.5),ox,oy};}
@@ -159,5 +173,5 @@ function tools(L){return {main:(L.tools||Object.keys(TOOLS)).concat(["erase"]).f
 function info(L){const ps=Object.keys(L.pests||{}).map(k=>PESTS[k].name).join(", ");return `Protect the ${L.crop} for ${L.days} days from ${ps}. At least ${Math.round(L.need*100)}% must stay healthy${L.bees?` and ${Math.round(L.bees*100)}% of the flowers must be pollinated by bees`:""}. Click squares to place things (drag to place many).`;}
 function build(L,ideas){const W=init(L);ideas.forEach(id=>IDEA_ITEMS(id,L,W.items));return W;}
 window.ENG=window.ENG||{};
-window.ENG.garden={name:"Garden",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C,TOOLS,PESTS};
+window.ENG.garden={name:"Garden",tools,init,ser,de,cost,start,step,judge,explain,why,whyFail,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C,TOOLS,PESTS};
 })();

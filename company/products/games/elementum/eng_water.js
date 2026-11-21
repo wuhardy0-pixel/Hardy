@@ -75,6 +75,11 @@ function why(s){const L=s.L,r=goals(s);let fell=0;for(let y=0;y<R;y++)for(let x=
   if(Object.values(s.W.mods).some(v=>v>0))out.push("Your sandbag walls were higher than the water, so it had to go around them.");
   if(s.W.pipes.length)out.push("Your pipe ended lower than it started, so water flowed through it.");
   if(L.wet)out.push(`The ${L.wet.kind} got ${r.wet.toFixed(2)} of water (it needed ${L.wet.need}).`);if(L.store)out.push(`The barrels saved ${r.store.toFixed(1)} (you needed ${L.store}).`);return out.join(" ");}
+function whyFail(s){const L=s.L,r=goals(s);const out=[];
+  if(L.dry&&r.dry>(L.dryLim||DRY_LIM))out.push(`Water always flows from higher ground to lower ground, and it keeps going until it can't go any lower. The ${L.dry===true?"house":[].concat(L.dry).join(" / ")} sits lower than the ground around it on at least one side, so rain falling there ran downhill straight into it. To keep it dry, the water needs another way down that's lower still — a channel that slopes all the way to the drain or river — or a wall higher than the water so it has to go around.`);
+  if(L.wet&&r.wet<L.wet.need)out.push(`The water from the spring took the easiest way downhill, and that way didn't pass through the ${L.wet.kind}. Water can't climb: a channel only carries it if every square is a little lower than the one before. And if the channel is much deeper than the ${L.wet.kind}, the water stays down in the channel instead of spreading out.`);
+  if(L.store&&r.store<L.store)out.push("The barrels caught only the water that flowed right into their squares. Most of the rain ran past them downhill. Barrels work best where water already collects — like right where a roof drips — or where channels lead water into them.");
+  return out.join(" ");}
 function cellsOf(s,kind){const out=[];for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(s.g.k[y][x]===kind)out.push(key(x,y));return out;}
 function goals(s){const L=s.L,r={};if(L.dry){const kinds=[].concat(L.dry===true?["house"]:L.dry);r.dry=Math.max(0,...kinds.flatMap(k=>cellsOf(s,k)).map(k=>s.peak[k]||0));}
   if(L.wet){const cs=cellsOf(s,L.wet.kind);r.wet=cs.length?cs.reduce((a,k)=>a+(s.got[k]||0),0)/cs.length:0;}
@@ -148,5 +153,5 @@ function info(L){const g=[];if(L.dry)g.push(`keep the ${L.dry===true?"house":[].
   return `Goal: ${g.join(", and ")}. Hover a square to see how high it is — water flows from high to low. Click to dig or pile sandbags (drag to do many).`;}
 function build(L,ideas){const W=init(L);ideas.forEach(id=>IDEAS[id].apply(W,L));return W;}
 window.ENG=window.ENG||{};
-window.ENG.water={name:"Water",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C+.06,MAPS,apply};
+window.ENG.water={name:"Water",tools,init,ser,de,cost,start,step,judge,explain,why,whyFail,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C+.06,MAPS,apply};
 })();

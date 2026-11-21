@@ -920,8 +920,8 @@ function shopBuy(i){const sh=CUR_SHOP;if(!sh)return;const id=sh.S.items[i],f=FOO
   else if(id==="sandals"){P.buffT=Math.max(P.buffT||0,120);hud();}
   COINS-=f.price;coinHud();forgeOk=true;forgeMsg=id in FOODS?`${f.name} is in your bag.`:id==="haircut"?"Snip snip — what a new look!":"Off you go — fast feet!";}
 // the library: shelves along the walls, each with a sign for its subject; a computer on a desk; Varro behind the desk
-function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Science","Space","Animals","Ancient Rome","Math","Building","Gardens","Water & weather","Heat & cold","Inventions"];
-  const spots=[];for(let i=0;i<5;i++)spots.push([bd.x-bd.w/2+.6,bd.z-3.6+i*1.8,Math.PI/2]);for(let i=0;i<5;i++)spots.push([bd.x+bd.w/2-.6,bd.z-3.6+i*1.8,-Math.PI/2]);
+function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Designs","Building","Science","Space","Animals","Ancient Rome","Math","Gardens","Water & weather","Heat & cold","Inventions"];
+  const spots=[];for(let i=0;i<6;i++)spots.push([bd.x-bd.w/2+.6,bd.z-4.5+i*1.8,Math.PI/2]);for(let i=0;i<5;i++)spots.push([bd.x+bd.w/2-.6,bd.z-4.5+i*1.8,-Math.PI/2]);
   spots.forEach(([x,z,r],i)=>{const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=r;scene.add(g);bd.parts.push(g);const sh=LOOK.M(new THREE.BoxGeometry(1.6,2.4,.5),wood,.02);sh.position.y=1.2;g.add(sh);
     for(let k=0;k<4;k++)for(let b=0;b<9;b++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.13,.42,.3),LOOK.toon([0xb5482f,0x3f6fa8,0x4f8f3a,0xc98a2b,0x8a4fb0,0xe8dcc4][(b+k+i)%6]));bk.position.set(-.65+b*.16,.5+k*.55,.12);g.add(bk);}
     const sign=signBoard(cats[i],0xbfe0ff);sign.scale.setScalar(.75);sign.position.set(0,2.65,.27);g.add(sign);
