@@ -889,7 +889,7 @@ const SPOTS={shop:[],eat:[],gossip:[],stroll:[]};
 const BLOCK_X=[[54,68],[76,90],[98,112],[120,132]],BLOCK_Z=[[-33,-9],[-1,13],[21,39]];
 const SPECIAL={"1,1,-1":{name:"Taberna — deep-dish pizza",awning:0xc8432f,eat:true,floors:3},"2,0,1":{name:"Thermopolium — hot food",awning:0xd8a03a,eat:true,floors:2},
   "0,2,-1":{name:"Pistrinum — bakery",awning:0x3f7f5a,eat:true,shop:true,floors:3},"2,1,-1":{name:"Macellum — grocer",awning:0x3f6fa8,shop:true,floors:2},
-  "3,2,-1":{name:"Insula Alta — apartments",awning:0x2f5f8a,floors:6,apt:true},"3,0,1":{name:"Tonsor — barber",awning:0xb5392b,shop:true,floors:3},"1,0,1":{name:"Sutor — shoes",awning:0x8a4fb0,shop:true,floors:4}};
+  "0,0,1":{name:"Taberna Tua — your shop",awning:0x6a6a70,floors:2,biz:true},"3,2,-1":{name:"Insula Alta — apartments",awning:0x2f5f8a,floors:6,apt:true},"3,0,1":{name:"Tonsor — barber",awning:0xb5392b,shop:true,floors:3},"1,0,1":{name:"Sutor — shoes",awning:0x8a4fb0,shop:true,floors:4}};
 // ---------------- inside the buildings (2026-11-22): shops with a counter, shelves of goods and a shopkeeper; the library with
 // labeled shelves and a computer; the school with desks and a blackboard. One warm lamp follows you into whichever room you're in.
 const ROOM_LIGHT=new THREE.PointLight(0xffe2b0,0,14,1.4);scene.add(ROOM_LIGHT);
@@ -963,10 +963,52 @@ function aptInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,ex=bd.x+bd.w/2-1.3,ez=zb
   ACTS.push({pos:APT.chest,r:1.6,label:"Open your chest",hidden:()=>!APT.owned,run:()=>toggleBag(true,"chest")});}
 function ride(to,msg){const v=$("#vig");lawSay(msg);v.classList.add("on");setTimeout(()=>{P.pos.copy(to);P.vel.set(0,0,0);v.classList.remove("on");},700);}
 function stepRooms(){const r=inRoom(P.pos);if(r){ROOM_LIGHT.position.copy(r.c);ROOM_LIGHT.intensity=1.6;}else ROOM_LIGHT.intensity=0;}
+// ---------------- your own business (2026-11-22, "you can start a business"): rent the empty shop, pick what to sell, buy stock, set a price.
+// Neighbors come in and buy — fewer if the price is too high; at too low a price you lose money. Each business day (2 minutes) ends with a
+// report: money in − money out = profit (after rent). A painted sign brings more customers. Saved on this device.
+const BIZ_TYPES={lemonade:{name:"Lemonade stand",unit:"cups",cost:1,fair:3,color:0xf0d040},bakery:{name:"Bakery",unit:"loaves",cost:3,fair:6,color:0xc08a4e},
+  flowers:{name:"Flower shop",unit:"bunches",cost:2,fair:5,color:0xd060a0},toys:{name:"Toy shop",unit:"toys",cost:6,fair:12,color:0x3f6fa8}};
+const BIZ_DAY=120,BIZ_RENT=5;
+let BIZ;try{BIZ=JSON.parse(localStorage.getItem("elementum.business")||"null");}catch(e){BIZ=null;}
+BIZ=BIZ||{type:null,price:0,stock:0,sign:false,day:1,t:0,today:{came:0,sold:0,in:0,out:0},days:[]};
+const bizSave=()=>{try{localStorage.setItem("elementum.business",JSON.stringify(BIZ));}catch(e){}};
+const BIZ_AT={counter:null,spot:null,crates:[]};
+function bizInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,zc=zb+f*1.7;const c=block(bd.x,zc,Math.min(bd.w-1.6,4.2),1.05,.7,0x8a5a32);c.material=LOOK.toon(0x8a5a32);
+  BIZ_AT.counter=new THREE.Vector3(bd.x,0,zc+f*1.1);BIZ_AT.spot=new THREE.Vector3(bd.x+1,0,zc+f*1.2);BIZ_AT.bd=bd;BIZ_AT.f=f;BIZ_AT.zb=zb;
+  SPOTS.shop.push({pos:BIZ_AT.spot,face:f>0?Math.PI:0,name:"your shop",biz:true});
+  ACTS.push({pos:BIZ_AT.counter,r:2,label:()=>BIZ.type?`Your ${BIZ_TYPES[BIZ.type].name.toLowerCase()}`:"Start a business here",run:()=>toggleBag(true,"biz")});bizCrates();}
+function bizCrates(){BIZ_AT.crates.forEach(c=>scene.remove(c));BIZ_AT.crates=[];if(!BIZ_AT.bd||!BIZ.type)return;const n=Math.min(12,Math.ceil(BIZ.stock/5));const T=BIZ_TYPES[BIZ.type];
+  for(let i=0;i<n;i++){const m=LOOK.M(new THREE.BoxGeometry(.5,.4,.4),LOOK.toon(T.color),.01);m.position.set(BIZ_AT.bd.x-1.6+(i%6)*.62,.2+Math.floor(i/6)*.42,BIZ_AT.zb+BIZ_AT.f*.6);scene.add(m);BIZ_AT.crates.push(m);}}
+// will this customer buy? at the fair price about 6 in 10 do; at double the price nobody; at half almost everyone
+function bizTry(walker){if(!BIZ.type)return;const T=BIZ_TYPES[BIZ.type];BIZ.today.came++;if(BIZ.stock<=0){if(walker)say(walker,"Sold out? Oh well.",2.4);return;}
+  const p=Math.max(0,Math.min(1,1.6-BIZ.price/T.fair));if(Math.random()<p){BIZ.stock--;BIZ.today.sold++;BIZ.today.in+=BIZ.price;COINS+=BIZ.price;coinHud();bizCrates();
+    if(walker)say(walker,pick(["I'll take one!","Just what I wanted.","Lovely, thank you!"]),2.4);if(P.pos.distanceTo(BIZ_AT.counter)<12)popNum(BIZ_AT.counter.clone().add(new THREE.Vector3(0,2,0)),`+${BIZ.price} denarii`,"spell");}
+  else if(walker)say(walker,pick(["Too expensive!","Hmm, not at that price.","Maybe another day."]),2.4);bizSave();}
+function stepBiz(dt){if(!BIZ.type)return;BIZ.t+=dt;
+  // customers from all over town (besides the neighbors you see walk in): more with a sign
+  if(Math.random()<dt/(BIZ.sign?5:8))bizTry(null);
+  if(BIZ.t>=BIZ_DAY){const d=BIZ.today;d.out+=BIZ_RENT;const profit=d.in-d.out;BIZ.days.push({day:BIZ.day,came:d.came,sold:d.sold,in:d.in,out:d.out,profit,price:BIZ.price});BIZ.days=BIZ.days.slice(-8);
+    COINS-=BIZ_RENT;coinHud();lawSay(`Business day ${BIZ.day}: ${d.sold} sold, money in ${d.in} − money out ${d.out} = profit ${profit} denarii.`);BIZ.day++;BIZ.t=0;BIZ.today={came:0,sold:0,in:0,out:0};bizSave();}}
+function bizTab(box){let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;if(!BIZ_AT.counter||P.pos.distanceTo(BIZ_AT.counter)>4){box.innerHTML=h+`<p class="tip">Your shop is the empty one for rent in Nova Urbs, next to the plaza.</p>`;return;}
+  if(!BIZ.type){h+=`<p class="tip">Start a business! Choose what to sell. Rent is ${BIZ_RENT} denarii per business day (2 minutes). You buy stock, set your price, and neighbors come in to buy.</p><div class="list">`;
+    for(const [k,t] of Object.entries(BIZ_TYPES))h+=`<button data-bizstart="${k}"><span>${esc(t.name)} <small>${t.unit} cost you ${t.cost} each to make · people think ${t.fair} is a fair price</small></span></button>`;box.innerHTML=h+`</div>`;return;}
+  const T=BIZ_TYPES[BIZ.type],d=BIZ.today;
+  h+=`<h3>${esc(T.name)} — day ${BIZ.day} (${Math.ceil(BIZ_DAY-BIZ.t)} s left)</h3><p class="tip">Each of your ${T.unit} costs you ${T.cost} to make. You sell them for <b>${BIZ.price}</b>. In stock: <b>${BIZ.stock}</b>.</p>
+    <div class="answer">Price: <input id="bizPrice" type="number" min="1" max="99" value="${BIZ.price}"><button id="bizSetPrice">Set price</button></div>
+    <div class="list"><button data-bizbuy="10"><span>Make 10 more ${T.unit}</span><b>${10*T.cost} 🪙</b></button><button data-bizbuy="25"><span>Make 25 more ${T.unit}</span><b>${25*T.cost} 🪙</b></button>
+    ${BIZ.sign?"":`<button data-bizsign="1"><span>Paint a sign — more customers</span><b>15 🪙</b></button>`}</div>
+    <p class="tip">Today so far: ${d.came} came in, ${d.sold} bought. Money in ${d.in}, money out ${d.out} (rent ${BIZ_RENT} is paid at the end of the day).</p>`;
+  if(BIZ.days.length)h+=`<table class="biz"><tr><th>Day</th><th>Price</th><th>Came</th><th>Sold</th><th>Money in</th><th>Money out</th><th>Profit</th></tr>${BIZ.days.slice().reverse().map(r=>`<tr><td>${r.day}</td><td>${r.price}</td><td>${r.came}</td><td>${r.sold}</td><td>${r.in}</td><td>${r.out}</td><td class="${r.profit<0?"neg":""}">${r.profit}</td></tr>`).join("")}</table>`;
+  h+=`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p><button data-bizclose="1">Close the business</button>`;box.innerHTML=h;}
+function bizClick(t){if(t.dataset.bizstart){BIZ.type=t.dataset.bizstart;BIZ.price=BIZ_TYPES[BIZ.type].fair;BIZ.stock=0;BIZ.t=0;BIZ.today={came:0,sold:0,in:0,out:0};BIZ.days=[];BIZ.day=1;forgeMsg="You're in business! Make some stock to sell.";forgeOk=true;bizSave();bizCrates();renderBag();return true;}
+  if(t.dataset.bizbuy){const n=+t.dataset.bizbuy,T=BIZ_TYPES[BIZ.type],c=n*T.cost;if(COINS<c){forgeOk=false;forgeMsg=`That costs ${c} — you have ${COINS}.`;}else{COINS-=c;coinHud();BIZ.stock+=n;BIZ.today.out+=c;forgeOk=true;forgeMsg=`Made ${n} ${T.unit}.`;bizSave();bizCrates();}renderBag();return true;}
+  if(t.dataset.bizsign){if(COINS<15){forgeOk=false;forgeMsg="A sign costs 15.";}else{COINS-=15;coinHud();BIZ.sign=true;BIZ.today.out+=15;forgeOk=true;forgeMsg="A bright new sign — more people will notice your shop.";bizSave();}renderBag();return true;}
+  if(t.id==="bizSetPrice"){const v=parseInt(($("#bizPrice")||{}).value,10);if(v>0&&v<100){BIZ.price=v;bizSave();forgeOk=true;forgeMsg=`Price set to ${v}.`;}renderBag();return true;}
+  if(t.dataset.bizclose){BIZ.type=null;bizSave();bizCrates();forgeMsg="";renderBag();return true;}return false;}
 // a row of buildings along one side of a block; face = +1 fronts look north (+z), -1 south
 function row(ci,ri,face,x0,x1,zf,depth){const sp=SPECIAL[ci+","+ri+","+face];let x=x0;let first=true;
   while(x1-x>3.5){const w=Math.min(x1-x,first&&sp?7:rnd(4.6,6.8));const cx=x+w/2,cz=zf-face*depth/2;
-    if(first&&sp){const bd=building(cx,cz,w-.25,depth,sp.floors,face,{name:sp.name,awning:sp.awning,tank:!sp.apt&&Math.random()<.5,enter:true,homeFloor:sp.apt?4:0});if(sp.apt)aptInside(bd);else shopInside(bd,sp);
+    if(first&&sp){const bd=building(cx,cz,w-.25,depth,sp.floors,face,{name:sp.name,awning:sp.awning,tank:!sp.apt&&Math.random()<.5,enter:true,homeFloor:sp.apt?4:0});if(sp.apt)aptInside(bd);else if(sp.biz)bizInside(bd);else shopInside(bd,sp);
       const door=new THREE.Vector3(cx,0,zf+face*1.6);if(sp.shop)SPOTS.shop.push({pos:door,face:face>0?Math.PI:0,name:sp.name});
       if(sp.eat)for(const k of [-1,1])addTable(cx+k*2.1,zf+face*2.4);}
     else building(cx,cz,w-.25,depth,ri===1?ri+1+Math.floor(Math.random()*2):2+Math.floor(Math.random()*3),face,{tank:Math.random()<.35});
@@ -1107,7 +1149,8 @@ function stepCity(dt){const near=P.pos.x>CITY.x0-30;VILLAGERS.forEach(v=>v.pos.c
         const f=pick(["pomum","panis","uvae","mel","puls","caseus","piscis"]);cz.food=picSprite("food_"+f);cz.food.scale.setScalar(.38);cz.food.position.copy(G0.s.plate).add(new THREE.Vector3(0,.1,0));scene.add(cz.food);
         if(Math.random()<.5)say(cz,pick(["Mmm, delicious!","Best food in town.","I'm so hungry!","Waiter, more please!"]));}
       else if(G0.k==="shop"){g.rotation.y=G0.s.face;cz.t=rnd(4,7);cz.st="do";if(r)r.full("Interact",{once:true,restart:true,dur:1.2,then:()=>r.clearFull()});
-        say(cz,pick(["One loaf of bread, please.","How much is this?","I'll take two!","Do you have anything cheaper?","Just looking, thanks."]));}
+        if(G0.s.biz){if(BIZ.type)bizTry(cz);else say(cz,"This shop is empty. Someone should open a business here!",3);}
+        else say(cz,pick(["One loaf of bread, please.","How much is this?","I'll take two!","Do you have anything cheaper?","Just looking, thanks."]));}
       else if(G0.k==="gossip"){const s=G0.s;cz.st="do";cz.t=30;g.position.copy(s.who[0]===cz?s.a:s.b);
         if(s.who.length===2&&s.who.every(x=>x.st==="do")){const [a,b]=s.who;a.o.g.lookAt(b.o.g.position.x,0,b.o.g.position.z);b.o.g.lookAt(a.o.g.position.x,0,a.o.g.position.z);
           const conv=pick([...GOSSIP,...dynGossip()]);a.t=b.t=rnd(9,13);say(a,conv[0],3.4);setTimeout(()=>{if(b.st==="do"&&b.goal===G0)say(b,conv[1],3.4);},3600);
@@ -1182,7 +1225,7 @@ function jobsTab(box){const j=JOB.cur;let h=`<p class="purse">🪙 <b>${COINS}</
 function jobClick(t){if(t.dataset.job){jobStart(t.dataset.job);if(JOB.cur.k!=="count")toggleBag(false);else renderBag();return true;}
   if(t.dataset.jobquit){jobClear();renderBag();return true;}
   if(t.id==="jobGo"){const j=JOB.cur,v=parseInt(($("#jobAns")||{}).value,10);if(!j)return true;if(v===j.n){toggleBag(false);jobPay();return true;}j.tries--;if(j.tries<=0){j.msg="Not quite — the shopkeeper counted it themselves. Try another job.";jobClear();}else j.msg="Not quite — count again.";renderBag();return true;}return false;}
-function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1557,7 +1600,7 @@ const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)
 const designOpen=()=>window.DESIGN&&DESIGN.isOpen();
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
-const CTX_TABS={jobs:"Jobs",shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
+const CTX_TABS={biz:"Business",jobs:"Jobs",shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
 function toggleBag(open,tab){if(!started||P.down)return;bagOpen=open===undefined?!bagOpen:open;if(tab&&tab!==bagTab&&tab!=="work")forgeMsg="";if(tab)bagTab=tab;else if(CTX_TABS[bagTab])bagTab="items";
   const ct=$("#ctxTab");ct.classList.toggle("hidden",!CTX_TABS[bagTab]);if(CTX_TABS[bagTab]){ct.dataset.tab=bagTab;ct.textContent=CTX_TABS[bagTab];}$("#bag").classList.toggle("hidden",!bagOpen);G.firing=false;bagPick=-1;
   if(bagOpen){if(document.exitPointerLock)document.exitPointerLock();renderBag();}}
@@ -1579,6 +1622,7 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div>`;return;}
   if(bagTab==="shop"){shopTab(box);return;}
   if(bagTab==="jobs"){jobsTab(box);return;}
+  if(bagTab==="biz"){bizTab(box);return;}
   if(bagTab==="food"){const near=P.pos.distanceTo(COOK.pos)<4.5;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
     if(!near){box.innerHTML=h+`<p class="tip">The Popina 🍞 (the cook's stall) is on the west side of town. Walk up to it to buy food.</p>`;return;}
     h+=`<p class="tip">Food heals a little, and some give you a boost for a while. Eat it from your hotbar (click / FIRE).</p><div class="list">`;
@@ -1646,7 +1690,7 @@ function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAF
   const up=first&&MATH.lv<8&&setLevel(MATH.lv+1);if(!up){MATH.wrong=0;MATH.moved="";}
   forgeMsg=`✨ You made ${it.t==="spell"?`${SPELLS[it.id].icon} ${SPELLS[it.id].name}`:rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.levelName(MATH.lv)}.`:" A new set of problems is ready for the next one.");
   FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.4,0)),"gold",5,1.4);renderBag();}
-$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-shopitem],[data-job],[data-jobquit],#jobGo,[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
+$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-shopitem],[data-job],[data-jobquit],#jobGo,[data-bizstart],[data-bizbuy],[data-bizsign],[data-bizclose],#bizSetPrice,[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
   if(t.dataset.slot!==undefined){const i=+t.dataset.slot;if(bagPick<0){if(INV[i])bagPick=i;}else{const a=INV[bagPick];INV[bagPick]=INV[i];INV[i]=a;bagPick=-1;select(SEL);}renderBag();return;}
   if(t.dataset.book){setBook(t.dataset.book);forgeMsg=t.dataset.book==="china"?"📚 China standard: the problems now follow what Chinese schools teach in each grade.":"📚 US math book.";forgeOk=true;renderBag();return;}
   if(t.dataset.tier){contestNew(t.dataset.tier);renderBag();return;}
@@ -1654,7 +1698,7 @@ $("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot]
   if(t.id==="conGo"){const i=$("#conIn"),w=$("#conWhy");CONTEST.ans=i?i.value:"";CONTEST.draft=w?w.value:"";const r=contestAnswer(i&&i.value!==""?parseInt(i.value,10):null,CONTEST.draft);CONTEST.ok=r.ok;CONTEST.msg=r.msg;renderBag();return;}
   if(t.dataset.drop!==undefined){dropOwn(+t.dataset.drop);bagPick=-1;renderBag();return;}
   if(t.dataset.rec){forgeId=t.dataset.rec;tray={};forgeMsg="";renderBag();return;}
-  if(jobClick(t))return;
+  if(jobClick(t)||bizClick(t))return;
   if(t.dataset.shopitem){shopBuy(+t.dataset.shopitem);renderBag();return;}
   if(t.dataset.food){const f=FOODS[t.dataset.food];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet — sell something at Mercator's stall.";}else if(addItem({t:"food",id:t.dataset.food,n:1})){COINS-=f.price;coinHud();forgeOk=true;forgeMsg=`${f.icon} ${f.name} is in your bag.`;}else{forgeOk=false;forgeMsg="Your bag is full.";}renderBag();return;}
   if(t.dataset.tochest!==undefined){const i=+t.dataset.tochest,k=CHEST.indexOf(null);if(INV[i]&&k>=0){CHEST[k]=INV[i];INV[i]=null;select(SEL);}renderBag();return;}
@@ -1700,5 +1744,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
