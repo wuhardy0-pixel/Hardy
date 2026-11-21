@@ -571,7 +571,7 @@ function eat(it){const f=FOODS[it.id];if(!f)return false;if(P.hp>=P.maxHp&&!f.bu
 // things you can walk up to and use with T (or the button that appears)
 const ACTS=[];let ACT=null;
 function stepActs(){let best=null,bd=1e9;for(const a of ACTS){if(a.hidden&&a.hidden())continue;const d=Math.hypot(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(d<a.r&&d<bd){bd=d;best=a;}}
-  ACT=best;const b=$("#trade");b.classList.toggle("hidden",!best||bagOpen||P.down);if(best)b.textContent=`${typeof best.label==="function"?best.label():best.label}${touch?"":" (T)"}`;}
+  ACT=best;const b=$("#trade");b.classList.toggle("hidden",!best||bagOpen||P.down||designOpen());if(best)b.textContent=`${typeof best.label==="function"?best.label():best.label}${touch?"":" (T)"}`;}
 function useAct(){if(ACT&&!P.down)ACT.run();}
 function npc(url,x,z,face,idle){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=face;scene.add(g);const o={g,rig:null};
   LOOK.loadRig("/play/elementum/models/"+url,false,r=>{if(!r)return;o.rig=r;g.add(r.root);r.base(idle||"Idle",{snap:true});});TOWNFOLK.push(o);return o;}
@@ -914,9 +914,9 @@ const SCHOOL=building(105,30,13.5,17,3,-1,{name:"Schola — the school",colors:[
   SPOTS.gossip.push({a:new THREE.Vector3(57.5,0,3.2),b:new THREE.Vector3(59,0,3.2),who:[]},{a:new THREE.Vector3(64,0,9),b:new THREE.Vector3(65.5,0,9),who:[]},{a:new THREE.Vector3(56,0,6),b:new THREE.Vector3(57.3,0,7),who:[]});}
 // the park: lawn, trees, a path, benches
 {const lawn=new THREE.Mesh(new THREE.PlaneGeometry(12,14),new THREE.MeshLambertMaterial({color:0x5f9a46}));lawn.rotation.x=-Math.PI/2;lawn.position.set(126,.015,6);lawn.receiveShadow=true;scene.add(lawn);
-  [[122,1],[130,1],[122,11],[130,11],[126,6.5]].forEach(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);const t=LOOK.M(new THREE.CylinderGeometry(.2,.28,2.2,8),LOOK.toon(0x7a4a28),.015);t.position.y=1.1;g.add(t);
+  [[121.3,1],[130.7,1],[121.3,11.5],[130.7,11.5]].forEach(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);const t=LOOK.M(new THREE.CylinderGeometry(.2,.28,2.2,8),LOOK.toon(0x7a4a28),.015);t.position.y=1.1;g.add(t);
     [[0,2.6,0,1.1],[.5,2.2,.2,.8],[-.45,2.3,-.25,.85]].forEach(([a,b,c,r])=>{const l=LOOK.M(new THREE.IcosahedronGeometry(r,1),LOOK.toon(0x4fa346),.02);l.position.set(a,b,c);g.add(l);});g.traverse(k=>{if(k.isMesh)k.castShadow=true;});scene.add(g);});
-  SPOTS.gossip.push({a:new THREE.Vector3(124,0,4),b:new THREE.Vector3(125.4,0,4.6),who:[]},{a:new THREE.Vector3(128,0,9),b:new THREE.Vector3(129.2,0,8.2),who:[]});}
+  SPOTS.gossip.push({a:new THREE.Vector3(130.4,0,4),b:new THREE.Vector3(130.4,0,5.4),who:[]},{a:new THREE.Vector3(130.4,0,8.6),b:new THREE.Vector3(131.2,0,9.6),who:[]});}
 // a few street lamps along the main street
 for(let x=56;x<132;x+=11)for(const z of [-9.6,-.4]){const g=new THREE.Group();g.position.set(x,0,z);const p=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,3.6,8),LOOK.toon(0x2a2a30));p.position.y=1.8;g.add(p);
   const l=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),new THREE.MeshBasicMaterial({color:0xfff1c4}));l.position.y=3.7;g.add(l);scene.add(g);}
@@ -966,7 +966,7 @@ function route(from,to){const A=snapStreet(from),B=snapStreet(to),r=[A];const ne
   r.push(B,to.clone());return r;}
 const CITIZENS=[];
 const TINTS=[0xffffff,0xffd8c8,0xd8e8ff,0xe8ffd8,0xfff0c8,0xf0d8ff,0xd8fff4];
-CITIZEN_NAMES.slice(0,22).forEach((name,i)=>{const start=pick(SPOTS.stroll).clone().add(new THREE.Vector3(rnd(-2,2),0,rnd(-2,2)));
+CITIZEN_NAMES.filter(n=>!["Rufus","Sabina","Hortensia","Kaeso"].includes(n)).forEach((name,i)=>{const start=pick(SPOTS.stroll).clone().add(new THREE.Vector3(rnd(-2,2),0,rnd(-2,2)));
   const o=npc(["villager.glb","cook.glb","merchant.glb"][i%3],start.x,start.z,rnd(0,6.3));const tint=new THREE.Color(TINTS[i%TINTS.length]),hat=i%2===0;
   const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(m.isMesh&&m.material&&m.material.color){m.material=m.material.clone();m.material.color.copy(tint);}
     if(/_Hat$/.test(m.name))m.visible=hat;if(m.name==="Mug")m.visible=false;});},400);
@@ -1007,7 +1007,58 @@ function stepCity(dt){const near=P.pos.x>CITY.x0-30;
       continue;}
     if(cz.st==="do"){cz.t-=dt;if(r&&!(G0&&G0.k==="eat"))r.base("Idle");if(cz.t<=0){g.position.y=0;citizenLeave(cz);}}}}
 
-function stepLife(dt){stepVillagers();stepCity(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+// ---------------- the Schola's design challenges in the city (design.js runs the workshop and the physics) ----------------
+// Two neighbors at each problem talk about it (speech bubbles, a "?" over them): walk up and ask. Then the Schola, where Magistra
+// Cornelia helps you frame it, research it, pick a design, build it and test it. Solve it and your design is built right there in 3D.
+const PROBLEMS=[
+  {id:"bridge",who:["Rufus","Sabina"],at:[[121.2,5.2],[121.2,6.6]],look:"villager.glb",site:new THREE.Vector3(126,0,6),act:"Ask about the bridge",
+    talk:["The footbridge fell down again!","How will we get our cart to the market now?","Planks just bend in the middle and snap.","Someone clever should design a better one."]},
+  {id:"tower",who:["Hortensia","Kaeso"],at:[[101.5,-23.2],[103,-23.2]],look:"cook.glb",site:new THREE.Vector3(106,0,-27),act:"Ask about the water tank",
+    talk:["Our water tank is leaning again!","The wind pushes it and the old legs wobble.","No water in the kitchen today…","We need a tower that stays up."]}];
+// the creek through the park, with the broken old footbridge lying in it
+{const water=new THREE.Mesh(new THREE.PlaneGeometry(6,14.6),new THREE.MeshLambertMaterial({color:0x4f8fc8,transparent:true,opacity:.92}));water.rotation.x=-Math.PI/2;water.position.set(126,.03,6);scene.add(water);
+  [123,129].forEach(x=>{const b=new THREE.Mesh(new THREE.BoxGeometry(.5,.25,14.6),LOOK.toon(0x7a6a52));b.position.set(x,.12,6);scene.add(b);});
+  [[-1,.5],[1,-.4]].forEach(([k,r])=>{const p=LOOK.M(new THREE.BoxGeometry(3.2,.12,.9),LOOK.toon(0x8a5a2e),.01);p.position.set(126+k*1.3,.1,6+k*.3);p.rotation.z=r*.5;p.rotation.y=k*.2;scene.add(p);PROBLEMS[0].wreck=(PROBLEMS[0].wreck||[]).concat(p);});}
+// the yard behind the houses with the old leaning water tank
+{const g=new THREE.Group();g.position.set(106,0,-27);scene.add(g);const wood=LOOK.toon(0x6b4a2c);
+  [[-.9,-.9],[.9,-.9],[-.9,.9],[.9,.9]].forEach(([a,c],i)=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,3.2,6),wood);l.position.set(a,1.5,c);l.rotation.z=.18;g.add(l);});
+  const tk=LOOK.M(new THREE.CylinderGeometry(1,1,1.6,14),wood,.02);tk.position.set(.55,3.6,0);tk.rotation.z=.25;g.add(tk);g.traverse(k=>{if(k.isMesh)k.castShadow=true;});PROBLEMS[1].wreck=[g];
+  const pud=new THREE.Mesh(new THREE.CircleGeometry(1.6,20),new THREE.MeshBasicMaterial({color:0x6fb0e0,transparent:true,opacity:.6}));pud.rotation.x=-Math.PI/2;pud.position.set(106.6,.03,-26.5);scene.add(pud);PROBLEMS[1].wreck.push(pud);}
+PROBLEMS.forEach(pr=>{pr.npcs=pr.who.map((name,i)=>{const [x,z]=pr.at[i];const o=npc(pr.look,x,z,0);const other=pr.at[1-i];o.g.lookAt(other[0],0,other[1]);
+    const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(/_Hat$/.test(m.name))m.visible=false;});},400);
+    const lb=label(name,0xffffff);lb.scale.set(1.4,.28,1);lb.position.y=2.35;o.g.add(lb);const cz={name,o,bub:null,bubT:0};cz.pp=personize(o,name);return cz;});
+  const q=label("?",0xffd84a);q.scale.set(1.2,.9,1);q.position.set((pr.at[0][0]+pr.at[1][0])/2,3.3,(pr.at[0][1]+pr.at[1][1])/2);scene.add(q);pr.mark=q;pr.talkT=rnd(1,4);pr.talkI=0;
+  ACTS.push({pos:new THREE.Vector3((pr.at[0][0]+pr.at[1][0])/2,0,(pr.at[0][1]+pr.at[1][1])/2),r:3.6,label:()=>DESIGN.solved(pr.id)?"Talk about the new "+(pr.id==="bridge"?"bridge":"tower"):pr.act,
+    hidden:()=>pr.npcs.some(c=>c.pp.down),run:()=>openDesign(pr.id,pr.id==="bridge"?"creek":"house")});});
+// Magistra Cornelia at the Schola's door
+const TEACHER=npc("villager.glb",102.3,19.6,Math.PI);{const t=setInterval(()=>{if(!TEACHER.rig)return;clearInterval(t);TEACHER.rig.root.traverse(m=>{if(m.isMesh&&m.material&&m.material.color){m.material=m.material.clone();m.material.color.set(0xe8d8ff);}});},400);
+  const lb=label("Magistra Cornelia",0xffffff);lb.scale.set(2.4,.36,1);lb.position.y=2.4;TEACHER.g.add(lb);TEACHER.pp=personize(TEACHER,"Magistra Cornelia");}
+ACTS.push({pos:new THREE.Vector3(104,0,19.4),r:3.8,label:"Enter the Schola",hidden:()=>TEACHER.pp.down,run:()=>openDesign(null,"school")});
+function openDesign(id,at){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();const o={at,onSolved:designSolved,onClose:()=>{hud();}};
+  if(id)DESIGN.open(id,o);else DESIGN.openSchool(o);}
+// a solved design is built for real: your pieces, in 3D, at the problem's place; the neighbors cheer and you're paid
+const BUILT={};
+function buildDesign(id,d){if(BUILT[id]){BUILT[id].forEach(o=>scene.remove(o));}const pr=PROBLEMS.find(p=>p.id===id);const g=new THREE.Group();scene.add(g);BUILT[id]=[g];
+  const col={stick:0xc08a4e,plank:0x8a5a2e,rope:0xe0c88a,iron:0x8b96a4,stone:0xb0aca2},th={stick:.1,plank:.12,rope:.04,iron:.09,stone:.36};
+  const xs=d.nodes.map(n=>n.x),span=id==="bridge"?Math.max(...d.nodes.filter(n=>n.anchor&&n.y===0).map(n=>n.x)):3,k=id==="bridge"?6/span:1;
+  const P3=n=>id==="bridge"?new THREE.Vector3(123,0,0).add(new THREE.Vector3(n.x*k,n.y*k*.8+.25,0)):new THREE.Vector3(n.x-1+pr.site.x-1,n.y,0);
+  const sides=id==="bridge"?[pr.site.z-.9,pr.site.z+.9]:[pr.site.z-.9,pr.site.z+.9];
+  d.members.forEach(m=>{const a=P3(d.nodes[m.a]),b=P3(d.nodes[m.b]);const len=a.distanceTo(b),t=th[m.mat];const deck=m.mat==="plank"&&Math.abs(a.y-b.y)<.05;
+    if(deck){const p=LOOK.M(new THREE.BoxGeometry(len+.04,.1,2.1),LOOK.toon(col.plank),.01);p.position.set((a.x+b.x)/2,(a.y+b.y)/2,sides[0]+.9);g.add(p);return;}
+    sides.forEach(z=>{const bar=LOOK.M(new THREE.BoxGeometry(len,t,t),LOOK.toon(col[m.mat]),.008);bar.position.set((a.x+b.x)/2,(a.y+b.y)/2,z);bar.rotation.z=Math.atan2(b.y-a.y,b.x-a.x);g.add(bar);});});
+  if(id==="tower"){const top=Math.max(...d.nodes.map(n=>n.y));const tk=LOOK.M(new THREE.CylinderGeometry(1,1,1.6,16),LOOK.toon(0x5a7a9a),.02);tk.position.set(pr.site.x-1,top+.9,pr.site.z);g.add(tk);
+    const cap=LOOK.M(new THREE.ConeGeometry(1.1,.6,16),LOOK.toon(0x3a4a5a),.02);cap.position.set(pr.site.x-1,top+2,pr.site.z);g.add(cap);}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});(pr.wreck||[]).forEach(o=>o.visible=false);}
+function designSolved(id,d,lv,first){buildDesign(id,d);const pay=25*(lv+1);COINS+=pay;coinHud();const pr=PROBLEMS.find(p=>p.id===id);
+  pr.npcs.forEach(c=>{if(c.o.rig)c.o.rig.full("Cheer",{once:true,restart:true,dur:1.4,then:()=>c.o.rig.clearFull()});});
+  lawSay(`${pr.who.join(" and ")} paid you ${pay} denarii for the new ${id==="bridge"?"bridge":"tower"}!`);}
+["bridge","tower"].forEach(id=>{const b=DESIGN.best(id);if(b)buildDesign(id,b);});
+function stepProblems(dt){for(const pr of PROBLEMS){const n=DESIGN.facts(pr.id),done=DESIGN.solved(pr.id);pr.mark.visible=!done&&n<3&&!pr.npcs.some(c=>c.pp.down);
+    for(const c of pr.npcs){if(c.bub){c.bubT-=dt;if(c.bubT<=0)say(c,null);}}
+    if(pr.npcs[0].o.g.position.distanceTo(P.pos)>26||pr.npcs.some(c=>c.pp.down))continue;pr.talkT-=dt;
+    if(pr.talkT<=0){pr.talkT=rnd(4,6);const lines=done?["The new "+(pr.id==="bridge"?"bridge":"tower")+" is wonderful!","Built by a real engineer!"]:pr.talk;say(pr.npcs[pr.talkI%2],lines[pr.talkI%lines.length],3.4);pr.talkI++;}}}
+
+function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1248,13 +1299,13 @@ function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held()
 
 // ---------------- input ----------------
 const keys={};let look={yaw:0,pitch:.22},stick={x:0,y:0},jumpQ=false,runBtn=false,paused=false,started=false,camSide=1;
-addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
+addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(designOpen()){if(e.key==="Escape")DESIGN.close();return;}keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
   if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
 addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.deltaY>0?1:-1));},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
 const touch=matchMedia("(pointer:coarse)").matches||"ontouchstart" in window;if(touch)document.body.classList.add("touch");
 let dragId=null,lastX=0,lastY=0;
-canvas.addEventListener("pointerdown",e=>{if(!started||paused||bagOpen||roomOpen)return;
+canvas.addEventListener("pointerdown",e=>{if(!started||paused||bagOpen||roomOpen||designOpen())return;
   if(e.pointerType==="mouse"){if(e.button===0)G.firing=true;if(!document.pointerLockElement&&canvas.requestPointerLock)canvas.requestPointerLock();return;}
   if(e.clientX<innerWidth*.45)return;dragId=e.pointerId;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener("pointermove",e=>{if(document.pointerLockElement===canvas){look.yaw-=e.movementX*.0032;look.pitch=clamp(look.pitch+e.movementY*.0025,-.5,1.1);return;}if(e.pointerId!==dragId)return;look.yaw-=(e.clientX-lastX)*.006;look.pitch=clamp(look.pitch+(e.clientY-lastY)*.005,-.5,1.1);lastX=e.clientX;lastY=e.clientY;});
@@ -1369,6 +1420,7 @@ function setLevel(v,why){const old=MATH.lv;MATH.lv=Math.max(1,Math.min(8,v));MAT
 function mathRight(){MATH.streak=(MATH.streak||0)+1;MATH.wrong=0;if(MATH.streak>=2&&MATH.lv<8){MATH.streak=0;setLevel(MATH.lv+1);return "up";}return "";}
 function mathWrong(){MATH.streak=0;MATH.wrong++;if(MATH.wrong>=2&&MATH.lv>1){setLevel(MATH.lv-1);return "down";}return "";}
 const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)}!`:r==="down"?` (The problems are a little easier now: ${CRAFT.levelName(MATH.lv)}.)`:"";
+const designOpen=()=>window.DESIGN&&DESIGN.isOpen();
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
 const CTX_TABS={contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
@@ -1506,9 +1558,9 @@ equip("rifle",null);select(0);   // you start with nothing: fists only — chop 
 const clock=new THREE.Clock();
 function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDelta());tAcc+=dt;
   {const run=tweens;tweens=[];const keep=run.filter(w=>{w.t+=dt;const t=Math.min(1,w.t/w.dur);w.fn(t);if(t>=1){w.done&&w.done();return false;}return true;});tweens=keep.concat(tweens);}   // tweens started inside a finishing tween are kept
-  if(started&&!paused&&!bagOpen)step(dt);else animate(dt);SPARK.step(dt);PUFF.step(dt);FX.step(dt);updateCam(dt);placeBars();
+  if(started&&!paused&&!bagOpen&&!designOpen())step(dt);else animate(dt);SPARK.step(dt);PUFF.step(dt);FX.step(dt);updateCam(dt);placeBars();
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={PROBLEMS,TEACHER,openDesign,buildDesign,designSolved,BUILT,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
