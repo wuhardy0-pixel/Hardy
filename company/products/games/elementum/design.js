@@ -149,6 +149,39 @@ function unlocked(st){const s=ST[cur];return {ask:true,frame:(s.facts||[]).lengt
 function open(id,o){hooks=o||{};cur=id;openFlag=true;const s=ST[id];if(s.next!==undefined){s.level=s.next;delete s.next;save();}step=s.solved?"build":s.pick?"build":s.framed?((s.read||[]).length>=2?"pick":"research"):(s.facts||[]).length>=3&&o&&o.at==="school"?"frame":"ask";
   if(o&&o.at==="creek"||o&&o.at==="house")step=step==="build"&&!s.solved?"build":(s.facts||[]).length<5?"ask":step;
   resetWork();sim=null;result=null;teacher="";$("#design").classList.remove("hidden");render();loop();}
+// ---------------- the Bibliotheca: ask anything; the page is written for your grade from Google Search (server: /api/elementum/library) ----------------
+const LIB_KEY="elementum.library";let LIB;try{LIB=JSON.parse(localStorage.getItem(LIB_KEY)||"{}");}catch(e){LIB={};}LIB.pages=LIB.pages||[];
+const SHELVES=[["Science",["Why is the sky blue?","How do magnets work?","What makes a rainbow?","How do plants make their food?"]],["Space",["How big is the Sun?","Why does the Moon change shape?","What is a black hole?"]],
+  ["Animals",["How do bees make honey?","Why do cats purr?","How do fish breathe underwater?"]],["Ancient Rome",["How did the Romans build aqueducts?","What did Roman children eat?","How were Roman roads built?"]],
+  ["Math",["What is pi?","Why does a circle have 360 degrees?","Who invented the number zero?"]],["Inventions",["How does a lever work?","How does a pulley work?","Who invented the printing press?"]]];
+const active=id=>(ST[id].facts||[]).length&&!ST[id].solved;
+function forYou(){const out=[],P=ST.prof;
+  if(active("bridge"))out.push("How do truss bridges work?","What are tension and compression?","How did the Romans build arch bridges?","How do suspension bridges stay up?");
+  if(active("tower"))out.push("How do water towers work?","Why do towers need cross braces?","Why does a wide base stop things tipping over?");
+  if(P.glue)out.push("Which is stronger, glue or nails?");if(P.buckle)out.push("Why do long thin columns buckle?");if(P.fold)out.push("Why are triangles the strongest shape?");if(P.tip)out.push("Why don't tall towers fall over in the wind?");
+  if(!out.length)out.push("What is the engineering design process?","How are bridges built?","How do engineers test their ideas?");return [...new Set(out)].slice(0,7);}
+const focusText=()=>[active("bridge")?"designing a footbridge across a creek from wood, rope, iron and stone":"",active("tower")?"designing a tower that holds a water tank up in the wind":""].filter(Boolean).join("; ");
+function openLibrary(o){hooks=o||{};cur=null;openFlag=true;$("#design").classList.remove("hidden");libHome();}
+function libHome(msg){const fy=forYou();let h=`<div class="dhead"><b>Bibliotheca — the library</b><button id="dClose">✕ Close</button></div><div class="dbody">
+    <div class="libask"><input id="libQ" maxlength="140" placeholder="Ask the librarian anything…" autocomplete="off"><button id="libGo" class="go">Find a book</button></div>${msg?`<p class="bad">${esc(msg)}</p>`:""}
+    <h3>For you</h3><div class="shelf">${fy.map(q=>`<button data-libq="${esc(q)}" class="fy">${esc(q)}</button>`).join("")}</div>
+    ${SHELVES.map(([t,qs])=>`<h3>${esc(t)}</h3><div class="shelf">${qs.map(q=>`<button data-libq="${esc(q)}">${esc(q)}</button>`).join("")}</div>`).join("")}
+    ${LIB.pages.length?`<h3>Your reading list</h3><div class="shelf">${LIB.pages.slice(-8).reverse().map(p=>`<button data-libq="${esc(p.q)}" class="read">${esc(p.title)}</button>`).join("")}</div>`:""}</div>
+    <p class="teach"><b>Varro the librarian:</b> Every book here is written for you${hooks.grade?` (grade ${hooks.grade})`:""} from what Google finds on the web. The <i>For you</i> shelf is about what you're working on.</p>`;
+  $("#designBody").innerHTML=h;$("#dClose").onclick=close;const go=()=>{const q=$("#libQ").value.trim();if(q.length>2)libAsk(q);};$("#libGo").onclick=go;$("#libQ").onkeydown=e=>{if(e.key==="Enter")go();};
+  document.querySelectorAll("[data-libq]").forEach(b=>b.onclick=()=>libAsk(b.dataset.libq));}
+function libAsk(q){$("#designBody").innerHTML=`<div class="dhead"><b>Bibliotheca — the library</b><button id="dClose">✕ Close</button></div><div class="dbody"><p class="tip">Varro is looking for a book about “${esc(q)}”…</p><div class="spin"></div></div>`;$("#dClose").onclick=close;
+  fetch("/api/elementum/library",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({q,grade:hooks.grade||4,focus:focusText()})})
+    .then(r=>r.json()).then(j=>{if(!openFlag||cur)return;if(!j||j.error){libHome(j&&j.error||"The library is closed right now.");return;}libPage(q,j);}).catch(()=>{if(openFlag&&!cur)libHome("Couldn't reach the library — are you on play.hardywu.com and signed in?");});}
+function libPage(q,j){if(!LIB.pages.some(p=>p.q===q)){LIB.pages.push({q,title:j.title});LIB.pages=LIB.pages.slice(-40);try{localStorage.setItem(LIB_KEY,JSON.stringify(LIB));}catch(e){}}
+  // reading about your problem counts as research for it in the Schola
+  if(forYou().includes(q)||/bridge|tension|compression|triangle|arch|truss|suspension|tower|brace|tip|buckl|glue|nail|water tank/i.test(q))["bridge","tower"].forEach(id=>{if(active(id)){const s=ST[id];s.read=s.read||[];if(!s.read.includes("lib:"+q))s.read.push("lib:"+q);}});save();
+  let h=`<div class="dhead"><b>${esc(j.title)}</b><button id="libBack">← Shelves</button><button id="dClose">✕ Close</button></div><div class="dbody book">${(j.paras||[]).map(p=>`<p>${esc(p)}</p>`).join("")}
+    ${j.tryit?`<p class="tryit"><b>Try it:</b> ${esc(j.tryit)}</p>`:""}${(j.next||[]).length?`<h3>Curious? Ask next:</h3><div class="shelf">${j.next.map(n=>`<button data-libq="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:""}
+    ${(j.sources||[]).length?`<h3>Where this came from</h3><ul class="src">${j.sources.map(s=>`<li><a href="${esc(s.uri)}" target="_blank" rel="noopener noreferrer">${esc(s.title||"source")}</a></li>`).join("")}</ul>`:""}
+    ${j.suggest?`<iframe class="gsug" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Google search suggestions"></iframe>`:""}</div>`;
+  $("#designBody").innerHTML=h;$("#dClose").onclick=close;$("#libBack").onclick=()=>libHome();document.querySelectorAll("[data-libq]").forEach(b=>b.onclick=()=>libAsk(b.dataset.libq));
+  const fr=document.querySelector(".gsug");if(fr)fr.srcdoc=`<base target="_blank">${j.suggest}`;}
 // inside the Schola: Magistra Cornelia's board of challenges — each says what to do next
 function openSchool(o){hooks=o||{};cur=null;openFlag=true;$("#design").classList.remove("hidden");
   let h=`<div class="dhead"><b>Schola — Magistra Cornelia's class</b><button id="dClose">✕ Close</button></div><div class="dbody"><p class="tip">Engineers solve real people's problems. First be curious: find the neighbors who have a problem and ask them about it. Then come back here to frame it, research it, design, build and test.</p><div class="chs">`;
@@ -256,7 +289,7 @@ function loop(t){cancelAnimationFrame(raf);if(!openFlag)return;raf=requestAnimat
       say(`${r.note?r.note+" ":""}It works! You framed the problem, researched it, picked an idea, built it and tested it — that's exactly how engineers work. ${lv<2?"Next time the challenge gets harder (level "+(lv+2)+").":"You've beaten the hardest level!"}`);
       if(hooks.onSolved)hooks.onSolved(id,s.best,lv,first);}
     else say(explain());drawWork();}}
-return {open,openSchool,close,isOpen:()=>openFlag,state:()=>ST,facts:id=>(ST[id].facts||[]).length,solved:id=>!!ST[id].solved,best:id=>ST[id].best,level:id=>lvOf(id),
+return {open,openSchool,openLibrary,close,isOpen:()=>openFlag,state:()=>ST,facts:id=>(ST[id].facts||[]).length,solved:id=>!!ST[id].solved,best:id=>ST[id].best,level:id=>lvOf(id),
   _test:{use(id){cur=id;resetWork();},get W(){return W;},get sim(){return sim;},get result(){return result;},startSim,simStep,judge,explain,L,set tool(v){tool=v;},set glue(v){glue=v;},
     add(ax,ay,bx,by,mat,gl){let a=findNode(ax,ay);if(!a){a={x:ax,y:ay,glue:gl||glue};W.nodes.push(a);}let b=findNode(bx,by);if(!b){b={x:bx,y:by,glue:gl||glue};W.nodes.push(b);}if(!a.anchor)a.glue=gl||a.glue;if(!b.anchor)b.glue=gl||b.glue;W.members.push({a,b,mat});},
     clear(){W.members=[];W.nodes=W.nodes.filter(n=>n.anchor);},run(secs){startSim();result=null;for(let i=0;i<secs*60*40&&!judge();i++)simStep(1/60/40);return {r:judge(),first:sim.first&&{kind:sim.first.kind,by:sim.first.by,mat:sim.first.m.mat,F:Math.round(sim.first.F),lim:Math.round(sim.first.lim)},load:sim.load,why:judge()&&!judge().ok?explain():""};}}};

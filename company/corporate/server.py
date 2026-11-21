@@ -3836,6 +3836,86 @@ ELEM_ROOMS = {}   # code -> {"name": str, "t": last used}
 def _room_name(raw):
     return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9 '!&.,-]", "", str(raw or ""))).strip()[:24]
 
+# Elementum's Bibliotheca (Barbara, 2026-11-21): "the knowledge in the books comes from Google and the learning is personalised".
+# A player asks a question; Gemini (Vertex AI on project hardywu-site-758a) searches Google and writes one library-book page
+# for the player's grade, about what they're working on. Google's sources and search suggestions come back with it
+# (Google requires showing the suggestions). Answers are cached; each player gets 30 lookups a day, everyone together 400.
+ELEM_LIB_CACHE, ELEM_LIB_USE, _ELEM_GTOK = {}, {}, {"tok": "", "t": 0.0}
+ELEM_LIB_MODEL = "gemini-3.1-flash-lite"
+
+def _gcloud_token():
+    if time.time() - _ELEM_GTOK["t"] > 2700 or not _ELEM_GTOK["tok"]:
+        import subprocess
+        exe = shutil.which("gcloud") or "/opt/homebrew/share/google-cloud-sdk/bin/gcloud"
+        _ELEM_GTOK["tok"] = subprocess.check_output([exe, "auth", "print-access-token"], timeout=30).decode().strip()
+        _ELEM_GTOK["t"] = time.time()
+    return _ELEM_GTOK["tok"]
+
+@app.post("/api/elementum/library")
+def elementum_library():
+    j = request.get_json(silent=True) or {}
+    q = re.sub(r"\s+", " ", re.sub(r"[^\w\s?!.,'’\-+/()%°]", "", str(j.get("q") or ""))).strip()[:140]
+    if len(q) < 3:
+        return jsonify(error="Ask the librarian a question first."), 400
+    try:
+        grade = max(1, min(8, int(j.get("grade") or 4)))
+    except (TypeError, ValueError):
+        grade = 4
+    focus = re.sub(r"[^\w\s,.'\-]", "", str(j.get("focus") or ""))[:160]
+    key = (q.lower().rstrip("?!. "), grade)
+    if key in ELEM_LIB_CACHE:
+        return jsonify(ELEM_LIB_CACHE[key])
+    who, day = (str(session.get("v_name") or ""), str(request.remote_addr or "?")), time.strftime("%Y-%m-%d")
+    with _elem_lock:
+        for k in [k for k in ELEM_LIB_USE if k[1] != day]:
+            del ELEM_LIB_USE[k]
+        mine, total = ELEM_LIB_USE.get((who, day), 0), sum(ELEM_LIB_USE.values())
+        if mine >= 30 or total >= 400:
+            return jsonify(error="The librarian has looked up a lot today. Come back tomorrow — or read the books you already found!"), 429
+        ELEM_LIB_USE[(who, day)] = mine + 1
+    prompt = (f"Search Google for: {q}\n"
+              f"Then write one page of a library book for a grade-{grade} student, in simple English that a grade-{grade} child can read. "
+              + (f"The student is working on this right now: {focus}. Where it fits, connect the page to that. " if focus else "")
+              + "Start with one line 'Title: ...'. Then 2 or 3 short paragraphs (120-180 words in all). "
+              "Then one line starting 'Try it:' with a safe hands-on idea. Then one line starting 'Next:' with two short follow-up questions a curious kid might ask, separated by ' | '. No markdown.")
+    body = {"systemInstruction": {"parts": [{"text": "You are the friendly librarian of a children's library in a game. Always use the Google Search tool before writing, "
+                                                    "and only state facts you found. If a question is not suitable for children, reply with exactly: NOT_FOR_KIDS"}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}], "tools": [{"googleSearch": {}}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 900},
+            "safetySettings": [{"category": c, "threshold": "BLOCK_LOW_AND_ABOVE"} for c in
+                               ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT")]}
+    import urllib.request
+    url = f"https://aiplatform.googleapis.com/v1/projects/hardywu-site-758a/locations/global/publishers/google/models/{ELEM_LIB_MODEL}:generateContent"
+    try:
+        req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
+        d = json.load(urllib.request.urlopen(req, timeout=45))
+        c = (d.get("candidates") or [{}])[0]
+        txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
+    except Exception as e:
+        print("elementum library:", repr(e)[:300])
+        return jsonify(error="The librarian couldn't reach the big library right now. Try again in a moment."), 502
+    if not txt or "NOT_FOR_KIDS" in txt:
+        return jsonify(error="The librarian doesn't have a book about that. Try asking about something else!"), 200
+    title, tryit, nxt, paras = q, "", [], []
+    for l in [l.strip() for l in txt.splitlines() if l.strip()]:
+        if l.lower().startswith("title:"):
+            title = l[6:].strip()
+        elif l.lower().startswith("try it:"):
+            tryit = l[7:].strip()
+        elif l.lower().startswith("next:"):
+            nxt = [x.strip() for x in l[5:].split("|") if x.strip()][:2]
+        else:
+            paras.append(l)
+    gm = c.get("groundingMetadata") or {}
+    sources = [{"title": (g.get("web") or {}).get("title", ""), "uri": (g.get("web") or {}).get("uri", "")} for g in gm.get("groundingChunks", []) if (g.get("web") or {}).get("uri")][:6]
+    out = dict(title=title[:120], paras=paras[:5], tryit=tryit[:300], next=nxt, sources=sources,
+               suggest=((gm.get("searchEntryPoint") or {}).get("renderedContent") or "")[:20000], grade=grade)
+    with _elem_lock:
+        if len(ELEM_LIB_CACHE) > 600:
+            ELEM_LIB_CACHE.clear()
+        ELEM_LIB_CACHE[key] = out
+    return jsonify(out)
+
 @app.post("/api/elementum/room")
 def elementum_new_room():
     """Make a private room: a name the player chose, and a fresh 6-digit code nobody is using."""
