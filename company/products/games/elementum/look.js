@@ -146,7 +146,7 @@ function world(scene){
   // the 3072x857 picture (itself + its mirror, so the ends meet) goes three times round a 240 m ring -> 140 m tall;
   // its horizon line is ~62% down the picture, so the ring spans y -45..95 and the far hills sit at eye level
   const band=new T.Mesh(new T.CylinderGeometry(240,240,140,64,1,true),new T.MeshBasicMaterial({map:hz,side:T.BackSide,fog:false,depthWrite:false}));
-  band.position.y=25;band.renderOrder=-1;scene.add(band);
+  band.position.y=25;band.renderOrder=-1;scene.add(band);scene.userData.sky=sky;scene.userData.band=band;   // game.js turns day into night with these
   // ground: Gemini grass, a sandy path across the range and round the start
   const ground=new T.Mesh(new T.PlaneGeometry(480,480),new T.MeshLambertMaterial({map:tex("grass.webp",60,60)}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
   const pathM=new T.MeshLambertMaterial({map:tex("path.webp",4,3),transparent:true,depthWrite:false});

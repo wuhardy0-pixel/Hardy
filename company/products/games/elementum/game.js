@@ -10,7 +10,7 @@ if("outputColorSpace" in R)R.outputColorSpace=THREE.SRGBColorSpace;
 const scene=new THREE.Scene();LOOK.world(scene);   // sky, painted horizon, grass, path, trees (look.js)
 const cam=new THREE.PerspectiveCamera(60,1,.1,300);
 FX.init(scene,cam);   // the ported Binbun3D effects (fx.js)
-scene.add(new THREE.HemisphereLight(0xcfe8ff,0x6a8a4a,1.0));
+const HEMI=new THREE.HemisphereLight(0xcfe8ff,0x6a8a4a,1.0);scene.add(HEMI);
 const sun=new THREE.DirectionalLight(0xfff0d8,1.6);sun.position.set(18,30,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:120});scene.add(sun);
 const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.85,metalness:.02},o||{}));
@@ -847,6 +847,8 @@ function signBoard(text,hex){const c=document.createElement("canvas"),x=c.getCon
   x.fillStyle="#"+new THREE.Color(hex||0xffe08a).lerp(new THREE.Color(0xffffff),.35).getHexString();x.textAlign="center";x.textBaseline="middle";x.fillText(text,W/2,58);
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;const h=.62;
   return new THREE.Mesh(new THREE.PlaneGeometry(h*W/110,h),new THREE.MeshLambertMaterial({map:t}));}
+const WINDOW_GLOW=(()=>{const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,128,128);x.fillStyle="#fff";x.fillRect(40,26,22,70);x.fillRect(66,26,22,70);
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;})();const NIGHT_MATS=[];
 const BRICKS=[[0x9a4a32,0xe8dcc4],[0xb2603e,0xf0e6d0],[0x7a3b2c,0xd8ccb4],[0xc9a37a,0xffffff],[0x8c5a3c,0xe6d6b8],[0xa8a49a,0xf6f0e2],[0x6f4a3a,0xe0d2b6]];
 const BUILDINGS=[],INTERIORS=[];
 // one building: a solid block you bump into (shots dent it, enough damage brings it down), dressed with a brick front, cornice, door and stoop
@@ -854,7 +856,7 @@ const BUILDINGS=[],INTERIORS=[];
 function fblock(x,y,z,w,h,d,brick,trim){const m=block(x,z,w,h,d,0x999999);const b=BLOCKS[BLOCKS.length-1];m.position.y=y+h/2;b.y=y;
   const geo=new THREE.BoxGeometry(w,h,d),uv=geo.attributes.uv,dims=[[d,h],[d,h],[0,0],[0,0],[w,h],[w,h]];
   for(let f=0;f<6;f++)for(let k=0;k<4;k++){const i=f*4+k;uv.setXY(i,dims[f][0]?uv.getX(i)*Math.max(1,Math.round(dims[f][0]/3)):.02,dims[f][1]?uv.getY(i)*Math.max(1,Math.round(dims[f][1]/3.3)):.02);}
-  m.geometry.dispose();m.geometry=geo;m.material=new THREE.MeshLambertMaterial({map:facadeTex(brick,trim)});return {m,b};}
+  m.geometry.dispose();m.geometry=geo;m.material=new THREE.MeshLambertMaterial({map:facadeTex(brick,trim),emissive:0xffd890,emissiveMap:WINDOW_GLOW,emissiveIntensity:0});NIGHT_MATS.push(m.material);return {m,b};}
 // walk-in buildings (2026-11-22, "you can go inside"): the ground floor is a room — walls with a doorway and a wooden floor;
 // the floors above sit on top as one block (you walk under it). Shops, the library, the school, the apartment house.
 const GF=3.2,WT=.3;
@@ -885,7 +887,7 @@ function building(x,z,w,d,floors,face,o){o=o||{};const h=floors*3.3,[brick,trim]
   bd.parts.forEach(p=>p.userData.y0=p.position.y);BUILDINGS.push(bd);return bd;}
 const CITIZEN_NAMES=["Aurelia","Brutus","Cassia","Decimus","Elena","Flavia","Gaius","Hortensia","Iulia","Kaeso","Lucia","Maximus","Nonna","Otho","Paulina","Quintus","Rufus","Sabina","Titus","Valeria","Junia","Lucius","Mila","Nico"];
 // what's where: shops and restaurants have names; the rest are homes (each with an owner, for the guards' warnings)
-const SPOTS={shop:[],eat:[],gossip:[],stroll:[]};
+const SPOTS={shop:[],eat:[],gossip:[],stroll:[]},LAMPS=[];
 const BLOCK_X=[[54,68],[76,90],[98,112],[120,132]],BLOCK_Z=[[-33,-9],[-1,13],[21,39]];
 const SPECIAL={"1,1,-1":{name:"Taberna — deep-dish pizza",awning:0xc8432f,eat:true,floors:3},"2,0,1":{name:"Thermopolium — hot food",awning:0xd8a03a,eat:true,floors:2},
   "0,2,-1":{name:"Pistrinum — bakery",awning:0x3f7f5a,eat:true,shop:true,floors:3},"2,1,-1":{name:"Macellum — grocer",awning:0x3f6fa8,shop:true,floors:2},
@@ -1049,7 +1051,7 @@ const SCHOOL=building(105,30,13.5,17,3,-1,{enter:true,floor:0xa08060,name:"Schol
   SPOTS.gossip.push({a:new THREE.Vector3(130.4,0,4),b:new THREE.Vector3(130.4,0,5.4),who:[]},{a:new THREE.Vector3(130.4,0,8.6),b:new THREE.Vector3(131.2,0,9.6),who:[]});}
 // a few street lamps along the main street
 for(let x=56;x<132;x+=11)for(const z of [-9.6,-.4]){const g=new THREE.Group();g.position.set(x,0,z);const p=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,3.6,8),LOOK.toon(0x2a2a30));p.position.y=1.8;g.add(p);
-  const l=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),new THREE.MeshBasicMaterial({color:0xfff1c4}));l.position.y=3.7;g.add(l);scene.add(g);}
+  const l=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),new THREE.MeshBasicMaterial({color:0xfff1c4}));l.position.y=3.7;g.add(l);scene.add(g);LAMPS.push(l);}
 CITY.XS.forEach(x=>CITY.ZS.forEach(z=>SPOTS.stroll.push(new THREE.Vector3(x,0,z))));CITY.ZS.forEach(z=>[60,84,106,128].forEach(x=>SPOTS.stroll.push(new THREE.Vector3(x,0,z))));
 // wrecking a house: shots dent it (wallHit), blasts too; enough damage and it comes down in a cloud of dust — and the guards come for you.
 // It is rebuilt after two minutes. Everyone in your room sees it fall.
@@ -1225,7 +1227,35 @@ function jobsTab(box){const j=JOB.cur;let h=`<p class="purse">🪙 <b>${COINS}</
 function jobClick(t){if(t.dataset.job){jobStart(t.dataset.job);if(JOB.cur.k!=="count")toggleBag(false);else renderBag();return true;}
   if(t.dataset.jobquit){jobClear();renderBag();return true;}
   if(t.id==="jobGo"){const j=JOB.cur,v=parseInt(($("#jobAns")||{}).value,10);if(!j)return true;if(v===j.n){toggleBag(false);jobPay();return true;}j.tries--;if(j.tries<=0){j.msg="Not quite — the shopkeeper counted it themselves. Try another job.";jobClear();}else j.msg="Not quite — count again.";renderBag();return true;}return false;}
-function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+// ---------------- day and night (2026-11-22): an 8-minute day — 5 minutes of daylight, then dusk, a starry night, dawn ----------------
+// The sun crosses the sky (and follows you, so shadows are everywhere); at night the sky darkens, stars come out, lamps and windows glow,
+// and monsters see farther and roam wider.
+const DAY={len:480,t:.08,day:1,night:0};try{const v=JSON.parse(localStorage.getItem("elementum.clock")||"null");if(v){DAY.t=v.t;DAY.day=v.day;}}catch(e){}
+const STARS=(()=>{const n=700,pos=new Float32Array(n*3);for(let i=0;i<n;i++){const u=Math.random(),v=Math.random()*.9+.08,th=u*Math.PI*2,ph=Math.acos(v);pos[i*3]=Math.sin(ph)*Math.cos(th)*250;pos[i*3+1]=Math.cos(ph)*250;pos[i*3+2]=Math.sin(ph)*Math.sin(th)*250;}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));const m=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false}));m.renderOrder=-1;scene.add(m);return m;})();
+const C_=h=>new THREE.Color(h),SKY_DAY=[C_(0xd8e9e0),C_(0x98cfe8),C_(0x5aa8dc)],SKY_DUSK=[C_(0xf2a878),C_(0x8a7ab0),C_(0x3a4a8a)],SKY_NIGHT=[C_(0x1a2440),C_(0x0e1530),C_(0x050914)];
+const FOG_DAY=C_(0x9fc08a),FOG_NIGHT=C_(0x141c2c),_c1=new THREE.Color(),_c2=new THREE.Color();let clockSaveT=0;
+function stepDay(dt){DAY.t+=dt/DAY.len;if(DAY.t>=1){DAY.t-=1;DAY.day++;lawSay(`Day ${DAY.day} begins.`);}
+  const t=DAY.t,DAYLEN=.62;const sunUp=t<DAYLEN?Math.sin(Math.PI*t/DAYLEN):0;            // 0 at dawn and dusk, 1 at noon
+  const dusk=t<DAYLEN?Math.max(0,1-Math.min(t,DAYLEN-t)/.08):Math.max(0,1-Math.min(t-DAYLEN,1-t)/.06); // warm colors near sunrise/sunset
+  const night=t<DAYLEN?0:Math.min(1,Math.min(t-DAYLEN,1-t)/.05);DAY.night=Math.max(0,night-0)*(1-dusk*.6);DAY.night=night;
+  const day=Math.max(sunUp,.0);
+  // sky, horizon, fog
+  const sky=scene.userData.sky,band=scene.userData.band;const K=(arr,i)=>arr[i];
+  for(let i=0;i<3;i++){_c1.copy(K(SKY_NIGHT,i)).lerp(K(SKY_DAY,i),Math.min(1,day*1.6));_c1.lerp(K(SKY_DUSK,i),dusk*.75);if(sky)sky.material.uniforms[["a","b","c"][i]].value.copy(_c1);}
+  if(band)band.material.color.setScalar(.22+.78*Math.min(1,day*1.4+dusk*.4));
+  _c2.copy(FOG_NIGHT).lerp(FOG_DAY,Math.min(1,day*1.6));if(dusk)_c2.lerp(C_(0xc89a78),dusk*.5);scene.fog.color.copy(_c2);scene.background.copy(_c2);
+  // the sun (or the moon) and the sky light
+  const ang=t<DAYLEN?Math.PI*t/DAYLEN:Math.PI*(t-DAYLEN)/(1-DAYLEN);const dir=new THREE.Vector3(Math.cos(ang)*.9,Math.sin(ang)*.8+.15,.35).normalize();
+  sun.position.copy(P.pos).addScaledVector(dir,60);sun.target.position.copy(P.pos);sun.target.updateMatrixWorld();
+  sun.intensity=t<DAYLEN?.25+1.35*sunUp:.28*night;sun.color.set(t<DAYLEN?(dusk>.3?0xffb070:0xfff0d8):0x9fb4ff);
+  HEMI.intensity=.28+.72*Math.min(1,day*1.5);HEMI.color.set(day>.15?0xcfe8ff:0x6070a0);
+  STARS.material.opacity=night*.9;STARS.position.copy(cam.position);
+  const glowK=Math.max(night,dusk*.5);NIGHT_MATS.forEach(m=>m.emissiveIntensity=glowK*.85);LAMPS.forEach(l=>l.material.color.setScalar(.85+.6*glowK));
+  const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${DAY.day} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
+  clockSaveT-=dt;if(clockSaveT<=0){clockSaveT=10;try{localStorage.setItem("elementum.clock",JSON.stringify({t:DAY.t,day:DAY.day}));}catch(e){}}}
+scene.add(sun.target);
+function stepLife(dt){stepDay(dt);stepAreas();stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1342,6 +1372,46 @@ function dummy(x,z,name){const D=LOOK.dummy();const {g,bodyM,headM,tgt,tgt2,bar:
 function makeBar(d){const bar=document.createElement("div");bar.className="dbar";bar.innerHTML=`<span>${d.name}</span><div><i></i></div>`;$("#bars").appendChild(bar);d.bar=bar;d.barI=bar.querySelector("i");d.barS=bar.querySelector("span");}
 // the dummies only stand once the training center is built (buildTraining brings them in); until then nothing there can be hit
 [[-6,-14,"Dummy A"],[-3,-16,"Dummy B"],[0,-15,"Dummy C"],[3,-16,"Dummy D"],[6,-14,"Dummy E"],[0,-9,"Dummy F (close)"]].forEach(([x,z,n])=>{const d=dummy(x,z,n);d.down=d.unbuilt=true;d.g.visible=false;TRAIN.dummies.push(d);});
+// ---------------- new places outside the walls (2026-11-22): the forest and the caves ----------------
+// Silva Obscura, the dark forest north of town: hundreds of trees (drawn as instanced meshes so it stays fast), some you can chop,
+// mushrooms, and monster packs living deep inside.
+const FOREST={x:-35,z:128,r:48};
+{const n=420,trunkG=new THREE.CylinderGeometry(.22,.34,2.4,7),crownG=new THREE.ConeGeometry(1.7,4.2,8),ballG=new THREE.IcosahedronGeometry(1.5,1);
+  const trunks=new THREE.InstancedMesh(trunkG,LOOK.toon(0x5a3a22),n),cones=new THREE.InstancedMesh(crownG,LOOK.toon(0x24552c),n),balls=new THREE.InstancedMesh(ballG,LOOK.toon(0x3a7a34),n);
+  const M4=new THREE.Matrix4(),Q=new THREE.Quaternion(),S=new THREE.Vector3(),Pv=new THREE.Vector3();let k=0;
+  for(let i=0;i<n*3&&k<n;i++){const a=Math.random()*6.283,r=Math.sqrt(Math.random())*FOREST.r,x=FOREST.x+Math.cos(a)*r,z=FOREST.z+Math.sin(a)*r;
+    if(Math.abs(x-FOREST.x)<3&&z<FOREST.z)continue;   // the path in
+    const s=rnd(.8,1.5);Pv.set(x,1.2*s,z);S.set(s,s,s);M4.compose(Pv,Q,S);trunks.setMatrixAt(k,M4);
+    if(k%3){Pv.set(x,2.4*s+1.8*s,z);M4.compose(Pv,Q,S);cones.setMatrixAt(k,M4);balls.setMatrixAt(k,new THREE.Matrix4().makeScale(0,0,0));}
+    else{Pv.set(x,2.6*s+1*s,z);M4.compose(Pv,Q,S);balls.setMatrixAt(k,M4);cones.setMatrixAt(k,new THREE.Matrix4().makeScale(0,0,0));}k++;}
+  [trunks,cones,balls].forEach(m=>{m.castShadow=true;m.receiveShadow=true;scene.add(m);});
+  const floor=new THREE.Mesh(new THREE.CircleGeometry(FOREST.r+4,48),new THREE.MeshLambertMaterial({color:0x35552a}));floor.rotation.x=-Math.PI/2;floor.position.set(FOREST.x,.012,FOREST.z);floor.receiveShadow=true;scene.add(floor);
+  for(let i=0;i<40;i++){const a=Math.random()*6.28,r=Math.random()*FOREST.r,x=FOREST.x+Math.cos(a)*r,z=FOREST.z+Math.sin(a)*r;const g=new THREE.Group();g.position.set(x,0,z);
+    const st=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.3,6),LOOK.toon(0xf0e8d8));st.position.y=.15;g.add(st);const cap=new THREE.Mesh(new THREE.SphereGeometry(.2,8,6,0,6.3,0,1.6),LOOK.toon(i%2?0xc8432f:0xd8a03a));cap.position.y=.3;g.add(cap);scene.add(g);}
+  for(let i=0;i<14;i++){const a=Math.random()*6.28,r=rnd(8,FOREST.r-4);makeTree(FOREST.x+Math.cos(a)*r,FOREST.z+Math.sin(a)*r);}   // ones you can chop
+  const sg=label("Silva Obscura — the dark forest",0x9dffb0);sg.scale.set(5,.9,1);sg.position.set(FOREST.x,4,FOREST.z-FOREST.r-2);scene.add(sg);}
+// Caverna, the mines south of town: a rock hill with tunnels inside. It's dark in there — torches light the way — and the walls are
+// full of iron and crystal. Cave monsters live in the far chambers.
+const CAVE={x0:-30,z0:-172,cell:6,map:["##########","#...#....#","#.#.#.##.#","#.#...#..#","#.###.#.##","#.....#..#","####.#####"],h:4.5,torches:[],in:false};
+{const C=CAVE,rows=C.map.length,cols=C.map[0].length;C.x1=C.x0+cols*C.cell;C.z1=C.z0+rows*C.cell;
+  const rock=LOOK.toon(0x6a625a);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){if(C.map[r][c]!=="#")continue;const x=C.x0+c*C.cell+C.cell/2,z=C.z0+r*C.cell+C.cell/2;const m=block(x,z,C.cell,C.h,C.cell,0x6a625a);}
+  // the roof (you walk under it) and a lumpy hill on top
+  {const m=block((C.x0+C.x1)/2,(C.z0+C.z1)/2,C.x1-C.x0,3,C.z1-C.z0,0x5a524a);m.position.y=C.h+1.5;BLOCKS[BLOCKS.length-1].y=C.h;}
+  for(let i=0;i<26;i++){const b=LOOK.M(new THREE.DodecahedronGeometry(rnd(3,7)),rock,.03);b.position.set(rnd(C.x0+4,C.x1-4),C.h+3+rnd(0,2),rnd(C.z0+4,C.z1-4));b.rotation.set(rnd(0,3),rnd(0,3),0);b.scale.y=.55;b.castShadow=true;scene.add(b);}
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(C.x1-C.x0,C.z1-C.z0),new THREE.MeshLambertMaterial({color:0x4a443e}));fl.rotation.x=-Math.PI/2;fl.position.set((C.x0+C.x1)/2,.013,(C.z0+C.z1)/2);scene.add(fl);
+  // torches: a flame you can see, and a light that only switches on while you're inside
+  const open=[];for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(C.map[r][c]===".")open.push([C.x0+c*C.cell+C.cell/2,C.z0+r*C.cell+C.cell/2]);C.open=open;
+  open.filter((_,i)=>i%3===0).slice(0,7).forEach(([x,z])=>{const f=new THREE.Mesh(new THREE.SphereGeometry(.18,8,6),new THREE.MeshBasicMaterial({color:0xffa040}));f.position.set(x+rnd(-1.5,1.5),2.4,z+rnd(-1.5,1.5));scene.add(f);
+    const l=new THREE.PointLight(0xffa860,0,16,1.5);l.position.copy(f.position);scene.add(l);C.torches.push(l);});
+  // rich veins: more crystal and iron than anywhere else
+  const kinds=["ferrum","ferrum","carbo","nimbus","silex","aether","electrum","ferrum","electrum","silex"];open.filter((_,i)=>i%2===1).slice(0,10).forEach(([x,z],i)=>makeNode(kinds[i],x+rnd(-1.2,1.2),z+rnd(-1.2,1.2)));
+  const mouth=C.map[rows-1].indexOf(".");const sg=label("Caverna — the mines",0xffd27a);sg.scale.set(4,.8,1);sg.position.set(C.x0+mouth*C.cell+C.cell/2,C.h+1.5,C.z1+.5);scene.add(sg);C.mouth=new THREE.Vector3(C.x0+mouth*C.cell+C.cell/2,0,C.z1+2);}
+const inCave=p=>p.x>CAVE.x0&&p.x<CAVE.x1&&p.z>CAVE.z0&&p.z<CAVE.z1&&p.y<CAVE.h;
+const inForest=p=>Math.hypot(p.x-FOREST.x,p.z-FOREST.z)<FOREST.r;
+function stepAreas(){const was=CAVE.in;CAVE.in=inCave(P.pos);if(CAVE.in){HEMI.intensity*=.12;sun.intensity*=.05;}CAVE.torches.forEach(l=>l.intensity=CAVE.in?2.2:0);
+  if(inForest(P.pos)){HEMI.intensity*=.7;sun.intensity*=.75;}
+  if(CAVE.in&&!was)lawSay("Caverna: dark tunnels, rich veins — and something moving in the far chambers…");}
 // ---------------- monsters: each has a home, wanders, hunts you when you come near and casts its own spells ----------------
 // Quaternius "Ultimate Monsters" (CC0, models/monsters/*.glb). They live outside the town walls and never come in. Walls stop their spells; they come back 25 s after you beat them.
 const QA={idle:"Idle",walk:"Walk",run:"Run",cast:"Weapon",hit:"HitReact",death:"Death",punch:"Punch"},KA={idle:"Idle",walk:"Walking_D_Skeletons",run:"Running_A",cast:"Spellcast_Shoot",hit:"Hit_A",death:"Death_A",punch:"1H_Melee_Attack_Chop"};
@@ -1359,10 +1429,17 @@ const ENEMY_TYPES={
   skwar:{name:"Skeleton Warrior",url:"monsters/skeleton_warrior.glb",scale:1,hp:230,spells:["spinae","motus"],drops:["dens"],core:"silex",home:[-105,-12],speed:2.5,keep:7,barY:2.5,anim:KA},
   skmage:{name:"Skeleton Mage",url:"monsters/skeleton_mage.glb",scale:1,hp:170,spells:["nox","stella","tenebrae"],drops:["cinis"],core:"electrum",home:[-98,-78],speed:2.2,keep:12,barY:2.5,anim:KA},
   skrogue:{name:"Skeleton Rogue",url:"monsters/skeleton_rogue.glb",scale:1,hp:160,spells:["umbra","sagittae"],drops:["pannus"],core:"aether",home:[70,-105],speed:3.3,keep:8,barY:2.5,anim:KA},
+  // the dark forest's packs, and the cave's (homes inside the tunnels; they stay close together)
+  fninja:{name:"Forest Ninja",url:"monsters/ninja.glb",scale:.63,hp:190,spells:["umbra","nox","sagittae"],drops:["pannus"],core:"aether",home:[-52,140],speed:3.4,keep:9,barY:2.3,anim:QA},
+  bogfrog:{name:"Bog Frog",url:"monsters/frog.glb",scale:.8,hp:200,spells:["unda","bulla","globus"],drops:["gemma"],core:"nimbus",home:[-18,112],speed:2.6,keep:8,barY:2.3,anim:QA},
+  wildmonk:{name:"Wild Monkroose",url:"monsters/monkroose.glb",scale:.75,hp:190,spells:["turbo","ventus"],drops:["pluma"],core:"aether",home:[-35,160],speed:3.2,keep:9,barY:2.3,anim:QA},
+  cavedemon:{name:"Cave Demon",url:"monsters/blue_demon.glb",scale:.68,hp:240,spells:["nox","tenebrae","ignis"],drops:["cinis"],core:"electrum",home:[CAVE.x0+8*6+3,CAVE.z0+6+3],speed:2.4,keep:3,spread:1.4,barY:2.3,anim:QA},
+  tunnel:{name:"Tunnel Skeleton",url:"monsters/skeleton_warrior.glb",scale:.95,hp:200,spells:["spinae","saxum"],drops:["dens"],core:"silex",home:[CAVE.x0+1*6+3,CAVE.z0+6+3],speed:2.6,keep:3,spread:1.4,barY:2.5,anim:KA},
+  rockorc:{name:"Rock Orc",url:"monsters/orc.glb",scale:.62,hp:260,spells:["motus","saxum","spinae"],drops:["dens"],core:"silex",home:[CAVE.x0+8*6+3,CAVE.z0+5*6+3],speed:2.3,keep:3,spread:1.4,barY:2.4,anim:QA},
   skmin:{name:"Skeleton Minion",url:"monsters/skeleton_minion.glb",scale:.9,hp:120,spells:["tenebrae","ignis"],drops:["cinis"],core:"carbo",home:[105,92],speed:3,keep:6,barY:2.3,anim:KA},
 };
 const ENEMIES=[];
-function spawnEnemy(key,chief,i,pack){const T=ENEMY_TYPES[key];const k=chief?1.2:.82;const a=i*2.1,home=new THREE.Vector3(T.home[0]+(chief?0:Math.cos(a)*4),0,T.home[1]+(chief?0:Math.sin(a)*4));
+function spawnEnemy(key,chief,i,pack){const T=ENEMY_TYPES[key];const k=chief?1.2:.82;const a=i*2.1,sp=T.spread||4,home=new THREE.Vector3(T.home[0]+(chief?0:Math.cos(a)*sp),0,T.home[1]+(chief?0:Math.sin(a)*sp));
   const g=new THREE.Group();g.position.copy(home);scene.add(g);
   const hex=FX.HEX[MAT[T.core].el];
   const rune=new THREE.Mesh(new THREE.RingGeometry(.75,.9,40),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.6,depthWrite:false}));rune.rotation.x=-Math.PI/2;rune.position.y=.02;g.add(rune);
@@ -1379,7 +1456,7 @@ Object.keys(ENEMY_TYPES).forEach(key=>{const pack=[];spawnEnemy(key,true,0,pack)
 // tombstones around the skeletons' homes
 ["skwar","skmage","skrogue","skmin"].forEach(k=>{const [hx,hz]=ENEMY_TYPES[k].home;for(let i=0;i<9;i++){const a=i/9*6.28+rnd(-.2,.2),r=rnd(5,9);const t=LOOK.M(new THREE.BoxGeometry(.8,rnd(.9,1.4),.25),LOOK.toon(0x8a8a90),.015);
   t.position.set(hx+Math.cos(a)*r,.5,hz+Math.sin(a)*r);t.rotation.y=a+rnd(-.3,.3);t.rotation.z=rnd(-.15,.15);t.castShadow=true;scene.add(t);}});   // 9 packs of 4: they swarm together
-function blockedAt(p){if(inTown(p,1.5))return true;for(const b of BLOCKS){if(b.h<.3)continue;if(Math.abs(p.x-b.x)<b.w/2+.5&&Math.abs(p.z-b.z)<b.d/2+.5)return true;}return false;}
+function blockedAt(p){if(inTown(p,1.5))return true;for(const b of BLOCKS){if(b.h<.3||b.y>2||b.pass)continue;if(Math.abs(p.x-b.x)<b.w/2+.5&&Math.abs(p.z-b.z)<b.d/2+.5)return true;}return false;}
 function enemyDown(d){const T=d.T;const at=d.g.position.clone();
   if(!d.chief){dropItem(at,{t:"coin",n:ri(2,5)});if(Math.random()<.4)dropItem(at,{t:"mat",id:T.core,n:1});if(Math.random()<.3)dropItem(at,{t:"mat",id:pick(T.drops),n:1});}
   else{dropItem(at,{t:"mat",id:T.core,n:ri(1,2)});dropItem(at,{t:"coin",n:ri(8,15)});T.drops.forEach(id=>dropItem(at,{t:"mat",id,n:ri(1,2)}));}
@@ -1397,7 +1474,7 @@ function stepEnemies(dt){for(const d of ENEMIES){const r=d.rig;const far=d.g.pos
     if(d.casting>0){d.casting-=dt;if(d.casting<=0)castAs(d,d.castId);continue;}
     const to=new THREE.Vector3(P.pos.x-g.position.x,0,P.pos.z-g.position.z);const dist=to.length();to.normalize();
     const home=d.home;const fromHome=g.position.distanceTo(home);
-    const hunting=!P.down&&!inTown(P.pos,.5)&&(dist<26||d.alert>0)&&fromHome<50;
+    const hunting=!P.down&&!inTown(P.pos,.5)&&(dist<26*(1+.6*DAY.night)||d.alert>0)&&fromHome<50+20*DAY.night;   // at night they see farther and roam wider
     if(hunting&&!d.hunting)d.pack.forEach(m=>{m.alert=Math.max(m.alert,8);});d.hunting=hunting;let dir=null,speed=0,face=null;   // one sees you, the whole pack comes
     if(hunting){face=to;
       if(dist>d.keep+2){dir=to;speed=d.speed*1.5;}else if(dist<d.keep-4&&dist>2.6){dir=to.clone().negate();speed=d.speed;}
@@ -1583,7 +1660,7 @@ function updateCam(dt){const d=4.2,eye=P.pos.clone().add(new THREE.Vector3(0,1.5
 function resize(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
 addEventListener("resize",resize);resize();
 // monster bars are hidden while you are in town, so they don't show through the walls
-function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos));d.bar.style.display=vis?"":"none";if(!vis)return;
+function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos))&&!(d.enemy&&(CAVE.in||inCave(d.g.position))&&wallBetween(cam.position,d.g.position.clone().add(new THREE.Vector3(0,1.4,0))));   // no bars through the cave rockd.bar.style.display=vis?"":"none";if(!vis)return;
   d.bar.style.left=(p.x+1)/2*innerWidth+"px";d.bar.style.top=(1-p.y)/2*innerHeight+"px";d.barI.style.width=(100*d.hp/d.max)+"%";d.barI.classList.toggle("low",d.hp<35);d.barS.textContent=d.down?d.name+" · down":d.name;});}
 
 // ---------------- the bag (E) and the forge: tidy the hotbar, and craft by solving the forge's math problems ----------------
@@ -1744,5 +1821,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
