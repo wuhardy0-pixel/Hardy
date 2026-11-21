@@ -572,7 +572,7 @@ function eat(it){const f=FOODS[it.id];if(!f)return false;if(P.hp>=P.maxHp&&!f.bu
 const ACTS=[];let ACT=null;
 function stepActs(){let best=null,bd=1e9;for(const a of ACTS){if(a.hidden&&a.hidden())continue;if(Math.abs(P.pos.y-(a.pos.y||0))>1.6)continue;const d=Math.hypot(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(d<a.r&&d<bd){bd=d;best=a;}}
   ACT=best;const b=$("#trade");b.classList.toggle("hidden",!best||bagOpen||P.down||designOpen());if(best)b.textContent=`${typeof best.label==="function"?best.label():best.label}${touch?"":" (T)"}`;}
-function useAct(){if(ACT&&!P.down)ACT.run();}
+function useAct(){if(ACT&&!P.down&&!P.sleeping)ACT.run();}
 function npc(url,x,z,face,idle){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=face;scene.add(g);const o={g,rig:null};
   LOOK.loadRig("/play/elementum/models/"+url,false,r=>{if(!r)return;o.rig=r;g.add(r.root);r.base(idle||"Idle",{snap:true});});TOWNFOLK.push(o);return o;}
 const TOWNFOLK=[];
@@ -623,9 +623,19 @@ function stepHouses(dt){HOUSES.forEach(h=>{const near=Math.hypot(P.pos.x-h.x,P.p
     h.door.pass=!h.locked||h.mine;   // a locked door stops everyone but its owner
     const want=(!h.locked&&near)||(h.mine&&near)?1:0;h.open+=(want-h.open)*Math.min(1,dt*6);h.hinge.rotation.y=-h.open*1.6;});}
 function toggleLock(){const h=HOME.h;h.locked=!h.locked;MP.lockReq=h.locked;houseSigns();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),h.locked?"locked — only you can get in":"unlocked","spell");}
-function sleep(){if(HOME.restT>0){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`you can rest again in ${Math.ceil(HOME.restT)} s`,"burn");return;}
-  HOME.restT=60;HOME.slept=true;const v=$("#sleep");v.classList.add("on");setTimeout(()=>{P.hp=P.maxHp;P.slowT=0;hud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"rested — full health","spell");v.classList.remove("on");},900);}
-ACTS.push({get pos(){return HOME.bed;},r:2.2,label:()=>HOME.restT>0?`🛏️ Bed (rest again in ${Math.ceil(HOME.restT)} s)`:"🛏️ Sleep — full health",run:sleep});
+// sleeping (2026-11-22, "sleep should make you sleep for 10 hours"): the clock is the same for every player, so you really sleep through
+// 10 game hours (about 3 minutes 20 s) on a sleep screen; you heal as you sleep, and you can wake up early. Getting hurt wakes you.
+const SLEEP_H=10;
+const hourNow=()=>{const DL=.62,t=DAY.t;return (t<DL?6+12*t/DL:18+12*(t-DL)/(1-DL))%24;};
+const fmtH=h=>{h=Math.floor(h)%24;return `${h%12||12} ${h<12?"am":"pm"}`;};
+function sleep(){startSleep();}
+function startSleep(){if(P.sleeping||P.down)return;HOME.slept=true;const ms=SLEEP_H/24*CLOCK.len*1000;P.sleeping={t0:Date.now(),until:Date.now()+ms,hp0:P.hp,from:hourNow()};G.firing=false;
+  $("#sleepBox").classList.remove("hidden");$("#sleepFrom").textContent=fmtH(P.sleeping.from);$("#sleepTo").textContent=fmtH(P.sleeping.from+SLEEP_H);}
+function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;$("#sleepBox").classList.add("hidden");if(full){P.hp=P.maxHp;P.slowT=0;}hud();
+  popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?"10 hours of sleep — fully rested!":"you woke up early"),"spell");}
+function stepSleep(){const z=P.sleeping;if(!z)return;const k=Math.min(1,(Date.now()-z.t0)/(z.until-z.t0));P.hp=z.hp0+(P.maxHp-z.hp0)*k;P.vel.set(0,0,0);
+  $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(hourNow());$("#sleepLeft").textContent=`${Math.ceil(SLEEP_H*(1-k))} hour${Math.ceil(SLEEP_H*(1-k))===1?"":"s"} to go`;if(k>=1)endSleep(true);}
+ACTS.push({get pos(){return HOME.bed;},r:2.2,label:"🛏️ Sleep for 10 hours",run:sleep});
 ACTS.push({get pos(){return HOME.chest;},r:2,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
 ACTS.push({get pos(){return HOME.door;},r:2,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
 HOUSES.forEach(h=>ACTS.push({pos:h.doorP,r:1.8,hidden:()=>h.mine||!h.locked,label:()=>`🔒 ${h.name}'s house is locked`,run:()=>{}}));
@@ -970,15 +980,15 @@ function aptInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,ex=bd.x+bd.w/2-1.3,ez=zb
     if(!APT.owned){if(COINS<APT.price){lawSay(`The flat costs ${APT.price} denarii — you have ${COINS}. Solve people's problems or read books at the school to earn more!`);return;}COINS-=APT.price;coinHud();APT.owned=true;try{localStorage.setItem("elementum.apartment","1");}catch(e){}lawSay("The flat on floor 5 is yours! Here's the key.");}
     ride(APT.home,"Going up… 1 · 2 · 3 · 4 · 5");}});
   ACTS.push({pos:APT.home,r:1.4,label:"Elevator: down to the lobby",run:()=>ride(APT.lobby,"Going down… 4 · 3 · 2 · 1 · lobby")});
-  ACTS.push({pos:APT.bed,r:1.8,label:()=>HOME.restT>0?`Bed (rest again in ${Math.ceil(HOME.restT)} s)`:"Sleep — full health",hidden:()=>!APT.owned,run:sleep});
+  ACTS.push({pos:APT.bed,r:1.8,label:"Sleep for 10 hours",hidden:()=>!APT.owned,run:sleep});
   ACTS.push({pos:APT.chest,r:1.6,label:"Open your chest",hidden:()=>!APT.owned,run:()=>toggleBag(true,"chest")});}
 // Hospitium: rent a room for the night — sleep until morning and wake up fully healed
 function hotelInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,zc=zb+f*1.8;const desk=block(bd.x,zc,3.4,1.1,.8,0x5a2a3a);desk.material=LOOK.toon(0x6a3a4a);
   const bell=new THREE.Mesh(new THREE.SphereGeometry(.09,10,6,0,6.3,0,1.6),LOOK.toon(0xd8ac4a));bell.position.set(bd.x+.8,1.12,zc);scene.add(bell);bd.parts.push(bell);
   const o=npc("villager.glb",bd.x,zb+f*1,f>0?0:Math.PI);const lb=label("Claudia at the desk",0xffffff);lb.scale.set(2,.32,1);lb.position.y=2.35;o.g.add(lb);const pp=personize(o,"Claudia");
   const rug=new THREE.Mesh(new THREE.PlaneGeometry(2,bd.d-4),new THREE.MeshLambertMaterial({color:0x7a2a4a}));rug.rotation.x=-Math.PI/2;rug.position.set(bd.x,.03,bd.z+f*.8);scene.add(rug);bd.parts.push(rug);
-  ACTS.push({pos:new THREE.Vector3(bd.x,0,zc+f*1.1),r:2,label:"Rent a room — sleep and wake up rested (15 denarii)",hidden:()=>pp.down,run:()=>{if(COINS<15){lawSay("A room costs 15 denarii.");return;}COINS-=15;coinHud();
-    const v=$("#vig");v.classList.add("on");lawSay("Claudia: “Sleep well!” … Zzz …");setTimeout(()=>{P.hp=P.maxHp;hud();v.classList.remove("on");lawSay("You wake up rested. You feel great!");},1200);}});}
+  ACTS.push({pos:new THREE.Vector3(bd.x,0,zc+f*1.1),r:2,label:"Rent a room — sleep for 10 hours (15 denarii)",hidden:()=>pp.down,run:()=>{if(COINS<15){lawSay("A room costs 15 denarii.");return;}COINS-=15;coinHud();
+    lawSay("Claudia: “Sleep well!”");startSleep();}});}
 function ride(to,msg){const v=$("#vig");lawSay(msg);v.classList.add("on");setTimeout(()=>{P.pos.copy(to);P.fallTop=undefined;P.vel.set(0,0,0);v.classList.remove("on");},700);}
 function stepRooms(){const r=inRoom(P.pos);if(r){ROOM_LIGHT.position.copy(r.c);ROOM_LIGHT.intensity=1.6;}else ROOM_LIGHT.intensity=0;}
 // ---------------- your own business (2026-11-22, "you can start a business"): rent the empty shop, pick what to sell, buy stock, set a price.
@@ -1721,7 +1731,7 @@ function popNum(p,text,cls,pic){const v=p.clone().project(cam);if(v.z>1)return;c
 // beaten: everything you carry falls where you are (like Minecraft); coins and the house chest stay with you
 function dropAll(){const at=P.pos.clone();at.y=0;let n=0;for(let i=0;i<INV.length;i++){const it=INV[i];if(!it)continue;if(it.t==="weapon")it.ammo=null;shareDrop(dropItem(at,it,300));INV[i]=null;n++;}
   G.item=null;select(SEL);invHud();return n;}
-function hurt(n){if(P.down||n<=0)return;const at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
+function hurt(n){if(P.down||n<=0)return;if(P.sleeping)endSleep(false,"something woke you up!");const at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
   if(P.invulnT>0){popNum(at,"blocked","spell");return;}
   if(P.shield>0){const a=Math.min(P.shield,n);P.shield-=a;n-=a;popNum(at,"shield -"+a,"spell");if(n<=0)return;}
   if(P.toughT>0)n=Math.max(1,Math.round(n*.75));   // cheese
@@ -1745,7 +1755,7 @@ addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.d
 addEventListener("keyup",e=>{keys[e.code]=false;});
 const touch=matchMedia("(pointer:coarse)").matches||"ontouchstart" in window;if(touch)document.body.classList.add("touch");
 let dragId=null,lastX=0,lastY=0;
-canvas.addEventListener("pointerdown",e=>{if(!started||paused||bagOpen||roomOpen||designOpen()||P.inCar)return;
+canvas.addEventListener("pointerdown",e=>{if(!started||paused||bagOpen||roomOpen||designOpen()||P.inCar||P.sleeping)return;
   if(e.pointerType==="mouse"){if(e.button===0)G.firing=true;if(!document.pointerLockElement&&canvas.requestPointerLock)canvas.requestPointerLock();return;}
   if(e.clientX<innerWidth*.45)return;dragId=e.pointerId;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener("pointermove",e=>{if(document.pointerLockElement===canvas){look.yaw-=e.movementX*.0032;look.pitch=clamp(look.pitch+e.movementY*.0025,-.5,1.1);return;}if(e.pointerId!==dragId)return;look.yaw-=(e.clientX-lastX)*.006;look.pitch=clamp(look.pitch+(e.clientY-lastY)*.005,-.5,1.1);lastX=e.clientX;lastY=e.clientY;});
@@ -1768,7 +1778,7 @@ $("#camBtn").onclick=()=>{camSide=-camSide;};
 // ---------------- movement + collision ----------------
 function moveInput(){let x=0,z=0;if(keys.KeyW||keys.ArrowUp)z-=1;if(keys.KeyS||keys.ArrowDown)z+=1;if(keys.KeyA||keys.ArrowLeft)x-=1;if(keys.KeyD||keys.ArrowRight)x+=1;
   if(stick.x||stick.y){x=stick.x;z=stick.y;}const l=Math.hypot(x,z);if(l>1){x/=l;z/=l;}return{x,z,l:Math.min(1,l)};}
-function step(dt){const inp=moveInput();P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
+function step(dt){stepSleep();const inp=P.sleeping?{x:0,z:0,l:0}:moveInput();P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
   if(P.inCar)driveCar(dt,inp);else{   // driving replaces walking
   const s=Math.sin(look.yaw),c=Math.cos(look.yaw);const wx=inp.x*c+inp.z*s,wz=-inp.x*s+inp.z*c;   // forward = away from the camera
   const target=(P.run?RUN:WALK)*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1);const ax=P.onGround?18:6;
@@ -1996,7 +2006,7 @@ $("#bagBody").addEventListener("keydown",e=>{if(e.key!=="Enter"||!e.target.match
 $("#bagBody").addEventListener("input",e=>{if(e.target.id==="conWhy")CONTEST.draft=e.target.value;if(e.target.id==="conIn")CONTEST.ans=e.target.value;});
 document.querySelectorAll("#bag .tabs button[data-tab]").forEach(b=>b.addEventListener("click",()=>{bagTab=b.dataset.tab;bagPick=-1;renderBag();}));
 $("#bagClose").addEventListener("click",()=>toggleBag(false));
-$("#online").addEventListener("click",()=>toggleRoom());$("#projBtn").addEventListener("click",()=>uiOpen(o=>DESIGN.openProjects(o)));$("#roomClose").addEventListener("click",()=>toggleRoom(false));
+$("#online").addEventListener("click",()=>toggleRoom());$("#projBtn").addEventListener("click",()=>uiOpen(o=>DESIGN.openProjects(o)));$("#wakeBtn").addEventListener("click",()=>endSleep(false));$("#roomClose").addEventListener("click",()=>toggleRoom(false));
 $("#trade").addEventListener("click",()=>useAct());
 $("#hotbar").addEventListener("pointerdown",e=>{const s=e.target.closest("[data-i]");if(!s)return;e.preventDefault();e.stopPropagation();select(+s.dataset.i);});
 
@@ -2016,5 +2026,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={startSleep,endSleep,CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
