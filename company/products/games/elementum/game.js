@@ -1039,7 +1039,7 @@ function respawn(){P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door)
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
   $("#wep").classList.toggle("noweap",!(it&&it.t==="weapon"));
   if(it&&it.t==="weapon"){$("#wname").textContent=w.name;$("#ammo").textContent=`${G.ammo} / ${w.mag}`;$("#crys").textContent=`${c.name} crystal · ${c.el}`;$("#crys").style.color="#"+FX.HEX[c.el].toString(16).padStart(6,"0");}
-  else{$("#wname").innerHTML=f?`${img(f.pic,"in")} ${esc(f.name)}`:"👊 Fists";$("#ammo").textContent=f?(it.t==="spell"?"●".repeat(Math.min(12,f.count)):"× "+f.count):"—";
+  else{$("#wname").innerHTML=f?`${img(f.pic,"in")} ${esc(f.name)}`:`${img("hand_fist","in")} Fists`;$("#ammo").textContent=f?(it.t==="spell"?"●".repeat(Math.min(12,f.count)):"× "+f.count):"—";
     $("#crys").textContent=f?(it.t==="spell"?`${f.what} · click to cast`:it.t==="potion"?(it.id==="fortis"?"click to drink · shared with players near you":"click to drink · +50 HP"):it.t==="food"?`click to eat · ${f.what}`:`${f.what}${f.num?` · number ${f.num}`:""} · craft with E`):"click to punch · rocks break slowly";$("#crys").style.color="";}
   $("#rlbar").style.width=G.reloading?((1-G.reloading/G.reloadT)*100)+"%":"0%";$("#wep").classList.toggle("empty",!!(it&&it.t==="weapon"&&G.ammo===0&&!G.reloading));
   $("#hpn").textContent=Math.round(P.hp)+(P.shield>0?` + 🫧${Math.round(P.shield)}`:"");$("#hpbar").style.width=(100*P.hp/P.maxHp)+"%";$("#hpbar").classList.toggle("low",P.hp<35);}

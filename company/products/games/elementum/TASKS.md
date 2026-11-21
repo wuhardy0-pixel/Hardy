@@ -43,6 +43,7 @@
 - 2026-11-20 Barbara: rooms work like Kahoot — the code is not the name. Make room: type a name ("Hardy's Castle"), the game gives a 6-digit code; friends join with the code (or the invite link) and see the room's name. Wrong or short codes get a plain message. Rooms are forgotten after a day unused. Two-browser test passed.
 - 2026-11-20 Barbara: real pictures instead of emoji for every item (42: materials, food, potions, weapons, a scroll per element, coins) — product-photo style made with Gemini (Amazon photos belong to their sellers, so not copied), green background cut out (tools/items/). Shown in the hotbar, bag, forge, shop, guide, on the ground, and held in the hero's hand as a 3D cut-out beside the body. Browser test: all pictures load, no errors.
 - 2026-11-20 Barbara: no emoji in the floating pop-ups either — picked up / dropped / eaten / shared potion / remote spell pop-ups show the item's picture; other pop-ups (pickaxe, axe, guard, lock, rest, player hits, shield) are plain text.
+- 2026-11-21 Barbara: empty hand shows a picture of a gloved fist next to "Fists" instead of the emoji.
 
 ## Next (one step at a time, as Hardy asks)
 - Step 3 candidates: elemental crystals on the guns (burn/soak/charge status from the GDD), the Latin casts, a real map, other players, sounds.
