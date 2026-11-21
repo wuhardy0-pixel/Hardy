@@ -65,3 +65,4 @@
 ## Next (one step at a time, as Hardy asks)
 - Step 3 candidates: elemental crystals on the guns (burn/soak/charge status from the GDD), the Latin casts, a real map, other players, sounds.
 - 2026-11-21 Sleep until morning on the shared clock (sleep screen shows the same time as the corner clock; daytime = 1-minute nap); hotel room and flat purchase now ask first and only take money if you say yes.
+- 2026-11-21 Barbara: shops ask before taking money — the town shops, the food stall and Mercator's stall show "Buy X for N denarii?" with Buy it / No thanks. Browser test: no thanks keeps the coins, Buy it takes exactly the price.
