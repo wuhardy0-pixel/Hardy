@@ -932,6 +932,11 @@ function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4
   const base=new THREE.Mesh(new THREE.BoxGeometry(.5,.08,.3),LOOK.toon(0x333338));base.position.set(bd.x+.6,1.04,zb+f*3);scene.add(base);bd.parts.push(base);
   const lb=signBoard("Computer — ask it for any book",0xffe08a);lb.scale.setScalar(.6);lb.position.set(bd.x+.6,1.9,zb+f*3);lb.rotation.y=f>0?0:Math.PI;scene.add(lb);bd.parts.push(lb);
   LIBRARIAN.g.position.set(bd.x-.6,0,zb+f*2.2);LIBRARIAN.g.rotation.y=f>0?0:Math.PI;
+  {const wx=bd.x,wz=bd.z+f*3.2;const top=block(wx,wz,3,1,1.4,0x7a5232);top.material=LOOK.toon(0x8a5a32);
+    [["stick",-1,.3],["plank",0,-.2],["iron",1,.2]].forEach(([k,dx,dz])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(1.2,.08,.12),LOOK.toon({stick:0xc08a4e,plank:0x8a5a2e,iron:0x8b96a4}[k]));m.position.set(wx+dx*.6,1.05,wz+dz);m.rotation.y=dx*.4;scene.add(m);bd.parts.push(m);});
+    const sg=signBoard("Workbench — build and test your ideas",0xffe08a);sg.scale.setScalar(.55);sg.position.set(wx,1.9,wz);sg.rotation.y=f>0?Math.PI:0;scene.add(sg);bd.parts.push(sg);
+    ACTS.push({pos:new THREE.Vector3(wx,0,wz+f*1.2),r:1.6,label:"Workbench — build and test",run:()=>uiOpen(o=>DESIGN.openProjects(Object.assign(o,{at:"bench"})))});
+    ACTS.push({pos:new THREE.Vector3(wx,0,wz-f*1.2),r:1.6,label:"Workbench — build and test",run:()=>uiOpen(o=>DESIGN.openProjects(Object.assign(o,{at:"bench"})))});}
   ACTS.push({pos:new THREE.Vector3(bd.x+.6,0,zb+f*4.1),r:1.6,label:"Use the computer",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{computer:true})))});
   ACTS.push({pos:new THREE.Vector3(bd.x-.6,0,zb+f*4.1),r:1.4,label:"Talk to Varro",hidden:()=>LIBRARIAN.pp.down,run:()=>uiOpen(o=>DESIGN.openLibrary(o))});}
 // the school: a blackboard, rows of desks, Magistra Cornelia at the front; sit at a desk to listen
@@ -972,8 +977,8 @@ function hotelInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,zc=zb+f*1.8;const desk
   const bell=new THREE.Mesh(new THREE.SphereGeometry(.09,10,6,0,6.3,0,1.6),LOOK.toon(0xd8ac4a));bell.position.set(bd.x+.8,1.12,zc);scene.add(bell);bd.parts.push(bell);
   const o=npc("villager.glb",bd.x,zb+f*1,f>0?0:Math.PI);const lb=label("Claudia at the desk",0xffffff);lb.scale.set(2,.32,1);lb.position.y=2.35;o.g.add(lb);const pp=personize(o,"Claudia");
   const rug=new THREE.Mesh(new THREE.PlaneGeometry(2,bd.d-4),new THREE.MeshLambertMaterial({color:0x7a2a4a}));rug.rotation.x=-Math.PI/2;rug.position.set(bd.x,.03,bd.z+f*.8);scene.add(rug);bd.parts.push(rug);
-  ACTS.push({pos:new THREE.Vector3(bd.x,0,zc+f*1.1),r:2,label:"Rent a room — sleep until morning (15 denarii)",hidden:()=>pp.down,run:()=>{if(COINS<15){lawSay("A room costs 15 denarii.");return;}COINS-=15;coinHud();
-    const v=$("#vig");v.classList.add("on");lawSay("Claudia: “Sleep well!” … Zzz …");setTimeout(()=>{DAY.t=0;DAY.day++;marketDay();P.hp=P.maxHp;hud();v.classList.remove("on");lawSay(`Good morning! Day ${DAY.day}. You feel great.`);},1200);}});}
+  ACTS.push({pos:new THREE.Vector3(bd.x,0,zc+f*1.1),r:2,label:"Rent a room — sleep and wake up rested (15 denarii)",hidden:()=>pp.down,run:()=>{if(COINS<15){lawSay("A room costs 15 denarii.");return;}COINS-=15;coinHud();
+    const v=$("#vig");v.classList.add("on");lawSay("Claudia: “Sleep well!” … Zzz …");setTimeout(()=>{P.hp=P.maxHp;hud();v.classList.remove("on");lawSay("You wake up rested. You feel great!");},1200);}});}
 function ride(to,msg){const v=$("#vig");lawSay(msg);v.classList.add("on");setTimeout(()=>{P.pos.copy(to);P.fallTop=undefined;P.vel.set(0,0,0);v.classList.remove("on");},700);}
 function stepRooms(){const r=inRoom(P.pos);if(r){ROOM_LIGHT.position.copy(r.c);ROOM_LIGHT.intensity=1.6;}else ROOM_LIGHT.intensity=0;}
 // ---------------- your own business (2026-11-22, "you can start a business"): rent the empty shop, pick what to sell, buy stock, set a price.
@@ -1250,19 +1255,28 @@ const NEWS={bake:[["Wheat harvest is huge this year — bread will be cheap to m
   mine:[["Miners found a new crystal vein in Caverna!",1],["A tunnel collapsed in the mines.",-1],["The forge wants more iron than ever.",1],["Cave monsters scared the miners away.",-1]],
   ship:[["A big storm is coming at sea.",-1],["A ship came home loaded with spices!",1],["Pirates were seen near the coast.",-1],["New trade route opened to the east.",1]],
   oil:[["The olive trees are full of fruit.",1],["Frost hurt the olive groves.",-1],["Lamps everywhere need oil for the long nights.",1],["A rival oil press opened in the next town.",-1]]};
+// one market for everyone (2026-11-22): the day number comes from the shared clock, and each day's news and price moves come from that
+// number, so every player sees the same prices. What you own, your predictions and your questions are yours (saved on this device).
+const CLOCK={len:480,epoch:Date.UTC(2026,10,20),offset:0};const worldDay=()=>Math.floor((Date.now()-CLOCK.epoch)/1000/CLOCK.len+CLOCK.offset/CLOCK.len);   // offset: tests only
+const seeded=(a,b)=>{let h=(a*73856093)^(b*19349663)^0x5bd1e995;h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);h^=h>>>16;return (h>>>0)/4294967296;};
+const KI={bake:1,mine:2,ship:3,oil:4};
+function newsFor(d,k){if(seeded(d,KI[k]*7+1)>=.65)return null;const L=NEWS[k],n=L[Math.floor(seeded(d,KI[k]*7+2)*L.length)];return {text:n[0],dir:n[1]};}
+const PXC={day:0,px:null,hist:null};
+function pricesAt(day){if(!PXC.px||PXC.day>day){PXC.day=0;PXC.px={};PXC.hist={};for(const k in STOCKS){PXC.px[k]=STOCKS[k].p;PXC.hist[k]=[STOCKS[k].p];}}
+  while(PXC.day<day){const d=PXC.day+1;for(const k in STOCKS){const S=STOCKS[k],n=newsFor(d-1,k),px=PXC.px[k];let ch=S.drift+(seeded(d,KI[k]*7+3)*2-1)*S.vol-.1*Math.log(px/S.p);   // a pull back toward the usual price, so nothing runs away forever
+      if(n)ch+=n.dir*S.vol*(seeded(d,KI[k]*7+4)<.8?1.1:-.4);const np=Math.max(2,Math.round(px*(1+ch)));PXC.px[k]=np;PXC.hist[k].push(np);if(PXC.hist[k].length>12)PXC.hist[k].shift();}PXC.day=d;}return PXC;}
 let MKT;try{MKT=JSON.parse(localStorage.getItem("elementum.market")||"null");}catch(e){MKT=null;}
-if(!MKT){MKT={day:0,px:{},hist:{},own:{},cost:{},news:{},pred:null,q:null,stats:{right:0,wrong:0}};for(const k in STOCKS){MKT.px[k]=STOCKS[k].p;MKT.hist[k]=[STOCKS[k].p];MKT.own[k]=0;MKT.cost[k]=0;}}
-const mktSave=()=>{try{localStorage.setItem("elementum.market",JSON.stringify(MKT));}catch(e){}};
-function mktNews(){MKT.news={};for(const k in STOCKS){if(Math.random()<.65){const n=pick(NEWS[k]);MKT.news[k]={text:n[0],dir:n[1]};}}}
-if(!Object.keys(MKT.news||{}).length)mktNews();
+MKT=Object.assign({own:{},cost:{},pred:null,q:null,stats:{right:0,wrong:0}},MKT||{});for(const k in STOCKS){MKT.own[k]=MKT.own[k]||0;MKT.cost[k]=MKT.cost[k]||0;}
+const mktSave=()=>{try{const {own,cost,pred,q,stats}=MKT;localStorage.setItem("elementum.market",JSON.stringify({own,cost,pred,q,stats}));}catch(e){}};
+function mktSync(){const d=worldDay();pricesAt(d);MKT.day=d;MKT.px=Object.assign({},PXC.px);MKT.hist={};for(const k in STOCKS)MKT.hist[k]=PXC.hist[k].slice();MKT.news={};for(const k in STOCKS){const n=newsFor(d,k);if(n)MKT.news[k]=n;}}
+mktSync();
 const mktWorth=()=>Object.keys(STOCKS).reduce((a,k)=>a+MKT.own[k]*MKT.px[k],0);
-// a new day: every price moves; yesterday's news comes true (mostly); predictions are settled; today's news comes out
-function marketDay(){const before=mktWorth(),moves=[];
-  for(const k in STOCKS){const S=STOCKS[k],n=MKT.news[k];let ch=S.drift+(Math.random()*2-1)*S.vol;if(n)ch+=n.dir*S.vol*(Math.random()<.8?1.1:-.4);
-    const np=Math.max(2,Math.round(MKT.px[k]*(1+ch)));moves.push([k,MKT.px[k],np]);MKT.px[k]=np;MKT.hist[k].push(np);MKT.hist[k]=MKT.hist[k].slice(-12);}
-  let pmsg="";if(MKT.pred){const mv=moves.find(m=>m[0]===MKT.pred.k);const up=mv[2]>mv[1],flat=mv[2]===mv[1];const ok=!flat&&up===(MKT.pred.dir>0);
-    if(ok){COINS+=10;coinHud();MKT.stats.right++;pmsg=` Your prediction for ${STOCKS[mv[0]].name} was right: +10!`;}else{MKT.stats.wrong++;pmsg=` Your prediction for ${STOCKS[mv[0]].name} was wrong.`;}MKT.pred=null;}
-  const after=mktWorth(),d=after-before;MKT.day++;mktNews();mktSave();drawBoard();
+// settle a prediction once its day is over: was the price higher or lower than when you predicted?
+function mktSettle(){const pr=MKT.pred;if(!pr||MKT.day<=pr.day)return "";const now=MKT.px[pr.k],ok=now!==pr.p&&(now>pr.p)===(pr.dir>0);MKT.pred=null;
+  if(ok){COINS+=10;coinHud();MKT.stats.right++;return ` Your prediction for ${STOCKS[pr.k].name} was right: +10!`;}MKT.stats.wrong++;return ` Your prediction for ${STOCKS[pr.k].name} was wrong.`;}
+mktSettle();
+// a new day (for everyone at once): prices move, today's news comes out
+function marketDay(){const before=mktWorth();mktSync();const pmsg=mktSettle();const after=mktWorth(),d=after-before;mktSave();drawBoard();MKT.q=null;
   if(before>0||pmsg)lawSay(`Market: your shares ${d>=0?"gained":"lost"} ${Math.abs(d)} denarii today (now worth ${after}).${pmsg}`);}
 // Crassus's math questions about the prices — answer right for a coin or two
 function mktQuestion(){const ks=Object.keys(STOCKS),k=pick(ks),h=MKT.hist[k],a=h.length>1?h[h.length-2]:Math.round(h[0]*.9),b=MKT.px[k],nm=STOCKS[k].name;const r=Math.random();
@@ -1296,7 +1310,7 @@ function stocksTab(box){let h=`<p class="purse">🪙 <b>${COINS}</b> denarii · 
 function stocksClick(t){const d=t.dataset;
   if(d.mbuy||d.mbuy5){const k=d.mbuy||d.mbuy5,n=d.mbuy5?5:1,c=n*MKT.px[k];if(COINS<c){forgeOk=false;forgeMsg=`${n} share${n>1?"s":""} cost${n>1?"":"s"} ${c} — you have ${COINS}.`;}else{COINS-=c;coinHud();MKT.own[k]+=n;MKT.cost[k]+=c;forgeOk=true;forgeMsg=`Bought ${n} share${n>1?"s":""} of ${STOCKS[k].name} for ${c}.`;mktSave();}renderBag();return true;}
   if(d.msell||d.msellall){const k=d.msell||d.msellall,n=d.msellall?MKT.own[k]:1;if(!n)return true;const v=n*MKT.px[k],paid=Math.round(MKT.cost[k]*n/MKT.own[k]);COINS+=v;coinHud();MKT.cost[k]-=paid;MKT.own[k]-=n;forgeOk=v>=paid;forgeMsg=`Sold ${n} for ${v} (you paid ${paid}): ${v>=paid?"profit":"loss"} of ${Math.abs(v-paid)}.`;mktSave();renderBag();return true;}
-  if(d.mpred){const [k,dir]=d.mpred.split(":");MKT.pred={k,dir:+dir};mktSave();forgeOk=true;forgeMsg="Prediction made — come back tomorrow!";renderBag();return true;}
+  if(d.mpred){const [k,dir]=d.mpred.split(":");MKT.pred={k,dir:+dir,day:MKT.day,p:MKT.px[k]};mktSave();forgeOk=true;forgeMsg="Prediction made — come back tomorrow!";renderBag();return true;}
   if(t.id==="mGo"){const v=parseFloat(($("#mAns")||{}).value);const q=MKT.q;if(!q||isNaN(v))return true;if(Math.abs(v-q.a)<=q.tol+1e-9){COINS+=3;coinHud();forgeOk=true;forgeMsg="“Exactly right!” Crassus tips you 3 denarii.";mathRight();}else{forgeOk=false;forgeMsg=`“Not quite — it's ${q.a}.”`;mathWrong();}MKT.q=null;mktSave();renderBag();return true;}return false;}
 // ---------------- cars and the gas station (2026-11-22, "add cars") ----------------
 // Walk up to a car and press T to get in. W/S (or the stick) to drive and reverse, A/D to steer, Space to brake, T to get out.
@@ -1398,12 +1412,12 @@ function stepArena(dt){const st=stormAt(Date.now());STORM.position.x=st.cx;STORM
 // ---------------- day and night (2026-11-22): an 8-minute day — 5 minutes of daylight, then dusk, a starry night, dawn ----------------
 // The sun crosses the sky (and follows you, so shadows are everywhere); at night the sky darkens, stars come out, lamps and windows glow,
 // and monsters see farther and roam wider.
-const DAY={len:480,t:.08,day:1,night:0};try{const v=JSON.parse(localStorage.getItem("elementum.clock")||"null");if(v){DAY.t=v.t;DAY.day=v.day;}}catch(e){}
+const DAY={len:CLOCK.len,t:0,day:0,night:0};   // the time of day comes from the real clock, so every player sees the same sky
 const STARS=(()=>{const n=700,pos=new Float32Array(n*3);for(let i=0;i<n;i++){const u=Math.random(),v=Math.random()*.9+.08,th=u*Math.PI*2,ph=Math.acos(v);pos[i*3]=Math.sin(ph)*Math.cos(th)*250;pos[i*3+1]=Math.cos(ph)*250;pos[i*3+2]=Math.sin(ph)*Math.sin(th)*250;}
   const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));const m=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false}));m.renderOrder=-1;scene.add(m);return m;})();
 const C_=h=>new THREE.Color(h),SKY_DAY=[C_(0xd8e9e0),C_(0x98cfe8),C_(0x5aa8dc)],SKY_DUSK=[C_(0xf2a878),C_(0x8a7ab0),C_(0x3a4a8a)],SKY_NIGHT=[C_(0x1a2440),C_(0x0e1530),C_(0x050914)];
 const FOG_DAY=C_(0x9fc08a),FOG_NIGHT=C_(0x141c2c),_c1=new THREE.Color(),_c2=new THREE.Color();let clockSaveT=0;
-function stepDay(dt){DAY.t+=dt/DAY.len;if(DAY.t>=1){DAY.t-=1;DAY.day++;lawSay(`Day ${DAY.day} begins.`);marketDay();}
+function stepDay(dt){const sNow=(Date.now()-CLOCK.epoch)/1000/DAY.len+CLOCK.offset/DAY.len,nd=Math.floor(sNow)+1;DAY.t=sNow-Math.floor(sNow);if(nd!==DAY.day){const first=!DAY.day;DAY.day=nd;if(!first){lawSay(`Day ${DAY.day} begins.`);marketDay();}}
   const t=DAY.t,DAYLEN=.62;const sunUp=t<DAYLEN?Math.sin(Math.PI*t/DAYLEN):0;            // 0 at dawn and dusk, 1 at noon
   const dusk=t<DAYLEN?Math.max(0,1-Math.min(t,DAYLEN-t)/.08):Math.max(0,1-Math.min(t-DAYLEN,1-t)/.06); // warm colors near sunrise/sunset
   const night=t<DAYLEN?0:Math.min(1,Math.min(t-DAYLEN,1-t)/.05);DAY.night=Math.max(0,night-0)*(1-dusk*.6);DAY.night=night;
@@ -1421,7 +1435,7 @@ function stepDay(dt){DAY.t+=dt/DAY.len;if(DAY.t>=1){DAY.t-=1;DAY.day++;lawSay(`D
   STARS.material.opacity=night*.9;STARS.position.copy(cam.position);
   const glowK=Math.max(night,dusk*.5);NIGHT_MATS.forEach(m=>m.emissiveIntensity=glowK*.85);LAMPS.forEach(l=>l.material.color.setScalar(.85+.6*glowK));
   const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${DAY.day} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
-  clockSaveT-=dt;if(clockSaveT<=0){clockSaveT=10;try{localStorage.setItem("elementum.clock",JSON.stringify({t:DAY.t,day:DAY.day}));}catch(e){}}}
+}
 scene.add(sun.target);
 function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
@@ -2002,5 +2016,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

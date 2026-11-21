@@ -55,6 +55,14 @@ function explain(s){const L=s.L;const name=k=>({left:"the left wall",right:"the 
   if(s.minT<L.lo&&s.coldFlows){const f=Object.entries(s.coldFlows).filter(([k,v])=>v<0).sort((a,b)=>a[1]-b[1]);const tot=f.reduce((a,[,v])=>a-v,0)||1;out.push(`At the coldest time heat was leaving through ${f.slice(0,3).map(([k,v])=>`${name(k)} ${Math.round(-v/tot*100)}%`).join(", ")}.`);}
   if(s.maxT>L.hi&&s.hotFlows){const f=Object.entries(s.hotFlows).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1]);const tot=f.reduce((a,[,v])=>a+v,0)||1;out.push(`At the hottest time heat was coming from ${f.slice(0,3).map(([k,v])=>`${name(k)} ${Math.round(v/tot*100)}%`).join(", ")}.`);}
   if(L.fuel&&s.fuel<=0)out.push("The firewood ran out.");return {tag:s.minT<L.lo?"cold":"hot",msg:out.join(" ")};}
+function why(s){const L=s.L,W=s.W,st=init(L),out=[];
+  if(!L.ice)out.push(`The room stayed between ${L.lo} and ${L.hi} °C ${Math.round(s.inRange/s.hours*100)}% of the time (coldest ${s.minT.toFixed(1)} °C, warmest ${s.maxT.toFixed(1)} °C).`);else out.push(`${Math.round(s.ice)} kg of the ${L.ice} kg of ice was still there.`);
+  for(const p of ["roof","left","right"]){const a=U(st,p,L),b=U(W,p,L);if(b<a*.8)out.push(`Your ${p==="roof"?"roof":p+" wall"} now lets heat through ${(a/b).toFixed(1)} times more slowly (${W.parts[p].map(m=>MATS[m].name.toLowerCase()).join(" + ")}) — the trapped air in it slows heat down.`);}
+  if(W.o.seal==="yes"&&st.o.seal!=="yes")out.push("Sealing the drafts stopped air from leaking in and out.");
+  if(W.o.shade==="yes"&&st.o.shade!=="yes")out.push("The awning stopped the sun before it came through the window.");if(W.o.roofColor==="light"&&st.o.roofColor!=="light")out.push("The light roof reflected sunshine instead of soaking it up.");
+  if(W.o.vents!=="closed"&&st.o.vents==="closed")out.push("Open vents let the cool night air in.");if(W.o.barrels>0)out.push("The water barrels soaked up heat when it was warm and gave it back when it got cold.");
+  if(W.o.cellar==="yes")out.push("The cellar kept the floor close to the steady temperature of the ground.");if(W.o.pot==="yes")out.push("Water evaporating from the clay pot carried heat away.");
+  if(L.fuel)out.push(`You used ${s.fuelUsed.toFixed(1)} loads of firewood.`);return out.join(" ");}
 // ---------------- drawing: a cut-through room and a temperature chart ----------------
 function tempColor(T){const k=Math.max(0,Math.min(1,(T+5)/40));return `rgb(${Math.round(60+190*k)},${Math.round(120+60*Math.sin(k*Math.PI))},${Math.round(230-200*k)})`;}
 function geo(cv){const w=cv.width,h=cv.height,rw=w*.46,rh=h*.48,x0=w*.06,y0=h*.2;return {w,h,rw,rh,x0,y0,th:Math.max(8,w*.018)};}
@@ -113,5 +121,5 @@ const IDEAS={insulate:{name:"Insulate",note:"Straw, wool or sawdust in the walls
   shutters:{name:"Night shutters",note:"Windows lose lots of heat at night — close wooden shutters over them.",apply:W=>{W.o.shutters="yes";}}};
 function build(L,ideas,thick){const W=init(L);ideas.forEach(id=>IDEAS[id].apply(W,L));if(thick)["left","right","roof"].forEach(p=>{while(W.parts[p].length<3)W.parts[p].push(thick);});return W;}
 window.ENG=window.ENG||{};
-window.ENG.heat={name:"Heat",tools,init,ser,de,cost,start,step,judge,explain,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,useTool,setOpt,canvasRatio:.55,MATS,OPTS};
+window.ENG.heat={name:"Heat",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,useTool,setOpt,canvasRatio:.55,MATS,OPTS};
 })();

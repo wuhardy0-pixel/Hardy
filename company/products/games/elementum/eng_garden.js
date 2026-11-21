@@ -36,7 +36,7 @@ function isPlant(L,x,y){return plantCells(L).some(p=>p.x===x&&p.y===y);}
 function rngFrom(seed){let s=seed||1;return ()=>(s=(s*16807)%2147483647)/2147483647;}
 function start(W,L){const rnd=rngFrom(12345);const plants=plantCells(L).map(p=>({x:p.x,y:p.y,hp:100,pol:false,net:W.items[key(p.x,p.y)]==="net",bin:W.items[key(p.x,p.y)]==="bin"}));
   const items=Object.entries(W.items).map(([k,t])=>{const [x,y]=k.split(",").map(Number);return {x,y,t,charge:5};});
-  return {L,W,rnd,plants,items,pests:[],bees:[],t:0,day:0,dmg:{},beesKilled:0,netBlockedBees:0,entries:{},fx:[],done:false};}
+  return {L,W,rnd,plants,items,pests:[],bees:[],t:0,day:0,dmg:{},beesKilled:0,netBlockedBees:0,entries:{},fx:[],done:false,eaten:{},blocked:{},repel:0,came:{},polBy:0};}
 const itemAt=(s,x,y)=>s.items.find(i=>i.x===x&&i.y===y);
 function blocked(s,p,x,y){if(x<0||y<0||x>=C||y>=R)return false;const it=itemAt(s,x,y);if(!it)return false;
   if(it.t==="fence"&&p.kind==="rabbit")return true;if(it.t==="copper"&&p.kind==="slug")return true;return false;}
@@ -49,16 +49,16 @@ function tick(s){const L=s.L,rnd=s.rnd;s.t++;s.day=Math.floor(s.t/DAY_T);const f
   // arrivals
   for(const [kind,perDay] of Object.entries(L.pests||{})){const P=PESTS[kind];if(P.night&&!night)continue;const rate=perDay/(P.night?DAY_T*(NIGHT[1]-NIGHT[0]):DAY_T);
     if(rnd()<rate){if(P.hatch){const cand=s.plants.filter(p=>!p.net&&p.hp>0);if(cand.length){const p=cand[Math.floor(rnd()*cand.length)];s.pests.push({kind,x:p.x+rnd()*.6-.3,y:p.y+rnd()*.6-.3,ent:"hatched"});}}
-      else{const e=spawnEdge(s);s.pests.push({kind,x:e.x,y:e.y,ent:Math.round(e.x)+","+Math.round(e.y)});}}}
+      else{const e=spawnEdge(s);s.pests.push({kind,x:e.x,y:e.y,ent:Math.round(e.x)+","+Math.round(e.y)});}s.came[kind]=(s.came[kind]||0)+1;}}
   const flowers=s.items.filter(i=>i.t==="flowers").length;
   if(L.bees&&!night&&rnd()<(.06+.05*flowers)){const e=spawnEdge(s);s.bees.push({x:e.x,y:e.y,life:60});}
   // poison: kills everything small nearby, every day it's out there
   for(const it of s.items){if(it.t!=="poison")continue;s.pests=s.pests.filter(p=>!(near(p,it,2.2)&&!PESTS[p.kind].big&&!PESTS[p.kind].walks));const before=s.bees.length;s.bees=s.bees.filter(b=>!near(b,it,2.6));s.beesKilled+=before-s.bees.length;}
   // helpers eat pests
-  for(const it of s.items){const eat=(kinds,r,p)=>{const v=s.pests.find(q=>kinds.includes(q.kind)&&near(q,it,r));if(v&&rnd()<p){s.pests.splice(s.pests.indexOf(v),1);s.fx.push({x:v.x,y:v.y,t:6,c:"#fff"});}};
+  for(const it of s.items){const eat=(kinds,r,p)=>{const v=s.pests.find(q=>kinds.includes(q.kind)&&near(q,it,r));if(v&&rnd()<p){s.pests.splice(s.pests.indexOf(v),1);s.fx.push({x:v.x,y:v.y,t:6,c:"#fff"});s.eaten[it.t]=(s.eaten[it.t]||0)+1;}};
     if(it.t==="ladybug"&&!s.items.some(i=>i.t==="poison"&&near(i,it,2.6)))eat(["aphid","whitefly"],2.6,.55);
     if(it.t==="birdbox")eat(["cater"],3.2,.35);if(it.t==="cat")eat(["mouse"],3.2,.3);if(it.t==="mothtrap")eat(["moth"],3.2,.5);
-    if(it.t==="trap"&&night&&it.charge>0){const v=s.pests.find(q=>q.kind==="slug"&&near(q,it,1.6));if(v){s.pests.splice(s.pests.indexOf(v),1);it.charge--;}}
+    if(it.t==="trap"&&night&&it.charge>0){const v=s.pests.find(q=>q.kind==="slug"&&near(q,it,1.6));if(v){s.pests.splice(s.pests.indexOf(v),1);it.charge--;s.eaten.trap=(s.eaten.trap||0)+1;}}
     if(it.t==="trap"&&!night)it.charge=5;}
   // pests move toward the nearest crop they can eat, and eat it
   for(const p of [...s.pests]){const P=PESTS[p.kind];if(P.night&&!night)continue;p.age=(p.age||0)+1;if(p.age>P.life){s.pests.splice(s.pests.indexOf(p),1);continue;}
@@ -66,15 +66,15 @@ function tick(s){const L=s.L,rnd=s.rnd;s.t++;s.day=Math.floor(s.t/DAY_T);const f
     let tgt=null,bd=1e9;for(const pl of can){const d=Math.hypot(pl.x-p.x,pl.y-p.y)+(repelled(s,p,pl.x,pl.y)?20:0);if(d<bd){bd=d;tgt=pl;}}
     if(!tgt){p.x+=rnd()-.5;p.y+=rnd()-.5;if(p.x<-1||p.y<-1||p.x>C||p.y>R)s.pests.splice(s.pests.indexOf(p),1);continue;}
     const dx=tgt.x-p.x,dy=tgt.y-p.y,d=Math.hypot(dx,dy);
-    if(d<.35){if(repelled(s,p,tgt.x,tgt.y)){p.x+=(rnd()-.5)*2;p.y+=(rnd()-.5)*2;continue;}tgt.hp=Math.max(0,tgt.hp-P.eat);s.dmg[p.kind]=(s.dmg[p.kind]||0)+P.eat;s.entries[p.ent]=(s.entries[p.ent]||0)+P.eat;
+    if(d<.35){if(repelled(s,p,tgt.x,tgt.y)){s.repel++;p.x+=(rnd()-.5)*2;p.y+=(rnd()-.5)*2;continue;}tgt.hp=Math.max(0,tgt.hp-P.eat);s.dmg[p.kind]=(s.dmg[p.kind]||0)+P.eat;s.entries[p.ent]=(s.entries[p.ent]||0)+P.eat;
       if(p.kind==="bird"&&rnd()<.2)s.pests.splice(s.pests.indexOf(p),1);continue;}
     const sp=P.spd*.18,nx=p.x+dx/d*sp+(rnd()-.5)*.12,ny=p.y+dy/d*sp+(rnd()-.5)*.12;
     const cx=Math.round(nx),cy=Math.round(ny);
-    if(blocked(s,p,cx,cy)){const alt=[[nx,p.y],[p.x,ny],[p.x+(rnd()-.5)*.6,p.y+(rnd()-.5)*.6]].find(([ax,ay])=>!blocked(s,p,Math.round(ax),Math.round(ay)));if(alt){p.x=alt[0];p.y=alt[1];}continue;}
+    if(blocked(s,p,cx,cy)){s.blocked[p.kind]=(s.blocked[p.kind]||0)+1;const alt=[[nx,p.y],[p.x,ny],[p.x+(rnd()-.5)*.6,p.y+(rnd()-.5)*.6]].find(([ax,ay])=>!blocked(s,p,Math.round(ax),Math.round(ay)));if(alt){p.x=alt[0];p.y=alt[1];}continue;}
     if(P.fly&&repelled(s,p,cx,cy)&&!repelled(s,p,Math.round(p.x),Math.round(p.y))){p.x+=(rnd()-.5)*.4;p.y+=(rnd()-.5)*.4;continue;}
     p.x=nx;p.y=ny;}
   // bees visit flowering crops (not under nets) and pollinate them
-  for(const b of [...s.bees]){b.life--;const tgt=s.plants.find(pl=>!pl.pol&&pl.hp>20&&!pl.net)||null;
+  for(const b of [...s.bees]){b.life--;const tgt=s.plants.find(pl=>!pl.pol&&pl.hp>20&&!pl.net)||null;if(tgt&&Math.hypot(tgt.x-b.x,tgt.y-b.y)<.3)s.polBy++;
     if(!tgt||b.life<=0){s.bees.splice(s.bees.indexOf(b),1);if(!tgt&&s.plants.some(pl=>!pl.pol&&pl.net))s.netBlockedBees++;continue;}
     const dx=tgt.x-b.x,dy=tgt.y-b.y,d=Math.hypot(dx,dy);if(d<.3){tgt.pol=true;s.bees.splice(s.bees.indexOf(b),1);continue;}b.x+=dx/d*.35;b.y+=dy/d*.35;}
   s.fx=s.fx.filter(f=>--f.t>0);}
@@ -87,6 +87,13 @@ function explain(s){const L=s.L,{hp,pol}=score(s);const tot=Object.values(s.dmg)
   if(parts.length)m+=` Damage: ${parts.join(", ")}.`+(ent?` Most came in from the ${side(ent[0])} side.`:"");
   if(L.bees)m+=` ${Math.round(pol*100)}% of the flowers were pollinated (needed ${Math.round(L.bees*100)}%).`+(s.beesKilled?` ${s.beesKilled} bees died near the poison.`:"")+(s.plants.some(p=>p.net)&&pol<L.bees?` Bees couldn't get under the nets.`:"");
   const tag=L.bees&&pol<L.bees?(s.beesKilled?"poison":"bees"):Object.keys(s.dmg).length?"pest_"+Object.entries(s.dmg).sort((a,b)=>b[1]-a[1])[0][0]:"garden";return {tag,msg:m};}
+function why(s){const L=s.L,{hp,pol}=score(s);const nm={ladybug:"Your ladybugs ate",birdbox:"Birds from your bird box ate",cat:"Your cat caught",mothtrap:"Your moth traps caught",trap:"Your beer traps caught"},what={ladybug:"bugs",birdbox:"caterpillars",cat:"mice",mothtrap:"moths",trap:"slugs"};
+  const out=[`The ${L.crop} ended ${Math.round(hp*100)}% healthy.`];for(const k in s.eaten)out.push(`${nm[k]} ${s.eaten[k]} ${what[k]}.`);
+  const nets=s.plants.filter(p=>p.net).length;if(nets)out.push(`${nets} plant${nets>1?"s were":" was"} under nets, so flying pests and birds couldn't reach ${nets>1?"them":"it"}.`);
+  if(s.blocked.rabbit)out.push("Your fence turned the rabbits back every time they tried to get in.");if(s.blocked.slug)out.push("The slugs wouldn't cross your copper ring.");
+  if(s.repel)out.push(`The smell of your marigolds turned pests away ${s.repel} times, and shiny tape and scarecrows kept birds off.`.replace(", and shiny tape and scarecrows kept birds off",s.items.some(i=>i.t==="scarecrow"||i.t==="tape")?", and the scarecrow and tape scared birds off":""));
+  if(L.bees)out.push(`Bees still reached the flowers — ${Math.round(pol*100)}% were pollinated${s.items.some(i=>i.t==="flowers")?", helped by your wildflowers bringing more bees":""}.`);
+  if(s.items.some(i=>i.t==="poison"))out.push("It worked with poison — but the poison also killed helpful animals.");return out.join(" ");}
 function side(k){const [x,y]=k.split(",").map(Number);return x<=0?"left":x>=C-1?"right":y<=0?"top":"bottom";}
 // ---------------- drawing ----------------
 function view(cv){const sc=Math.min(cv.width/(C+1),cv.height/(R+1));const ox=(cv.width-C*sc)/2,oy=(cv.height-R*sc)/2;return {sc,X:x=>ox+(x+.5)*sc,Y:y=>oy+(y+.5)*sc,ix:px=>Math.round((px-ox)/sc-.5),iy:py=>Math.round((py-oy)/sc-.5),ox,oy};}
@@ -152,5 +159,5 @@ function tools(L){return {main:(L.tools||Object.keys(TOOLS)).concat(["erase"]).f
 function info(L){const ps=Object.keys(L.pests||{}).map(k=>PESTS[k].name).join(", ");return `Protect the ${L.crop} for ${L.days} days from ${ps}. At least ${Math.round(L.need*100)}% must stay healthy${L.bees?` and ${Math.round(L.bees*100)}% of the flowers must be pollinated by bees`:""}. Click squares to place things (drag to place many).`;}
 function build(L,ideas){const W=init(L);ideas.forEach(id=>IDEA_ITEMS(id,L,W.items));return W;}
 window.ENG=window.ENG||{};
-window.ENG.garden={name:"Garden",tools,init,ser,de,cost,start,step,judge,explain,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C,TOOLS,PESTS};
+window.ENG.garden={name:"Garden",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C,TOOLS,PESTS};
 })();

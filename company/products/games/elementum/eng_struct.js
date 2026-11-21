@@ -85,7 +85,7 @@ function sub(s,h){const L=s.L;s.t+=h;const free=s.ns.filter(n=>!n.anchor);
   for(const m of s.ms){if(m.broken)continue;const a=m.a,b=m.b;let dx=b.x-a.x,dy=b.y-a.y;const len=Math.hypot(dx,dy)||1e-6;const C=len-m.L;
     if(m.mt.rope&&C<0){m.F=0;continue;}const wa=a.anchor?0:1/a.m,wb=b.anchor?0:1/b.m,w=wa+wb;if(!w)continue;const al=1/(m.k/m.L)/(h*h);const dl=-C/(w+al);
     dx/=len;dy/=len;a.x-=wa*dl*dx;a.y-=wa*dl*dy;b.x+=wb*dl*dx;b.y+=wb*dl*dy;m.F=-dl/(h*h);
-    const lim=m.F>0?m.T:m.C;if(Math.abs(m.F)>lim){m.broken=true;if(!s.first)s.first={m,kind:m.F>0?"tension":"compression",by:m.F>0&&m.T<m.Tm?(m.toAnchor&&L.anchorGlue?"tie":"glue"):(m.F<0&&!m.mt.nobuckle&&m.C<m.mt.C*.99?"buckle":"material"),F:Math.abs(m.F),lim};}}
+    const lim=m.F>0?m.T:m.C;if(s.t>.3){const u=Math.abs(m.F)/(lim||1);if(u>(m.use||0)){m.use=u;m.useF=m.F;}}if(Math.abs(m.F)>lim){m.broken=true;if(!s.first)s.first={m,kind:m.F>0?"tension":"compression",by:m.F>0&&m.T<m.Tm?(m.toAnchor&&L.anchorGlue?"tie":"glue"):(m.F<0&&!m.mt.nobuckle&&m.C<m.mt.C*.99?"buckle":"material"),F:Math.abs(m.F),lim};}}
   for(const n of free){n.vx=(n.x-n.px)/h*.9995;n.vy=(n.y-n.py)/h*.9995;if(!n.loose)s.maxDisp=Math.max(s.maxDisp,Math.hypot(n.x-n.src.x,n.y-n.src.y));}
   if(L.kind==="roof"&&!c.fell&&s.t>2&&cover(s)<.85)c.fell="blown";
   if(L.kind==="hang"&&!c.fell&&s.hook&&(s.hook.y<L.hook[1]-.6||!s.ms.some(m=>!m.broken&&(m.a===s.hook||m.b===s.hook))))c.fell="dropped";}
@@ -113,6 +113,16 @@ function explain(s){const f=s.first,c=s.load,L=s.L;const name=m=>`${MATS[m.mat].
   if(c.fell==="dropped")return {tag:"fold",msg:`The hook point sagged and dropped.${loose}`};
   if(c.fell==="fell"||c.fell==="low")return {tag:"tip",msg:`The weight came down — the floor ended up below ${L.H-.6} m.${loose}`};
   return {tag:"fold",msg:`Nothing broke, but it moved and bent too much.${loose}`};}
+// why it worked: the pieces that worked hardest (pulled or squeezed, against what they can take), the triangles, the joints
+function why(s){const L=s.L,ms=s.ms.filter(m=>!m.broken&&m.use);const top=ms.sort((a,b)=>b.use-a.use).slice(0,3);const nm=m=>`${MATS[m.mat].name.toLowerCase()} (${m.L.toFixed(1)} m)`;
+  const parts=[];if(top.length)parts.push("The pieces that worked hardest: "+top.map(m=>`a ${nm(m)} was ${m.useF>0?"pulled":"squeezed"} to ${Math.round(m.use*100)}% of what it can take`).join("; ")+". Nothing went over 100%, so nothing broke.");
+  // triangles: three joints all connected to each other can't change shape
+  const adj=new Map();s.ms.forEach(m=>{if(m.broken)return;[[m.a,m.b],[m.b,m.a]].forEach(([p,q])=>{if(!adj.has(p))adj.set(p,new Set());adj.get(p).add(q);});});let tri=0;
+  for(const [p,ns] of adj)for(const q of ns)for(const r of adj.get(q)||[])if(r!==p&&ns.has(r))tri++;tri=Math.round(tri/6);
+  parts.push(tri?`Your frame has ${tri} triangle${tri>1?"s":""}. A triangle can't change shape unless a side breaks, so the frame stayed stiff.`:"There are no triangles, but every joint was held in place from enough sides to stay put.");
+  const tie=s.ms.filter(m=>m.toAnchor&&!m.broken&&m.use&&m.useF>0).sort((a,b)=>b.use-a.use)[0];if(L.anchorGlue&&tie)parts.push(`Where the frame meets the walls, the joints held the pull of the wind: the strongest pull used ${Math.round(tie.use*100)}% of the joint's grip.`);
+  if(L.kind==="ramp")parts.push(`The slope stayed gentle enough to roll up.`);if(L.kind==="span"&&s.ms.some(m=>m.mat==="stone"&&!m.broken))parts.push("The stone blocks were only squeezed — exactly what stone is good at.");
+  if(s.ms.some(m=>m.mat==="rope"&&m.use>.05))parts.push("The ropes were pulled, never pushed — that's how rope works best.");return parts.join(" ");}
 // ---------------- design ideas (outlines drawn on the grid as a guide) ----------------
 const seg=(a,b)=>[g2(a[0]),g2(a[1]),g2(b[0]),g2(b[1])];
 function trussSpan(S,y0,H){const n=Math.ceil(S/2),d=S/n,g=[];for(let i=0;i<n;i++){const a=i*d,b=a+d;g.push(seg([a,y0],[b,y0]));if(i>0)g.push(seg([a,y0],[a,y0+H]));if(i>0&&i<n-1)g.push(seg([a,y0+H],[b,y0+H]));
@@ -243,5 +253,5 @@ function build(L,ideaId,mat,joint,overrides){const W=init(L);splitAll(ideaGhost(
   const pts={};W.pieces.forEach(p=>[0,1].forEach(e=>{const [x,y]=endXY(p,e);const k=x.toFixed(3)+","+y.toFixed(3);(pts[k]=pts[k]||[]).push([p.id,e]);}));
   for(const k in pts){const [x,y]=k.split(",").map(Number);const an=anchorAt(L,x,y,.01);if(pts[k].length+(an?1:0)>=2)W.joints.push({x,y,glue:joint,ends:pts[k],anchor:!!an});}return W;}
 window.ENG=window.ENG||{};
-window.ENG.struct={name:"Workshop",tools,init,ser,de,cost,start,step,judge,explain,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,setLen,info,build,MATS,GLUES,canvasRatio:.5};
+window.ENG.struct={name:"Workshop",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,setLen,info,build,MATS,GLUES,canvasRatio:.5};
 })();

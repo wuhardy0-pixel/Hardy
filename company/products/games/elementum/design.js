@@ -28,12 +28,13 @@ function render(){const sc=SC.byId[cur],s=S(cur),L=Lv(cur);const tabs=[["ask","N
   else if(tab==="frame"){const fr=frameQs(sc,L),ans=s.frameAns||{};h+=`<p class="tip">Before building, say what the problem really is.</p>`;
     for(const k of ["who","need","hard","test"]){const f=fr[k];h+=`<div class="fq"><b>${esc(f.q)}</b>${f.o.map((t,i)=>`<label><input type="${f.multi?"checkbox":"radio"}" name="f_${k}" value="${i}" ${(ans[k]||[]).includes(i)?"checked":""}> ${esc(t)}</label>`).join("")}<p class="fwhy" id="why_${k}"></p></div>`;}
     h+=`<button class="go" id="frameCheck">Check</button>${s.framed?`<p class="ok">Done — on to building.</p>`:""}`;}
+  else if(hooks.at!=="bench"){h+=`<p class="tip">Building and testing happen at the <b>workbench in the Bibliotheca</b> (the library). Go there, open the workbench, and pick this project.</p>`;}
   else{h+=buildHTML(sc,L);}
   h+=`</div>`;$("#designBody").innerHTML=h;wireClose();
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{if(!unlocked(b.dataset.tab))return;tab=b.dataset.tab;sim=null;result=null;report="";render();});
   document.querySelectorAll("[data-ask]").forEach(b=>b.onclick=()=>{const i=+b.dataset.ask;if(!s.facts.includes(i)){s.facts.push(i);save();if(hooks.onAsk)hooks.onAsk(sc,i);}render();});
   if($("#frameCheck"))$("#frameCheck").onclick=()=>checkFrame(sc,L);
-  if(tab==="build")wireBuild(sc,L);dictify($("#designBody"));}
+  if(tab==="build"&&hooks.at==="bench")wireBuild(sc,L);dictify($("#designBody"));}
 // the frame: four questions; the right answers come from the problem itself, the wrong ones are plausible but off
 function frameQs(sc,L){const R=SC.WRONG,pick=(arr,n,seed)=>arr.slice(seed%arr.length).concat(arr).slice(0,n);const h=sc.id.length;
   const mix=(right,wrong)=>{const o=[...right,...wrong];const ord=o.map((t,i)=>[((i+1)*(h+7))%11+i/100,t]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);return {o:ord,a:right.map(r=>ord.indexOf(r))};};
@@ -74,16 +75,16 @@ function draw(){const cv=$("#dCanvas");if(!cv)return;const L=Lv(cur),E=eng();con
   E.draw(cv,W,L,sim,null,ui);if(result){const x=cv.getContext("2d");x.fillStyle=result.ok?"rgba(40,140,70,.9)":"rgba(170,40,30,.9)";x.fillRect(0,cv.height-30,cv.width,30);x.fillStyle="#fff";x.font="700 16px system-ui";x.fillText(result.ok?"It works!":"It didn't work.",12,cv.height-10);}
   const el=$("#dCost");if(el){const c=E.cost(W,L);el.innerHTML=`Cost: <b class="${c>L.budget?"over":""}">${c}</b> / ${L.budget}`;}}
 function finish(r){result=r;const id=cur,s=S(id),E=eng();
-  if(r.ok){const lv=lvOf(id),first=!s.solved;s.solved=true;s.next=Math.min(2,lv+1);s.best={lv,eng:SC.byId[id].eng,data:E.ser(W)};save();say(`It works!${r.note?" "+r.note:""}`);if(hooks.onSolved)hooks.onSolved(SC.byId[id],lv,first,s.best);}
+  if(r.ok){const lv=lvOf(id),first=!s.solved;s.solved=true;s.next=Math.min(2,lv+1);s.best={lv,eng:SC.byId[id].eng,data:E.ser(W)};save();say(`<b>It works!</b>${r.note?" "+r.note:""}${E.why?`<br><b>Magistra Cornelia:</b> ${E.why(sim)}`:""}`);if(hooks.onSolved)hooks.onSolved(SC.byId[id],lv,first,s.best);}
   else{const ex=E.explain(sim);ST.prof[ex.tag]=(ST.prof[ex.tag]||0)+1;save();say(ex.msg);}draw();}
 function loop(t){cancelAnimationFrame(raf);if(!openFlag||!sim)return;raf=requestAnimationFrame(loop);const dt=lastT&&t?Math.min(1/15,(t-lastT)/1000):1/60;lastT=t||0;if(result)return;
   const E=eng();E.step(sim,dt);const r=E.judge(sim);draw();if(r)finish(r);}
 // ---------------- your projects: every problem you've heard about ----------------
-function openProjects(o){hooks=o||{};cur=null;mode="projects";show();const known=SC.list.filter(sc=>S(sc.id).facts.length);
-  let h=head("Your projects")+`<div class="dbody">`;if(!known.length)h+=`<p class="tip">You haven't heard about any problems yet. People all over town grumble about their troubles — listen, walk up and ask.</p>`;
+function openProjects(o){hooks=o||{};cur=null;mode="projects";show();const bench=hooks.at==="bench";const known=SC.list.filter(sc=>S(sc.id).facts.length);
+  let h=head(bench?"The workbench":"Your projects")+`<div class="dbody">${bench?`<p class="tip">Pick a project to build and test here. The books are on the shelves around you if you want to look something up first.</p>`:`<p class="tip">You build and test at the workbench in the Bibliotheca.</p>`}`;if(!known.length)h+=`<p class="tip">You haven't heard about any problems yet. People all over town grumble about their troubles — listen, walk up and ask.</p>`;
   h+=`<div class="chs">${known.map(sc=>{const s=S(sc.id);return `<button data-open="${sc.id}"><b>${esc(sc.title)}</b><small>${esc(sc.owner)} · level ${lvOf(sc.id)+1} · ${s.solved?"solved":s.framed?"building":s.facts.length>=3?"say what the problem is":`ask ${esc(sc.owner)} more (${s.facts.length}/3)`}</small></button>`;}).join("")}</div>`;
   h+=`<p class="tip">${SC.list.filter(sc=>S(sc.id).solved).length} of ${SC.list.length} problems in town solved.</p></div>`;$("#designBody").innerHTML=h;wireClose();
-  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openProblem(b.dataset.open,Object.assign({},hooks,{at:"bench"})));}
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openProblem(b.dataset.open,Object.assign({},hooks,{at:bench?"bench":"list"})));}
 // ---------------- the Schola: listen to lessons; reading class pays (server: /api/elementum/summary) ----------------
 const FREE_BOOKS=[["The Tale of Peter Rabbit","Beatrix Potter"],["The Velveteen Rabbit","Margery Williams"],["Just So Stories","Rudyard Kipling"],["The Wonderful Wizard of Oz","L. Frank Baum"],
   ["Alice's Adventures in Wonderland","Lewis Carroll"],["The Secret Garden","Frances Hodgson Burnett"],["Black Beauty","Anna Sewell"],["The Adventures of Pinocchio","Carlo Collodi"],["Aesop's Fables","Aesop"],["The Jungle Book","Rudyard Kipling"]];

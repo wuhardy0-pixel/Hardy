@@ -60,13 +60,21 @@ function tick(s){const L=s.L,g=s.g,w=s.w;s.t++;if(s.t>=L.ticks){s.done=true;retu
   s.W.pipes.forEach(([ax,ay,bx,by])=>{const la=g.h[ay][ax]+w[ay][ax],lb=g.h[by][bx]+w[by][bx];if(la>lb+.01&&w[ay][ax]>0){const f=Math.min(w[ay][ax],.08,(la-lb)/2);w[ay][ax]-=f;w[by][bx]+=f;}});
   // where water leaves: drains, the river, gravel pits, barrels, a bit soaks in everywhere
   for(let y=0;y<R;y++)for(let x=0;x<C;x++){const k=g.k[y][x],kk=key(x,y);
-    if(k==="drain"||k==="river"){s.lost+=w[y][x];w[y][x]=0;continue;}
+    if(k==="drain"||k==="river"){s.lost+=w[y][x];w[y][x]=0;continue;}if(s.W.mods[kk]<0)s.chan=(s.chan||0)+w[y][x]*.02;
     if(s.barrels.includes(kk)){const room=3-(s.stored[kk]||0);const f=Math.min(room,w[y][x]);s.stored[kk]=(s.stored[kk]||0)+f;w[y][x]-=f;}
     if(s.gravel.includes(kk)){const f=Math.min(w[y][x],.05);w[y][x]-=f;s.soak+=f;}
     const soak=Math.min(w[y][x],k==="garden"||k==="field"?.0012:.0006);w[y][x]-=soak;
     if(k==="garden"||k==="field"||k==="trough")s.got[kk]=(s.got[kk]||0)+soak+(k==="trough"?w[y][x]*.02:0);
     if(k==="house"||k==="street"||k==="yard"||k==="door"||k==="field")s.peak[kk]=Math.max(s.peak[kk]||0,w[y][x]);}}
 function roofOut(g,x,y){for(const [dx,dy] of [[0,1],[1,0],[-1,0],[0,-1]]){let nx=x,ny=y;while(nx>=0&&ny>=0&&nx<C&&ny<R&&g.k[ny][nx]==="house"){nx+=dx;ny+=dy;}if(nx>=0&&ny>=0&&nx<C&&ny<R)return [nx,ny];}return null;}
+function why(s){const L=s.L,r=goals(s);let fell=0;for(let y=0;y<R;y++)for(let x=0;x<C;x++)fell+=0;const stored=Object.values(s.stored).reduce((a,b)=>a+b,0);
+  const tot=s.lost+s.soak+stored+0.0001;const out=[];
+  if(L.dry)out.push(`The ${L.dry===true?"house":[].concat(L.dry).join(" and ")} stayed dry — the deepest water there was ${Math.round(r.dry*100)} cm.`);
+  out.push(`Of the water that moved, ${Math.round(s.lost/tot*100)}% ran away down the drain or river, ${Math.round(s.soak/tot*100)}% soaked into your gravel pits${stored?`, and ${Math.round(stored/tot*100)}% went into your barrels`:""}.`);
+  if(Object.values(s.W.mods).some(v=>v<0))out.push("Your channels were lower than the ground around them, so water ran into them and followed them downhill.");
+  if(Object.values(s.W.mods).some(v=>v>0))out.push("Your sandbag walls were higher than the water, so it had to go around them.");
+  if(s.W.pipes.length)out.push("Your pipe ended lower than it started, so water flowed through it.");
+  if(L.wet)out.push(`The ${L.wet.kind} got ${r.wet.toFixed(2)} of water (it needed ${L.wet.need}).`);if(L.store)out.push(`The barrels saved ${r.store.toFixed(1)} (you needed ${L.store}).`);return out.join(" ");}
 function cellsOf(s,kind){const out=[];for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(s.g.k[y][x]===kind)out.push(key(x,y));return out;}
 function goals(s){const L=s.L,r={};if(L.dry){const kinds=[].concat(L.dry===true?["house"]:L.dry);r.dry=Math.max(0,...kinds.flatMap(k=>cellsOf(s,k)).map(k=>s.peak[k]||0));}
   if(L.wet){const cs=cellsOf(s,L.wet.kind);r.wet=cs.length?cs.reduce((a,k)=>a+(s.got[k]||0),0)/cs.length:0;}
@@ -140,5 +148,5 @@ function info(L){const g=[];if(L.dry)g.push(`keep the ${L.dry===true?"house":[].
   return `Goal: ${g.join(", and ")}. Hover a square to see how high it is — water flows from high to low. Click to dig or pile sandbags (drag to do many).`;}
 function build(L,ideas){const W=init(L);ideas.forEach(id=>IDEAS[id].apply(W,L));return W;}
 window.ENG=window.ENG||{};
-window.ENG.water={name:"Water",tools,init,ser,de,cost,start,step,judge,explain,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C+.06,MAPS,apply};
+window.ENG.water={name:"Water",tools,init,ser,de,cost,start,step,judge,explain,why,draw,drawIdea,ideas:id=>IDEAS[id],pt,down,move,up,info,build,canvasRatio:R/C+.06,MAPS,apply};
 })();
