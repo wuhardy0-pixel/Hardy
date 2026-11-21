@@ -1330,8 +1330,10 @@ ACTS.push({pos:CAR_ACT.pos,r:2.8,label:()=>P.inCar?(nearPump()?`Fill up the tank
   run:()=>{if(P.inCar){if(nearPump()){const c=fillCost();if(!c)return lawSay("The tank is already full.");if(COINS<c)return lawSay(`Filling up costs ${c} — you have ${COINS}.`);COINS-=c;coinHud();P.inCar.fuel=P.inCar.max;lawSay("Tank full!");return;}exitCar();}else enterCar(CAR_ACT.car);}});
 const nearPump=()=>P.inCar&&GAS.pumps.some(v=>Math.hypot(v.x-P.pos.x,v.z-P.pos.z)<4);
 const fillCost=()=>P.inCar?Math.ceil((P.inCar.max-P.inCar.fuel)/GAS.price):0;
-function enterCar(c){if(!c||P.down)return;P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
-function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
+// shared cars: taking one hides it for everyone else in the room; getting out parks it where you left it (keys "car:<n>")
+const carKey=c=>"car:"+CARS.indexOf(c);
+function enterCar(c){if(!c||P.down)return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}setKey(carKey(c),{d:MP.id});P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
+function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;setKey(carKey(c),{x:+c.g.position.x.toFixed(2),z:+c.g.position.z.toFixed(2),yaw:+c.yaw.toFixed(3)});const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
 function carBlocked(p){for(const b of BLOCKS){if(b.pass||b.y>1.5||b.h<.3)continue;if(Math.abs(p.x-b.x)<b.w/2+1.1&&Math.abs(p.z-b.z)<b.d/2+1.1)return b;}return null;}
 function driveCar(dt,inp){if(P.down||LAW.jailT>0){exitCar();return;}const c=P.inCar;const thr=c.fuel>0?-inp.z:0,st=inp.x,brake=keys.Space;
   if(thr)c.speed+=thr*(thr*c.speed<0?20:10)*dt;else c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),(2+.015*c.speed*c.speed)*dt);
@@ -1349,7 +1351,8 @@ function driveCar(dt,inp){if(P.down||LAW.jailT>0){exitCar();return;}const c=P.in
     for(const id in MP.others){const o=MP.others[id];if(o.g.position.distanceTo(pos)<2&&cool(o))hitPlayer(o,Math.round(sp*2),o.g.position.clone());}}
   P.pos.copy(c.g.position);P.vel.set(0,0,0);P.onGround=true;P.yaw=c.yaw+Math.PI;
   let d=(c.yaw+Math.PI)-look.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));look.yaw+=d*Math.min(1,2.5*dt);}   // the camera swings round behind the car
-function stepCars(){CAR_ACT.car=null;if(P.inCar){CAR_ACT.pos.copy(P.pos);return;}let bd=2.8;for(const c of CARS){const d=Math.hypot(c.g.position.x-P.pos.x,c.g.position.z-P.pos.z);if(d<bd){bd=d;CAR_ACT.car=c;}}
+function stepCars(){for(const c of CARS)if(c.taken&&c.taken!==MP.id&&!MP.others[c.taken]){c.goneT=(c.goneT||0)+1;if(c.goneT>300){c.taken=null;c.g.visible=true;c.goneT=0;}}else c.goneT=0;   // a driver who left the game: the car comes back
+  CAR_ACT.car=null;if(P.inCar){CAR_ACT.pos.copy(P.pos);return;}let bd=2.8;for(const c of CARS){if(!c.g.visible)continue;const d=Math.hypot(c.g.position.x-P.pos.x,c.g.position.z-P.pos.z);if(d<bd){bd=d;CAR_ACT.car=c;}}
   if(CAR_ACT.car){CAR_ACT.pos.copy(CAR_ACT.car.g.position);const t=P.pos.clone().sub(CAR_ACT.pos);t.y=0;if(t.length()>.01)CAR_ACT.pos.addScaledVector(t.normalize(),Math.min(1.2,t.length()));}
   for(const c of CARS){if(Math.abs(c.speed)>.01&&c!==P.inCar){c.speed*=.95;}}}
 // ---------------- Harena, the battle ground (2026-11-22, a player-vs-player arena in the battle-royale style — our own design) ----------------
@@ -1505,6 +1508,8 @@ function applyKey(key,val){
     if(val===null){if(i>=0){scene.remove(PICKUPS[i].g);PICKUPS.splice(i,1);}return;}
     if(i<0&&val&&val.it){dropItem(new THREE.Vector3(val.x,0,val.z),val.it,300,id);}return;}
   if(key.startsWith("bld:")){const bd=BUILDINGS[+key.slice(4)];if(!bd)return;if(val&&!bd.down)collapse(bd);else if(!val&&bd.down)rebuild(bd);return;}
+  if(key.startsWith("car:")){const c=CARS[+key.slice(4)];if(!c||!val||c===P.inCar)return;
+    if(val.d){c.taken=val.d;c.g.visible=val.d===MP.id;}else{c.taken=null;c.g.visible=true;c.g.position.set(val.x,0,val.z);c.yaw=val.yaw;c.g.rotation.y=val.yaw;c.speed=0;}return;}
   if(key.startsWith("law:")){const id=key.slice(4);if(val)WORLD.wanted.add(id);else WORLD.wanted.delete(id);}}
 function applyEv(ev){
   if(ev.k==="key")return applyKey(ev.key,ev.val);
