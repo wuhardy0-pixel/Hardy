@@ -3748,7 +3748,9 @@ ELEM_HOUSE_SLOTS = 6
 # trees felled, rocks mined, wall holes, scorch marks, people knocked out, things dropped on the ground, and hits between players.
 # "keys" is what a newcomer needs (built things, items lying around); "events" is the recent stream (numbered, so each client asks for what's new).
 ELEM_WORLD = {}   # room -> {"seq": int, "events": [(seq, sender_id, ev)], "keys": {key: value}}
-ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take"}
+# "mobs" (2026-11-21): the player who looks after a monster pack sends where its monsters are, so everyone sees them in the same place;
+# "mdmg": someone else hit one of those monsters
+ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take", "mobs", "mdmg"}
 
 @app.post("/api/elementum/state")
 def elementum_state():
