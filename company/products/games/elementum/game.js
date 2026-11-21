@@ -1303,7 +1303,7 @@ function stocksClick(t){const d=t.dataset;
 // Cars use fuel; fill up at the gas station outside the east gate. Crash into a wall and you bounce off; hit someone and it hurts them
 // (and in town the guards come for you).
 const CARS=[];
-function makeCar(x,z,yaw,color){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;scene.add(g);const paint=LOOK.toon(color),dark=LOOK.toon(0x222228);
+function makeCar(x,z,yaw,color,remote){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=yaw;scene.add(g);const paint=LOOK.toon(color),dark=LOOK.toon(0x222228);
   const body=LOOK.M(new THREE.BoxGeometry(2,.62,4.2),paint,.02);body.position.y=.62;g.add(body);
   const cab=LOOK.M(new THREE.BoxGeometry(1.76,.62,2.1),paint,.02);cab.position.set(0,1.24,-.25);g.add(cab);
   const glass=new THREE.MeshLambertMaterial({color:0x3a5a7a});[[0,1.24,.82,1.6,.5,.05],[0,1.24,-1.31,1.6,.5,.05],[.89,1.24,-.25,.05,.5,1.9],[-.89,1.24,-.25,.05,.5,1.9]].forEach(([a,b,c,w,h,d])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),glass);m.position.set(a,b,c);g.add(m);});
@@ -1311,7 +1311,7 @@ function makeCar(x,z,yaw,color){const g=new THREE.Group();g.position.set(x,0,z);
   const bump=LOOK.M(new THREE.BoxGeometry(2.05,.22,.2),dark,.01);bump.position.set(0,.36,2.15);g.add(bump);const bump2=bump.clone();bump2.position.z=-2.15;g.add(bump2);
   const wheels=[];[[.98,1.35],[-.98,1.35],[.98,-1.35],[-.98,-1.35]].forEach(([a,c])=>{const w=new THREE.Group();w.position.set(a,.38,c);const t=LOOK.M(new THREE.CylinderGeometry(.38,.38,.28,14),dark,.01);t.rotation.z=Math.PI/2;w.add(t);
     const hub=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,.3,10),LOOK.toon(0xb8bcc4));hub.rotation.z=Math.PI/2;w.add(hub);g.add(w);wheels.push(w);});
-  g.traverse(k=>{if(k.isMesh)k.castShadow=true;});const car={g,wheels,speed:0,yaw,fuel:40+Math.random()*40,max:80,spin:0,hitCool:new Map(),color};CARS.push(car);return car;}
+  g.traverse(k=>{if(k.isMesh)k.castShadow=true;});const car={g,wheels,speed:0,yaw,fuel:40+Math.random()*40,max:80,spin:0,hitCool:new Map(),color};if(!remote)CARS.push(car);return car;}
 // parking along the city's main street, and two at the gas station
 [[52,-6.6,Math.PI/2,0xc8432f],[70,-3.4,-Math.PI/2,0x3f6fa8],[100,-6.6,Math.PI/2,0xe8c040],[118,-3.4,-Math.PI/2,0x2f8a5a],[86,-6.6,Math.PI/2,0xf0f0f0]].forEach(a=>makeCar(...a));
 // the gas station outside the east gate: a canopy, two pumps, a little shop
@@ -1481,13 +1481,15 @@ function mpAvatar(p){const g=new THREE.Group();g.position.set(p.x,p.y,p.z);scene
 function mpApply(list){const seen=new Set();
   for(const p of list){seen.add(p.id);let o=MP.others[p.id];if(!o)o=MP.others[p.id]=mpAvatar(p);
     o.to.set(p.x,p.y,p.z);o.yaw=p.yaw;o.sp=p.sp;o.air=p.air;o.might=p.bf==="S";
+    // driving: show their car under them (and hide the walking hero)
+    if((p.car||0)!==(o.carColor||0)){if(o.car){scene.remove(o.car.g);o.car=null;}o.carColor=p.car||0;if(o.carColor)o.car=makeCar(p.x,p.z,p.yaw-Math.PI,o.carColor,true);if(o.rig)o.rig.root.visible=!o.carColor;}
     if(o.name!==p.name||o.hp!==p.hp){o.name=p.name;o.hp=p.hp;if(o.tag){o.g.remove(o.tag);o.tag.material.map.dispose();}o.tag=nameTag(`${p.name}  ❤ ${p.hp}`);o.tag.position.y=2.55;o.g.add(o.tag);}
     if(p.fx&&p.fx!==o.lastFx){o.lastFx=p.fx;const [k,id]=p.fx.split(":");const at=o.g.position.clone().add(new THREE.Vector3(0,1.3,0));
       if(k==="fortis"){FX.stars(at,"gold",5,1.6);if(!P.down&&o.g.position.distanceTo(P.pos)<12)drinkFortis(o.name);}
       else if(k==="shot"){muzzle(at.clone().add(new THREE.Vector3(-Math.sin(o.yaw)*.6,0,-Math.cos(o.yaw)*.6)),new THREE.Vector3(-Math.sin(o.yaw),0,-Math.cos(o.yaw)),0xffd27a,.4);}
       else if(SPELLS[k]){const el=SPELLS[k].el;FX.stars(at,el,3,1.2);flash(at,FX.HEX[el],4,.25);popNum(at.clone().add(new THREE.Vector3(0,1.2,0)),SPELLS[k].name,"spell","scroll_"+SPELLS[k].el);}}}
-  for(const id in MP.others)if(!seen.has(id)){scene.remove(MP.others[id].g);delete MP.others[id];}
-  const n=Object.keys(MP.others).length;$("#online").textContent=`👥 ${MP.room==="PUBLIC"?"Public":"Room "+(MP.roomName||MP.room)} · ${MP.ok?n+1:"…"}`;}
+  for(const id in MP.others)if(!seen.has(id)){if(MP.others[id].car)scene.remove(MP.others[id].car.g);scene.remove(MP.others[id].g);delete MP.others[id];}
+  const n=Object.keys(MP.others).length;$("#online").textContent=`👥 ${MP.room==="PUBLIC"?"Public":(MP.roomName&&!/^Room /.test(MP.roomName)?MP.roomName:"Room "+MP.room)} · ${MP.ok?n+1:"…"}`;}
 // ---------------- the shared world: what you do, the others in your room see — and the other way round ----------------
 // Each update sends what changed (events) and gets back what the others did. Things that last (the training center, cottages, items on the ground)
 // are "keys", so someone who joins later sees them too. Monsters and the training dummies' health stay each player's own.
@@ -1517,11 +1519,12 @@ function applyEv(ev){
 function hitPlayer(o,n,at){if(!o||!o.id||n<=0)return;share({k:"hit",to:o.id,n:Math.round(n)});popNum(at||o.g.position.clone().add(new THREE.Vector3(0,2.2,0)),`-${Math.round(n)}`,"burn");
   if(at)dent(at,P.pos.clone().sub(at).setY(0).normalize(),o.g);}
 function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.position.lerp(o.to,Math.min(1,dt*10));let d=o.yaw-o.g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));o.g.rotation.y+=d*Math.min(1,dt*10);
+    if(o.car){const pr=o.car.g.position.clone();o.car.g.position.copy(o.g.position);o.car.g.position.y=0;o.car.g.rotation.y=o.g.rotation.y-Math.PI;o.car.spin+=pr.distanceTo(o.car.g.position)/.38;o.car.wheels.forEach(w=>w.children[0].rotation.x=o.car.spin);if(o.rig)o.rig.root.visible=false;}
     if(!o.glow){o.glow=new THREE.Mesh(new THREE.TorusGeometry(.7,.05,8,32),new THREE.MeshBasicMaterial({color:0xffd36a,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));o.glow.rotation.x=Math.PI/2;o.glow.position.y=.15;o.g.add(o.glow);}
     o.glow.visible=!!o.might;if(o.might){o.glow.rotation.z+=dt*2;if(Math.random()<dt*10)SPARK.emit(o.g.position.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.8),rnd(-.5,.5))),new THREE.Vector3(0,1.2,0),C(0xffd36a),.6,{grav:-.5});}
     if(o.rig){o.rig.base(o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
+  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar?P.inCar.color:0,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});

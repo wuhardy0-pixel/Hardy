@@ -3766,7 +3766,8 @@ def elementum_state():
     now = time.time()
     me = dict(id=pid, name=name, x=round(num("x", -200, 200), 2), y=round(num("y", -5, 60), 2), z=round(num("z", -200, 200), 2),
               yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
-              held=str(j.get("held") or "")[:4], fx=str(j.get("fx") or "")[:24], bf=str(j.get("bf") or "")[:4], room=room, t=now)
+              held=str(j.get("held") or "")[:4], fx=str(j.get("fx") or "")[:24], bf=str(j.get("bf") or "")[:4], room=room, t=now,
+              car=int(num("car", 0, 16777215)))   # the color of the car they're driving (0 = on foot), so the others see the car
     evs = j.get("ev") if isinstance(j.get("ev"), list) else []
     try:
         since = int(j.get("since") or 0)
