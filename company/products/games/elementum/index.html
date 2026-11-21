@@ -107,7 +107,7 @@ body.touch #quests{top:calc(env(safe-area-inset-top,0px) + 232px)}#bag .say{font
 #bars .dbar{position:fixed;transform:translate(-50%,-100%);width:92px;pointer-events:none;text-align:center}
 #bars .dbar span{font-size:10px;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}#bars .dbar div{height:5px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.35);border-radius:3px;overflow:hidden;margin-top:2px}
 #bars .dbar i{display:block;height:100%;width:100%;background:#5fd38a;transition:width .15s}#bars .dbar i.low{background:#ff6b6b}
-#nums span{position:fixed;transform:translate(-50%,-50%);font:800 18px system-ui;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;z-index:3;animation:pop .9s ease-out forwards}#nums span.head{color:#ffd27a;font-size:22px}#nums span.burn{color:#ff9a5a;font-size:14px}#nums span.spell{font-size:20px;color:#fff6c8}
+#nums span{display:flex;align-items:center;gap:4px;white-space:nowrap;position:fixed;transform:translate(-50%,-50%);font:800 18px system-ui;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;z-index:3;animation:pop .9s ease-out forwards}#nums span.head{color:#ffd27a;font-size:22px}#nums span.burn{color:#ff9a5a;font-size:14px}#nums span.spell{font-size:20px;color:#fff6c8}
 @keyframes pop{from{opacity:1;transform:translate(-50%,-50%) scale(.7)}30%{transform:translate(-50%,-90%) scale(1.15)}to{opacity:0;transform:translate(-50%,-180%)}}
 #vig{position:fixed;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 0 rgba(255,40,40,0);transition:box-shadow .12s}#vig.on{box-shadow:inset 0 0 140px rgba(255,40,40,.7)}
 #pos{position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 60px);font:12px ui-monospace,Menlo,monospace;color:#fff;opacity:.75;pointer-events:none}

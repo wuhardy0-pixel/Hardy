@@ -139,7 +139,7 @@ function fire(){const w=WEAPONS[G.id];if(!held()||held().t!=="weapon"||G.cool>0|
     if(hit){const dm=hit.object.userData.dummy,nd=hit.object.userData.node,tr=hit.object.userData.tree,pp=hit.object.userData.person;const wn=()=>hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;
       if(pp){dent(hit.point,to.clone().sub(m).normalize().negate(),pp.o.g);hurtPerson(pp,Math.round(w.dmg*.6),hit.point);continue;}
       if(hit.object.userData.player){hitPlayer(hit.object.userData.player,Math.round(w.dmg*.5*(w.pellets?1:1)),hit.point);continue;}
-      if(nd){dent(hit.point,wn(),nd.g);mineHit(nd,w.dmg,hit.point);continue;}if(tr){dent(hit.point,wn(),tr.g);chopHit(tr,w.dmg,hit.point);continue;}if(dm){const headshot=hit.object.userData.part==="head";if(w.weak&&dm.enemy){damage(dm,1,hit.point,false,{el});if(tAcc-(G.weakTip||-9)>4){G.weakTip=tAcc;popNum(hit.point.clone().add(new THREE.Vector3(0,.8,0)),"🛡 too tough for the Magna Rifle — craft a weapon or cast spells","burn");}}
+      if(nd){dent(hit.point,wn(),nd.g);mineHit(nd,w.dmg,hit.point);continue;}if(tr){dent(hit.point,wn(),tr.g);chopHit(tr,w.dmg,hit.point);continue;}if(dm){const headshot=hit.object.userData.part==="head";if(w.weak&&dm.enemy){damage(dm,1,hit.point,false,{el});if(tAcc-(G.weakTip||-9)>4){G.weakTip=tAcc;popNum(hit.point.clone().add(new THREE.Vector3(0,.8,0)),"too tough for the Magna Rifle — craft a weapon or cast spells","burn");}}
       else damage(dm,Math.round(w.dmg*(headshot?w.head:1)),hit.point,headshot,{el});}
       else{const nn=hit.face?hit.face.normal.clone().transformDirection(hit.object.matrixWorld):null;if(nn&&hit.object.userData.block){if(hit.object.material.visible)wallHit(hit.object.userData.block,hit.point,nn,w.pellets?.4:1);else dent(hit.point,nn);}
         if(hit.object===ground)mark(hit.point,new THREE.Vector3(0,1,0),rnd(.12,.2),el==="ice"?0xd8f2ff:0x15110c,.7);
@@ -471,12 +471,12 @@ function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().
 // dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
 function dropOwn(i){const it=INV[i];if(!it||P.down)return false;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=0;
   if(it.t==="weapon")it.ammo=null;const dp=dropItem(at,it,300);dp.hold=true;shareDrop(dp);INV[i]=null;if(i===SEL)select(SEL);invHud();hud();
-  const f=itemInfo(it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`dropped ${f.icon} ${f.name}`,"spell");return true;}
+  const f=itemInfo(it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`dropped ${f.name}`,"spell",f.pic);return true;}
 function stepPickups(dt){for(let i=PICKUPS.length-1;i>=0;i--){const d=PICKUPS[i];d.t+=dt;d.life-=dt;d.bob.position.y=.9+Math.sin(d.t*3)*.12;if(d.bob.isMesh)d.bob.rotation.y+=dt*2.2;d.ring.scale.setScalar(1+Math.sin(d.t*4)*.08);
     if(d.life<6)d.g.visible=Math.sin(d.t*16)>-.2;
     const dx=P.pos.x-d.g.position.x,dz=P.pos.z-d.g.position.z,dist=Math.hypot(dx,dz);
     if(d.hold&&dist>3.5)d.hold=false;
-    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1&&d.sid&&MP.ok){share({k:"take",id:d.sid});scene.remove(d.g);PICKUPS.splice(i,1);continue;}if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.icon} ${f.name}`,"spell");scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
+    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1&&d.sid&&MP.ok){share({k:"take",id:d.sid});scene.remove(d.g);PICKUPS.splice(i,1);continue;}if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.name}`,"spell",f.pic);scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
       else{d.g.position.x+=dx/dist*dt*6;d.g.position.z+=dz/dist*dt*6;}}
     if(d.life<=0){if(d.sid)setKey("drop:"+d.sid,null);scene.remove(d.g);PICKUPS.splice(i,1);}}}
 // ---------------- mining: crystal veins and iron rocks; shoot them to break them, they grow back ----------------
@@ -492,7 +492,7 @@ function makeNode(kind,x,z){for(let k=0;k<8&&BLOCKS.some(b=>Math.abs(x-b.x)<b.w/
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(g);const n={g,rock,kind,hp:ore?60:90,max:ore?60:90,down:false,shards};rock.userData.node=n;NODES.push(n);}
 NODE_SPOTS.forEach(([k,x,z])=>makeNode(k,x,z));
 function mineHit(n,dmg,at){if(n.down)return;n.hp-=dmg;const hex=n.kind==="ferrum"?0xd8dde4:FX.HEX[MAT[n.kind].el];sparks(at,10,hex);for(let i=0;i<3;i++)PUFF.emit(at,rnd3(1.5),C(0x9a948c).multiplyScalar(.5),.5,{drag:2});
-  popNum(at,`⛏ ${Math.max(0,Math.ceil(n.hp))}`,"burn");n.shards.forEach(s=>s.position.x+=rnd(-.02,.02));
+  popNum(at,`${Math.max(0,Math.ceil(n.hp))}`,"burn");n.shards.forEach(s=>s.position.x+=rnd(-.02,.02));
   if(n.hp>0)return;nodeBreak(n,true);}
 function nodeBreak(n,mine){const hex=n.kind==="ferrum"?0xd8dde4:FX.HEX[MAT[n.kind].el];n.down=true;const at2=n.g.position.clone();if(mine){shake(.06);share({k:"node",i:NODES.indexOf(n)});}for(let i=0;i<22;i++)SPARK.emit(at2.clone().add(new THREE.Vector3(0,.8,0)),rnd3(1).normalize().multiplyScalar(rnd(2,6)),C(hex),rnd(.4,.8),{grav:8});
   tween(.3,t=>n.g.scale.setScalar(Math.max(.01,1-t)),()=>{n.g.visible=false;});
@@ -560,10 +560,10 @@ const FOODS={
 const MIGHT_S=40;
 function drinkFortis(from){P.mightT=Math.max(P.mightT||0,MIGHT_S);P.buffT=Math.max(P.buffT||0,MIGHT_S);hud();const at=P.pos.clone().add(new THREE.Vector3(0,1.2,0));
   FX.stars(at,"gold",6,1.6);flash(at,FX.HEX.gold,7,.4);groundRing(P.pos.clone().add(new THREE.Vector3(0,.1,0)),12,FX.HEX.gold,.8,.7);
-  popNum(P.pos.clone().add(new THREE.Vector3(0,2.4,0)),from?`⚗️ ${from} shared a Potio Fortis!`:"⚗️ stronger and faster — shared with players near you","spell");}
+  popNum(P.pos.clone().add(new THREE.Vector3(0,2.4,0)),from?`${from} shared a Potio Fortis!`:"stronger and faster — shared with players near you","spell","potion_fortis");}
 function eat(it){const f=FOODS[it.id];if(!f)return false;if(P.hp>=P.maxHp&&!f.buff){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"already full","burn");return false;}
   P.hp=Math.min(P.maxHp,P.hp+f.heal);if(f.buff)P[f.buff]=Math.max(P[f.buff]||0,f.secs);hud();
-  popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`${f.icon} ${f.heal?"+"+f.heal+" HP":f.name}`,"spell");for(let i=0;i<14;i++)SPARK.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});return true;}
+  popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),f.heal?"+"+f.heal+" HP":f.name,"spell","food_"+it.id);for(let i=0;i<14;i++)SPARK.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});return true;}
 // things you can walk up to and use with T (or the button that appears)
 const ACTS=[];let ACT=null;
 function stepActs(){let best=null,bd=1e9;for(const a of ACTS){if(a.hidden&&a.hidden())continue;const d=Math.hypot(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(d<a.r&&d<bd){bd=d;best=a;}}
@@ -618,9 +618,9 @@ function setHouses(list){HOUSES.forEach(h=>{h.name="";h.locked=false;h.mine=fals
 function stepHouses(dt){HOUSES.forEach(h=>{const near=Math.hypot(P.pos.x-h.x,P.pos.z-(h.z-HD/2))<2.6;
     h.door.pass=!h.locked||h.mine;   // a locked door stops everyone but its owner
     const want=(!h.locked&&near)||(h.mine&&near)?1:0;h.open+=(want-h.open)*Math.min(1,dt*6);h.hinge.rotation.y=-h.open*1.6;});}
-function toggleLock(){const h=HOME.h;h.locked=!h.locked;MP.lockReq=h.locked;houseSigns();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),h.locked?"🔒 locked — only you can get in":"🔓 unlocked","spell");}
+function toggleLock(){const h=HOME.h;h.locked=!h.locked;MP.lockReq=h.locked;houseSigns();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),h.locked?"locked — only you can get in":"unlocked","spell");}
 function sleep(){if(HOME.restT>0){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`you can rest again in ${Math.ceil(HOME.restT)} s`,"burn");return;}
-  HOME.restT=60;HOME.slept=true;const v=$("#sleep");v.classList.add("on");setTimeout(()=>{P.hp=P.maxHp;P.slowT=0;hud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"💤 rested — full health","spell");v.classList.remove("on");},900);}
+  HOME.restT=60;HOME.slept=true;const v=$("#sleep");v.classList.add("on");setTimeout(()=>{P.hp=P.maxHp;P.slowT=0;hud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"rested — full health","spell");v.classList.remove("on");},900);}
 ACTS.push({get pos(){return HOME.bed;},r:2.2,label:()=>HOME.restT>0?`🛏️ Bed (rest again in ${Math.ceil(HOME.restT)} s)`:"🛏️ Sleep — full health",run:sleep});
 ACTS.push({get pos(){return HOME.chest;},r:2,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
 ACTS.push({get pos(){return HOME.door;},r:2,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
@@ -632,7 +632,7 @@ function makeTree(x,z){const g=new THREE.Group();g.position.set(x,0,z);scene.add
   [[0,2.6,0,1.1],[.5,2.2,.2,.8],[-.45,2.3,-.25,.85],[0,3.3,0,.75]].forEach(([a,b,c,r])=>{const l=LOOK.M(new THREE.IcosahedronGeometry(r*s,1),LOOK.toon(Math.random()<.5?0x3f8f3a:0x4fa346),.02);l.position.set(a*s,b*s,c*s);g.add(l);});
   g.traverse(o=>{if(o.isMesh)o.castShadow=true;});const t={g,trunk,hp:35,max:35,down:false,s};trunk.userData.tree=t;TREES.push(t);return t;}
 function chopHit(t,dmg,at){if(t.down)return;t.hp-=dmg;for(let i=0;i<6;i++)SPARK.emit(at,rnd3(1.5),C(0xb98a55),.5,{grav:6});for(let i=0;i<3;i++)PUFF.emit(t.g.position.clone().add(new THREE.Vector3(rnd(-1,1),rnd(2,3.4)*t.s,rnd(-1,1))),new THREE.Vector3(0,-1,0),C(0x4fa346).multiplyScalar(.5),.6,{drag:2});
-  popNum(at,`🪓 ${Math.max(0,Math.ceil(t.hp))}`,"burn");t.g.rotation.z=rnd(-.03,.03);
+  popNum(at,`${Math.max(0,Math.ceil(t.hp))}`,"burn");t.g.rotation.z=rnd(-.03,.03);
   if(t.hp>0)return;treeFall(t,true);}
 // a tree falls (loot only for whoever felled it; the others just see it fall), and grows back after 45 s
 function treeFall(t,mine){t.down=true;const side=Math.random()<.5?1:-1;tween(.9,k=>{t.g.rotation.z=side*k*k*1.45;},()=>{tween(.5,k=>t.g.scale.setScalar(Math.max(.01,1-k)),()=>{t.g.visible=false;});});
@@ -786,7 +786,7 @@ const JAIL={x:14.5,z:-29,w:6,d:5,cell:new THREE.Vector3(14.5,0,-29.5),out:new TH
   const sg=label("🔒 Carcer — the town jail",0xcfd6e0);sg.scale.set(3.8,.72,1);sg.position.set(JAIL.x,H+1.1,JAIL.z+JAIL.d/2);scene.add(sg);}
 const LAW={warned:0,wanted:false,jailT:0,times:0,why:""};
 function lawSay(t){const b=$("#law");b.textContent=t;b.classList.remove("hidden");clearTimeout(lawSay.t);lawSay.t=setTimeout(()=>{if(!LAW.wanted&&LAW.jailT<=0)b.classList.add("hidden");},4000);}
-function hurtPerson(pp,n,at){if(pp.down||LAW.jailT>0)return;pp.hp-=n;popNum(at,pp.guard?`🛡️ -${n}`:`-${n}`,"burn");
+function hurtPerson(pp,n,at){if(pp.down||LAW.jailT>0)return;pp.hp-=n;popNum(at,pp.guard?`-${n}`:`-${n}`,"burn");
   if(pp.o.rig&&pp.guard&&pp.o.rig.clips.Hit_A&&!LAW.wanted)pp.o.rig.full("Hit_A",{once:true,restart:true,dur:.5,then:()=>pp.o.rig.clearFull()});
   if(pp.guard){if(pp.hp<=0){pp.hp=pp.max;}if(!LAW.wanted)crime(`You attacked a guard!`);return;}
   if(pp.hp<=0){knockOut(pp);share({k:"ko",name:pp.name});crime(`You knocked out ${pp.name}!`);return;}
@@ -803,7 +803,7 @@ function stepLaw(dt){const b=$("#law");
     let chase=LAW.wanted&&!P.down?P.pos:null;if(!chase)for(const id of WORLD.wanted){const a=MP.others[id];if(a){chase=a.g.position;break;}}const to=chase||pp.home;const v=to.clone().sub(g.position);v.y=0;const d=v.length();
     if(chase&&!LAW.wanted&&d<1.5){g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base("Idle");}
     else if(LAW.wanted&&d<1.5){g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base("Idle");if(pp.cool<=0){pp.cool=.9;if(r)r.full("1H_Melee_Attack_Chop",{once:true,restart:true,dur:.6,then:()=>r.clearFull()});
-        setTimeout(()=>{if(!LAW.wanted)return;hurt(30);popNum(P.pos.clone().add(new THREE.Vector3(0,2.4,0)),"🛡️ Guard!","burn");if(P.hp<=40||P.down){P.down=false;$("#down").classList.add("hidden");jail();lawSay("🚔 The guards caught you — off to jail!");}},300);}}
+        setTimeout(()=>{if(!LAW.wanted)return;hurt(30);popNum(P.pos.clone().add(new THREE.Vector3(0,2.4,0)),"Guard!","burn");if(P.hp<=40||P.down){P.down=false;$("#down").classList.add("hidden");jail();lawSay("🚔 The guards caught you — off to jail!");}},300);}}
     else if(d>.3){const sp=chase?9.5:3;g.position.addScaledVector(v.normalize(),Math.min(d,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);if(r)r.base(LAW.wanted?"Running_A":"Running_A",{speed:LAW.wanted?1.2:.6});}
     else{g.rotation.y=pp.face;if(r)r.base("Idle");}}}
 function stepLife(dt){stepVillagers();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
@@ -871,7 +871,7 @@ function mpApply(list){const seen=new Set();
     if(p.fx&&p.fx!==o.lastFx){o.lastFx=p.fx;const [k,id]=p.fx.split(":");const at=o.g.position.clone().add(new THREE.Vector3(0,1.3,0));
       if(k==="fortis"){FX.stars(at,"gold",5,1.6);if(!P.down&&o.g.position.distanceTo(P.pos)<12)drinkFortis(o.name);}
       else if(k==="shot"){muzzle(at.clone().add(new THREE.Vector3(-Math.sin(o.yaw)*.6,0,-Math.cos(o.yaw)*.6)),new THREE.Vector3(-Math.sin(o.yaw),0,-Math.cos(o.yaw)),0xffd27a,.4);}
-      else if(SPELLS[k]){const el=SPELLS[k].el;FX.stars(at,el,3,1.2);flash(at,FX.HEX[el],4,.25);popNum(at.clone().add(new THREE.Vector3(0,1.2,0)),SPELLS[k].icon+" "+SPELLS[k].name,"spell");}}}
+      else if(SPELLS[k]){const el=SPELLS[k].el;FX.stars(at,el,3,1.2);flash(at,FX.HEX[el],4,.25);popNum(at.clone().add(new THREE.Vector3(0,1.2,0)),SPELLS[k].name,"spell","scroll_"+SPELLS[k].el);}}}
   for(const id in MP.others)if(!seen.has(id)){scene.remove(MP.others[id].g);delete MP.others[id];}
   const n=Object.keys(MP.others).length;$("#online").textContent=`👥 ${MP.room==="PUBLIC"?"Public":"Room "+(MP.roomName||MP.room)} · ${MP.ok?n+1:"…"}`;}
 // ---------------- the shared world: what you do, the others in your room see — and the other way round ----------------
@@ -891,7 +891,7 @@ function applyKey(key,val){
   if(key.startsWith("law:")){const id=key.slice(4);if(val)WORLD.wanted.add(id);else WORLD.wanted.delete(id);}}
 function applyEv(ev){
   if(ev.k==="key")return applyKey(ev.key,ev.val);
-  if(ev.k==="hit"){if(ev.to!==MP.id||P.down||LAW.jailT>0)return;hurt(Math.max(1,Math.min(200,ev.n|0)));popNum(P.pos.clone().add(new THREE.Vector3(0,2.5,0)),`⚔️ ${ev.by||"a player"} -${ev.n|0}`,"burn");return;}
+  if(ev.k==="hit"){if(ev.to!==MP.id||P.down||LAW.jailT>0)return;hurt(Math.max(1,Math.min(200,ev.n|0)));popNum(P.pos.clone().add(new THREE.Vector3(0,2.5,0)),`${ev.by||"a player"} -${ev.n|0}`,"burn");return;}
   if(ev.k==="tree"){const t=TREES[ev.i];if(t&&!t.down){t.hp=0;treeFall(t,false);}return;}
   if(ev.k==="node"){const n=NODES[ev.i];if(n&&!n.down){n.hp=0;nodeBreak(n,false);}return;}
   if(ev.k==="wall"){const b=BLOCKS[ev.b];if(b&&ev.b<WORLD.STATIC)wallHit(b,V3(ev.p),V3(ev.n),ev.pw||1);return;}
@@ -899,7 +899,7 @@ function applyEv(ev){
   if(ev.k==="ko"){const pp=PEOPLE.find(x=>x.name===ev.name&&!x.guard);if(pp&&!pp.down)knockOut(pp);return;}
   if(ev.k==="dummy"){const d=TRAIN.dummies[ev.i];if(d&&!d.down&&!d.unbuilt){d.down=true;dummyFall(d);}return;}}
 // hitting another player: they lose that much health in their own game
-function hitPlayer(o,n,at){if(!o||!o.id||n<=0)return;share({k:"hit",to:o.id,n:Math.round(n)});popNum(at||o.g.position.clone().add(new THREE.Vector3(0,2.2,0)),`⚔️ -${Math.round(n)}`,"burn");
+function hitPlayer(o,n,at){if(!o||!o.id||n<=0)return;share({k:"hit",to:o.id,n:Math.round(n)});popNum(at||o.g.position.clone().add(new THREE.Vector3(0,2.2,0)),`-${Math.round(n)}`,"burn");
   if(at)dent(at,P.pos.clone().sub(at).setY(0).normalize(),o.g);}
 function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.position.lerp(o.to,Math.min(1,dt*10));let d=o.yaw-o.g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));o.g.rotation.y+=d*Math.min(1,dt*10);
     if(!o.glow){o.glow=new THREE.Mesh(new THREE.TorusGeometry(.7,.05,8,32),new THREE.MeshBasicMaterial({color:0xffd36a,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));o.glow.rotation.x=Math.PI/2;o.glow.position.y=.15;o.g.add(o.glow);}
@@ -910,7 +910,7 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
-      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.icon} ${f.name}`,"spell");}});MP.you=j.you||"";if(j.room===MP.room&&j.roomName&&j.roomName!==MP.roomName){MP.roomName=j.roomName;try{localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}}MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
+      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.name}`,"spell",f.pic);}});MP.you=j.you||"";if(j.room===MP.room&&j.roomName&&j.roomName!==MP.roomName){MP.roomName=j.roomName;try{localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}}MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
 
 // ---------------- the range in town: dummies with health bars (and slow guns) ----------------
 const DUMMIES=[];
@@ -1024,13 +1024,13 @@ function status(d,el,at){const hex=FX.HEX[el];
   else if(el==="lightning"){let best=null,bd=7;DUMMIES.forEach(x=>{if(x===d||x.down)return;const dist=x.g.position.distanceTo(d.g.position);if(dist<bd){bd=dist;best=x;}});
     if(best){const b=best.g.position.clone().add(new THREE.Vector3(0,1.4,0));setTimeout(()=>{boltLine(at,b,hex);FX.stars(b,"lightning",2,.9);damage(best,Math.round(WEAPONS[G.id].dmg*.6),b,false,{chain:true,el});},80);}
     for(let i=0;i<10;i++)SPARK.emit(at,rnd3(1).normalize().multiplyScalar(rnd(2,5)),C(hex),.25,{drag:2});}}
-function popNum(p,text,cls){const v=p.clone().project(cam);if(v.z>1)return;const el=document.createElement("span");el.className=cls||"";el.textContent=text;el.style.left=(v.x+1)/2*innerWidth+"px";el.style.top=(1-v.y)/2*innerHeight+"px";$("#nums").appendChild(el);setTimeout(()=>el.remove(),900);}
+function popNum(p,text,cls,pic){const v=p.clone().project(cam);if(v.z>1)return;const el=document.createElement("span");el.className=cls||"";el.textContent=text;if(pic)el.insertAdjacentHTML("afterbegin",img(pic,"in"));el.style.left=(v.x+1)/2*innerWidth+"px";el.style.top=(1-v.y)/2*innerHeight+"px";$("#nums").appendChild(el);setTimeout(()=>el.remove(),900);}
 // beaten: everything you carry falls where you are (like Minecraft); coins and the house chest stay with you
 function dropAll(){const at=P.pos.clone();at.y=0;let n=0;for(let i=0;i<INV.length;i++){const it=INV[i];if(!it)continue;if(it.t==="weapon")it.ammo=null;shareDrop(dropItem(at,it,300));INV[i]=null;n++;}
   G.item=null;select(SEL);invHud();return n;}
 function hurt(n){if(P.down||n<=0)return;const at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
   if(P.invulnT>0){popNum(at,"blocked","spell");return;}
-  if(P.shield>0){const a=Math.min(P.shield,n);P.shield-=a;n-=a;popNum(at,"🫧 -"+a,"spell");if(n<=0)return;}
+  if(P.shield>0){const a=Math.min(P.shield,n);P.shield-=a;n-=a;popNum(at,"shield -"+a,"spell");if(n<=0)return;}
   if(P.toughT>0)n=Math.max(1,Math.round(n*.75));   // cheese
   P.hp=Math.max(0,P.hp-n);P.lastHit=tAcc;$("#vig").classList.add("on");setTimeout(()=>$("#vig").classList.remove("on"),160);shake(.08);hud();   // no healing by itself: only spells and potions heal
   if(P.hp<=0&&LAW.wanted){P.hp=1;return;}
