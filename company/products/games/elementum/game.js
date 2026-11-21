@@ -1078,7 +1078,10 @@ const GOSSIP=[["Did you hear? The bridge over the creek fell down again.","Again
   ["Why does the fountain never run dry?","I wonder where the water comes from."],["Nice weather today.","Perfect for a walk in the park."]];
 function dynGossip(){const g=[];if(LAW.times>0)g.push(["Someone got locked in the Carcer!","Serves them right."]);if(LAW.wanted)g.push(["The guards are after someone!","Stay away from trouble."]);
   if(TRAIN.built)g.push(["The Palaestra is finished.","I hear the dummies shoot back!"]);if(BUILDINGS.some(b=>b.down))g.push(["A whole house came down!","Who would do such a thing?"]);
-  if(MP.you)g.push([`That ${MP.you} is always out fighting monsters.`,"Brave, or a bit wild?"]);return g;}
+  if(MP.you)g.push([`That ${MP.you} is always out fighting monsters.`,"Brave, or a bit wild?"]);
+  if(typeof MKT!=="undefined"){for(const [k,n] of Object.entries(MKT.news||{}))g.push([`Did you hear? ${n.text}`,n.dir>0?`I'm buying ${STOCKS[k].name} shares!`:`I'd sell ${STOCKS[k].name} if I were you.`]);
+    const k=pick(Object.keys(STOCKS)),h=MKT.hist[k];if(h.length>1){const a=h[h.length-2],b=MKT.px[k];g.push([`${STOCKS[k].name} went from ${a} to ${b}. Is that a lot?`,`That's ${b>=a?"up":"down"} ${Math.abs(b-a)} — about ${Math.round(Math.abs(b-a)/a*100)} percent!`]);}}
+  return g;}
 function speechBubble(text){const c=document.createElement("canvas");c.width=512;c.height=150;const x=c.getContext("2d");x.font="600 30px system-ui,sans-serif";
   const words=text.split(" ");const lines=[""];words.forEach(w=>{const t=(lines[lines.length-1]+" "+w).trim();if(x.measureText(t).width>440&&lines[lines.length-1])lines.push(w);else lines[lines.length-1]=t;});
   const W=Math.min(490,Math.max(...lines.map(l=>x.measureText(l).width))+40),H=lines.length*36+24;x.fillStyle="rgba(255,255,255,.95)";x.beginPath();x.roundRect(256-W/2,4,W,H,18);x.fill();
@@ -1227,6 +1230,63 @@ function jobsTab(box){const j=JOB.cur;let h=`<p class="purse">🪙 <b>${COINS}</
 function jobClick(t){if(t.dataset.job){jobStart(t.dataset.job);if(JOB.cur.k!=="count")toggleBag(false);else renderBag();return true;}
   if(t.dataset.jobquit){jobClear();renderBag();return true;}
   if(t.id==="jobGo"){const j=JOB.cur,v=parseInt(($("#jobAns")||{}).value,10);if(!j)return true;if(v===j.n){toggleBag(false);jobPay();return true;}j.tries--;if(j.tries<=0){j.msg="Not quite — the shopkeeper counted it themselves. Try another job.";jobClear();}else j.msg="Not quite — count again.";renderBag();return true;}return false;}
+// ---------------- the stock market (2026-11-22, "can you predict the stock market? you gain or lose every day") ----------------
+// Crassus the banker has a booth in the plaza with a price board. Four town companies; every new day (dawn) their prices move — a bit of
+// trend, a bit of luck, and the morning news (which hints at tomorrow). Buy and sell shares; your money goes up or down each day.
+// Predict tomorrow (up or down) for a reward. Crassus asks math questions about the prices: percent change, profit, averages.
+const STOCKS={bake:{name:"Pistrinum Bakery",vol:.03,drift:.004,p:20},mine:{name:"Ferrum Mines",vol:.07,drift:.003,p:35},ship:{name:"Navis Shipping",vol:.11,drift:.002,p:50},oil:{name:"Olea Oil",vol:.05,drift:.003,p:28}};
+const NEWS={bake:[["Wheat harvest is huge this year — bread will be cheap to make.",1],["Mice got into the flour stores!",-1],["A festival is coming — everyone wants cakes.",1],["People say the new Thermopolium bakes better bread.",-1]],
+  mine:[["Miners found a new crystal vein in Caverna!",1],["A tunnel collapsed in the mines.",-1],["The forge wants more iron than ever.",1],["Cave monsters scared the miners away.",-1]],
+  ship:[["A big storm is coming at sea.",-1],["A ship came home loaded with spices!",1],["Pirates were seen near the coast.",-1],["New trade route opened to the east.",1]],
+  oil:[["The olive trees are full of fruit.",1],["Frost hurt the olive groves.",-1],["Lamps everywhere need oil for the long nights.",1],["A rival oil press opened in the next town.",-1]]};
+let MKT;try{MKT=JSON.parse(localStorage.getItem("elementum.market")||"null");}catch(e){MKT=null;}
+if(!MKT){MKT={day:0,px:{},hist:{},own:{},cost:{},news:{},pred:null,q:null,stats:{right:0,wrong:0}};for(const k in STOCKS){MKT.px[k]=STOCKS[k].p;MKT.hist[k]=[STOCKS[k].p];MKT.own[k]=0;MKT.cost[k]=0;}}
+const mktSave=()=>{try{localStorage.setItem("elementum.market",JSON.stringify(MKT));}catch(e){}};
+function mktNews(){MKT.news={};for(const k in STOCKS){if(Math.random()<.65){const n=pick(NEWS[k]);MKT.news[k]={text:n[0],dir:n[1]};}}}
+if(!Object.keys(MKT.news||{}).length)mktNews();
+const mktWorth=()=>Object.keys(STOCKS).reduce((a,k)=>a+MKT.own[k]*MKT.px[k],0);
+// a new day: every price moves; yesterday's news comes true (mostly); predictions are settled; today's news comes out
+function marketDay(){const before=mktWorth(),moves=[];
+  for(const k in STOCKS){const S=STOCKS[k],n=MKT.news[k];let ch=S.drift+(Math.random()*2-1)*S.vol;if(n)ch+=n.dir*S.vol*(Math.random()<.8?1.1:-.4);
+    const np=Math.max(2,Math.round(MKT.px[k]*(1+ch)));moves.push([k,MKT.px[k],np]);MKT.px[k]=np;MKT.hist[k].push(np);MKT.hist[k]=MKT.hist[k].slice(-12);}
+  let pmsg="";if(MKT.pred){const mv=moves.find(m=>m[0]===MKT.pred.k);const up=mv[2]>mv[1],flat=mv[2]===mv[1];const ok=!flat&&up===(MKT.pred.dir>0);
+    if(ok){COINS+=10;coinHud();MKT.stats.right++;pmsg=` Your prediction for ${STOCKS[mv[0]].name} was right: +10!`;}else{MKT.stats.wrong++;pmsg=` Your prediction for ${STOCKS[mv[0]].name} was wrong.`;}MKT.pred=null;}
+  const after=mktWorth(),d=after-before;MKT.day++;mktNews();mktSave();drawBoard();
+  if(before>0||pmsg)lawSay(`Market: your shares ${d>=0?"gained":"lost"} ${Math.abs(d)} denarii today (now worth ${after}).${pmsg}`);}
+// Crassus's math questions about the prices — answer right for a coin or two
+function mktQuestion(){const ks=Object.keys(STOCKS),k=pick(ks),h=MKT.hist[k],a=h.length>1?h[h.length-2]:Math.round(h[0]*.9),b=MKT.px[k],nm=STOCKS[k].name;const r=Math.random();
+  if(r<.3){const pct=a===b?0:Math.round((b-a)/a*1000)/10;return {q:`${nm} was ${a} yesterday and is ${b} today. By what percent did it ${b>=a?"go up":"go down"}? (round to one decimal)`,a:Math.abs(pct),tol:.15};}
+  if(r<.55){const n=ri(2,9),buy=Math.max(2,b+ri(-6,6));return {q:`You bought ${n} shares of ${nm} at ${buy} each. Now they're worth ${b} each. How much did you ${b>=buy?"gain":"lose"} in total?`,a:Math.abs(n*(b-buy)),tol:0};}
+  if(r<.8&&h.length>=3){const l=h.slice(-3);const avg=Math.round((l[0]+l[1]+l[2])/3*10)/10;return {q:`The last three prices of ${nm} were ${l.join(", ")}. What is their average? (round to one decimal)`,a:avg,tol:.15};}
+  const n=ri(3,15);return {q:`How much are ${n} shares of ${nm} worth at today's price of ${b}?`,a:n*b,tol:0};}
+// the booth, the board (a canvas that's redrawn each day) and Crassus
+const MKT_AT=new THREE.Vector3(57.5,0,10.6);let boardTex=null;
+function drawBoard(){if(!boardTex)return;const c=boardTex.image,x=c.getContext("2d");x.fillStyle="#1a2a22";x.fillRect(0,0,c.width,c.height);x.fillStyle="#ffe08a";x.font="700 30px Georgia,serif";x.fillText(`Bursa — day ${MKT.day+1}`,16,36);
+  Object.entries(STOCKS).forEach(([k,S],i)=>{const h=MKT.hist[k],p=MKT.px[k],prev=h.length>1?h[h.length-2]:p,up=p>=prev;const y=74+i*44;x.fillStyle="#f0ece0";x.font="600 22px system-ui";x.fillText(S.name,16,y);
+    x.fillStyle=up?"#7fe08a":"#ff8a7a";x.fillText(`${p} ${up?"▲":"▼"}${Math.abs(p-prev)}`,300,y);x.strokeStyle=up?"#7fe08a":"#ff8a7a";x.lineWidth=2;x.beginPath();const mn=Math.min(...h),mx=Math.max(...h);
+    h.forEach((v,j)=>{const px=410+j*8,py=y-4-(mx>mn?(v-mn)/(mx-mn):.5)*22;j?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();});boardTex.needsUpdate=true;}
+{const g=new THREE.Group();g.position.set(57.5,0,11.9);scene.add(g);const wood=LOOK.toon(0x5a3a22);const c=LOOK.M(new THREE.BoxGeometry(2.6,1,.7),LOOK.toon(0x6b4423),.02);c.position.y=.5;g.add(c);
+  [[-1.3,0],[1.3,0]].forEach(([a])=>{const p=new THREE.Mesh(new THREE.BoxGeometry(.12,3.2,.12),wood);p.position.set(a,1.6,.3);g.add(p);});
+  const cv=document.createElement("canvas");cv.width=520;cv.height=250;boardTex=new THREE.CanvasTexture(cv);if("colorSpace" in boardTex)boardTex.colorSpace=THREE.SRGBColorSpace;
+  const bd=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.25),new THREE.MeshBasicMaterial({map:boardTex}));bd.position.set(0,2.6,.36);bd.rotation.y=Math.PI;g.add(bd);drawBoard();
+  const sg=signBoard("Bursa — the stock market",0xffe08a);sg.scale.setScalar(.6);sg.position.set(0,3.45,.36);sg.rotation.y=Math.PI;g.add(sg);g.traverse(k=>{if(k.isMesh)k.castShadow=true;});
+  {const m=block(57.5,11.9,2.6,1,.7,0x6b4423);m.material.visible=false;m.castShadow=false;}
+  const o=npc("merchant.glb",57.5,12.7,Math.PI);const lb=label("Crassus the banker",0xffffff);lb.scale.set(2.2,.34,1);lb.position.y=2.35;o.g.add(lb);const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(m.name==="Mug")m.visible=false;if(m.isMesh&&m.material&&m.material.color){m.material=m.material.clone();m.material.color.set(0xd8d0f0);}});},400);
+  MKT.npc=personize(o,"Crassus");}
+ACTS.push({pos:MKT_AT,r:2.4,label:"Bursa — trade stocks with Crassus",hidden:()=>MKT.npc&&MKT.npc.down,run:()=>toggleBag(true,"stocks")});
+function stocksTab(box){let h=`<p class="purse">🪙 <b>${COINS}</b> denarii · your shares are worth <b>${mktWorth()}</b></p>`;if(P.pos.distanceTo(MKT_AT)>4){box.innerHTML=h+`<p class="tip">Crassus's booth is in the plaza of Nova Urbs.</p>`;return;}
+  h+=`<p class="tip">Prices change every new day (dawn). Buy low, sell high — or lose money if you guess wrong. The news below hints at tomorrow.</p><table class="biz"><tr><th style="text-align:left">Company</th><th>Price</th><th>Change</th><th>You own</th><th>You paid</th><th></th></tr>`;
+  for(const [k,S] of Object.entries(STOCKS)){const hh=MKT.hist[k],p=MKT.px[k],prev=hh.length>1?hh[hh.length-2]:p;
+    h+=`<tr><td style="text-align:left">${esc(S.name)}</td><td>${p}</td><td class="${p<prev?"neg":""}">${p>=prev?"+":""}${p-prev}</td><td>${MKT.own[k]}</td><td>${MKT.cost[k]}</td><td><button data-mbuy="${k}">Buy 1</button> <button data-mbuy5="${k}">Buy 5</button> <button data-msell="${k}" ${MKT.own[k]?"":"disabled"}>Sell 1</button> <button data-msellall="${k}" ${MKT.own[k]?"":"disabled"}>Sell all</button></td></tr>`;}
+  h+=`</table><h3>Morning news</h3>${Object.keys(MKT.news).length?Object.entries(MKT.news).map(([k,n])=>`<p class="tip">${esc(STOCKS[k].name)}: “${esc(n.text)}”</p>`).join(""):`<p class="tip">A quiet day — no news.</p>`}`;
+  h+=`<h3>Predict tomorrow</h3>${MKT.pred?`<p class="tip">You predicted ${esc(STOCKS[MKT.pred.k].name)} will go ${MKT.pred.dir>0?"up":"down"}. We'll see tomorrow!</p>`:`<p class="tip">Right = +10 denarii. ${MKT.stats.right} right, ${MKT.stats.wrong} wrong so far.</p><div class="shelf">${Object.entries(STOCKS).map(([k,S])=>`<button data-mpred="${k}:1">${esc(S.name)} up</button><button data-mpred="${k}:-1">down</button>`).join("")}</div>`}`;
+  if(!MKT.q)MKT.q=mktQuestion();h+=`<h3>Crassus asks</h3><p class="say">${esc(MKT.q.q)}</p><div class="answer"><input id="mAns" type="number" step="0.1" inputmode="decimal"><button id="mGo">Answer</button></div>`;
+  box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;}
+function stocksClick(t){const d=t.dataset;
+  if(d.mbuy||d.mbuy5){const k=d.mbuy||d.mbuy5,n=d.mbuy5?5:1,c=n*MKT.px[k];if(COINS<c){forgeOk=false;forgeMsg=`${n} share${n>1?"s":""} cost${n>1?"":"s"} ${c} — you have ${COINS}.`;}else{COINS-=c;coinHud();MKT.own[k]+=n;MKT.cost[k]+=c;forgeOk=true;forgeMsg=`Bought ${n} share${n>1?"s":""} of ${STOCKS[k].name} for ${c}.`;mktSave();}renderBag();return true;}
+  if(d.msell||d.msellall){const k=d.msell||d.msellall,n=d.msellall?MKT.own[k]:1;if(!n)return true;const v=n*MKT.px[k],paid=Math.round(MKT.cost[k]*n/MKT.own[k]);COINS+=v;coinHud();MKT.cost[k]-=paid;MKT.own[k]-=n;forgeOk=v>=paid;forgeMsg=`Sold ${n} for ${v} (you paid ${paid}): ${v>=paid?"profit":"loss"} of ${Math.abs(v-paid)}.`;mktSave();renderBag();return true;}
+  if(d.mpred){const [k,dir]=d.mpred.split(":");MKT.pred={k,dir:+dir};mktSave();forgeOk=true;forgeMsg="Prediction made — come back tomorrow!";renderBag();return true;}
+  if(t.id==="mGo"){const v=parseFloat(($("#mAns")||{}).value);const q=MKT.q;if(!q||isNaN(v))return true;if(Math.abs(v-q.a)<=q.tol+1e-9){COINS+=3;coinHud();forgeOk=true;forgeMsg="“Exactly right!” Crassus tips you 3 denarii.";mathRight();}else{forgeOk=false;forgeMsg=`“Not quite — it's ${q.a}.”`;mathWrong();}MKT.q=null;mktSave();renderBag();return true;}return false;}
 // ---------------- day and night (2026-11-22): an 8-minute day — 5 minutes of daylight, then dusk, a starry night, dawn ----------------
 // The sun crosses the sky (and follows you, so shadows are everywhere); at night the sky darkens, stars come out, lamps and windows glow,
 // and monsters see farther and roam wider.
@@ -1235,7 +1295,7 @@ const STARS=(()=>{const n=700,pos=new Float32Array(n*3);for(let i=0;i<n;i++){con
   const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));const m=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false}));m.renderOrder=-1;scene.add(m);return m;})();
 const C_=h=>new THREE.Color(h),SKY_DAY=[C_(0xd8e9e0),C_(0x98cfe8),C_(0x5aa8dc)],SKY_DUSK=[C_(0xf2a878),C_(0x8a7ab0),C_(0x3a4a8a)],SKY_NIGHT=[C_(0x1a2440),C_(0x0e1530),C_(0x050914)];
 const FOG_DAY=C_(0x9fc08a),FOG_NIGHT=C_(0x141c2c),_c1=new THREE.Color(),_c2=new THREE.Color();let clockSaveT=0;
-function stepDay(dt){DAY.t+=dt/DAY.len;if(DAY.t>=1){DAY.t-=1;DAY.day++;lawSay(`Day ${DAY.day} begins.`);}
+function stepDay(dt){DAY.t+=dt/DAY.len;if(DAY.t>=1){DAY.t-=1;DAY.day++;lawSay(`Day ${DAY.day} begins.`);marketDay();}
   const t=DAY.t,DAYLEN=.62;const sunUp=t<DAYLEN?Math.sin(Math.PI*t/DAYLEN):0;            // 0 at dawn and dusk, 1 at noon
   const dusk=t<DAYLEN?Math.max(0,1-Math.min(t,DAYLEN-t)/.08):Math.max(0,1-Math.min(t-DAYLEN,1-t)/.06); // warm colors near sunrise/sunset
   const night=t<DAYLEN?0:Math.min(1,Math.min(t-DAYLEN,1-t)/.05);DAY.night=Math.max(0,night-0)*(1-dusk*.6);DAY.night=night;
@@ -1660,7 +1720,8 @@ function updateCam(dt){const d=4.2,eye=P.pos.clone().add(new THREE.Vector3(0,1.5
 function resize(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
 addEventListener("resize",resize);resize();
 // monster bars are hidden while you are in town, so they don't show through the walls
-function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos))&&!(d.enemy&&(CAVE.in||inCave(d.g.position))&&wallBetween(cam.position,d.g.position.clone().add(new THREE.Vector3(0,1.4,0))));   // no bars through the cave rockd.bar.style.display=vis?"":"none";if(!vis)return;
+function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos))&&!(d.enemy&&(CAVE.in||inCave(d.g.position))&&wallBetween(cam.position,d.g.position.clone().add(new THREE.Vector3(0,1.4,0))));d.bar.style.display=vis?"":"none";   // (no bars through the cave rock either)
+  if(!vis)return;
   d.bar.style.left=(p.x+1)/2*innerWidth+"px";d.bar.style.top=(1-p.y)/2*innerHeight+"px";d.barI.style.width=(100*d.hp/d.max)+"%";d.barI.classList.toggle("low",d.hp<35);d.barS.textContent=d.down?d.name+" · down":d.name;});}
 
 // ---------------- the bag (E) and the forge: tidy the hotbar, and craft by solving the forge's math problems ----------------
@@ -1677,7 +1738,7 @@ const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)
 const designOpen=()=>window.DESIGN&&DESIGN.isOpen();
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
-const CTX_TABS={biz:"Business",jobs:"Jobs",shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
+const CTX_TABS={stocks:"Stocks",biz:"Business",jobs:"Jobs",shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
 function toggleBag(open,tab){if(!started||P.down)return;bagOpen=open===undefined?!bagOpen:open;if(tab&&tab!==bagTab&&tab!=="work")forgeMsg="";if(tab)bagTab=tab;else if(CTX_TABS[bagTab])bagTab="items";
   const ct=$("#ctxTab");ct.classList.toggle("hidden",!CTX_TABS[bagTab]);if(CTX_TABS[bagTab]){ct.dataset.tab=bagTab;ct.textContent=CTX_TABS[bagTab];}$("#bag").classList.toggle("hidden",!bagOpen);G.firing=false;bagPick=-1;
   if(bagOpen){if(document.exitPointerLock)document.exitPointerLock();renderBag();}}
@@ -1700,6 +1761,7 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
   if(bagTab==="shop"){shopTab(box);return;}
   if(bagTab==="jobs"){jobsTab(box);return;}
   if(bagTab==="biz"){bizTab(box);return;}
+  if(bagTab==="stocks"){stocksTab(box);return;}
   if(bagTab==="food"){const near=P.pos.distanceTo(COOK.pos)<4.5;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
     if(!near){box.innerHTML=h+`<p class="tip">The Popina 🍞 (the cook's stall) is on the west side of town. Walk up to it to buy food.</p>`;return;}
     h+=`<p class="tip">Food heals a little, and some give you a boost for a while. Eat it from your hotbar (click / FIRE).</p><div class="list">`;
@@ -1767,7 +1829,7 @@ function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAF
   const up=first&&MATH.lv<8&&setLevel(MATH.lv+1);if(!up){MATH.wrong=0;MATH.moved="";}
   forgeMsg=`✨ You made ${it.t==="spell"?`${SPELLS[it.id].icon} ${SPELLS[it.id].name}`:rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.levelName(MATH.lv)}.`:" A new set of problems is ready for the next one.");
   FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.4,0)),"gold",5,1.4);renderBag();}
-$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-shopitem],[data-job],[data-jobquit],#jobGo,[data-bizstart],[data-bizbuy],[data-bizsign],[data-bizclose],#bizSetPrice,[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
+$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-mbuy],[data-mbuy5],[data-msell],[data-msellall],[data-mpred],#mGo,[data-shopitem],[data-job],[data-jobquit],#jobGo,[data-bizstart],[data-bizbuy],[data-bizsign],[data-bizclose],#bizSetPrice,[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
   if(t.dataset.slot!==undefined){const i=+t.dataset.slot;if(bagPick<0){if(INV[i])bagPick=i;}else{const a=INV[bagPick];INV[bagPick]=INV[i];INV[i]=a;bagPick=-1;select(SEL);}renderBag();return;}
   if(t.dataset.book){setBook(t.dataset.book);forgeMsg=t.dataset.book==="china"?"📚 China standard: the problems now follow what Chinese schools teach in each grade.":"📚 US math book.";forgeOk=true;renderBag();return;}
   if(t.dataset.tier){contestNew(t.dataset.tier);renderBag();return;}
@@ -1775,7 +1837,7 @@ $("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot]
   if(t.id==="conGo"){const i=$("#conIn"),w=$("#conWhy");CONTEST.ans=i?i.value:"";CONTEST.draft=w?w.value:"";const r=contestAnswer(i&&i.value!==""?parseInt(i.value,10):null,CONTEST.draft);CONTEST.ok=r.ok;CONTEST.msg=r.msg;renderBag();return;}
   if(t.dataset.drop!==undefined){dropOwn(+t.dataset.drop);bagPick=-1;renderBag();return;}
   if(t.dataset.rec){forgeId=t.dataset.rec;tray={};forgeMsg="";renderBag();return;}
-  if(jobClick(t)||bizClick(t))return;
+  if(jobClick(t)||bizClick(t)||stocksClick(t))return;
   if(t.dataset.shopitem){shopBuy(+t.dataset.shopitem);renderBag();return;}
   if(t.dataset.food){const f=FOODS[t.dataset.food];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet — sell something at Mercator's stall.";}else if(addItem({t:"food",id:t.dataset.food,n:1})){COINS-=f.price;coinHud();forgeOk=true;forgeMsg=`${f.icon} ${f.name} is in your bag.`;}else{forgeOk=false;forgeMsg="Your bag is full.";}renderBag();return;}
   if(t.dataset.tochest!==undefined){const i=+t.dataset.tochest,k=CHEST.indexOf(null);if(INV[i]&&k>=0){CHEST[k]=INV[i];INV[i]=null;select(SEL);}renderBag();return;}
@@ -1821,5 +1883,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
