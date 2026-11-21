@@ -1,0 +1,42 @@
+mat_ferrum	a small stack of three rough dark forged iron ingots
+mat_lignum	a bundle of three split oak firewood logs tied with twine
+mat_carbo	a raw glowing orange fire crystal, a hexagonal gemstone cluster with ember light inside
+mat_nimbus	a raw glowing deep blue water crystal, a hexagonal gemstone cluster with swirling water light inside
+mat_silex	a raw brown earth crystal, a rough amber-brown gemstone cluster on a bit of rock
+mat_aether	a raw pale silver-white air crystal, a clear hexagonal gemstone cluster with misty light inside
+mat_electrum	a raw glowing yellow lightning crystal, a hexagonal gemstone cluster with tiny sparks inside
+mat_cornu	a single curved dark red demon horn, ridged, with a black tip
+mat_villus	a fluffy tuft of white yeti fur with pale blue tips, tied with a leather strap
+mat_sporae	a small corked glass jar full of glowing red and gold mushroom spores
+mat_pannus	a folded piece of dark purple silk cloth with a faint shadowy shimmer
+mat_gemma	a faceted electric blue gemstone with a tiny lightning glow inside
+mat_dens	a large curved ivory orc tusk, slightly yellowed
+mat_squama	a single large glossy green dinosaur scale, shaped like a shield
+mat_pluma	a long feather, brown with teal and gold bands
+mat_cinis	a small leather pouch, open, spilling fine black ash with dark purple sparkles
+food_pomum	a shiny red apple with a leaf on the stem
+food_panis	a rustic round loaf of crusty brown bread
+food_uvae	a bunch of purple grapes on the vine
+food_mel	a small round honey cake with honey dripping over the top
+food_puls	a wooden bowl of warm oat porridge with a wooden spoon
+food_caseus	a wedge of yellow cheese with a few holes
+food_piscis	a whole grilled fish with grill marks lying on a small round wooden plate, seen from above at an angle
+potion_sanans	a round glass potion bottle with a cork, filled with glowing red healing liquid
+potion_fortis	a tall glass flask with a cork, filled with glowing golden liquid with bubbles
+weapon_rifle	a fantasy rifle of dark steel with brass fittings and a wooden stock, side view, pointing right
+weapon_shotgun	a chunky fantasy pump shotgun of dark steel with an orange glowing barrel tip, side view, pointing right
+weapon_staff	a long carved wooden wizard staff topped with a glowing pale blue crystal, standing diagonally
+weapon_repeater	a sleek fantasy rifle painted royal blue with crackling blue lightning coils, side view, pointing right
+weapon_cannon	a short bronze hand cannon with a brown wooden grip, side view, pointing right
+weapon_arcus	a pale silver-white longbow with a string, standing diagonally
+scroll_fire	a rolled parchment scroll tied with a red ribbon and a glowing orange flame wax seal
+scroll_water	a rolled parchment scroll tied with a blue ribbon and a glowing blue water-drop wax seal
+scroll_earth	a rolled parchment scroll tied with a brown ribbon and a green-brown stone wax seal
+scroll_air	a rolled parchment scroll tied with a pale white ribbon and a silver swirl wax seal
+scroll_lightning	a rolled parchment scroll tied with a yellow ribbon and a glowing lightning bolt wax seal
+scroll_ice	a rolled parchment scroll tied with an icy cyan ribbon and a frosty snowflake wax seal
+scroll_shadow	a rolled dark parchment scroll tied with a black ribbon and a purple glowing wax seal
+scroll_light	a rolled parchment scroll tied with a white ribbon and a glowing white sun wax seal
+scroll_heal	a rolled parchment scroll tied with a pink ribbon and a glowing pink heart-leaf wax seal
+scroll_gold	a rolled parchment scroll tied with a gold ribbon and a glowing gold star wax seal
+coin	a small stack of silver ancient Roman denarius coins

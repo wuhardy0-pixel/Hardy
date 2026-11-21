@@ -43,12 +43,12 @@ body.touch #wep{bottom:calc(env(safe-area-inset-bottom,0px) + 170px);min-width:1
 #hotbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;gap:4px;pointer-events:auto;z-index:4}
 #wep{bottom:calc(env(safe-area-inset-bottom,0px) + 72px) !important}
 .slot{position:relative;width:50px;height:50px;border-radius:10px;background:rgba(20,20,22,.55);border:2px solid rgba(255,255,255,.18);display:grid;place-items:center;cursor:pointer;user-select:none}
-.slot span{font-size:26px;line-height:1}.slot b{position:absolute;right:4px;bottom:1px;font:800 12px system-ui;color:#fff;text-shadow:0 1px 2px #000}
+.slot span{font-size:26px;line-height:1}.slot span img.ii{width:38px;height:38px;object-fit:contain;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));pointer-events:none}img.in{height:1.5em;width:1.5em;object-fit:contain;vertical-align:middle;margin:-.2em .1em -.15em 0;pointer-events:none}img.in.big{height:2.2em;width:2.2em}.slot b{position:absolute;right:4px;bottom:1px;font:800 12px system-ui;color:#fff;text-shadow:0 1px 2px #000}
 .slot i{position:absolute;left:4px;top:1px;font:600 10px system-ui;color:rgba(255,255,255,.55);font-style:normal}
 .slot em{position:absolute;left:3px;bottom:1px;font:800 10px system-ui;color:#ffe08a;font-style:normal}
 .slot.sel{border-color:var(--gold);background:rgba(232,184,74,.28);box-shadow:0 0 0 2px rgba(232,184,74,.35)}.slot.pick{border-color:#7fd3ff;background:rgba(127,211,255,.25)}
 #wep.noweap .rl{display:none}
-body.touch #hotbar{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 100px);gap:2px}body.touch #hotbar .slot{width:36px;height:36px;border-radius:8px}body.touch #hotbar .slot span{font-size:19px}body.touch #hotbar .slot i{display:none}
+body.touch #hotbar{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 100px);gap:2px}body.touch #hotbar .slot{width:36px;height:36px;border-radius:8px}body.touch #hotbar .slot span{font-size:19px}body.touch #hotbar .slot span img.ii{width:28px;height:28px}body.touch #hotbar .slot i{display:none}
 body.touch #wep{bottom:auto !important;top:calc(env(safe-area-inset-top,0px) + 146px);left:auto;right:10px;transform:none;min-width:0;padding:4px 10px}body.touch #wep #ammo{font-size:17px}body.touch #pos{display:none}
 #bag .bagbox{max-width:860px;width:100%;max-height:92vh;overflow:auto;background:rgba(28,28,32,.97);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left}
 #bag .tabs{display:flex;gap:6px;align-items:center;margin-bottom:10px}#bag .tabs button{margin:0;padding:8px 14px;font-size:15px;border-radius:10px;background:rgba(255,255,255,.08);color:#fff;border:1px solid var(--line)}
@@ -64,7 +64,7 @@ body.touch #wep{bottom:auto !important;top:calc(env(safe-area-inset-top,0px) + 1
 #bag .tray{display:grid;grid-template-columns:repeat(9,minmax(0,46px));gap:4px;margin:10px 0}#bag .tray .slot{width:46px;height:46px;border-style:dashed}
 #bag .mats{display:flex;flex-wrap:wrap;gap:6px}#bag .mats button{margin:0;padding:6px 10px;font-size:13px;border-radius:999px;background:rgba(255,255,255,.08);color:#fff;border:1px solid var(--line)}
 #bag .go{margin:12px 0 0;font-size:16px}#bag .msg{min-height:20px;font-size:14px;color:#ff9a8a}#bag .msg.ok{color:#9dffb0}
-@media (max-width:640px){#bag .forge{grid-template-columns:1fr}#bag .recipes{flex-direction:row;flex-wrap:wrap}#bag .grid{grid-template-columns:repeat(9,minmax(0,1fr))}#bag .slot{width:auto;height:auto;aspect-ratio:1}#bag .slot span{font-size:20px}#bag .tray{grid-template-columns:repeat(9,minmax(0,1fr))}}
+@media (max-width:640px){#bag .forge{grid-template-columns:1fr}#bag .recipes{flex-direction:row;flex-wrap:wrap}#bag .grid{grid-template-columns:repeat(9,minmax(0,1fr))}#bag .slot{width:auto;height:auto;aspect-ratio:1}#bag .slot span{font-size:20px}#bag .slot span img.ii{width:80%;height:80%;margin:auto}#bag .tray{grid-template-columns:repeat(9,minmax(0,1fr))}}
 #coins{position:fixed;left:14px;top:calc(env(safe-area-inset-top,0px) + 92px);font:800 15px system-ui;color:#ffe08a;text-shadow:0 1px 3px #000;pointer-events:none}
 #trade{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 190px);z-index:5;margin:0;padding:10px 18px;font:800 16px system-ui;border-radius:999px;background:#e8b84a;color:#222;border:0;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #trade.hidden{display:none}body.touch #trade{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 150px)}

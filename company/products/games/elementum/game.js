@@ -84,6 +84,15 @@ const body=new THREE.Group();scene.add(body);
 const HERO=LOOK.hero();const {hips,torso,head,armL,armR,legL,legR}=HERO;body.add(hips);
 // the hero: KayKit's hooded ranger (models/hero.glb, CC0) with real animations; the shape-built body above shows until it loads (or if it can't)
 let RIG=null;const gunMount=new THREE.Group();scene.add(gunMount);
+// anything that isn't a weapon is held as its picture cut out in 3D (a stack of thin layers, so it has thickness from the side)
+const itemMount=new THREE.Group();itemMount.visible=false;scene.add(itemMount);const HELD={k:"",mesh:null};
+function heldMesh(k){const g=new THREE.Group(),geo=new THREE.PlaneGeometry(1,1),tex=picTex(k);
+  for(let i=0;i<7;i++){const edge=i>0&&i<6;const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({map:tex,alphaTest:.5,side:THREE.DoubleSide,roughness:.6,color:edge?0x9a9a9a:0xffffff}));
+    m.position.z=(i-3)*.012;m.castShadow=true;g.add(m);}
+  return g;}
+function setHeld(it){const k=it&&it.t!=="weapon"?picKey(it):"";itemMount.visible=!!k;if(k===HELD.k)return;HELD.k=k;
+  if(HELD.mesh){itemMount.remove(HELD.mesh);HELD.mesh=null;}if(!k)return;
+  const sz=it.t==="spell"?.5:it.t==="coin"?.3:.42;HELD.mesh=heldMesh(k);HELD.mesh.scale.setScalar(sz);HELD.mesh.position.set(0,sz*.38,0);itemMount.add(HELD.mesh);}
 LOOK.loadRig("/play/elementum/models/hero.glb",true,r=>{if(!r)return;RIG=r;LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;body.add(r.root);hips.visible=false;
   r.base("Idle",{snap:true});r.up("2H_Ranged_Aiming",{snap:true});});
 const shadowDisc=new THREE.Mesh(new THREE.CircleGeometry(.35,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.18,depthWrite:false}));shadowDisc.rotation.x=-Math.PI/2;shadowDisc.position.y=.015;body.add(shadowDisc);
@@ -383,7 +392,7 @@ function stepMagic(dt){G.spellCool=Math.max(0,(G.spellCool||0)-dt);
 
 // ---------------- items: a Minecraft-style inventory — 9 hotbar slots (0-8) + 27 in the bag ----------------
 // item = {t:"weapon",id,ammo} | {t:"spell",id,uses} | {t:"mat",id,n} | {t:"potion",id:"potion",n}
-const MAT=CRAFT.MATERIALS;const INV=new Array(36).fill(null);let SEL=0;
+const MAT=CRAFT.MATERIALS;for(const k in MAT)MAT[k].id=k;const INV=new Array(36).fill(null);let SEL=0;
 const WICON={rifle:"🔫",shotgun:"💥",staff:"🪄",repeater:"⚡",cannon:"💣",arcus:"🏹"};
 // how to get each item: shown in the bag under the item, and all together in the 📖 Guide tab
 function howToGet(it){if(!it)return "";const make=id=>CRAFT.RECIPES.some(r=>r.give?(r.give.t==="food"&&r.give.id===id)||(r.give.t==="scroll"&&it.t==="spell"&&SPELLS[it.id].el===r.give.el):(r.out||r.id)===id);
@@ -398,7 +407,14 @@ function howToGet(it){if(!it)return "";const make=id=>CRAFT.RECIPES.some(r=>r.gi
   if(it.t==="potion")return "Make it at the ⚒️ Forge · or buy it from Mercator.";
   if(it.t==="food")return "Buy it from the cook's 🍞 stall · or cook it at the ⚒️ Forge (Cook food).";
   if(it.t==="spell")return `Monsters drop spell scrolls · Mercator sells a few · make a ${SPELLS[it.id].el} scroll at the ⚒️ Forge.`;return "";}
-function itemInfo(it){if(!it)return null;if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
+// every thing you can hold has a real picture (product-photo style, made with Gemini 2026-11-20, in items/): bag, shop, forge, the ground, your hand
+const PIC=k=>"/play/elementum/items/"+k+".webp";
+const picKey=it=>it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
+const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="false">`;
+const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
+const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
+function itemInfo(it){const f=itemInfo0(it);if(f)f.pic=picKey(it);return f;}
+function itemInfo0(it){if(!it)return null;if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
   if(it.t==="food"){const f=FOODS[it.id];return {icon:f.icon,name:f.name,what:f.what,count:it.n};}
@@ -436,16 +452,18 @@ function punch(){if(P.down||!started||paused||bagOpen||G.cool>0)return;G.cool=.4
     if(!hit)NODES.forEach(n=>{if(n.down||hit)return;const v=n.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2.3&&v.normalize().dot(f)>.4){hit=true;mineHit(n,7,n.g.position.clone().add(new THREE.Vector3(0,.8,0)));}});
     if(hit){shake(.05);for(let i=0;i<8;i++)PUFF.emit(at,rnd3(1.2),C(0xffffff).multiplyScalar(.4),.35,{drag:3});}},150);}
 function invHud(){const hb=$("#hotbar");if(!hb)return;let h="";for(let i=0;i<9;i++){const it=INV[i],f=itemInfo(it);
-    h+=`<div class="slot${i===SEL?" sel":""}" data-i="${i}"><i>${i+1}</i>${f?`<span>${f.icon}</span>${f.count>1||it.t==="spell"?`<b>${f.count}</b>`:""}${f.num?`<em>${f.num}</em>`:""}`:""}</div>`;}
+    h+=`<div class="slot${i===SEL?" sel":""}" data-i="${i}"><i>${i+1}</i>${f?`<span>${ico(f)}</span>${f.count>1||it.t==="spell"?`<b>${f.count}</b>`:""}${f.num?`<em>${f.num}</em>`:""}`:""}</div>`;}
   hb.innerHTML=h;}
 // things lying in the world: walk close and they fly to you (a full bag leaves them on the ground)
 const PICKUPS=[];
+const PICTEX={};function picTex(k){if(!PICTEX[k]){const t=PICTEX[k]=new THREE.TextureLoader().load(PIC(k));if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;}return PICTEX[k];}
+function picSprite(k){return new THREE.Sprite(new THREE.SpriteMaterial({map:picTex(k),depthWrite:false,transparent:true,alphaTest:.1}));}
 function iconSprite(text,px){const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d");x.font=`${px||88}px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif`;x.textAlign="center";x.textBaseline="middle";x.fillText(text,64,70);
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;return new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,transparent:true}));}
 function dropItem(at,it,life,sid){const f=itemInfo(it);const hex=it.t==="spell"?FX.HEX[SPELLS[it.id].el]:it.t==="weapon"?0xffd27a:0xffffff;
   const g=new THREE.Group();g.position.set(at.x+rnd(-.8,.8),0,at.z+rnd(-.8,.8));let bob;
-  if(it.t==="spell"){bob=new THREE.Mesh(new THREE.OctahedronGeometry(.2),glow(hex,1.8));const lb=label(f.icon+" "+f.name,hex);lb.position.y=1.65;g.add(lb);}
-  else{bob=iconSprite(f.icon);bob.scale.setScalar(.75);if((it.n||0)>1){const lb=label("×"+it.n,0xffffff);lb.scale.set(1.2,.22,1);lb.position.y=1.5;g.add(lb);}}
+  if(it.t==="spell"){bob=picSprite(f.pic);bob.scale.setScalar(.8);const lb=label(f.name,hex);lb.position.y=1.65;g.add(lb);}
+  else{bob=picSprite(f.pic);bob.scale.setScalar(.75);if((it.n||0)>1){const lb=label("×"+it.n,0xffffff);lb.scale.set(1.2,.22,1);lb.position.y=1.5;g.add(lb);}}
   bob.position.y=.9;g.add(bob);
   const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.44,30),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
   scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||60,sid:sid||null});return PICKUPS[PICKUPS.length-1];}
@@ -1021,7 +1039,7 @@ function respawn(){P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door)
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
   $("#wep").classList.toggle("noweap",!(it&&it.t==="weapon"));
   if(it&&it.t==="weapon"){$("#wname").textContent=w.name;$("#ammo").textContent=`${G.ammo} / ${w.mag}`;$("#crys").textContent=`${c.name} crystal · ${c.el}`;$("#crys").style.color="#"+FX.HEX[c.el].toString(16).padStart(6,"0");}
-  else{$("#wname").textContent=f?`${f.icon} ${f.name}`:"👊 Fists";$("#ammo").textContent=f?(it.t==="spell"?"●".repeat(Math.min(12,f.count)):"× "+f.count):"—";
+  else{$("#wname").innerHTML=f?`${img(f.pic,"in")} ${esc(f.name)}`:"👊 Fists";$("#ammo").textContent=f?(it.t==="spell"?"●".repeat(Math.min(12,f.count)):"× "+f.count):"—";
     $("#crys").textContent=f?(it.t==="spell"?`${f.what} · click to cast`:it.t==="potion"?(it.id==="fortis"?"click to drink · shared with players near you":"click to drink · +50 HP"):it.t==="food"?`click to eat · ${f.what}`:`${f.what}${f.num?` · number ${f.num}`:""} · craft with E`):"click to punch · rocks break slowly";$("#crys").style.color="";}
   $("#rlbar").style.width=G.reloading?((1-G.reloading/G.reloadT)*100)+"%":"0%";$("#wep").classList.toggle("empty",!!(it&&it.t==="weapon"&&G.ammo===0&&!G.reloading));
   $("#hpn").textContent=Math.round(P.hp)+(P.shield>0?` + 🫧${Math.round(P.shield)}`:"");$("#hpbar").style.width=(100*P.hp/P.maxHp)+"%";$("#hpbar").classList.toggle("low",P.hp<35);}
@@ -1120,7 +1138,9 @@ function animRig(dt){const r=RIG;
 function placeGun(dt){const f=new THREE.Vector3(-Math.sin(P.yaw)*Math.cos(look.pitch),-Math.sin(look.pitch),-Math.cos(P.yaw)*Math.cos(look.pitch));
   if(RIG){animRig(dt);RIG.bones.handslotr.getWorldPosition(gunMount.position);}else{hips.updateMatrixWorld(true);armR.localToWorld(gunMount.position.set(0,-.6,0));}
   const Y=f.clone().negate(),Z=new THREE.Vector3(0,-1,0).addScaledVector(f,f.y).normalize(),X=new THREE.Vector3().crossVectors(Y,Z);
-  gunMount.quaternion.setFromRotationMatrix(_m4.makeBasis(X,Y,Z));}
+  gunMount.quaternion.setFromRotationMatrix(_m4.makeBasis(X,Y,Z));
+  setHeld(held());if(itemMount.visible){   // held out to the right and up a little, so the body doesn't hide it from the camera behind you
+    itemMount.position.copy(gunMount.position).add(new THREE.Vector3(Math.cos(P.yaw)*.6,-.05,-Math.sin(P.yaw)*.6));itemMount.rotation.set(0,P.yaw+.25,0);}}
 function floorUnder(){let f=0;for(const b of BLOCKS){if(b.pass)continue;if(Math.abs(P.pos.x-b.x)<b.w/2&&Math.abs(P.pos.z-b.z)<b.d/2&&b.y+b.h<=P.pos.y+.01)f=Math.max(f,b.y+b.h);}return f;}
 
 // ---------------- camera ----------------
@@ -1154,11 +1174,11 @@ function toggleBag(open,tab){if(!started||P.down)return;bagOpen=open===undefined
   const ct=$("#ctxTab");ct.classList.toggle("hidden",!CTX_TABS[bagTab]);if(CTX_TABS[bagTab]){ct.dataset.tab=bagTab;ct.textContent=CTX_TABS[bagTab];}$("#bag").classList.toggle("hidden",!bagOpen);G.firing=false;bagPick=-1;
   if(bagOpen){if(document.exitPointerLock)document.exitPointerLock();renderBag();}}
 const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-function slot(i){const it=INV[i],f=itemInfo(it);return `<div class="slot${i===bagPick?" pick":""}${i===SEL?" sel":""}" data-slot="${i}">${f?`<span>${f.icon}</span>${f.count>1||(it&&it.t==="spell")?`<b>${f.count}</b>`:""}${f.num?`<em>${f.num}</em>`:""}`:""}</div>`;}
+function slot(i){const it=INV[i],f=itemInfo(it);return `<div class="slot${i===bagPick?" pick":""}${i===SEL?" sel":""}" data-slot="${i}">${f?`<span>${ico(f)}</span>${f.count>1||(it&&it.t==="spell")?`<b>${f.count}</b>`:""}${f.num?`<em>${f.num}</em>`:""}`:""}</div>`;}
 function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .tabs button[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===bagTab));
   if(bagTab==="items"){let h=`<p class="tip">Tap an item, then tap another slot to move or swap it. The bottom row is your hotbar (keys 1–9).</p><div class="grid">`;
     for(let i=9;i<36;i++)h+=slot(i);h+=`</div><div class="grid hot">`;for(let i=0;i<9;i++)h+=slot(i);h+=`</div>`;
-    const fi=bagPick>=0?bagPick:SEL,f=itemInfo(INV[fi]);h+=`<p class="info">${f?`${f.icon} <b>${esc(f.name)}</b> — ${esc(f.what||"")}${f.num?` · crystal number <b>${f.num}</b>`:""} <button class="drop" data-drop="${fi}">⬇️ Drop</button><br><small class="how">How to get it: ${esc(howToGet(INV[fi]))}</small>`:"&nbsp;"}</p>`;box.innerHTML=h;return;}
+    const fi=bagPick>=0?bagPick:SEL,f=itemInfo(INV[fi]);h+=`<p class="info">${f?`${img(f.pic,"in")} <b>${esc(f.name)}</b> — ${esc(f.what||"")}${f.num?` · crystal number <b>${f.num}</b>`:""} <button class="drop" data-drop="${fi}">⬇️ Drop</button><br><small class="how">How to get it: ${esc(howToGet(INV[fi]))}</small>`:"&nbsp;"}</p>`;box.innerHTML=h;return;}
   if(bagTab==="quest"){const v=QV;if(!v||P.pos.distanceTo(v.pos)>4){box.innerHTML=`<p class="tip">Villagers with a ❗ over their head need help. Walk up to one and press T.</p>`;return;}
     const q=v.q;let h=`<h3>${esc(v.name)}</h3><p class="say">“${esc(q.text)}”</p><p>Reward: <b>${q.pay} 🪙</b></p>`;
     if(!q.accepted)h+=`<button class="go" id="qAccept">👍 I'll help</button>`;
@@ -1166,24 +1186,24 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     box.innerHTML=h+`<p class="msg ok">${esc(forgeMsg)}</p>`;return;}
   if(bagTab==="work"){const v=QW,q=v&&workQ(v);if(!q){box.innerHTML=`<p class="tip">Villagers with a ❗ sometimes need a roof fixed, a wall patched or a fence built. Say yes, then go to their cottage (look for the 🔨) and press T.</p><p class="msg ok">${esc(forgeMsg)}</p>`;return;}
     const w=q.w,m=MAT[w.m],title={roof:`🔨 Fix ${v.name}'s roof`,patch:`🔨 Patch ${v.name}'s wall`,fence:`🔨 Build ${v.name}'s garden fence`}[q.job];
-    let h=`<div class="work"><h3>${esc(title)}</h3><div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b></div><p class="say">${esc(w.text)}</p><p class="have">Each ${w.unit} is one ${m.icon} ${m.name}. You have <b>${countMat(w.m)}</b>.</p>`;
-    h+=w.solved?`<p>You worked it out: <b>${w.n} ${w.unit}s</b>.</p><button class="go" id="workGo">🔨 Use ${w.n} ${m.icon}</button>`:`<div class="answer"><input id="workIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="workGo">🔨 Use that many</button></div>`;
+    let h=`<div class="work"><h3>${esc(title)}</h3><div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b></div><p class="say">${esc(w.text)}</p><p class="have">Each ${w.unit} is one ${matIco(m.id)} ${m.name}. You have <b>${countMat(w.m)}</b>.</p>`;
+    h+=w.solved?`<p>You worked it out: <b>${w.n} ${w.unit}s</b>.</p><button class="go" id="workGo">🔨 Use ${w.n} ${matIco(m.id)}</button>`:`<div class="answer"><input id="workIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="workGo">🔨 Use that many</button></div>`;
     box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div>`;return;}
   if(bagTab==="food"){const near=P.pos.distanceTo(COOK.pos)<4.5;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
     if(!near){box.innerHTML=h+`<p class="tip">The Popina 🍞 (the cook's stall) is on the west side of town. Walk up to it to buy food.</p>`;return;}
     h+=`<p class="tip">Food heals a little, and some give you a boost for a while. Eat it from your hotbar (click / FIRE).</p><div class="list">`;
-    Object.entries(FOODS).forEach(([id,f])=>{h+=`<button data-food="${id}" class="${COINS<f.price?"poor":""}">${f.icon} <span>${esc(f.name)} <small>${esc(f.what)}</small></span><b>${f.price} 🪙</b></button>`;});
+    Object.entries(FOODS).forEach(([id,f])=>{h+=`<button data-food="${id}" class="${COINS<f.price?"poor":""}">${foodIco(id)} <span>${esc(f.name)} <small>${esc(f.what)}</small></span><b>${f.price} 🪙</b></button>`;});
     box.innerHTML=h+`</div><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;return;}
   if(bagTab==="chest"){if(P.pos.distanceTo(HOME.chest)>3){box.innerHTML=`<p class="tip">Your chest 📦 is in your house — the one with your name over the door, in the row along the north wall.</p>`;return;}
     let h=`<p class="tip">Tap an item to move it between your bag and your chest. The chest keeps things safe while you go out.</p><h3>📦 Chest</h3><div class="grid">`;
-    CHEST.forEach((it,i)=>{const f=itemInfo(it);h+=`<div class="slot" data-fromchest="${i}">${f?`<span>${f.icon}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;});
-    h+=`</div><h3>🎒 Your bag</h3><div class="grid">`;for(let i=9;i<36;i++){const f=itemInfo(INV[i]);h+=`<div class="slot" data-tochest="${i}">${f?`<span>${f.icon}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;}
-    h+=`</div><div class="grid hot">`;for(let i=0;i<9;i++){const f=itemInfo(INV[i]);h+=`<div class="slot" data-tochest="${i}">${f?`<span>${f.icon}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;}
+    CHEST.forEach((it,i)=>{const f=itemInfo(it);h+=`<div class="slot" data-fromchest="${i}">${f?`<span>${ico(f)}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;});
+    h+=`</div><h3>🎒 Your bag</h3><div class="grid">`;for(let i=9;i<36;i++){const f=itemInfo(INV[i]);h+=`<div class="slot" data-tochest="${i}">${f?`<span>${ico(f)}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;}
+    h+=`</div><div class="grid hot">`;for(let i=0;i<9;i++){const f=itemInfo(INV[i]);h+=`<div class="slot" data-tochest="${i}">${f?`<span>${ico(f)}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;}
     box.innerHTML=h+`</div>`;return;}
   if(bagTab==="build"){if(TRAIN.built){box.innerHTML=`<p class="tip">The training center stands. The dummies inside shoot slow bullets at you — only while you are inside its walls.</p><p class="msg ok">${esc(forgeMsg)}</p>`;return;}
     const pl=trainPlan();let need="";pl.parts.forEach(pt=>{const m=MAT[pt.m];
-      const q=pt.steps.length===1?`${esc(pt.steps[0])}<i>→ that many ${m.icon} ${m.name}.</i>`:`(a) ${esc(pt.steps[0])} Call the answer <b>A</b>.<br>(b) ${esc(pt.steps[1])} Call the answer <b>B</b>.<i>→ it takes <b>${pt.how}</b> ${m.icon} ${m.name}.</i>`;
-      need+=`<li>${q}${pl.solved?`<b>${pl.cost[pt.m]} ${m.icon} ${m.name}</b> <small>(you have ${countMat(pt.m)})</small>`:`<div class="answer">${m.icon} ${m.name}: <input data-plan="${pt.m}" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"> <small>(you have ${countMat(pt.m)})</small></div>`}</li>`;});
+      const q=pt.steps.length===1?`${esc(pt.steps[0])}<i>→ that many ${matIco(m.id)} ${m.name}.</i>`:`(a) ${esc(pt.steps[0])} Call the answer <b>A</b>.<br>(b) ${esc(pt.steps[1])} Call the answer <b>B</b>.<i>→ it takes <b>${pt.how}</b> ${matIco(m.id)} ${m.name}.</i>`;
+      need+=`<li>${q}${pl.solved?`<b>${pl.cost[pt.m]} ${matIco(m.id)} ${m.name}</b> <small>(you have ${countMat(pt.m)})</small>`:`<div class="answer">${matIco(m.id)} ${m.name}: <input data-plan="${pt.m}" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"> <small>(you have ${countMat(pt.m)})</small></div>`}</li>`;});
     box.innerHTML=`<h3>🏛️ Build the Palaestra (training center)</h3><p class="tip">Low stone walls go up around the dummies, with a gate on the north side. Once it stands, the dummies inside fight back — but only while you are inside. The builder's plan is written as math: work out how much wood and iron it takes.</p>
       <div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b></div><ol class="plan">${need}</ol><p>🪙 ${TRAIN.coins} denarii <small>(you have ${COINS})</small></p><button class="go" id="buildGo">🔨 Build it</button><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;return;}
   if(bagTab==="contest"){const q=CONTEST.q,T=CRAFT.TIERS[CONTEST.tier];if(!q){box.innerHTML=`<p class="tip">Find the 🏆 board in the town square and press T.</p>`;return;}
@@ -1194,7 +1214,7 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     if(!q.done)h+=`<div class="answer"><input id="conIn" type="number" inputmode="numeric" placeholder="?" autocomplete="off" value="${esc(CONTEST.ans)}"></div><textarea id="conWhy" rows="3" placeholder="Explain how you solved it, in sentences…">${esc(CONTEST.draft)}</textarea><button class="go" id="conGo">✍️ Hand it in</button>`;
     else h+=`<button class="go" id="conNew">➡️ Next problem</button>`;
     box.innerHTML=h+`<p class="msg ${CONTEST.ok?"ok":""}">${esc(CONTEST.msg)}</p>${CONTEST.solved?`<p class="have">Solved this visit: <b>${CONTEST.solved}</b></p>`:""}</div>`;return;}
-  if(bagTab==="guide"){const row=it=>{const f=itemInfo(it);return `<li><span>${f.icon}</span><b>${esc(f.name)}</b> — ${esc(howToGet(it))}</li>`;};
+  if(bagTab==="guide"){const row=it=>{const f=itemInfo(it);return `<li><span>${ico(f)}</span><b>${esc(f.name)}</b> — ${esc(howToGet(it))}</li>`;};
     let h=`<p class="tip">Everything in Elementum, and how to get it. Most things can also be made at the ⚒️ Forge — the forge hides the amounts in math problems.</p><div class="guide">`;
     h+=`<h4>Materials</h4><ul>${Object.keys(MAT).map(k=>row({t:"mat",id:k,n:1})).join("")}</ul>`;
     h+=`<h4>Weapons</h4><ul>${Object.keys(WEAPONS).map(k=>row({t:"weapon",id:k})).join("")}</ul>`;
@@ -1206,22 +1226,22 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     if(!near){box.innerHTML=h+`<p class="tip">The merchant's stall 🪙 is in town, on the platform north of the start. Walk up to the counter to trade.</p>`;return;}
     if(HAG)h+=`<div class="haggle"><p class="say">🪙 Mercator: “${esc(HAG.d.t)}”</p><p>${HAG.sell?"How many coins does he pay you for all of them?":"How many coins do you pay?"} <small class="tip">(Right → the deal is yours. Wrong → no deal.)</small></p><div class="answer"><input id="hagIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="hagGo">🤝 Deal</button><button id="hagNo">✖ Never mind</button></div></div>`;
     h+=`<div class="market"><div><h3>Sell to Mercator</h3><p class="tip">Tap an item to sell one. 🤝 = haggle to sell the whole stack.</p><div class="list">`;
-    INV.forEach((it,i)=>{if(!it)return;const f=itemInfo(it);const hg=it.t==="mat"&&it.n>=3&&!HAGNO.has(it);h+=`<div class="deal"><button data-sell="${i}">${f.icon} ${esc(f.name)}${f.count>1?` ×${f.count}`:""}<b>+${sellPrice(it)} 🪙</b></button>${hg?`<button class="hag" data-hsell="${i}" title="Haggle for the whole stack">🤝</button>`:""}</div>`;});
+    INV.forEach((it,i)=>{if(!it)return;const f=itemInfo(it);const hg=it.t==="mat"&&it.n>=3&&!HAGNO.has(it);h+=`<div class="deal"><button data-sell="${i}">${img(f.pic,"in")} ${esc(f.name)}${f.count>1?` ×${f.count}`:""}<b>+${sellPrice(it)} 🪙</b></button>${hg?`<button class="hag" data-hsell="${i}" title="Haggle for the whole stack">🤝</button>`:""}</div>`;});
     h+=`</div></div><div><h3>Buy</h3><p class="tip">New spells arrive every 2 minutes. 🤝 = haggle: work out Mercator's deal.</p><div class="list">`;
-    OFFERS.forEach((o,k)=>{const f=itemInfo(o);if(o.t==="weapon"&&INV.some(s=>s&&s.t==="weapon"&&s.id===o.id))return;const hg=o.price>=10&&!o.noHag;h+=`<div class="deal"><button data-buy="${k}" class="${COINS<o.price?"poor":""}">${f.icon} ${esc(f.name)}${o.t==="spell"?` (${o.uses} uses)`:""}<b>${o.price} 🪙</b></button>${hg?`<button class="hag" data-haggle="${k}" title="Haggle">🤝</button>`:""}</div>`;});
+    OFFERS.forEach((o,k)=>{const f=itemInfo(o);if(o.t==="weapon"&&INV.some(s=>s&&s.t==="weapon"&&s.id===o.id))return;const hg=o.price>=10&&!o.noHag;h+=`<div class="deal"><button data-buy="${k}" class="${COINS<o.price?"poor":""}">${img(f.pic,"in")} ${esc(f.name)}${o.t==="spell"?` (${o.uses} uses)`:""}<b>${o.price} 🪙</b></button>${hg?`<button class="hag" data-haggle="${k}" title="Haggle">🤝</button>`:""}</div>`;});
     h+=`</div></div></div><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;box.innerHTML=h;return;}
   const rec=recipe(forgeId),dr=drawFor(forgeId);
   let h=`<div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b> <span class="meter">${[1,2,3,4,5,6,7,8].map(l=>`<i class="${l<=MATH.lv?"on":""}"></i>`).join("")}</span>${MATH.moved==="up"?` <em class="up">⬆ level up!</em>`:MATH.moved==="down"?` <em class="down">⬇ a little easier</em>`:""}<small>Right on the first try → harder. Stuck twice → easier.</small><div class="book">📚 Math book: <button data-book="us" class="${CRAFT.style==="us"?"on":""}">🇺🇸 US</button><button data-book="china" class="${CRAFT.style==="china"?"on":""}">🇨🇳 China standard</button></div></div><div class="forge"><div class="recipes">`;
-  let grp=null;CRAFT.RECIPES.forEach(r=>{const g=r.group||"gear";if(g!==grp){grp=g;h+=`<b class="grp">${{gear:"⚔️ Weapons & potions",food:"🍳 Cook food",scroll:"📜 Spell scrolls"}[g]}</b>`;}h+=`<button data-rec="${r.id}" class="${r.id===forgeId?"on":""}">${r.icon} ${esc(r.name)}<small>${esc(r.what)}</small></button>`;});h+=`</div><div class="card">`;
-  h+=`<h3>${rec.icon} ${esc(rec.name)}</h3><p class="tip">The forge never says what it needs. Solve each problem: the answer is how many of that material to put in, or which crystal core. Wrong mix? It only tells you how many parts are right.</p><ol>`;
+  let grp=null;CRAFT.RECIPES.forEach(r=>{const g=r.group||"gear";if(g!==grp){grp=g;h+=`<b class="grp">${{gear:"⚔️ Weapons & potions",food:"🍳 Cook food",scroll:"📜 Spell scrolls"}[g]}</b>`;}h+=`<button data-rec="${r.id}" class="${r.id===forgeId?"on":""}">${img(recPic(r),"in")} ${esc(r.name)}<small>${esc(r.what)}</small></button>`;});h+=`</div><div class="card">`;
+  h+=`<h3>${img(recPic(rec),"in big")} ${esc(rec.name)}</h3><p class="tip">The forge never says what it needs. Solve each problem: the answer is how many of that material to put in, or which crystal core. Wrong mix? It only tells you how many parts are right.</p><ol>`;
   dr.parts.forEach(pt=>{const m=pt.m&&MAT[pt.m];
-    if(pt.kind==="amount"){if(pt.steps.length===1)h+=`<li>${esc(pt.steps[0])}<i>→ put in that many ${m.icon} ${esc(m.name)}.</i></li>`;
-      else h+=`<li>(a) ${esc(pt.steps[0])} Call the answer <b>A</b>.<br>(b) ${esc(pt.steps[1])} Call the answer <b>B</b>.<i>→ put in <b>${pt.how}</b> ${m.icon} ${esc(m.name)}.</i></li>`;}
+    if(pt.kind==="amount"){if(pt.steps.length===1)h+=`<li>${esc(pt.steps[0])}<i>→ put in that many ${matIco(m.id)} ${esc(m.name)}.</i></li>`;
+      else h+=`<li>(a) ${esc(pt.steps[0])} Call the answer <b>A</b>.<br>(b) ${esc(pt.steps[1])} Call the answer <b>B</b>.<i>→ put in <b>${pt.how}</b> ${matIco(m.id)} ${esc(m.name)}.</i></li>`;}
     else h+=`<li>${esc(pt.text)}</li>`;});
-  h+=`</ol><p class="key">Crystal numbers: ${CRAFT.CORES.map(c=>`${MAT[c].icon} ${MAT[c].name.replace(" core","")} <b>${MAT[c].num}</b>`).join(" · ")}</p>`;
-  h+=`<div class="tray">`;const inTray=Object.entries(tray).filter(([k,n])=>n>0);for(let i=0;i<9;i++){const e=inTray[i];h+=e?`<div class="slot" data-tray="${e[0]}"><span>${MAT[e[0]].icon}</span><b>${e[1]}</b></div>`:`<div class="slot"></div>`;}
+  h+=`</ol><p class="key">Crystal numbers: ${CRAFT.CORES.map(c=>`${matIco(c)} ${MAT[c].name.replace(" core","")} <b>${MAT[c].num}</b>`).join(" · ")}</p>`;
+  h+=`<div class="tray">`;const inTray=Object.entries(tray).filter(([k,n])=>n>0);for(let i=0;i<9;i++){const e=inTray[i];h+=e?`<div class="slot" data-tray="${e[0]}"><span>${img("mat_"+e[0])}</span><b>${e[1]}</b></div>`:`<div class="slot"></div>`;}
   h+=`</div><div class="mats">`;const owned=Object.keys(MAT).filter(k=>countMat(k)>0);
-  h+=owned.length?owned.map(k=>`<button data-mat="${k}">${MAT[k].icon} ${esc(MAT[k].name)} <b>${countMat(k)-(tray[k]||0)}</b></button>`).join(""):`<span class="tip">No materials yet — mine rocks and crystals, knock down dummies, beat monsters.</span>`;
+  h+=owned.length?owned.map(k=>`<button data-mat="${k}">${matIco(k)} ${esc(MAT[k].name)} <b>${countMat(k)-(tray[k]||0)}</b></button>`).join(""):`<span class="tip">No materials yet — mine rocks and crystals, knock down dummies, beat monsters.</span>`;
   h+=`</div><button class="go" id="forgeGo">⚒️ Forge</button><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div></div>`;box.innerHTML=h;}
 function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAFT.check(dr.need,tray);
   if(!res.ok){forgeOk=false;MATH.wrong++;MATH.moved="";
