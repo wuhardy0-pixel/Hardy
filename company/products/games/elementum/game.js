@@ -624,17 +624,17 @@ function stepHouses(dt){HOUSES.forEach(h=>{const near=Math.hypot(P.pos.x-h.x,P.p
     const want=(!h.locked&&near)||(h.mine&&near)?1:0;h.open+=(want-h.open)*Math.min(1,dt*6);h.hinge.rotation.y=-h.open*1.6;});}
 function toggleLock(){const h=HOME.h;h.locked=!h.locked;MP.lockReq=h.locked;houseSigns();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),h.locked?"locked — only you can get in":"unlocked","spell");}
 // sleeping (2026-11-22, "sleep should make you sleep for 10 hours"): the clock is the same for every player, so you really sleep through
-// 10 game hours (about 3 minutes 20 s) on a sleep screen; you heal as you sleep, and you can wake up early. Getting hurt wakes you.
+// 10 hours on a sleep screen — it takes 1 real minute (Barbara: "make it feel like 1 minute"); you heal as you sleep, and you can wake up early. Getting hurt wakes you.
 const SLEEP_H=10;
 const hourNow=()=>{const DL=.62,t=DAY.t;return (t<DL?6+12*t/DL:18+12*(t-DL)/(1-DL))%24;};
 const fmtH=h=>{h=Math.floor(h)%24;return `${h%12||12} ${h<12?"am":"pm"}`;};
 function sleep(){startSleep();}
-function startSleep(){if(P.sleeping||P.down)return;HOME.slept=true;const ms=SLEEP_H/24*CLOCK.len*1000;P.sleeping={t0:Date.now(),until:Date.now()+ms,hp0:P.hp,from:hourNow()};G.firing=false;
+function startSleep(){if(P.sleeping||P.down)return;HOME.slept=true;const ms=60000;P.sleeping={t0:Date.now(),until:Date.now()+ms,hp0:P.hp,from:hourNow()};G.firing=false;
   $("#sleepBox").classList.remove("hidden");$("#sleepFrom").textContent=fmtH(P.sleeping.from);$("#sleepTo").textContent=fmtH(P.sleeping.from+SLEEP_H);}
 function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;$("#sleepBox").classList.add("hidden");if(full){P.hp=P.maxHp;P.slowT=0;}hud();
   popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?"10 hours of sleep — fully rested!":"you woke up early"),"spell");}
 function stepSleep(){const z=P.sleeping;if(!z)return;const k=Math.min(1,(Date.now()-z.t0)/(z.until-z.t0));P.hp=z.hp0+(P.maxHp-z.hp0)*k;P.vel.set(0,0,0);
-  $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(hourNow());$("#sleepLeft").textContent=`${Math.ceil(SLEEP_H*(1-k))} hour${Math.ceil(SLEEP_H*(1-k))===1?"":"s"} to go`;if(k>=1)endSleep(true);}
+  $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(z.from+SLEEP_H*k);$("#sleepLeft").textContent=`${Math.ceil(SLEEP_H*(1-k))} hour${Math.ceil(SLEEP_H*(1-k))===1?"":"s"} to go`;if(k>=1)endSleep(true);}
 ACTS.push({get pos(){return HOME.bed;},r:2.2,label:"🛏️ Sleep for 10 hours",run:sleep});
 ACTS.push({get pos(){return HOME.chest;},r:2,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
 ACTS.push({get pos(){return HOME.door;},r:2,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
