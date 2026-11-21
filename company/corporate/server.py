@@ -3851,6 +3851,107 @@ def _gcloud_token():
         _ELEM_GTOK["t"] = time.time()
     return _ELEM_GTOK["tok"]
 
+# reading class (Barbara, 2026-11-22: "school pays you for learning … she summarizes and gets money based on how good she did"):
+# the player names a book and writes a summary; Gemini, who knows most children's books, checks that it really fits the book and grades
+# it for the player's grade (understanding, key events, own words, opinion). Pay = score/100 × 40 denarii; 3 books a day per player.
+ELEM_SUM_USE = {}
+
+@app.post("/api/elementum/summary")
+def elementum_summary():
+    j = request.get_json(silent=True) or {}
+    title = re.sub(r"[^\w\s,.'’!?:\-&]", "", str(j.get("title") or "")).strip()[:80]
+    author = re.sub(r"[^\w\s,.'’\-&]", "", str(j.get("author") or "")).strip()[:60]
+    text = str(j.get("text") or "").strip()[:3000]
+    try:
+        grade = max(1, min(8, int(j.get("grade") or 4)))
+    except (TypeError, ValueError):
+        grade = 4
+    if len(title) < 2 or len(text.split()) < 40:
+        return jsonify(error="Write the book's title and at least 40 words."), 400
+    who, day = (str(session.get("v_name") or ""), str(request.remote_addr or "?")), time.strftime("%Y-%m-%d")
+    with _elem_lock:
+        for k in [k for k in ELEM_SUM_USE if k[1] != day]:
+            del ELEM_SUM_USE[k]
+        if ELEM_SUM_USE.get((who, day), 0) >= 3:
+            return jsonify(error="That's three books today — wonderful reading! Hand in more tomorrow."), 429
+    prompt = (f"A grade-{grade} student says they read the book \"{title}\"" + (f" by {author}" if author else "") + " and wrote this summary:\n\"\"\"\n" + text + "\n\"\"\"\n"
+              "You are their kind but honest teacher. If you know the book, check the summary against it. Grade 0-100 for a student of that grade: "
+              "does it show they understood the story (main characters, the problem, how it ends), is it in their own words, and do they say what they thought? "
+              "If it clearly doesn't match the book, or is copied text or nonsense, give a low score. "
+              "Reply in exactly this form:\nSCORE: <number>\nFEEDBACK: <two short sentences for the child: one thing they did well, one thing to do better next time>")
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2, "maxOutputTokens": 200},
+            "safetySettings": [{"category": c, "threshold": "BLOCK_LOW_AND_ABOVE"} for c in
+                               ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT")]}
+    import urllib.request
+    url = f"https://aiplatform.googleapis.com/v1/projects/hardywu-site-758a/locations/global/publishers/google/models/{ELEM_LIB_MODEL}:generateContent"
+    try:
+        req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
+        d = json.load(urllib.request.urlopen(req, timeout=30))
+        c = (d.get("candidates") or [{}])[0]
+        txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
+    except Exception as e:
+        print("elementum summary:", repr(e)[:200])
+        return jsonify(error="Magistra Cornelia can't read it right now — try again in a moment."), 502
+    m = re.search(r"SCORE:\s*(\d+)", txt)
+    if not m:
+        return jsonify(error="Magistra Cornelia couldn't grade that one — try writing it again."), 200
+    score = max(0, min(100, int(m.group(1))))
+    fb = (re.search(r"FEEDBACK:\s*(.+)", txt, re.S) or [None, ""])[1].strip()[:400]
+    coins = round(score / 100 * 40)
+    with _elem_lock:
+        ELEM_SUM_USE[(who, day)] = ELEM_SUM_USE.get((who, day), 0) + 1
+    return jsonify(score=score, coins=coins, feedback=fb)
+
+# the dictionary (Barbara, 2026-11-22): point at a word in a book, a lesson or the teacher's notes and its meaning appears —
+# one short sentence for the player's grade, written by the same Gemini model; cached, 300 words per player per day
+ELEM_DEF_CACHE, ELEM_DEF_USE = {}, {}
+
+@app.post("/api/elementum/define")
+def elementum_define():
+    j = request.get_json(silent=True) or {}
+    w = re.sub(r"[^A-Za-z'\-]", "", str(j.get("w") or ""))[:32].lower().strip("'-")
+    ctx = re.sub(r"[^\w\s,.'\-]", "", str(j.get("ctx") or ""))[:200]
+    try:
+        grade = max(1, min(8, int(j.get("grade") or 4)))
+    except (TypeError, ValueError):
+        grade = 4
+    if len(w) < 2:
+        return jsonify(error="no word"), 400
+    key = (w, grade)
+    if key in ELEM_DEF_CACHE:
+        return jsonify(ELEM_DEF_CACHE[key])
+    who, day = (str(session.get("v_name") or ""), str(request.remote_addr or "?")), time.strftime("%Y-%m-%d")
+    with _elem_lock:
+        for k in [k for k in ELEM_DEF_USE if k[1] != day]:
+            del ELEM_DEF_USE[k]
+        if ELEM_DEF_USE.get((who, day), 0) >= 300:
+            return jsonify(error="That's a lot of words for today!"), 429
+        ELEM_DEF_USE[(who, day)] = ELEM_DEF_USE.get((who, day), 0) + 1
+    prompt = (f"Explain the word '{w}' for a grade-{grade} child in one short sentence (at most 20 words), the way a children's dictionary would. "
+              + (f"It was used in: \"{ctx}\". Give the meaning that fits there. " if ctx else "")
+              + "Reply with only the sentence. If the word is not suitable for children, reply NOT_FOR_KIDS.")
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2, "maxOutputTokens": 80},
+            "safetySettings": [{"category": c, "threshold": "BLOCK_LOW_AND_ABOVE"} for c in
+                               ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT")]}
+    import urllib.request
+    url = f"https://aiplatform.googleapis.com/v1/projects/hardywu-site-758a/locations/global/publishers/google/models/{ELEM_LIB_MODEL}:generateContent"
+    try:
+        req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
+        d = json.load(urllib.request.urlopen(req, timeout=20))
+        c = (d.get("candidates") or [{}])[0]
+        txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
+    except Exception as e:
+        print("elementum define:", repr(e)[:200])
+        return jsonify(error="The dictionary is closed right now."), 502
+    if not txt or "NOT_FOR_KIDS" in txt:
+        return jsonify(error="No meaning for that one."), 200
+    out = dict(w=w, d=txt[:200])
+    with _elem_lock:
+        if len(ELEM_DEF_CACHE) > 3000:
+            ELEM_DEF_CACHE.clear()
+        ELEM_DEF_CACHE[key] = out
+    return jsonify(out)
+
 @app.post("/api/elementum/library")
 def elementum_library():
     j = request.get_json(silent=True) or {}
@@ -3875,9 +3976,9 @@ def elementum_library():
         ELEM_LIB_USE[(who, day)] = mine + 1
     prompt = (f"Search Google for: {q}\n"
               f"Then write one page of a library book for a grade-{grade} student, in simple English that a grade-{grade} child can read. "
-              + (f"The student is working on this right now: {focus}. Where it fits, connect the page to that. " if focus else "")
-              + "Start with one line 'Title: ...'. Then 2 or 3 short paragraphs (120-180 words in all). "
-              "Then one line starting 'Try it:' with a safe hands-on idea. Then one line starting 'Next:' with two short follow-up questions a curious kid might ask, separated by ' | '. No markdown.")
+              + (f"The student asked this while working on: {focus}. Only if the question is really about that, connect the page to it; otherwise don't mention it. " if focus else "")
+              + "Stay exactly on the question asked. Start with one line 'Title: ...'. Then 2 or 3 short paragraphs (120-180 words in all). "
+              "Then one line starting 'Try it:' with a safe hands-on idea. No markdown.")
     body = {"systemInstruction": {"parts": [{"text": "You are the friendly librarian of a children's library in a game. Always use the Google Search tool before writing, "
                                                     "and only state facts you found. If a question is not suitable for children, reply with exactly: NOT_FOR_KIDS"}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}], "tools": [{"googleSearch": {}}],
