@@ -154,7 +154,7 @@ function bolt(from,dir,el,o){o=o||{};const g=FX.comet(el||"lightning",o.size||1.
 function explode(p,el,o){o=o||{};const R=o.r||3.2,DM=o.dmg||WEAPONS.staff.dmg;const hex=FX.HEX[el];ring(p,hex,6*R/3.2);FX.impact(p,el,R);FX.stars(p,el,4,2.2);flash(p,hex,8,.35);shake(.12);
   for(let i=0;i<60;i++)SPARK.emit(p,rnd3(1).normalize().multiplyScalar(rnd(3,9)),Math.random()<.5?C(hex):C(0xffffff),rnd(.3,.7),{grav:6,drag:1.2});for(let i=0;i<10;i++)PUFF.emit(p,rnd3(1.5),C(hex).multiplyScalar(.5),.5,{drag:2});
   scorch(p,R*.7,el);hitArea(o.c||PLAYER_C(),p,R,DM,el,{falloff:true,slow:o.slow});
-  if(!o.c||!o.c.enemy)BUILDINGS.forEach(bd=>{if(bd.down)return;const b=bd.blk,q=new THREE.Vector3(clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,.3,b.h-.3),clamp(p.z,b.z-b.d/2,b.z+b.d/2));if(q.distanceTo(p)<R)wallHit(b,q,faceNormal(b,q),3);});}
+  if(!o.c||!o.c.enemy)BUILDINGS.forEach(bd=>{if(bd.down)return;for(const b of bd.blks){const q=new THREE.Vector3(clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,b.y+.3,b.y+b.h-.3),clamp(p.z,b.z-b.d/2,b.z+b.d/2));if(q.distanceTo(p)<R){wallHit(b,q,faceNormal(b,q),3);break;}}});}
 // ---------------- marks: blasts and fire leave black scorched grass; shots leave dents and soot on trees, rocks, stalls and people. They fade after a while ----------------
 const MARKS=[],markGeo=new THREE.CircleGeometry(1,20),SCORCHED=[];
 const markTex=(()=>{const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d");   // a ragged burn: solid in the middle, broken into specks toward the edge
@@ -570,7 +570,7 @@ function eat(it){const f=FOODS[it.id];if(!f)return false;if(P.hp>=P.maxHp&&!f.bu
   popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),f.heal?"+"+f.heal+" HP":f.name,"spell","food_"+it.id);for(let i=0;i<14;i++)SPARK.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});return true;}
 // things you can walk up to and use with T (or the button that appears)
 const ACTS=[];let ACT=null;
-function stepActs(){let best=null,bd=1e9;for(const a of ACTS){if(a.hidden&&a.hidden())continue;const d=Math.hypot(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(d<a.r&&d<bd){bd=d;best=a;}}
+function stepActs(){let best=null,bd=1e9;for(const a of ACTS){if(a.hidden&&a.hidden())continue;if(Math.abs(P.pos.y-(a.pos.y||0))>1.6)continue;const d=Math.hypot(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(d<a.r&&d<bd){bd=d;best=a;}}
   ACT=best;const b=$("#trade");b.classList.toggle("hidden",!best||bagOpen||P.down||designOpen());if(best)b.textContent=`${typeof best.label==="function"?best.label():best.label}${touch?"":" (T)"}`;}
 function useAct(){if(ACT&&!P.down)ACT.run();}
 function npc(url,x,z,face,idle){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=face;scene.add(g);const o={g,rig:null};
@@ -848,18 +848,33 @@ function signBoard(text,hex){const c=document.createElement("canvas"),x=c.getCon
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;const h=.62;
   return new THREE.Mesh(new THREE.PlaneGeometry(h*W/110,h),new THREE.MeshLambertMaterial({map:t}));}
 const BRICKS=[[0x9a4a32,0xe8dcc4],[0xb2603e,0xf0e6d0],[0x7a3b2c,0xd8ccb4],[0xc9a37a,0xffffff],[0x8c5a3c,0xe6d6b8],[0xa8a49a,0xf6f0e2],[0x6f4a3a,0xe0d2b6]];
-const BUILDINGS=[];
+const BUILDINGS=[],INTERIORS=[];
 // one building: a solid block you bump into (shots dent it, enough damage brings it down), dressed with a brick front, cornice, door and stoop
-function building(x,z,w,d,floors,face,o){o=o||{};const h=floors*3.3,[brick,trim]=o.colors||pick(BRICKS);const m=block(x,z,w,h,d,0x999999);const b=BLOCKS[BLOCKS.length-1];
+// one solid brick block (with windows), at any height: you bump into it, shots dent it
+function fblock(x,y,z,w,h,d,brick,trim){const m=block(x,z,w,h,d,0x999999);const b=BLOCKS[BLOCKS.length-1];m.position.y=y+h/2;b.y=y;
   const geo=new THREE.BoxGeometry(w,h,d),uv=geo.attributes.uv,dims=[[d,h],[d,h],[0,0],[0,0],[w,h],[w,h]];
-  for(let f=0;f<6;f++)for(let k=0;k<4;k++){const i=f*4+k;uv.setXY(i,dims[f][0]?uv.getX(i)*Math.max(1,Math.round(dims[f][0]/3)):.02,dims[f][1]?uv.getY(i)*floors:.02);}
-  m.geometry.dispose();m.geometry=geo;m.material=new THREE.MeshLambertMaterial({map:facadeTex(brick,trim)});
-  const bd={x,z,w,d,h,face,blk:b,parts:[m],name:o.name||"",owner:o.owner||pick(CITIZEN_NAMES),dmg:0,down:false,id:BUILDINGS.length};b.city=bd;
+  for(let f=0;f<6;f++)for(let k=0;k<4;k++){const i=f*4+k;uv.setXY(i,dims[f][0]?uv.getX(i)*Math.max(1,Math.round(dims[f][0]/3)):.02,dims[f][1]?uv.getY(i)*Math.max(1,Math.round(dims[f][1]/3.3)):.02);}
+  m.geometry.dispose();m.geometry=geo;m.material=new THREE.MeshLambertMaterial({map:facadeTex(brick,trim)});return {m,b};}
+// walk-in buildings (2026-11-22, "you can go inside"): the ground floor is a room — walls with a doorway and a wooden floor;
+// the floors above sit on top as one block (you walk under it). Shops, the library, the school, the apartment house.
+const GF=3.2,WT=.3;
+function building(x,z,w,d,floors,face,o){o=o||{};const h=floors*3.3,[brick,trim]=o.colors||pick(BRICKS);const blks=[],parts=[];
+  if(!o.enter){const f=fblock(x,0,z,w,h,d,brick,trim);blks.push(f.b);parts.push(f.m);}
+  else{const fz=z+face*d/2,dx=x+(o.doorX||0),DW=1.8;const wall=(cx,cz,ww,dd,y,hh)=>{const f=fblock(cx,y||0,cz,ww,hh||GF,dd,brick,trim);blks.push(f.b);parts.push(f.m);};
+    wall(x,z-face*(d/2-WT/2),w,WT);wall(x-w/2+WT/2,z,WT,d);wall(x+w/2-WT/2,z,WT,d);
+    const lw=(dx-DW/2)-(x-w/2),rw=(x+w/2)-(dx+DW/2);if(lw>.05)wall(x-w/2+lw/2,fz-face*WT/2,lw,WT);if(rw>.05)wall(x+w/2-rw/2,fz-face*WT/2,rw,WT);wall(dx,fz-face*WT/2,DW,WT,2.5,GF-2.5);
+    if(o.homeFloor){const yH=o.homeFloor*3.3;wall(x,z,w,d,GF,yH-GF);wall(x,z-d/2+WT/2,w,WT,yH,GF);wall(x,z+d/2-WT/2,w,WT,yH,GF);wall(x-w/2+WT/2,z,WT,d-WT*2,yH,GF);wall(x+w/2-WT/2,z,WT,d-WT*2,yH,GF);wall(x,z,w,d,yH+GF,h-yH-GF);
+      INTERIORS.push({x0:x-w/2+WT,x1:x+w/2-WT,z0:z-d/2+WT,z1:z+d/2-WT,y0:yH,y1:yH+GF,c:new THREE.Vector3(x,yH+2.4,z),name:"home"});}
+    else if(h>GF+.1)wall(x,z,w,d,GF,h-GF);
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(w-WT*2,d-WT*2),new THREE.MeshLambertMaterial({color:o.floor||0x9a7a55}));fl.rotation.x=-Math.PI/2;fl.position.set(x,.025,z);fl.receiveShadow=true;scene.add(fl);parts.push(fl);
+    INTERIORS.push({x0:x-w/2+WT,x1:x+w/2-WT,z0:z-d/2+WT,z1:z+d/2-WT,y0:0,y1:GF,c:new THREE.Vector3(x,2.4,z),name:o.name||""});}
+  const m=parts[0],b=blks[0];
+  const bd={x,z,w,d,h,face,blk:b,blks,parts:parts.slice(),name:o.name||"",owner:o.owner||pick(CITIZEN_NAMES),dmg:0,down:false,id:BUILDINGS.length,enter:!!o.enter};blks.forEach(k=>k.city=bd);
   const add=(mesh,px,py,pz)=>{mesh.position.set(px,py,pz);mesh.castShadow=true;scene.add(mesh);bd.parts.push(mesh);return mesh;};
   const T=LOOK.toon(trim),fz=z+face*d/2;
   add(LOOK.M(new THREE.BoxGeometry(w+.5,.45,d+.5),T,.02),x,h+.2,z);   // the cornice
   add(LOOK.M(new THREE.BoxGeometry(w+.2,.25,d+.2),T,.0),x,3.3,z);     // a band over the ground floor
-  if(!o.noDoor){add(LOOK.M(new THREE.BoxGeometry(1.2,2.3,.12),LOOK.toon(o.door||pick([0x3b5a3a,0x5a2e22,0x2e3e5a,0x1f1f24])),.01),x+(o.doorX||0),1.15,fz+face*.06);
+  if(!o.noDoor&&!o.enter){add(LOOK.M(new THREE.BoxGeometry(1.2,2.3,.12),LOOK.toon(o.door||pick([0x3b5a3a,0x5a2e22,0x2e3e5a,0x1f1f24])),.01),x+(o.doorX||0),1.15,fz+face*.06);
     for(let s=0;s<3;s++)add(new THREE.Mesh(new THREE.BoxGeometry(1.8,.16,.4),LOOK.toon(0xb8b0a0)),x+(o.doorX||0),.08+s*.16,fz+face*(.2+(2-s)*.38));}
   if(o.tank){const g=new THREE.Group();g.position.set(x+rnd(-w/4,w/4),h+.4,z+rnd(-d/4,d/4));const wood=LOOK.toon(0x7a5232);
     [[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]].forEach(([a,c])=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,1.6,5),wood);l.position.set(a,.8,c);g.add(l);});
@@ -874,11 +889,84 @@ const SPOTS={shop:[],eat:[],gossip:[],stroll:[]};
 const BLOCK_X=[[54,68],[76,90],[98,112],[120,132]],BLOCK_Z=[[-33,-9],[-1,13],[21,39]];
 const SPECIAL={"1,1,-1":{name:"Taberna — deep-dish pizza",awning:0xc8432f,eat:true,floors:3},"2,0,1":{name:"Thermopolium — hot food",awning:0xd8a03a,eat:true,floors:2},
   "0,2,-1":{name:"Pistrinum — bakery",awning:0x3f7f5a,eat:true,shop:true,floors:3},"2,1,-1":{name:"Macellum — grocer",awning:0x3f6fa8,shop:true,floors:2},
-  "3,0,1":{name:"Tonsor — barber",awning:0xb5392b,shop:true,floors:3},"1,0,1":{name:"Sutor — shoes",awning:0x8a4fb0,shop:true,floors:4}};
+  "3,2,-1":{name:"Insula Alta — apartments",awning:0x2f5f8a,floors:6,apt:true},"3,0,1":{name:"Tonsor — barber",awning:0xb5392b,shop:true,floors:3},"1,0,1":{name:"Sutor — shoes",awning:0x8a4fb0,shop:true,floors:4}};
+// ---------------- inside the buildings (2026-11-22): shops with a counter, shelves of goods and a shopkeeper; the library with
+// labeled shelves and a computer; the school with desks and a blackboard. One warm lamp follows you into whichever room you're in.
+const ROOM_LIGHT=new THREE.PointLight(0xffe2b0,0,14,1.4);scene.add(ROOM_LIGHT);
+const inRoom=p=>INTERIORS.find(r=>p.x>r.x0&&p.x<r.x1&&p.z>r.z0&&p.z<r.z1&&p.y>=r.y0-.2&&p.y<r.y1);
+// what each shop sells: food from FOODS, plus the barber's haircut and the shoemaker's running sandals
+const SHOPS={Pistrinum:{keeper:"Faustina",items:["panis","mel","puls"]},Macellum:{keeper:"Gnaeus",items:["pomum","uvae","caseus","piscis"]},Taberna:{keeper:"Petronia",items:["panis","caseus","piscis"]},
+  Thermopolium:{keeper:"Servius",items:["puls","piscis","mel"]},Tonsor:{keeper:"Tullius",items:["haircut"]},Sutor:{keeper:"Crispina",items:["sandals"]}};
+const EXTRA={haircut:{name:"A new haircut",price:5,what:"A fresh look — a new hair color for your hero",pic:"hand_fist"},sandals:{name:"Running sandals",price:15,what:"Fast feet for two minutes",pic:"food_mel"}};
+let CUR_SHOP=null;
+function shopInside(bd,sp){const key=sp.name.split(" ")[0],S_=SHOPS[key];if(!S_)return;const f=bd.face,zb=bd.z-f*bd.d/2,zc=zb+f*1.7,wood=LOOK.toon(0x7a4a28);
+  const counter=block(bd.x,zc,Math.min(bd.w-1.6,4.4),1.05,.7,0x7a4a28);counter.material=LOOK.toon(0x8a5a32);
+  const shelf=LOOK.M(new THREE.BoxGeometry(bd.w-1.2,1.9,.45),wood,.02);shelf.position.set(bd.x,1.25,zb+f*.55);scene.add(shelf);bd.parts.push(shelf);
+  S_.items.forEach((id,i)=>{const pic=id in FOODS?"food_"+id:EXTRA[id].pic;for(let k=0;k<3;k++){const sp2=picSprite(pic);sp2.scale.setScalar(.42);sp2.position.set(bd.x-(S_.items.length-1)*.6+i*1.2+(k-1)*.3,1.0+k*.45,zb+f*.85);scene.add(sp2);bd.parts.push(sp2);}});
+  const o=npc(["cook.glb","villager.glb","merchant.glb"][bd.id%3],bd.x,zb+f*1.1,f>0?0:Math.PI);const lb=label(S_.keeper,0xffffff);lb.scale.set(1.4,.28,1);lb.position.y=2.35;o.g.add(lb);
+  const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(/_Hat$/.test(m.name)||m.name==="Mug")m.visible=false;});},400);const pp=personize(o,S_.keeper);
+  const front=new THREE.Vector3(bd.x,0,zc+f*1.1);SPOTS.shop.push({pos:front.clone().add(new THREE.Vector3(rnd(-1,1),0,0)),face:f>0?Math.PI:0,name:key});
+  ACTS.push({pos:front,r:2.2,label:`Buy at the ${key}`,hidden:()=>pp.down,run:()=>{CUR_SHOP={key,S:S_,pos:front};toggleBag(true,"shop");}});}
+function shopTab(box){const sh=CUR_SHOP;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;if(!sh||P.pos.distanceTo(sh.pos)>3.5){box.innerHTML=h+`<p class="tip">Walk up to a shop's counter to buy.</p>`;return;}
+  h+=`<p class="tip">${esc(sh.S.keeper)} at the ${esc(sh.key)}: “What would you like?”</p><div class="list">`;
+  sh.S.items.forEach((id,i)=>{const f=FOODS[id]||EXTRA[id];h+=`<button data-shopitem="${i}" class="${COINS<f.price?"poor":""}">${id in FOODS?foodIco(id):img(EXTRA[id].pic,"in")} <span>${esc(f.name)} <small>${esc(f.what)}</small></span><b>${f.price} 🪙</b></button>`;});
+  box.innerHTML=h+`</div><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;}
+function shopBuy(i){const sh=CUR_SHOP;if(!sh)return;const id=sh.S.items[i],f=FOODS[id]||EXTRA[id];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet.";return;}
+  if(id in FOODS){if(!addItem({t:"food",id,n:1})){forgeOk=false;forgeMsg="Your bag is full.";return;}}
+  else if(id==="haircut"){const hair=RIG&&RIG.bones.head&&RIG.bones.head.getObjectByName("heroHair");const col=pick([0x3a2418,0xc8a050,0x8a3a1a,0x1a1a1a,0xd8d0c0,0x6a3a8a,0x2a5a9a]);if(hair)hair.traverse(m=>{if(m.isMesh)m.material.color.set(col);});}
+  else if(id==="sandals"){P.buffT=Math.max(P.buffT||0,120);hud();}
+  COINS-=f.price;coinHud();forgeOk=true;forgeMsg=id in FOODS?`${f.name} is in your bag.`:id==="haircut"?"Snip snip — what a new look!":"Off you go — fast feet!";}
+// the library: shelves along the walls, each with a sign for its subject; a computer on a desk; Varro behind the desk
+function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Science","Space","Animals","Ancient Rome","Math","Building","Gardens","Water & weather","Heat & cold","Inventions"];
+  const spots=[];for(let i=0;i<5;i++)spots.push([bd.x-bd.w/2+.6,bd.z-3.6+i*1.8,Math.PI/2]);for(let i=0;i<5;i++)spots.push([bd.x+bd.w/2-.6,bd.z-3.6+i*1.8,-Math.PI/2]);
+  spots.forEach(([x,z,r],i)=>{const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=r;scene.add(g);bd.parts.push(g);const sh=LOOK.M(new THREE.BoxGeometry(1.6,2.4,.5),wood,.02);sh.position.y=1.2;g.add(sh);
+    for(let k=0;k<4;k++)for(let b=0;b<9;b++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.13,.42,.3),LOOK.toon([0xb5482f,0x3f6fa8,0x4f8f3a,0xc98a2b,0x8a4fb0,0xe8dcc4][(b+k+i)%6]));bk.position.set(-.65+b*.16,.5+k*.55,.12);g.add(bk);}
+    const sign=signBoard(cats[i],0xbfe0ff);sign.scale.setScalar(.75);sign.position.set(0,2.65,.27);g.add(sign);
+    {const m=block(x,z,Math.abs(Math.sin(r))>.5?.6:1.7,2.4,Math.abs(Math.sin(r))>.5?1.7:.6,0x6b4423);m.material.visible=false;m.castShadow=false;}
+    const sp=new THREE.Vector3(x+Math.sin(r)*1.1,0,z+Math.cos(r)*1.1);ACTS.push({pos:sp,r:1.3,label:`Browse the shelf: ${cats[i]}`,run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{shelf:cats[i]})))});});
+  const desk=block(bd.x,zb+f*3,3,1,1,0x6b4423);desk.material=LOOK.toon(0x6b4423);
+  const mon=new THREE.Mesh(new THREE.BoxGeometry(.7,.5,.08),new THREE.MeshBasicMaterial({color:0x2a6ab0}));mon.position.set(bd.x+.6,1.35,zb+f*3);mon.rotation.y=f>0?0:Math.PI;scene.add(mon);bd.parts.push(mon);
+  const base=new THREE.Mesh(new THREE.BoxGeometry(.5,.08,.3),LOOK.toon(0x333338));base.position.set(bd.x+.6,1.04,zb+f*3);scene.add(base);bd.parts.push(base);
+  const lb=signBoard("Computer — ask it for any book",0xffe08a);lb.scale.setScalar(.6);lb.position.set(bd.x+.6,1.9,zb+f*3);lb.rotation.y=f>0?0:Math.PI;scene.add(lb);bd.parts.push(lb);
+  LIBRARIAN.g.position.set(bd.x-.6,0,zb+f*2.2);LIBRARIAN.g.rotation.y=f>0?0:Math.PI;
+  ACTS.push({pos:new THREE.Vector3(bd.x+.6,0,zb+f*4.1),r:1.6,label:"Use the computer",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{computer:true})))});
+  ACTS.push({pos:new THREE.Vector3(bd.x-.6,0,zb+f*4.1),r:1.4,label:"Talk to Varro",hidden:()=>LIBRARIAN.pp.down,run:()=>uiOpen(o=>DESIGN.openLibrary(o))});}
+// the school: a blackboard, rows of desks, Magistra Cornelia at the front; sit at a desk to listen
+function schoolInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2;
+  const bb=new THREE.Mesh(new THREE.BoxGeometry(6,2,.1),new THREE.MeshLambertMaterial({color:0x2a4a3a}));bb.position.set(bd.x,1.8,zb+f*.4);scene.add(bb);bd.parts.push(bb);
+  const chalk=signBoard("Today: listen, then think for yourself",0xffffff);chalk.scale.setScalar(.55);chalk.position.set(bd.x,2.3,zb+f*.47);chalk.rotation.y=f>0?0:Math.PI;scene.add(chalk);bd.parts.push(chalk);
+  for(let r=0;r<3;r++)for(let c=0;c<4;c++){const x=bd.x-4.2+c*2.8,z=zb+f*(4.2+r*2.4);const dk=LOOK.M(new THREE.BoxGeometry(1.6,.08,.7),LOOK.toon(0x8a5a32),.01);dk.position.set(x,.78,z);scene.add(dk);bd.parts.push(dk);
+    [[-.7,-.3],[.7,-.3],[-.7,.3],[.7,.3]].forEach(([a,b])=>{const l=new THREE.Mesh(new THREE.BoxGeometry(.06,.78,.06),LOOK.toon(0x6b4423));l.position.set(x+a,.39,z+b);scene.add(l);bd.parts.push(l);});
+    ACTS.push({pos:new THREE.Vector3(x,0,z+f*.8),r:1.1,label:"Sit down and listen",run:()=>uiOpen(o=>DESIGN.openSchool(o))});}
+  TEACHER.g.position.set(bd.x+2.5,0,zb+f*1.4);TEACHER.g.rotation.y=f>0?0:Math.PI;}
+// Insula Alta: an apartment house with an elevator. Buy the flat on the 5th floor (80 denarii) and it's yours: a bed, your chest,
+// a table, windows over the city. The elevator rides between the lobby and your floor.
+const APT={owned:false,price:80,lobby:null,home:null,chest:null,bed:null,y:4*3.3};try{APT.owned=localStorage.getItem("elementum.apartment")==="1";}catch(e){}
+function aptInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,ex=bd.x+bd.w/2-1.3,ez=zb+f*1.4,y=APT.y;
+  const cab=(yy)=>{const g=new THREE.Group();g.position.set(ex,yy,ez);scene.add(g);bd.parts.push(g);const metal=LOOK.toon(0x9aa4b0);
+    [[-.75,0],[.75,0]].forEach(([a])=>{const s2=LOOK.M(new THREE.BoxGeometry(.08,2.4,1.5),metal,.01);s2.position.set(a,1.2,0);g.add(s2);});const bk=LOOK.M(new THREE.BoxGeometry(1.6,2.4,.08),metal,.01);bk.position.set(0,1.2,-f*.75);g.add(bk);
+    const top=LOOK.M(new THREE.BoxGeometry(1.6,.1,1.5),metal,.01);top.position.y=2.45;g.add(top);const sign=signBoard(yy?"Elevator · floor 5":"Elevator",0xffe08a);sign.scale.setScalar(.5);sign.position.set(0,2.75,f*.76);sign.rotation.y=f>0?0:Math.PI;g.add(sign);};
+  cab(0);cab(y);APT.lobby=new THREE.Vector3(ex,0,ez+f*.9);APT.home=new THREE.Vector3(ex,y,ez+f*.9);
+  // the flat: bed, chest, table and chair, a rug
+  const hx=bd.x-1.4,wood=LOOK.toon(0x8a5a32);const bed=LOOK.M(new THREE.BoxGeometry(1.4,.5,2.2),LOOK.toon(0xe8dcc4),.01);bed.position.set(bd.x-bd.w/2+1.2,y+.25,bd.z);scene.add(bed);bd.parts.push(bed);
+  const pil=LOOK.M(new THREE.BoxGeometry(1.2,.18,.45),LOOK.toon(0xffffff),.01);pil.position.set(bd.x-bd.w/2+1.2,y+.58,bd.z-.8);scene.add(pil);bd.parts.push(pil);
+  const ch=LOOK.M(new THREE.BoxGeometry(1,.7,.6),wood,.015);ch.position.set(bd.x-bd.w/2+1,y+.35,bd.z+2);scene.add(ch);bd.parts.push(ch);
+  const tb=LOOK.M(new THREE.CylinderGeometry(.6,.6,.06,14),wood,.01);tb.position.set(bd.x+.3,y+.78,bd.z-1.5);scene.add(tb);bd.parts.push(tb);const tl=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.75,8),wood);tl.position.set(bd.x+.3,y+.38,bd.z-1.5);scene.add(tl);bd.parts.push(tl);
+  const rug=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.6),new THREE.MeshLambertMaterial({color:0xb5482f}));rug.rotation.x=-Math.PI/2;rug.position.set(bd.x,y+.02,bd.z+.5);scene.add(rug);bd.parts.push(rug);
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(bd.w-WT*2,bd.d-WT*2),new THREE.MeshLambertMaterial({color:0x9a7a55}));fl.rotation.x=-Math.PI/2;fl.position.set(bd.x,y+.015,bd.z);scene.add(fl);bd.parts.push(fl);
+  APT.bed=new THREE.Vector3(bd.x-bd.w/2+1.2,y,bd.z);APT.chest=new THREE.Vector3(bd.x-bd.w/2+1,y,bd.z+2);
+  ACTS.push({pos:APT.lobby,r:1.4,label:()=>APT.owned?"Elevator: up to your flat (floor 5)":`Elevator: buy the flat on floor 5 (${APT.price} denarii)`,run:()=>{
+    if(!APT.owned){if(COINS<APT.price){lawSay(`The flat costs ${APT.price} denarii — you have ${COINS}. Solve people's problems or read books at the school to earn more!`);return;}COINS-=APT.price;coinHud();APT.owned=true;try{localStorage.setItem("elementum.apartment","1");}catch(e){}lawSay("The flat on floor 5 is yours! Here's the key.");}
+    ride(APT.home,"Going up… 1 · 2 · 3 · 4 · 5");}});
+  ACTS.push({pos:APT.home,r:1.4,label:"Elevator: down to the lobby",run:()=>ride(APT.lobby,"Going down… 4 · 3 · 2 · 1 · lobby")});
+  ACTS.push({pos:APT.bed,r:1.8,label:()=>HOME.restT>0?`Bed (rest again in ${Math.ceil(HOME.restT)} s)`:"Sleep — full health",hidden:()=>!APT.owned,run:sleep});
+  ACTS.push({pos:APT.chest,r:1.6,label:"Open your chest",hidden:()=>!APT.owned,run:()=>toggleBag(true,"chest")});}
+function ride(to,msg){const v=$("#vig");lawSay(msg);v.classList.add("on");setTimeout(()=>{P.pos.copy(to);P.vel.set(0,0,0);v.classList.remove("on");},700);}
+function stepRooms(){const r=inRoom(P.pos);if(r){ROOM_LIGHT.position.copy(r.c);ROOM_LIGHT.intensity=1.6;}else ROOM_LIGHT.intensity=0;}
 // a row of buildings along one side of a block; face = +1 fronts look north (+z), -1 south
 function row(ci,ri,face,x0,x1,zf,depth){const sp=SPECIAL[ci+","+ri+","+face];let x=x0;let first=true;
   while(x1-x>3.5){const w=Math.min(x1-x,first&&sp?7:rnd(4.6,6.8));const cx=x+w/2,cz=zf-face*depth/2;
-    if(first&&sp){const bd=building(cx,cz,w-.25,depth,sp.floors,face,{name:sp.name,awning:sp.awning,tank:Math.random()<.5});
+    if(first&&sp){const bd=building(cx,cz,w-.25,depth,sp.floors,face,{name:sp.name,awning:sp.awning,tank:!sp.apt&&Math.random()<.5,enter:true,homeFloor:sp.apt?4:0});if(sp.apt)aptInside(bd);else shopInside(bd,sp);
       const door=new THREE.Vector3(cx,0,zf+face*1.6);if(sp.shop)SPOTS.shop.push({pos:door,face:face>0?Math.PI:0,name:sp.name});
       if(sp.eat)for(const k of [-1,1])addTable(cx+k*2.1,zf+face*2.4);}
     else building(cx,cz,w-.25,depth,ri===1?ri+1+Math.floor(Math.random()*2):2+Math.floor(Math.random()*3),face,{tank:Math.random()<.35});
@@ -898,8 +986,8 @@ BLOCK_X.forEach(([x0,x1],ci)=>BLOCK_Z.forEach(([z0,z1],ri)=>{
   else if(ri===2)row(ci,ri,-1,x0,x1,z0,11);
   else{row(ci,ri,-1,x0,x1,z0,6.8);row(ci,ri,1,x0,x1,z1,6.8);}}));
 // the library and the school: big buildings with columns at the front (inside comes next)
-const LIBRARY=building(83,30,13.5,17,3,-1,{name:"Bibliotheca — the library",colors:[0xd8cfbf,0xffffff],signHex:0xbfe0ff,signY:7.55,signOut:2.66,door:0x5a3a22});
-const SCHOOL=building(105,30,13.5,17,3,-1,{name:"Schola — the school",colors:[0xb2603e,0xf0e6d0],signHex:0xffe08a,signY:7.55,signOut:2.66,door:0x2e3e5a,tank:true});
+const LIBRARY=building(83,30,13.5,17,3,-1,{enter:true,floor:0x7a5a3a,name:"Bibliotheca — the library",colors:[0xd8cfbf,0xffffff],signHex:0xbfe0ff,signY:7.55,signOut:2.66,door:0x5a3a22});
+const SCHOOL=building(105,30,13.5,17,3,-1,{enter:true,floor:0xa08060,name:"Schola — the school",colors:[0xb2603e,0xf0e6d0],signHex:0xffe08a,signY:7.55,signOut:2.66,door:0x2e3e5a,tank:true});
 [LIBRARY,SCHOOL].forEach(bd=>{for(let i=0;i<6;i++){const c=LOOK.column(6.6);c.scale.set(.7,1,.7);c.position.set(bd.x-5.5+i*2.2,0,bd.z-bd.d/2-1.4);scene.add(c);bd.parts.push(c);c.userData.y0=0;}
   const pd=LOOK.M(new THREE.BoxGeometry(14,.5,2.6),LOOK.toon(0xe6dccb),.02);pd.position.set(bd.x,6.85,bd.z-bd.d/2-1.3);scene.add(pd);bd.parts.push(pd);pd.userData.y0=6.85;});
 // the plaza: a fountain, benches, flower boxes — a place to meet and gossip
@@ -928,15 +1016,15 @@ function buildingHurt(bd,n){if(bd.down)return;bd.dmg+=n;
   if(!WORLD.remote&&!LAW.wanted&&LAW.jailT<=0){if(bd.dmg>=BLD_HP)crime(`You wrecked ${bd.name?"the "+bd.name.split(" —")[0]:bd.owner+"'s house"}!`);
     else if(tAcc-(bd.warnT||-9)>3){bd.warnT=tAcc;LAW.warned++;lawSay(LAW.warned>=3?"Guard: That's it!":`Guard: Hey! Stop damaging ${bd.name?"the "+bd.name.split(" —")[0]:bd.owner+"'s house"}! (${LAW.warned}/3)`);if(LAW.warned>=3)crime("You kept damaging the houses!");}}
   if(bd.dmg>=BLD_HP){collapse(bd);if(!WORLD.remote)setKey("bld:"+bd.id,1);}}
-function collapse(bd){if(bd.down)return;bd.down=true;bd.blk.pass=true;const c=new THREE.Vector3(bd.x,1,bd.z);shake(.25);
+function collapse(bd){if(bd.down)return;bd.down=true;bd.blks.forEach(b=>b.pass=true);const c=new THREE.Vector3(bd.x,1,bd.z);shake(.25);
   for(let i=0;i<40;i++)PUFF.emit(c.clone().add(new THREE.Vector3(rnd(-bd.w/2,bd.w/2),rnd(0,bd.h*.6),rnd(-bd.d/2,bd.d/2))),rnd3(2),C(0xb8a888).multiplyScalar(.6),1.4,{drag:1.5});
   for(let i=0;i<14;i++){const rk=new THREE.Mesh(new THREE.BoxGeometry(rnd(.2,.5),rnd(.15,.3),rnd(.2,.4)),mat(0x9a5a3c));rk.position.set(bd.x+rnd(-bd.w/2,bd.w/2),rnd(1,bd.h),bd.z+rnd(-bd.d/2,bd.d/2));scene.add(rk);bd.parts.push(rk);rk.userData.rubble=true;
     const v=rnd3(2);v.y=0;tween(1.2,t=>{rk.position.addScaledVector(v,.016);rk.position.y=Math.max(.12,rk.position.y-t*.4);rk.rotation.x+=.05;});}
   tween(1.6,t=>{bd.parts.forEach(p=>{if(!p.userData.rubble)p.position.y=p.userData.y0-bd.h*t*t*1.02;});},()=>bd.parts.forEach(p=>{if(!p.userData.rubble)p.visible=false;}));
-  (bd.blk.fx||[]).forEach(o=>scene.remove(o));bd.blk.fx=[];bd.blk.marks=[];
+  bd.blks.forEach(b=>{(b.fx||[]).forEach(o=>scene.remove(o));b.fx=[];b.marks=[];});
   clearTimeout(bd.rebuild);bd.rebuild=setTimeout(()=>rebuild(bd),120000);}
 function rebuild(bd){bd.parts=bd.parts.filter(p=>{if(p.userData.rubble){scene.remove(p);return false;}return true;});bd.parts.forEach(p=>{p.visible=true;p.position.y=p.userData.y0;});
-  bd.down=false;bd.dmg=0;bd.blk.pass=false;if(!WORLD.remote)setKey("bld:"+bd.id,null);}
+  bd.down=false;bd.dmg=0;bd.blks.forEach(b=>b.pass=false);if(!WORLD.remote)setKey("bld:"+bd.id,null);}
 // ---------------- the neighbors: they walk the streets of Nova Urbs, go shopping, eat at the restaurants and stop to gossip ----------------
 const GOSSIP=[["Did you hear? The bridge over the creek fell down again.","Again? Someone should build a better one."],
   ["The bread at the Pistrinum is the best in town.","Their honey cake too!"],["How much is a loaf today?","Six denarii. Prices keep going up!"],
@@ -967,7 +1055,7 @@ function route(from,to){const A=snapStreet(from),B=snapStreet(to),r=[A];const ne
 // a walking map of the whole walled city: points every 2 m that aren't inside anything, joined to their neighbours. People take the
 // shortest way along it, so they go round houses, stalls, walls and the creek (crossing at the footbridge) — old town and new city alike.
 const NAV={x0:TOWN.x0+2,x1:CITY.x1-2,z0:TOWN.z0+2,z1:TOWN.z1-2,step:2,ok:null,cols:0,rows:0,open:[]};
-{const N=NAV;N.cols=Math.floor((N.x1-N.x0)/N.step)+1;N.rows=Math.floor((N.z1-N.z0)/N.step)+1;N.ok=new Uint8Array(N.cols*N.rows);const solid=BLOCKS.filter(b=>!b.pass&&b.h>.3);
+{const N=NAV;N.cols=Math.floor((N.x1-N.x0)/N.step)+1;N.rows=Math.floor((N.z1-N.z0)/N.step)+1;N.ok=new Uint8Array(N.cols*N.rows);const solid=BLOCKS.filter(b=>!b.pass&&b.h>.3&&b.y<1.5);   // walls at ground level (upper floors are overhead)
   for(let r=0;r<N.rows;r++)for(let c=0;c<N.cols;c++){const x=N.x0+c*N.step,z=N.z0+r*N.step;let ok=!(x>122.4&&x<129.6&&z>-1.6&&z<13.6&&Math.abs(z-6)>.9);
     if(ok)for(const b of solid){if(Math.abs(x-b.x)<b.w/2+.7&&Math.abs(z-b.z)<b.d/2+.7){ok=false;break;}}N.ok[r*N.cols+c]=ok?1:0;if(ok)N.open.push(r*N.cols+c);}}
 const navPt=k=>new THREE.Vector3(NAV.x0+(k%NAV.cols)*NAV.step,0,NAV.z0+Math.floor(k/NAV.cols)*NAV.step);
@@ -1041,8 +1129,7 @@ const TEACHER=npc("villager.glb",102.3,19.6,Math.PI);{const t=setInterval(()=>{i
 const LIBRARIAN=npc("merchant.glb",80.6,19.6,Math.PI);{const t=setInterval(()=>{if(!LIBRARIAN.rig)return;clearInterval(t);LIBRARIAN.rig.root.traverse(m=>{if(m.name==="Mug")m.visible=false;if(m.isMesh&&m.material&&m.material.color){m.material=m.material.clone();m.material.color.set(0xdfe8ff);}});},400);
   const lb=label("Varro the librarian",0xffffff);lb.scale.set(2.4,.36,1);lb.position.y=2.4;LIBRARIAN.g.add(lb);LIBRARIAN.pp=personize(LIBRARIAN,"Varro");}
 function uiOpen(fn){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();fn({grade:MATH.lv,pay:(n,why)=>{COINS+=n;coinHud();lawSay(`+${n} denarii ${why}`);},onClose:()=>hud(),onSolved:problemSolved});}
-ACTS.push({pos:new THREE.Vector3(104,0,19.4),r:3.8,label:"Enter the Schola",hidden:()=>TEACHER.pp.down,run:()=>uiOpen(o=>DESIGN.openSchool(o))});
-ACTS.push({pos:new THREE.Vector3(83,0,19.4),r:3.8,label:"Enter the Bibliotheca",hidden:()=>LIBRARIAN.pp.down,run:()=>uiOpen(o=>DESIGN.openLibrary(o))});
+libraryInside(LIBRARY);schoolInside(SCHOOL);   // walk in: the shelves, the computer, the desks
 // who's who: everyone who can own a problem, wherever they are right now
 function personNamed(n){const c=CITIZENS.find(c=>c.name===n);if(c)return c;const v=VILLAGERS.find(v=>v.name===n);if(v)return v.cz;
   const fixed={Polina:COOK.pp&&COOK.pp.o,Mercator:MERCHANT.o,Varro:LIBRARIAN,Cornelia:TEACHER}[n];if(!fixed)return null;return fixed.cz||(fixed.cz={name:n,o:fixed,pp:fixed.pp||PEOPLE.find(pp=>pp.o===fixed),bub:null,bubT:0,fixed:true});}
@@ -1063,7 +1150,7 @@ function stepProblems(dt){let best=null,bd=2.8;
   for(const n in QMARK){const sc=nextProblem(n);if(!sc)QMARK[n].visible=false;}
   ASK.who=best&&best.p;ASK.sc=best&&best.sc;if(best){ASK.pos.set(best.x,0,best.z);const t=P.pos.clone().sub(ASK.pos);t.y=0;if(t.length()>.01)ASK.pos.addScaledVector(t.normalize(),.25);}}
 addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(e.code==="KeyP"&&started&&!bagOpen&&!(window.DESIGN&&DESIGN.isOpen()))uiOpen(o=>DESIGN.openProjects(o));});
-function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1402,10 +1489,12 @@ function placeGun(dt){const f=new THREE.Vector3(-Math.sin(P.yaw)*Math.cos(look.p
 function floorUnder(){let f=0;for(const b of BLOCKS){if(b.pass)continue;if(Math.abs(P.pos.x-b.x)<b.w/2&&Math.abs(P.pos.z-b.z)<b.d/2&&b.y+b.h<=P.pos.y+.01)f=Math.max(f,b.y+b.h);}return f;}
 
 // ---------------- camera ----------------
-const camPos=new THREE.Vector3(0,3,6);
+const camPos=new THREE.Vector3(0,3,6),_camRay=new THREE.Raycaster();
 function updateCam(dt){const d=4.2,eye=P.pos.clone().add(new THREE.Vector3(0,1.5,0));const side=new THREE.Vector3(Math.cos(look.yaw),0,-Math.sin(look.yaw)).multiplyScalar(.95*camSide);
   const want=new THREE.Vector3(eye.x+Math.sin(look.yaw)*Math.cos(look.pitch)*d,eye.y+Math.sin(look.pitch)*d,eye.z+Math.cos(look.yaw)*Math.cos(look.pitch)*d).add(side);
   want.y=Math.max(want.y,floorUnder()+.4);
+  {const dir=want.clone().sub(eye),L=dir.length();dir.normalize();_camRay.set(eye,dir);_camRay.far=L;   // don't look through walls: come in front of whatever is behind you
+    const hit=_camRay.intersectObjects(SOLIDS,false).find(h=>h.object!==ground&&h.object.material&&h.object.material.visible!==false&&!(h.object.userData.block&&h.object.userData.block.pass));if(hit)want.copy(eye).addScaledVector(dir,Math.max(.35,hit.distance-.25));}
   camPos.lerp(want,1-Math.pow(.0005,dt));cam.position.copy(camPos);if(camShake>0){cam.position.add(rnd3(camShake));camShake=Math.max(0,camShake-dt*.6);}
   const ahead=eye.clone().add(side).add(new THREE.Vector3(-Math.sin(look.yaw)*Math.cos(look.pitch),-Math.sin(look.pitch),-Math.cos(look.yaw)*Math.cos(look.pitch)).multiplyScalar(30));cam.lookAt(ahead);}   // the crosshair is where bullets go
 function resize(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
@@ -1428,7 +1517,7 @@ const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)
 const designOpen=()=>window.DESIGN&&DESIGN.isOpen();
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
-const CTX_TABS={contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
+const CTX_TABS={shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
 function toggleBag(open,tab){if(!started||P.down)return;bagOpen=open===undefined?!bagOpen:open;if(tab&&tab!==bagTab&&tab!=="work")forgeMsg="";if(tab)bagTab=tab;else if(CTX_TABS[bagTab])bagTab="items";
   const ct=$("#ctxTab");ct.classList.toggle("hidden",!CTX_TABS[bagTab]);if(CTX_TABS[bagTab]){ct.dataset.tab=bagTab;ct.textContent=CTX_TABS[bagTab];}$("#bag").classList.toggle("hidden",!bagOpen);G.firing=false;bagPick=-1;
   if(bagOpen){if(document.exitPointerLock)document.exitPointerLock();renderBag();}}
@@ -1448,12 +1537,13 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     let h=`<div class="work"><h3>${esc(title)}</h3><div class="level">🧠 Math level: <b>${CRAFT.levelName(MATH.lv)}</b></div><p class="say">${esc(w.text)}</p><p class="have">Each ${w.unit} is one ${matIco(m.id)} ${m.name}. You have <b>${countMat(w.m)}</b>.</p>`;
     h+=w.solved?`<p>You worked it out: <b>${w.n} ${w.unit}s</b>.</p><button class="go" id="workGo">🔨 Use ${w.n} ${matIco(m.id)}</button>`:`<div class="answer"><input id="workIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="workGo">🔨 Use that many</button></div>`;
     box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div>`;return;}
+  if(bagTab==="shop"){shopTab(box);return;}
   if(bagTab==="food"){const near=P.pos.distanceTo(COOK.pos)<4.5;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
     if(!near){box.innerHTML=h+`<p class="tip">The Popina 🍞 (the cook's stall) is on the west side of town. Walk up to it to buy food.</p>`;return;}
     h+=`<p class="tip">Food heals a little, and some give you a boost for a while. Eat it from your hotbar (click / FIRE).</p><div class="list">`;
     Object.entries(FOODS).forEach(([id,f])=>{h+=`<button data-food="${id}" class="${COINS<f.price?"poor":""}">${foodIco(id)} <span>${esc(f.name)} <small>${esc(f.what)}</small></span><b>${f.price} 🪙</b></button>`;});
     box.innerHTML=h+`</div><p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p>`;return;}
-  if(bagTab==="chest"){if(P.pos.distanceTo(HOME.chest)>3){box.innerHTML=`<p class="tip">Your chest 📦 is in your house — the one with your name over the door, in the row along the north wall.</p>`;return;}
+  if(bagTab==="chest"){if(P.pos.distanceTo(HOME.chest)>3&&!(APT.owned&&APT.chest&&P.pos.distanceTo(APT.chest)<3)){box.innerHTML=`<p class="tip">Your chest 📦 is in your house — the one with your name over the door, in the row along the north wall.</p>`;return;}
     let h=`<p class="tip">Tap an item to move it between your bag and your chest. The chest keeps things safe while you go out.</p><h3>📦 Chest</h3><div class="grid">`;
     CHEST.forEach((it,i)=>{const f=itemInfo(it);h+=`<div class="slot" data-fromchest="${i}">${f?`<span>${ico(f)}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;});
     h+=`</div><h3>🎒 Your bag</h3><div class="grid">`;for(let i=9;i<36;i++){const f=itemInfo(INV[i]);h+=`<div class="slot" data-tochest="${i}">${f?`<span>${ico(f)}</span>${f.count>1?`<b>${f.count}</b>`:""}`:""}</div>`;}
@@ -1515,7 +1605,7 @@ function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAF
   const up=first&&MATH.lv<8&&setLevel(MATH.lv+1);if(!up){MATH.wrong=0;MATH.moved="";}
   forgeMsg=`✨ You made ${it.t==="spell"?`${SPELLS[it.id].icon} ${SPELLS[it.id].name}`:rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.levelName(MATH.lv)}.`:" A new set of problems is ready for the next one.");
   FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.4,0)),"gold",5,1.4);renderBag();}
-$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
+$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-shopitem],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
   if(t.dataset.slot!==undefined){const i=+t.dataset.slot;if(bagPick<0){if(INV[i])bagPick=i;}else{const a=INV[bagPick];INV[bagPick]=INV[i];INV[i]=a;bagPick=-1;select(SEL);}renderBag();return;}
   if(t.dataset.book){setBook(t.dataset.book);forgeMsg=t.dataset.book==="china"?"📚 China standard: the problems now follow what Chinese schools teach in each grade.":"📚 US math book.";forgeOk=true;renderBag();return;}
   if(t.dataset.tier){contestNew(t.dataset.tier);renderBag();return;}
@@ -1523,6 +1613,7 @@ $("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot]
   if(t.id==="conGo"){const i=$("#conIn"),w=$("#conWhy");CONTEST.ans=i?i.value:"";CONTEST.draft=w?w.value:"";const r=contestAnswer(i&&i.value!==""?parseInt(i.value,10):null,CONTEST.draft);CONTEST.ok=r.ok;CONTEST.msg=r.msg;renderBag();return;}
   if(t.dataset.drop!==undefined){dropOwn(+t.dataset.drop);bagPick=-1;renderBag();return;}
   if(t.dataset.rec){forgeId=t.dataset.rec;tray={};forgeMsg="";renderBag();return;}
+  if(t.dataset.shopitem){shopBuy(+t.dataset.shopitem);renderBag();return;}
   if(t.dataset.food){const f=FOODS[t.dataset.food];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet — sell something at Mercator's stall.";}else if(addItem({t:"food",id:t.dataset.food,n:1})){COINS-=f.price;coinHud();forgeOk=true;forgeMsg=`${f.icon} ${f.name} is in your bag.`;}else{forgeOk=false;forgeMsg="Your bag is full.";}renderBag();return;}
   if(t.dataset.tochest!==undefined){const i=+t.dataset.tochest,k=CHEST.indexOf(null);if(INV[i]&&k>=0){CHEST[k]=INV[i];INV[i]=null;select(SEL);}renderBag();return;}
   if(t.dataset.fromchest!==undefined){const i=+t.dataset.fromchest;if(CHEST[i]&&addItem(CHEST[i]))CHEST[i]=null;renderBag();return;}
@@ -1567,5 +1658,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

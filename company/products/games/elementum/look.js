@@ -210,7 +210,7 @@ function heroHair(r){const head=r&&r.bones.head;if(!head)return;const mat=new T.
   const band=new T.Mesh(new T.CylinderGeometry(.5,.5,.12,14,1,false,-.75,1.5),mat);band.position.y=.55;band.scale.x=.82;g.add(band);
   [[-.26,-.02,-.5,.19],[-.15,-.04,-.2,.24],[-.02,-.03,.05,.22],[.11,-.04,.25,.24],[.24,-.03,.45,.19]].forEach(([x,y,rz,h])=>{
     const m=new T.Mesh(new T.ConeGeometry(.09,h,5),mat);m.scale.z=.45;m.rotation.set(Math.PI-.3,0,rz);m.position.set(x,.52+y,.47);g.add(m);});
-  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});head.add(g);}
+  g.name="heroHair";g.traverse(o=>{if(o.isMesh)o.castShadow=true;});head.add(g);}
 function loadRig(url,split,cb){if(!T.GLTFLoader){cb(null);return;}new T.GLTFLoader().load(url,g=>cb(rig(g,split)),undefined,e=>{console.warn("model",url,e);cb(null);});}
 return {hero,dummy,world,blockMesh,column,toon,M,loadRig,heroHair};
 })();
