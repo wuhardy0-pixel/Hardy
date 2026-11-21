@@ -631,13 +631,18 @@ const SLEEP_H=10;
 const hourNow=()=>{const DL=.62,t=DAY.t;return (t<DL?6+12*t/DL:18+12*(t-DL)/(1-DL))%24;};
 const fmtH=h=>{h=Math.floor(h)%24;return `${h%12||12} ${h<12?"am":"pm"}`;};
 function sleep(){startSleep();}
-function startSleep(){if(P.sleeping||P.down)return;HOME.slept=true;const ms=60000;P.sleeping={t0:Date.now(),until:Date.now()+ms,hp0:P.hp,from:hourNow()};G.firing=false;
-  $("#sleepBox").classList.remove("hidden");$("#sleepFrom").textContent=fmtH(P.sleeping.from);$("#sleepTo").textContent=fmtH(P.sleeping.from+SLEEP_H);}
+// (Barbara chose: sleep until morning on the shared clock, so the sleep screen and the corner clock always agree. At night you sleep until 7 am
+// — at most about 2 real minutes; in the daytime it's a 1-minute nap. Either way you wake fully healed.)
+const isNight=()=>{const h=hourNow();return h>=18||h<7;};
+function startSleep(){if(P.sleeping||P.down)return;HOME.slept=true;const night=isNight();
+  const T7=(7-6)/12*.62,ms=night?((T7-DAY.t+1)%1)*CLOCK.len*1000:60000;
+  P.sleeping={t0:Date.now(),until:Date.now()+Math.max(4000,ms),hp0:P.hp,from:hourNow(),night};G.firing=false;
+  $("#sleepBox").classList.remove("hidden");$("#sleepWhat").innerHTML=night?"Sleeping until <b>7 am</b>.":"Taking a nap (about a minute).";}
 function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;$("#sleepBox").classList.add("hidden");if(full){P.hp=P.maxHp;P.slowT=0;}hud();
-  popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?"10 hours of sleep — fully rested!":"you woke up early"),"spell");}
+  popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?(z.night?"Good morning — fully rested!":"what a nap — fully rested!"):"you woke up early"),"spell");}
 function stepSleep(){const z=P.sleeping;if(!z)return;const k=Math.min(1,(Date.now()-z.t0)/(z.until-z.t0));P.hp=z.hp0+(P.maxHp-z.hp0)*k;P.vel.set(0,0,0);
-  $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(z.from+SLEEP_H*k);$("#sleepLeft").textContent=`${Math.ceil(SLEEP_H*(1-k))} hour${Math.ceil(SLEEP_H*(1-k))===1?"":"s"} to go`;if(k>=1)endSleep(true);}
-ACTS.push({get pos(){return HOME.bed;},r:2.2,label:"🛏️ Sleep for 10 hours",run:sleep});
+  $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(hourNow());const left=Math.ceil((z.until-Date.now())/1000);$("#sleepLeft").textContent=left>0?`about ${left>=60?Math.round(left/60)+" min":left+" s"} to go`:"";if(k>=1)endSleep(true);}
+ACTS.push({get pos(){return HOME.bed;},r:2.2,label:()=>isNight()?"🛏️ Sleep until morning":"🛏️ Take a nap",run:sleep});
 ACTS.push({get pos(){return HOME.chest;},r:2,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
 ACTS.push({get pos(){return HOME.door;},r:2,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
 HOUSES.forEach(h=>ACTS.push({pos:h.doorP,r:1.8,hidden:()=>h.mine||!h.locked,label:()=>`🔒 ${h.name}'s house is locked`,run:()=>{}}));
@@ -978,19 +983,24 @@ function aptInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,ex=bd.x+bd.w/2-1.3,ez=zb
   {const bz=bd.z+f*(bd.d/2+.8),iron=LOOK.toon(0x2a2a30);const sl=block(bd.x,bz,3.2,.3,1.6,0x8a8a8a);sl.position.y=y-.15;BLOCKS[BLOCKS.length-1].y=y-.3;sl.material=LOOK.toon(0xb8b0a0);
     [[bd.x,bz+f*.75,3.2,.08],[bd.x-1.55,bz,.08,1.6],[bd.x+1.55,bz,.08,1.6]].forEach(([rx,rz,rw,rd])=>{const r=block(rx,rz,rw,.95,rd,0x2a2a30);r.position.y=y+.475;BLOCKS[BLOCKS.length-1].y=y;r.material=iron;});}
   APT.bed=new THREE.Vector3(bd.x-bd.w/2+1.2,y,bd.z);APT.chest=new THREE.Vector3(bd.x-bd.w/2+1,y,bd.z+2);
-  ACTS.push({pos:APT.lobby,r:1.4,label:()=>APT.owned?"Elevator: up to your flat (floor 5)":`Elevator: buy the flat on floor 5 (${APT.price} denarii)`,run:()=>{
-    if(!APT.owned){if(COINS<APT.price){lawSay(`The flat costs ${APT.price} denarii — you have ${COINS}. Solve people's problems or read books at the school to earn more!`);return;}COINS-=APT.price;coinHud();APT.owned=true;try{localStorage.setItem("elementum.apartment","1");}catch(e){}lawSay("The flat on floor 5 is yours! Here's the key.");}
-    ride(APT.home,"Going up… 1 · 2 · 3 · 4 · 5");}});
+  ACTS.push({pos:APT.lobby,r:1.4,label:()=>APT.owned?"Elevator: up to your flat (floor 5)":"Elevator: the flat on floor 5 is for sale",run:()=>{
+    if(APT.owned){ride(APT.home,"Going up… 1 · 2 · 3 · 4 · 5");return;}
+    ask(`The flat on floor 5 has a bed, a chest, a balcony and windows over the city. It costs ${APT.price} denarii.`,[[`Buy it (${APT.price})`,()=>{
+      if(COINS<APT.price){lawSay(`The flat costs ${APT.price} denarii — you have ${COINS}. Solve people's problems or read books at the school to earn more!`);return;}
+      COINS-=APT.price;coinHud();APT.owned=true;try{localStorage.setItem("elementum.apartment","1");}catch(e){}lawSay("The flat on floor 5 is yours! Here's the key.");ride(APT.home,"Going up… 1 · 2 · 3 · 4 · 5");}],["Not now",null]]);}});
   ACTS.push({pos:APT.home,r:1.4,label:"Elevator: down to the lobby",run:()=>ride(APT.lobby,"Going down… 4 · 3 · 2 · 1 · lobby")});
-  ACTS.push({pos:APT.bed,r:1.8,label:"Sleep for 10 hours",hidden:()=>!APT.owned,run:sleep});
+  ACTS.push({pos:APT.bed,r:1.8,label:()=>isNight()?"Sleep until morning":"Take a nap",hidden:()=>!APT.owned,run:sleep});
   ACTS.push({pos:APT.chest,r:1.6,label:"Open your chest",hidden:()=>!APT.owned,run:()=>toggleBag(true,"chest")});}
 // Hospitium: rent a room for the night — sleep until morning and wake up fully healed
 function hotelInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,zc=zb+f*1.8;const desk=block(bd.x,zc,3.4,1.1,.8,0x5a2a3a);desk.material=LOOK.toon(0x6a3a4a);
   const bell=new THREE.Mesh(new THREE.SphereGeometry(.09,10,6,0,6.3,0,1.6),LOOK.toon(0xd8ac4a));bell.position.set(bd.x+.8,1.12,zc);scene.add(bell);bd.parts.push(bell);
   const o=npc("villager.glb",bd.x,zb+f*1,f>0?0:Math.PI);const lb=label("Claudia at the desk",0xffffff);lb.scale.set(2,.32,1);lb.position.y=2.35;o.g.add(lb);const pp=personize(o,"Claudia");
   const rug=new THREE.Mesh(new THREE.PlaneGeometry(2,bd.d-4),new THREE.MeshLambertMaterial({color:0x7a2a4a}));rug.rotation.x=-Math.PI/2;rug.position.set(bd.x,.03,bd.z+f*.8);scene.add(rug);bd.parts.push(rug);
-  ACTS.push({pos:new THREE.Vector3(bd.x,0,zc+f*1.1),r:2,label:"Rent a room — sleep for 10 hours (15 denarii)",hidden:()=>pp.down,run:()=>{if(COINS<15){lawSay("A room costs 15 denarii.");return;}COINS-=15;coinHud();
-    lawSay("Claudia: “Sleep well!”");startSleep();}});}
+  ACTS.push({pos:new THREE.Vector3(bd.x,0,zc+f*1.1),r:2,label:"Talk to Claudia at the desk",hidden:()=>pp.down,run:()=>ask("Claudia: “Would you like a room? It's 15 denarii, and you can sleep until morning.”",[["Rent a room (15)",()=>{if(COINS<15){lawSay("A room costs 15 denarii — you don't have enough.");return;}COINS-=15;coinHud();
+    lawSay("Claudia: “Sleep well!”");startSleep();}],["No thanks",null]])});}
+// a yes/no question box: nothing happens (and nothing is paid) unless you pick the first answer
+function ask(text,answers){const box=$("#askBox");$("#askText").textContent=text;const row=$("#askBtns");row.innerHTML="";G.firing=false;if(document.exitPointerLock)document.exitPointerLock();
+  answers.forEach(([lab,fn],i)=>{const b=document.createElement("button");b.textContent=lab;if(i)b.className="g";b.onclick=()=>{box.classList.add("hidden");if(fn)fn();};row.appendChild(b);});box.classList.remove("hidden");}
 function ride(to,msg){const v=$("#vig");lawSay(msg);v.classList.add("on");setTimeout(()=>{P.pos.copy(to);P.fallTop=undefined;P.vel.set(0,0,0);v.classList.remove("on");},700);}
 function stepRooms(){const r=inRoom(P.pos);if(r){ROOM_LIGHT.position.copy(r.c);ROOM_LIGHT.intensity=1.6;}else ROOM_LIGHT.intensity=0;}
 // ---------------- your own business (2026-11-22, "you can start a business"): rent the empty shop, pick what to sell, buy stock, set a price.
@@ -2031,5 +2041,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={startSleep,endSleep,CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={startSleep,endSleep,ACTS,ask,CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
