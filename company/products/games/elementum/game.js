@@ -726,7 +726,7 @@ function questTurnIn(v){const q=v.q;if(!questDone(q))return false;if(q.k==="brin
 function stepVillagers(){VILLAGERS.forEach(v=>{if(!v.q)newQuest(v);const key=!v.q.accepted?"❗":questDone(v.q)?"✅":"💬";if(key===v.markKey)return;v.markKey=key;if(v.mark)scene.remove(v.mark);
   v.mark=iconSprite(key);v.mark.scale.setScalar(.7);v.mark.position.set(0,2.95,0);v.o.g.add(v.mark);});
   if(VILLAGERS[0].mark)VILLAGERS.forEach(v=>{if(v.mark)v.mark.position.y=2.95+Math.sin(tAcc*3)*.08;});
-  const act=VILLAGERS.filter(v=>v.q.accepted);$("#quests").innerHTML=act.map(v=>`<div>${questDone(v.q)?"✅":"📜"} ${v.name}: ${esc(qShort(v.q))}</div>`).join("");
+  const act=VILLAGERS.filter(v=>v.q.accepted);$("#quests").innerHTML=act.map(v=>`<div>${questDone(v.q)?"✅":"📜"} ${v.name}: ${esc(qShort(v.q))}</div>`).join("")+(typeof jobLine==="function"?jobLine():"");
   VILLAGERS.forEach(v=>{const q=workQ(v),c=v.home;c.mark.visible=!!q;if(q){const at=q.job==="fence"?c.garden:c.pos;c.mark.position.set(at.x,(q.job==="fence"?2:CH+CR+1.4)+Math.sin(tAcc*3)*.08,at.z);}});}
 // --- the training center (Palaestra): a site you build; once it stands, the dummies inside shoot at you — but only while you are inside it
 const TRAIN={built:false,x0:-11,x1:11,z0:-25,z1:-6,coins:25,site:[],plan:null,dummies:[]};
@@ -1150,7 +1150,39 @@ function stepProblems(dt){let best=null,bd=2.8;
   for(const n in QMARK){const sc=nextProblem(n);if(!sc)QMARK[n].visible=false;}
   ASK.who=best&&best.p;ASK.sc=best&&best.sc;if(best){ASK.pos.set(best.x,0,best.z);const t=P.pos.clone().sub(ASK.pos);t.y=0;if(t.length()>.01)ASK.pos.addScaledVector(t.normalize(),.25);}}
 addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(e.code==="KeyP"&&started&&!bagOpen&&!(window.DESIGN&&DESIGN.isOpen()))uiOpen(o=>DESIGN.openProjects(o));});
-function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+// ---------------- the job board in the plaza (2026-11-22, "more jobs to do"): small paid jobs around the city, one at a time ----------------
+const JOB={cur:null,done:0,board:new THREE.Vector3(63.5,0,10.4),marks:[]};
+{const g=new THREE.Group();g.position.set(63.5,0,11.6);scene.add(g);const wood=LOOK.toon(0x6b4423);[-1,1].forEach(k=>{const p=new THREE.Mesh(new THREE.BoxGeometry(.12,2.2,.12),wood);p.position.set(k*1,1.1,0);g.add(p);});
+  const bd=LOOK.M(new THREE.BoxGeometry(2.2,1.2,.1),LOOK.toon(0xc9a37a),.015);bd.position.y=1.6;g.add(bd);for(let i=0;i<5;i++){const n=new THREE.Mesh(new THREE.PlaneGeometry(.38,.48),new THREE.MeshLambertMaterial({color:0xf6f0e0}));n.position.set(-.8+i*.4,1.6+(i%2?.15:-.15),-.06);n.rotation.y=Math.PI;g.add(n);}
+  const s2=signBoard("Job board",0xffe08a);s2.scale.setScalar(.7);s2.position.set(0,2.45,-.06);s2.rotation.y=Math.PI;g.add(s2);g.traverse(k=>{if(k.isMesh)k.castShadow=true;});}
+ACTS.push({pos:JOB.board,r:2.4,label:"Job board",run:()=>toggleBag(true,"jobs")});
+const JOB_TYPES={courier:{name:"Courier",pay:12,what:"Take a parcel to someone in town. They don't stand still — find them!"},sweep:{name:"Street sweeper",pay:10,what:"Pick up 8 pieces of litter around the city."},
+  patrol:{name:"Guard patrol",pay:14,what:"Walk to all four corners of the city walls."},count:{name:"Shop helper",pay:10,what:"Help a shopkeeper count their stock — a math problem."}};
+function jobClear(){JOB.marks.forEach(m=>{if(m.parent)m.parent.remove(m);});JOB.marks=[];JOB.cur=null;}
+function jobStart(k){jobClear();const j={k,pay:JOB_TYPES[k].pay};
+  if(k==="courier"){const c=pick(CITIZENS.filter(c=>!c.villager));j.to=c.name;const m=label("!",0x9dffb0);m.scale.set(.8,.7,1);m.position.y=3.9;c.o.g.add(m);JOB.marks.push(m);}
+  if(k==="sweep"){j.left=[];const pts=NAV.open.map(navPt).filter(p=>p.x>CITY.x0+2);for(let i=0;i<8;i++){const p=pick(pts);const m=new THREE.Mesh(new THREE.BoxGeometry(.32,.04,.24),new THREE.MeshLambertMaterial({color:0xf2eee0}));m.position.set(p.x+rnd(-.6,.6),.03,p.z+rnd(-.6,.6));m.rotation.y=rnd(0,3);scene.add(m);JOB.marks.push(m);j.left.push(m);}}
+  if(k==="patrol"){j.left=[[TOWN.x0+4,TOWN.z0+4],[TOWN.x0+4,TOWN.z1-4],[CITY.x1-4,CITY.z0+4],[CITY.x1-4,CITY.z1-4]].map(([x0,z0])=>{const q=navPt(navNode(new THREE.Vector3(x0,0,z0))),x=q.x,z=q.z;const m=new THREE.Mesh(new THREE.RingGeometry(1.2,1.5,32),new THREE.MeshBasicMaterial({color:0x9dffb0,transparent:true,opacity:.8,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(x,.06,z);scene.add(m);JOB.marks.push(m);return m;});}
+  if(k==="count"){j.n=ri(6,48);j.q=CRAFT.problem(j.n,MATH.lv)||`A shelf has ${j.n} jars. How many jars are there?`;j.tries=2;}
+  JOB.cur=j;}
+function jobPay(){const j=JOB.cur;if(!j)return;COINS+=j.pay;coinHud();JOB.done++;lawSay(`Job done — +${j.pay} denarii!`);jobClear();}
+const JOB_ACT={pos:new THREE.Vector3(),on:false};
+ACTS.push({pos:JOB_ACT.pos,r:2.4,label:()=>JOB.cur&&JOB.cur.k==="courier"?`Give ${JOB.cur.to} the parcel`:"",hidden:()=>!JOB_ACT.on,run:()=>{lawSay(`${JOB.cur.to}: “Oh, a parcel for me? Thank you!”`);jobPay();}});
+function stepJobs(){const j=JOB.cur;JOB_ACT.on=false;if(!j)return;
+  if(j.k==="courier"){const c=CITIZENS.find(c=>c.name===j.to);if(c){const d=Math.hypot(c.o.g.position.x-P.pos.x,c.o.g.position.z-P.pos.z);if(d<2.4){JOB_ACT.on=true;JOB_ACT.pos.set(c.o.g.position.x,0,c.o.g.position.z);const t=P.pos.clone().sub(JOB_ACT.pos);t.y=0;if(t.length()>.01)JOB_ACT.pos.addScaledVector(t.normalize(),Math.min(.6,t.length()));}}}
+  if(j.k==="sweep"){for(const m of [...j.left]){if(Math.hypot(m.position.x-P.pos.x,m.position.z-P.pos.z)<1.3){scene.remove(m);j.left.splice(j.left.indexOf(m),1);popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`litter ${8-j.left.length}/8`,"spell");}}if(!j.left.length)jobPay();}
+  if(j.k==="patrol"){for(const m of [...j.left]){m.rotation.z+=.02;if(Math.hypot(m.position.x-P.pos.x,m.position.z-P.pos.z)<2.2){scene.remove(m);j.left.splice(j.left.indexOf(m),1);popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`checkpoint ${4-j.left.length}/4`,"spell");}}if(!j.left.length)jobPay();}}
+const jobLine=()=>{const j=JOB.cur;if(!j)return "";return `<div>${esc(JOB_TYPES[j.k].name)}: ${j.k==="courier"?"take the parcel to "+esc(j.to):j.k==="sweep"?`litter ${8-j.left.length}/8`:j.k==="patrol"?`checkpoints ${4-j.left.length}/4`:"answer at the job board"}</div>`;};
+function jobsTab(box){const j=JOB.cur;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii · ${JOB.done} jobs done</p>`;
+  if(P.pos.distanceTo(JOB.board)>4&&!j){box.innerHTML=h+`<p class="tip">The job board is in the plaza of Nova Urbs.</p>`;return;}
+  if(!j){h+=`<p class="tip">Pick a job. One at a time — you get paid when it's done.</p><div class="list">`;for(const [k,t] of Object.entries(JOB_TYPES))h+=`<button data-job="${k}"><span>${esc(t.name)} <small>${esc(t.what)}</small></span><b>${t.pay} 🪙</b></button>`;box.innerHTML=h+`</div>`;return;}
+  if(j.k==="count"){h+=`<p class="say">${esc(j.q)}</p><div class="answer"><input id="jobAns" type="number" inputmode="numeric"><button id="jobGo">Answer</button></div><p class="msg">${esc(j.msg||"")}</p>`;}
+  else h+=`<p class="tip">Your job: ${esc(JOB_TYPES[j.k].name)} — ${esc(JOB_TYPES[j.k].what)}</p>${jobLine()}`;
+  box.innerHTML=h+`<button data-jobquit="1">Give up this job</button>`;}
+function jobClick(t){if(t.dataset.job){jobStart(t.dataset.job);if(JOB.cur.k!=="count")toggleBag(false);else renderBag();return true;}
+  if(t.dataset.jobquit){jobClear();renderBag();return true;}
+  if(t.id==="jobGo"){const j=JOB.cur,v=parseInt(($("#jobAns")||{}).value,10);if(!j)return true;if(v===j.n){toggleBag(false);jobPay();return true;}j.tries--;if(j.tries<=0){j.msg="Not quite — the shopkeeper counted it themselves. Try another job.";jobClear();}else j.msg="Not quite — count again.";renderBag();return true;}return false;}
+function stepLife(dt){stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1269,7 +1301,7 @@ function makeBar(d){const bar=document.createElement("div");bar.className="dbar"
 [[-6,-14,"Dummy A"],[-3,-16,"Dummy B"],[0,-15,"Dummy C"],[3,-16,"Dummy D"],[6,-14,"Dummy E"],[0,-9,"Dummy F (close)"]].forEach(([x,z,n])=>{const d=dummy(x,z,n);d.down=d.unbuilt=true;d.g.visible=false;TRAIN.dummies.push(d);});
 // ---------------- monsters: each has a home, wanders, hunts you when you come near and casts its own spells ----------------
 // Quaternius "Ultimate Monsters" (CC0, models/monsters/*.glb). They live outside the town walls and never come in. Walls stop their spells; they come back 25 s after you beat them.
-const QA={idle:"Idle",walk:"Walk",run:"Run",cast:"Weapon",hit:"HitReact",death:"Death",punch:"Punch"};
+const QA={idle:"Idle",walk:"Walk",run:"Run",cast:"Weapon",hit:"HitReact",death:"Death",punch:"Punch"},KA={idle:"Idle",walk:"Walking_D_Skeletons",run:"Running_A",cast:"Spellcast_Shoot",hit:"Hit_A",death:"Death_A",punch:"1H_Melee_Attack_Chop"};
 const ENEMY_TYPES={
   demon:{name:"Demon",url:"monsters/demon.glb",scale:.64,hp:180,spells:["ignis","imber"],drops:["cornu"],core:"carbo",home:[155,32],speed:2.4,keep:9,barY:2.3,anim:QA},
   yeti:{name:"Yeti",url:"monsters/yeti.glb",scale:.7,hp:200,spells:["hasta","campus"],drops:["villus"],core:"nimbus",home:[-58,15],speed:2.2,keep:9,barY:2.3,anim:QA},
@@ -1280,6 +1312,11 @@ const ENEMY_TYPES={
   dino:{name:"Dino",url:"monsters/dino.glb",scale:.62,hp:210,spells:["draco","anulus"],drops:["squama"],core:"carbo",home:[172,-6],speed:2.8,keep:5,barY:2.4,anim:QA},
   monkroose:{name:"Monkroose",url:"monsters/monkroose.glb",scale:.7,hp:170,spells:["turbo","sagittae"],drops:["pluma"],core:"aether",home:[-8,-74],speed:3,keep:9,barY:2.3,anim:QA},
   shade:{name:"Blue Demon",url:"monsters/blue_demon.glb",scale:.7,hp:200,spells:["nox","tenebrae","radius"],drops:["cinis"],core:"electrum",home:[46,76],speed:2.5,keep:10,barY:2.3,anim:QA},
+  // the graveyard to the far west (2026-11-22, "add more monsters"): KayKit's skeletons (CC0), four packs
+  skwar:{name:"Skeleton Warrior",url:"monsters/skeleton_warrior.glb",scale:1,hp:230,spells:["spinae","motus"],drops:["dens"],core:"silex",home:[-105,-12],speed:2.5,keep:7,barY:2.5,anim:KA},
+  skmage:{name:"Skeleton Mage",url:"monsters/skeleton_mage.glb",scale:1,hp:170,spells:["nox","stella","tenebrae"],drops:["cinis"],core:"electrum",home:[-98,-78],speed:2.2,keep:12,barY:2.5,anim:KA},
+  skrogue:{name:"Skeleton Rogue",url:"monsters/skeleton_rogue.glb",scale:1,hp:160,spells:["umbra","sagittae"],drops:["pannus"],core:"aether",home:[70,-105],speed:3.3,keep:8,barY:2.5,anim:KA},
+  skmin:{name:"Skeleton Minion",url:"monsters/skeleton_minion.glb",scale:.9,hp:120,spells:["tenebrae","ignis"],drops:["cinis"],core:"carbo",home:[105,92],speed:3,keep:6,barY:2.3,anim:KA},
 };
 const ENEMIES=[];
 function spawnEnemy(key,chief,i,pack){const T=ENEMY_TYPES[key];const k=chief?1.2:.82;const a=i*2.1,home=new THREE.Vector3(T.home[0]+(chief?0:Math.cos(a)*4),0,T.home[1]+(chief?0:Math.sin(a)*4));
@@ -1295,7 +1332,10 @@ function spawnEnemy(key,chief,i,pack){const T=ENEMY_TYPES[key];const k=chief?1.2
   bodyP.userData={dummy:d,part:"body"};headP.userData={dummy:d,part:"head"};makeBar(d);DUMMIES.push(d);ENEMIES.push(d);
   LOOK.loadRig("/play/elementum/models/"+T.url,false,r=>{if(!r)return;d.rig=r;r.root.scale.setScalar(T.scale*k);g.add(r.root);r.base(T.anim.idle,{snap:true});d.mats=r.mats;r.mats.forEach(m=>{m.userData.base=m.color.getHex();});});
   return d;}
-Object.keys(ENEMY_TYPES).forEach(key=>{const pack=[];spawnEnemy(key,true,0,pack);for(let i=0;i<3;i++)spawnEnemy(key,false,i,pack);});   // 9 packs of 4: they swarm together
+Object.keys(ENEMY_TYPES).forEach(key=>{const pack=[];spawnEnemy(key,true,0,pack);for(let i=0;i<3;i++)spawnEnemy(key,false,i,pack);});
+// tombstones around the skeletons' homes
+["skwar","skmage","skrogue","skmin"].forEach(k=>{const [hx,hz]=ENEMY_TYPES[k].home;for(let i=0;i<9;i++){const a=i/9*6.28+rnd(-.2,.2),r=rnd(5,9);const t=LOOK.M(new THREE.BoxGeometry(.8,rnd(.9,1.4),.25),LOOK.toon(0x8a8a90),.015);
+  t.position.set(hx+Math.cos(a)*r,.5,hz+Math.sin(a)*r);t.rotation.y=a+rnd(-.3,.3);t.rotation.z=rnd(-.15,.15);t.castShadow=true;scene.add(t);}});   // 9 packs of 4: they swarm together
 function blockedAt(p){if(inTown(p,1.5))return true;for(const b of BLOCKS){if(b.h<.3)continue;if(Math.abs(p.x-b.x)<b.w/2+.5&&Math.abs(p.z-b.z)<b.d/2+.5)return true;}return false;}
 function enemyDown(d){const T=d.T;const at=d.g.position.clone();
   if(!d.chief){dropItem(at,{t:"coin",n:ri(2,5)});if(Math.random()<.4)dropItem(at,{t:"mat",id:T.core,n:1});if(Math.random()<.3)dropItem(at,{t:"mat",id:pick(T.drops),n:1});}
@@ -1517,7 +1557,7 @@ const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)
 const designOpen=()=>window.DESIGN&&DESIGN.isOpen();
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
-const CTX_TABS={shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
+const CTX_TABS={jobs:"Jobs",shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
 function toggleBag(open,tab){if(!started||P.down)return;bagOpen=open===undefined?!bagOpen:open;if(tab&&tab!==bagTab&&tab!=="work")forgeMsg="";if(tab)bagTab=tab;else if(CTX_TABS[bagTab])bagTab="items";
   const ct=$("#ctxTab");ct.classList.toggle("hidden",!CTX_TABS[bagTab]);if(CTX_TABS[bagTab]){ct.dataset.tab=bagTab;ct.textContent=CTX_TABS[bagTab];}$("#bag").classList.toggle("hidden",!bagOpen);G.firing=false;bagPick=-1;
   if(bagOpen){if(document.exitPointerLock)document.exitPointerLock();renderBag();}}
@@ -1538,6 +1578,7 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     h+=w.solved?`<p>You worked it out: <b>${w.n} ${w.unit}s</b>.</p><button class="go" id="workGo">🔨 Use ${w.n} ${matIco(m.id)}</button>`:`<div class="answer"><input id="workIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="workGo">🔨 Use that many</button></div>`;
     box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div>`;return;}
   if(bagTab==="shop"){shopTab(box);return;}
+  if(bagTab==="jobs"){jobsTab(box);return;}
   if(bagTab==="food"){const near=P.pos.distanceTo(COOK.pos)<4.5;let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p>`;
     if(!near){box.innerHTML=h+`<p class="tip">The Popina 🍞 (the cook's stall) is on the west side of town. Walk up to it to buy food.</p>`;return;}
     h+=`<p class="tip">Food heals a little, and some give you a boost for a while. Eat it from your hotbar (click / FIRE).</p><div class="list">`;
@@ -1605,7 +1646,7 @@ function forgeNow(){const rec=recipe(forgeId),dr=drawFor(forgeId);const res=CRAF
   const up=first&&MATH.lv<8&&setLevel(MATH.lv+1);if(!up){MATH.wrong=0;MATH.moved="";}
   forgeMsg=`✨ You made ${it.t==="spell"?`${SPELLS[it.id].icon} ${SPELLS[it.id].name}`:rec.name}!`+(up?` Right on the first try — the problems are now ${CRAFT.levelName(MATH.lv)}.`:" A new set of problems is ready for the next one.");
   FX.stars(P.pos.clone().add(new THREE.Vector3(0,1.4,0)),"gold",5,1.4);renderBag();}
-$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-shopitem],[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
+$("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot],[data-shopitem],[data-job],[data-jobquit],#jobGo,[data-rec],[data-mat],[data-tray],[data-sell],[data-buy],[data-food],[data-tochest],[data-fromchest],[data-drop],[data-book],[data-tier],#conGo,#conNew,[data-haggle],[data-hsell],#hagGo,#hagNo,#workGo,#forgeGo,#buildGo,#qAccept,#qHand");if(!t)return;
   if(t.dataset.slot!==undefined){const i=+t.dataset.slot;if(bagPick<0){if(INV[i])bagPick=i;}else{const a=INV[bagPick];INV[bagPick]=INV[i];INV[i]=a;bagPick=-1;select(SEL);}renderBag();return;}
   if(t.dataset.book){setBook(t.dataset.book);forgeMsg=t.dataset.book==="china"?"📚 China standard: the problems now follow what Chinese schools teach in each grade.":"📚 US math book.";forgeOk=true;renderBag();return;}
   if(t.dataset.tier){contestNew(t.dataset.tier);renderBag();return;}
@@ -1613,6 +1654,7 @@ $("#bagBody").addEventListener("click",e=>{const t=e.target.closest("[data-slot]
   if(t.id==="conGo"){const i=$("#conIn"),w=$("#conWhy");CONTEST.ans=i?i.value:"";CONTEST.draft=w?w.value:"";const r=contestAnswer(i&&i.value!==""?parseInt(i.value,10):null,CONTEST.draft);CONTEST.ok=r.ok;CONTEST.msg=r.msg;renderBag();return;}
   if(t.dataset.drop!==undefined){dropOwn(+t.dataset.drop);bagPick=-1;renderBag();return;}
   if(t.dataset.rec){forgeId=t.dataset.rec;tray={};forgeMsg="";renderBag();return;}
+  if(jobClick(t))return;
   if(t.dataset.shopitem){shopBuy(+t.dataset.shopitem);renderBag();return;}
   if(t.dataset.food){const f=FOODS[t.dataset.food];if(COINS<f.price){forgeOk=false;forgeMsg="Not enough coins yet — sell something at Mercator's stall.";}else if(addItem({t:"food",id:t.dataset.food,n:1})){COINS-=f.price;coinHud();forgeOk=true;forgeMsg=`${f.icon} ${f.name} is in your bag.`;}else{forgeOk=false;forgeMsg="Your bag is full.";}renderBag();return;}
   if(t.dataset.tochest!==undefined){const i=+t.dataset.tochest,k=CHEST.indexOf(null);if(INV[i]&&k>=0){CHEST[k]=INV[i];INV[i]=null;select(SEL);}renderBag();return;}
@@ -1658,5 +1700,5 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
