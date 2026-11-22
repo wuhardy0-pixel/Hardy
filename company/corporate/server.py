@@ -3769,7 +3769,8 @@ def elementum_state():
     me = dict(id=pid, name=name, x=round(num("x", -200, 200), 2), y=round(num("y", -5, 60), 2), z=round(num("z", -200, 200), 2),
               yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
               held=str(j.get("held") or "")[:4], fx=str(j.get("fx") or "")[:24], bf=str(j.get("bf") or "")[:4], room=room, t=now,
-              car=int(num("car", 0, 16777215)))   # the color of the car they're driving (0 = on foot), so the others see the car
+              car=int(num("car", 0, 16777215)),   # the color of the car they're driving (0 = on foot), so the others see the car
+              po=re.sub(r"[^a-z]", "", str(j.get("po") or ""))[:8], bo=bool(j.get("bo")))   # what they're doing (sitting, climbing, sleeping) and whether they're in a boat
     evs = j.get("ev") if isinstance(j.get("ev"), list) else []
     try:
         since = int(j.get("since") or 0)
@@ -3802,7 +3803,9 @@ def elementum_state():
         w = ELEM_WORLD.setdefault(room, {"seq": 0, "events": [], "keys": {}})
         won = []
         for ev in evs[:40]:
-            if not isinstance(ev, dict) or ev.get("k") not in ELEM_EV_KINDS or len(json.dumps(ev)) > 600:
+            # a thing someone set down carries its whole design (so everyone sees it exactly as built): those may be bigger
+            big = ev.get("k") == "key" and str(ev.get("key", "")).startswith("pl:") if isinstance(ev, dict) else False
+            if not isinstance(ev, dict) or ev.get("k") not in ELEM_EV_KINDS or len(json.dumps(ev)) > (8000 if big else 600):
                 continue
             ev = dict(ev, by=name)
             if ev["k"] == "take":   # picking up something from the ground: the first one to ask gets it

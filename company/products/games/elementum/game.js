@@ -97,7 +97,8 @@ function heldMesh(k){const g=new THREE.Group(),geo=new THREE.PlaneGeometry(1,1),
 function setHeld(it){const k=it&&it.t!=="weapon"?picKey(it):"";itemMount.visible=!!k;if(k===HELD.k)return;HELD.k=k;
   if(HELD.mesh){itemMount.remove(HELD.mesh);HELD.mesh=null;}if(!k)return;
   const sz=it.t==="spell"?.5:it.t==="coin"?.3:.42;HELD.mesh=heldMesh(k);HELD.mesh.scale.setScalar(sz);HELD.mesh.position.set(0,sz*.38,0);itemMount.add(HELD.mesh);}
-LOOK.loadRig("/play/elementum/models/hero.glb",true,r=>{if(!r)return;RIG=r;if(THREE.GLTFLoader)new THREE.GLTFLoader().load("/play/elementum/models/villager.glb",g=>{const c=g.animations.find(c=>/Sit_Chair_Idle/.test(c.name));if(c)r.clips.Sit_Chair_Idle=c;});   // the hero has no sitting pose: borrow the villagers' (same skeleton)
+let SIT_CLIP=null;
+LOOK.loadRig("/play/elementum/models/hero.glb",true,r=>{if(!r)return;RIG=r;if(THREE.GLTFLoader)new THREE.GLTFLoader().load("/play/elementum/models/villager.glb",g=>{const c=g.animations.find(c=>/Sit_Chair_Idle/.test(c.name));if(c){r.clips.Sit_Chair_Idle=c;SIT_CLIP=c;}});   // the hero has no sitting pose: borrow the villagers' (same skeleton)
   LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;body.add(r.root);hips.visible=false;
   r.base("Idle",{snap:true});r.up("2H_Ranged_Aiming",{snap:true});});
 const shadowDisc=new THREE.Mesh(new THREE.CircleGeometry(.35,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.18,depthWrite:false}));shadowDisc.rotation.x=-Math.PI/2;shadowDisc.position.y=.015;body.add(shadowDisc);
@@ -1532,7 +1533,7 @@ function mpAvatar(p){const g=new THREE.Group();g.position.set(p.x,p.y,p.z);scene
   LOOK.loadRig("/play/elementum/models/hero.glb",false,r=>{if(!r||!o.g.parent)return;o.rig=r;LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;g.add(r.root);r.base("Idle",{snap:true});});return o;}
 function mpApply(list){const seen=new Set();
   for(const p of list){seen.add(p.id);let o=MP.others[p.id];if(!o)o=MP.others[p.id]=mpAvatar(p);
-    o.to.set(p.x,p.y,p.z);o.yaw=p.yaw;o.sp=p.sp;o.air=p.air;o.might=p.bf==="S";
+    o.to.set(p.x,p.y,p.z);o.yaw=p.yaw;o.sp=p.sp;o.air=p.air;o.po=p.po||"";o.bo=!!p.bo;o.might=p.bf==="S";
     // driving: show their car under them (and hide the walking hero)
     if((p.car||0)!==(o.carColor||0)){if(o.car){scene.remove(o.car.g);o.car=null;}o.carColor=p.car||0;if(o.carColor)o.car=makeCar(p.x,p.z,p.yaw-Math.PI,o.carColor,true);if(o.rig)o.rig.root.visible=!o.carColor;}
     if(o.name!==p.name||o.hp!==p.hp){o.name=p.name;o.hp=p.hp;if(o.tag){o.g.remove(o.tag);o.tag.material.map.dispose();}o.tag=nameTag(`${p.name}  ❤ ${p.hp}`);o.tag.position.y=2.55;o.g.add(o.tag);}
@@ -1583,9 +1584,11 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
     if(o.car){const pr=o.car.g.position.clone();o.car.g.position.copy(o.g.position);o.car.g.position.y=0;o.car.g.rotation.y=o.g.rotation.y-Math.PI;o.car.spin+=pr.distanceTo(o.car.g.position)/.38;o.car.wheels.forEach(w=>w.children[0].rotation.x=o.car.spin);if(o.rig)o.rig.root.visible=false;}
     if(!o.glow){o.glow=new THREE.Mesh(new THREE.TorusGeometry(.7,.05,8,32),new THREE.MeshBasicMaterial({color:0xffd36a,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));o.glow.rotation.x=Math.PI/2;o.glow.position.y=.15;o.g.add(o.glow);}
     o.glow.visible=!!o.might;if(o.might){o.glow.rotation.z+=dt*2;if(Math.random()<dt*10)SPARK.emit(o.g.position.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.8),rnd(-.5,.5))),new THREE.Vector3(0,1.2,0),C(0xffd36a),.6,{grav:-.5});}
-    if(o.rig){o.rig.base(o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
+    if(o.rig&&SIT_CLIP&&!o.rig.clips.Sit_Chair_Idle)o.rig.clips.Sit_Chair_Idle=SIT_CLIP;
+    if(o.bo&&!o.boatG){o.boatG=placedMesh({id:"boat"});o.boatG.rotation.y=Math.PI;o.g.add(o.boatG);}else if(!o.bo&&o.boatG){o.g.remove(o.boatG);o.boatG=null;}
+    if(o.rig){o.rig.base(o.po==="sit"&&o.rig.clips.Sit_Chair_Idle?"Sit_Chair_Idle":o.po==="climb"||o.po==="sleep"||o.bo?"Idle":o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
+  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:P.sitting?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
@@ -2334,9 +2337,19 @@ ACTS.push({get pos(){return HOME.h.doorP;},r:2.4,hidden:()=>!!MYHOUSE,label:()=>
 const PLACED={mine:[],remote:{},room:null,max:40};
 function placedMesh(it){const parts=it.parts&&it.parts.length?it.parts:((BUILD.DESIGNS[it.id]||[])[0]||{parts:()=>[]}).parts();
   if(parts.length)return furnitureMesh(parts);const s=iconSprite((BUILD.ITEMS[it.id]||{icon:"🛠️"}).icon);s.scale.setScalar(.8);s.position.y=.5;const g=new THREE.Group();g.add(s);return g;}
-function placedSave(){try{localStorage.setItem("elementum.placed",JSON.stringify(PLACED.mine.map(q=>({pid:q.pid,item:q.item,x:q.x,z:q.z,r:q.r}))));}catch(e){}}
-function placedShare(q,gone){if(!MP.ok)return;setKey("pl:"+q.pid,gone?null:{i:q.item.id,x:R2(q.x),z:R2(q.z),r:+q.r.toFixed(2)});}
-function addPlaced(q){q.g=placedMesh(q.item);q.g.position.set(q.x,0,q.z);q.g.rotation.y=q.r;scene.add(q.g);PLACED.mine.push(q);return q;}
+function placedSave(){try{localStorage.setItem("elementum.placed",JSON.stringify(PLACED.mine.map(q=>({pid:q.pid,item:q.item,x:q.x,z:q.z,r:q.r,open:!!q.open,fl:!!q.flowers}))));}catch(e){}}
+const compactParts=parts=>(parts||[]).slice(0,40).map(p=>{const o={};for(const k in p){if(k==="id"||k==="name")continue;const v=p[k];o[k]=typeof v==="number"?Math.round(v*10)/10:v;}return o;});
+function placedVal(q){const v={i:q.item.id,x:R2(q.x),z:R2(q.z),r:+q.r.toFixed(2),o:q.open?1:0,f:q.flowers?1:0};const p=compactParts(q.item.parts);if(p.length&&JSON.stringify(p).length<7000)v.p=p;return v;}
+function placedShare(q,gone){if(!MP.ok)return;setKey("pl:"+q.pid,gone?null:placedVal(q));}
+// walls and roofs of what you set down are solid (Barbara: "make the walls solid and roof"): each big part becomes a box you bump into and
+// can stand on (a doghouse's walls, a table top, a roof); thin bits (legs, rails, handles) and doors stay walk-through
+const NOGHOST={material:{visible:false}};
+function solidify(q){unsolidify(q);q.blks=[];q.g.updateMatrixWorld(true);q.g.traverse(m=>{if(!m.isMesh||!m.userData.part||m.userData.part.mat==="door")return;const b=new THREE.Box3().setFromObject(m),w=b.max.x-b.min.x,d=b.max.z-b.min.z,h=b.max.y-b.min.y;
+    if(Math.max(w,d)<.3||h<.03)return;const rec={x:(b.min.x+b.max.x)/2,y:Math.max(0,b.min.y),z:(b.min.z+b.max.z)/2,w,h:b.max.y-Math.max(0,b.min.y),d,mesh:NOGHOST,marks:[],placed:true};BLOCKS.push(rec);q.blks.push(rec);});}
+function unsolidify(q){(q.blks||[]).forEach(b=>{const i=BLOCKS.indexOf(b);if(i>=0)BLOCKS.splice(i,1);});q.blks=[];}
+function addPlaced(q){const fl=q.fl;q.g=placedMesh(q.item);q.g.position.set(q.x,0,q.z);q.g.rotation.y=q.r+(q.open?Math.PI/2:0);scene.add(q.g);PLACED.mine.push(q);solidify(q);if(fl){q.flowers=null;addFlowers(q);}return q;}
+function addFlowers(q){if(q.flowers)return;q.flowers=new THREE.Group();[0xff6a8a,0xffd84a,0xb07aff,0xff9a3a,0xffffff].forEach((c,i)=>{const st=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.35,4),LOOK.toon(0x3f8a3a));const a=i/5*6.28;st.position.set(Math.cos(a)*.03,.2,Math.sin(a)*.03);st.rotation.set(Math.sin(a)*.25,0,Math.cos(a)*.25);q.flowers.add(st);
+    const b=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),LOOK.toon(c));b.position.set(Math.cos(a)*.07,.37,Math.sin(a)*.07);q.flowers.add(b);});const top=new THREE.Box3().setFromObject(q.g).max.y;q.flowers.position.set(q.x,top-.15,q.z);scene.add(q.flowers);}
 function placeThing(i){const it=INV[i];if(!it||it.t!=="build")return;
   if(it.id==="house"){lawSay("House plans go to your empty house plot — walk there and press T.");return;}
   if(P.inCar){lawSay("Get out first to set it down.");return;}if(PLACED.mine.length>=PLACED.max){lawSay(`You've set down ${PLACED.max} things already — pick some up first.`);return;}
@@ -2344,11 +2357,15 @@ function placeThing(i){const it=INV[i];if(!it||it.t!=="build")return;
   INV[i]=null;select(SEL);invHud();const q=addPlaced({pid:"p"+Math.random().toString(36).slice(2,11),item:it,x:at.x,z:at.z,r:P.yaw+Math.PI});placedSave();placedShare(q);
   FX.stars(at.clone().add(new THREE.Vector3(0,.8,0)),"gold",4,1);popNum(at.clone().add(new THREE.Vector3(0,1.6,0)),`set down your ${(BUILD.ITEMS[it.id]||{name:"thing"}).name}`,"spell");}
 {let v=[];try{v=JSON.parse(localStorage.getItem("elementum.placed")||"[]");}catch(e){}(Array.isArray(v)?v:[]).forEach(q=>{if(q&&q.item&&q.pid)addPlaced(q);});}
-function placedKeyApply(pid,val){if(PLACED.mine.some(q=>q.pid===pid))return;const old=PLACED.remote[pid];if(old){scene.remove(old);delete PLACED.remote[pid];if(P.sitting&&P.sitting.q===old.userData.q)standUp();}
-  if(!val||!BUILD.ITEMS[val.i])return;const g=placedMesh({id:val.i});g.position.set(+val.x||0,0,+val.z||0);g.rotation.y=+val.r||0;scene.add(g);PLACED.remote[pid]=g;g.userData.q={pid,item:{id:val.i},x:+val.x||0,z:+val.z||0,r:+val.r||0,g,remote:true};}
+function placedKeyApply(pid,val){const mine=PLACED.mine.find(q=>q.pid===pid);if(mine){if(val&&(!!val.o!==!!mine.open||!!val.f!==!!mine.flowers)){mine.open=!!val.o;mine.g.rotation.y=mine.r+(mine.open?Math.PI/2:0);if(val.f)addFlowers(mine);placedSave();}return;}
+  const old=PLACED.remote[pid];const wasQ=old&&old.userData.q;if(old){if(wasQ)unsolidify(wasQ);scene.remove(old);if(wasQ&&wasQ.flowers)scene.remove(wasQ.flowers);delete PLACED.remote[pid];}
+  if(!val||!BUILD.ITEMS[val.i]){if(wasQ&&P.sitting&&P.sitting.q===wasQ)standUp();if(wasQ&&P.climbing&&P.climbing.q===wasQ)P.climbing=null;return;}
+  const item={id:val.i,parts:Array.isArray(val.p)?val.p.filter(p=>p&&typeof p==="object"):null};const g=placedMesh(item);g.position.set(+val.x||0,0,+val.z||0);g.rotation.y=(+val.r||0)+(val.o?Math.PI/2:0);scene.add(g);PLACED.remote[pid]=g;
+  const q={pid,item,x:+val.x||0,z:+val.z||0,r:+val.r||0,g,remote:true,val,open:!!val.o};g.userData.q=q;solidify(q);if(val.f)addFlowers(q);
+  if(wasQ&&P.sitting&&P.sitting.q===wasQ)P.sitting.q=q;if(wasQ&&P.climbing&&P.climbing.q===wasQ)P.climbing.q=q;}
 const PLACE_ACT={pos:new THREE.Vector3(),q:null};
 ACTS.push({pos:PLACE_ACT.pos,r:1.6,hidden:()=>!PLACE_ACT.q||P.inCar||!!P.sitting||!!P.climbing,label:()=>`Pick up your ${(BUILD.ITEMS[PLACE_ACT.q.item.id]||{name:"thing"}).name}`,
-  run:()=>{const q=PLACE_ACT.q;if(!q)return;if(!canAdd(q.item)){lawSay("Your bag is full.");return;}if(P.climbing&&P.climbing.q===q)P.climbing=null;scene.remove(q.g);if(q.flowers)scene.remove(q.flowers);PLACED.mine.splice(PLACED.mine.indexOf(q),1);placedSave();placedShare(q,true);addItem(q.item);PLACE_ACT.q=null;}});
+  run:()=>{const q=PLACE_ACT.q;if(!q)return;if(!canAdd(q.item)){lawSay("Your bag is full.");return;}if(P.climbing&&P.climbing.q===q)P.climbing=null;unsolidify(q);scene.remove(q.g);if(q.flowers)scene.remove(q.flowers);PLACED.mine.splice(PLACED.mine.indexOf(q),1);placedSave();placedShare(q,true);addItem(q.item);PLACE_ACT.q=null;}});
 // using what's set down (Barbara: "I should be able to sit and interact when I put things down"): sit on a chair, stool or bench; sleep in a
 // bed; open a chest (your chests all hold the same things); drink from a cup, bucket or bowl; read at a bookshelf; open and close a door;
 // put flowers in a vase. It works on other players' things too (except picking them up and their chests).
@@ -2371,9 +2388,9 @@ function useThing(q){const k=useKind(q);if(!k)return;const at=new THREE.Vector3(
   if(k==="climb"){const top=Math.max(1,new THREE.Box3().setFromObject(q.g).max.y-.2);P.climbing={q,top,y:0,x:q.x+Math.sin(q.r)*.35,z:q.z+Math.cos(q.r)*.35};G.firing=false;
     popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"W / forward to climb up, S to go down, Space to let go","spell");return;}if(k==="bed")return startSleep();if(k==="chest"){toggleBag(true,"chest");return;}if(k==="read"){uiOpen(o=>DESIGN.openLibrary(o));return;}
   if(k==="drink"||k==="eat"){if((q.useT||0)>performance.now()){popNum(at,"empty — it fills up again soon","burn");return;}q.useT=performance.now()+20000;P.hp=Math.min(P.maxHp,P.hp+10);hud();popNum(at,k==="drink"?"+10 HP — fresh water!":"+10 HP — yum!","spell");return;}
-  if(k==="door"){q.open=!q.open;const r0=q.r;tween(.4,t=>{q.g.rotation.y=r0+(q.open?t:1-t)*Math.PI/2;});return;}
-  if(k==="vase"){if(!q.flowers){q.flowers=new THREE.Group();[0xff6a8a,0xffd84a,0xb07aff,0xff9a3a,0xffffff].forEach((c,i)=>{const st=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.35,4),LOOK.toon(0x3f8a3a));const a=i/5*6.28;st.position.set(Math.cos(a)*.03,.2,Math.sin(a)*.03);st.rotation.set(Math.sin(a)*.25,0,Math.cos(a)*.25);q.flowers.add(st);
-      const b=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),LOOK.toon(c));b.position.set(Math.cos(a)*.07,.37,Math.sin(a)*.07);q.flowers.add(b);});const top=new THREE.Box3().setFromObject(q.g).max.y;q.flowers.position.set(q.x,top-.15,q.z);scene.add(q.flowers);}
+  const tell=()=>{if(q.remote){if(MP.ok)setKey("pl:"+q.pid,Object.assign({},q.val,{o:q.open?1:0,f:q.flowers?1:0}));}else{placedShare(q);placedSave();}};
+  if(k==="door"){q.open=!q.open;const r0=q.r;tween(.4,t=>{q.g.rotation.y=r0+(q.open?t:1-t)*Math.PI/2;});tell();return;}
+  if(k==="vase"){if(!q.flowers){addFlowers(q);tell();}
     else popNum(at,"mmm — they smell lovely","spell");}}
 ACTS.push({pos:USE_ACT.pos,r:1.5,hidden:()=>!USE_ACT.q||P.inCar||!!P.sitting||!!P.climbing,label:()=>USE_ACT.q?useLabel(USE_ACT.q):"",run:()=>{if(USE_ACT.q)useThing(USE_ACT.q);}});
 ACTS.push({get pos(){return P.pos;},r:5,hidden:()=>!P.sitting,label:"Stand up",run:standUp});
