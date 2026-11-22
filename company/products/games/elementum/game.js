@@ -419,7 +419,7 @@ const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="
 const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
 function itemInfo(it){const f=itemInfo0(it);if(f)f.pic=picKey(it);return f;}
-function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:it.id==="bed"||it.id==="chest"?"Put it in your house — or give it to whoever ordered one":"Give it to whoever ordered it",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
+function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:it.id==="horn"?"Hold it and click to blow it: soldiers come and fight the monsters near you":it.id==="bed"||it.id==="chest"?"Put it in your house — or give it to whoever ordered one":"Give it to whoever ordered it",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
   if(it.t==="food"){const f=FOODS[it.id];return {icon:f.icon,name:f.name,what:f.what,count:it.n};}
@@ -441,6 +441,7 @@ function select(i){SEL=(i+9)%9;const it=held();gunMount.visible=!!(it&&it.t==="w
 function useHeld(first){const it=held();if(!it){if(first)punch();return;}
   if(it.t==="weapon"){if(WEAPONS[G.id].auto||first)fire();return;}
   if(!first)return;
+  if(it.t==="build"&&it.id==="horn"){blowHorn();return;}
   if(it.t==="spell"){if(castSpell(it.id)){it.uses--;if(it.uses<=0)INV[SEL]=null;invHud();hud();}return;}
   if(it.t==="food"){if(eat(it)){it.n--;if(!it.n)INV[SEL]=null;invHud();hud();}return;}
   if(it.t==="potion"&&it.id==="fortis"){drinkFortis();mpFx("fortis");it.n--;if(!it.n)INV[SEL]=null;invHud();hud();return;}
@@ -1466,7 +1467,7 @@ function stepDay(dt){const sNow=(Date.now()-CLOCK.epoch)/1000/DAY.len+CLOCK.offs
   const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${townDay()} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
 }
 scene.add(sun.target);
-function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepOrders(dt);stepTown(dt);stepHomes();stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepOrders(dt);stepTown(dt);stepHomes();stepSoldiers(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1564,6 +1565,7 @@ function applyEv(ev){
   if(ev.k==="wall"){const b=BLOCKS[ev.b];if(b&&ev.b<WORLD.STATIC)wallHit(b,V3(ev.p),V3(ev.n),ev.pw||1);return;}
   if(ev.k==="scorch")return scorch(new THREE.Vector3(ev.x,0,ev.z),ev.r,ev.el);
   if(ev.k==="ko"){const pp=PEOPLE.find(x=>x.name===ev.name&&!x.guard);if(pp&&!pp.down)knockOut(pp);return;}
+  if(ev.k==="horn"){const at=new THREE.Vector3(+ev.x||0,0,+ev.z||0);if(at.distanceTo(P.pos)<90){hornSound();callSoldiers(at,true);lawSay(`📯 ${ev.by||"Someone"} blew a horn — the soldiers are coming!`);}return;}
   if(ev.k==="mobs"){const pk=PACKS[ev.p|0];if(!pk||pk.mine||!Array.isArray(ev.l))return;ev.l.forEach((a,j)=>{if(pk[j])mobNet(pk[j],a);});return;}
   if(ev.k==="mdmg"){const d=ENEMIES[ev.i|0];if(!d||!d.pack.mine||d.down)return;d.hp=Math.max(0,d.hp-Math.max(0,Math.min(999,ev.n|0)));d.alert=8;d.pack.forEach(m=>{m.alert=Math.max(m.alert,8);});
     if(d.hp<=0){d.down=true;setTimeout(()=>enemyDown(d),0);}else mobAct(d,"hit");return;}   // (outside worldApply, so the loot gets shared)
@@ -2086,6 +2088,34 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
+// ---------------- the horn (2026-11-22, Barbara: "you can make a horn that makes the soldiers attack the monsters — and kill them").
+// Build a horn at the workbench, hold it and click (or press FIRE) to blow it: four soldiers come running, hunt down every monster
+// near you and fight until they're dead (they're hard to hurt). They stay one minute, then march home. The horn needs 90 s to call again.
+// Other players in your room hear it and see the soldiers too; only your soldiers' blows count, so monsters aren't hit twice.
+const HORN={cd:0,squad:[]};
+function hornSound(){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)());const t=A.currentTime;
+  [[196,0],[247,.55],[294,1.05]].forEach(([f,at])=>{const o=A.createOscillator(),g=A.createGain(),lp=A.createBiquadFilter();o.type="sawtooth";o.frequency.setValueAtTime(f*.97,t+at);o.frequency.linearRampToValueAtTime(f,t+at+.08);
+    lp.type="lowpass";lp.frequency.value=1400;g.gain.setValueAtTime(0,t+at);g.gain.linearRampToValueAtTime(.18,t+at+.06);g.gain.setValueAtTime(.18,t+at+(at<1?.42:.9));g.gain.linearRampToValueAtTime(0,t+at+(at<1?.5:1.1));
+    o.connect(lp);lp.connect(g);g.connect(A.destination);o.start(t+at);o.stop(t+at+1.2);});}catch(e){}}
+function callSoldiers(at,fake){for(let i=0;i<4;i++){const a=i/4*Math.PI*2+.4,x=at.x+Math.cos(a)*3,z=at.z+Math.sin(a)*3;const o=npc("guard.glb",x,z,0);
+    const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(m.name==="1H_Sword"||m.name==="Round_Shield")m.visible=true;});},300);
+    const lb=label("Soldier",0xffd27a);lb.scale.set(1.5,.3,1);lb.position.y=2.4;o.g.add(lb);o.g.scale.setScalar(.01);tween(.5,k=>o.g.scale.setScalar(Math.max(.01,k)));
+    for(let k=0;k<10;k++)PUFF.emit(new THREE.Vector3(x,rnd(.2,1.5),z),rnd3(1.2),C(0xc8b89a).multiplyScalar(.5),.8,{drag:2});
+    HORN.squad.push({o,t:60,cool:rnd(0,.6),target:null,fake:!!fake,home:at.clone()});}}
+function blowHorn(){if(P.down)return;if(HORN.cd>0){popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`the soldiers are still busy — ${Math.ceil(HORN.cd)} s`,"burn");return;}
+  HORN.cd=90;hornSound();callSoldiers(P.pos.clone(),false);share({k:"horn",x:R2(P.pos.x),z:R2(P.pos.z)});
+  const near=ENEMIES.filter(d=>!d.down&&d.g.position.distanceTo(P.pos)<45).length;
+  lawSay(near?`📯 You blow the horn — four soldiers come running to fight the ${near} monster${near>1?"s":""} nearby!`:"📯 You blow the horn — the soldiers come, but there are no monsters near you.");}
+function stepSoldiers(dt){HORN.cd=Math.max(0,HORN.cd-dt);
+  for(let i=HORN.squad.length-1;i>=0;i--){const s=HORN.squad[i],g=s.o.g,r=s.o.rig;s.t-=dt;s.cool-=dt;
+    if(s.t<=0){if(!s.gone){s.gone=true;tween(.5,k=>g.scale.setScalar(Math.max(.01,1-k)),()=>{scene.remove(g);const j=TOWNFOLK.indexOf(s.o);if(j>=0)TOWNFOLK.splice(j,1);});}if(s.t<-1)HORN.squad.splice(i,1);continue;}
+    if(!s.target||s.target.down||s.target.g.position.distanceTo(g.position)>60){s.target=null;let bd=45;for(const d of ENEMIES){if(d.down)continue;const q=d.g.position.distanceTo(g.position);if(q<bd){bd=q;s.target=d;}}}
+    const goal=s.target?s.target.g.position:(s.fake?s.home:P.pos);const to=new THREE.Vector3(goal.x-g.position.x,0,goal.z-g.position.z),dist=to.length();
+    if(dist>(s.target?1.7:3)){to.normalize();g.position.addScaledVector(to,Math.min(dist,(s.target?5.5:4)*dt));g.rotation.y=Math.atan2(to.x,to.z);if(r&&!r.fullName)r.base("Running_A");}
+    else{if(s.target){g.rotation.y=Math.atan2(to.x,to.z);if(s.cool<=0){s.cool=1.1;if(r)r.full("1H_Melee_Attack_Chop",{once:true,restart:true,dur:.7,then:()=>r.clearFull()});const d=s.target;
+        setTimeout(()=>{if(d.down||s.fake)return;if(d.g.position.distanceTo(g.position)<2.6){const at=d.g.position.clone().add(new THREE.Vector3(0,1.1,0));damage(d,26,at,false,{el:"plain",area:true});sparks(at,6,0xffffff);}},300);}}
+      else if(r&&!r.fullName)r.base("Idle");}}}
+
 // ---------------- the moat and the river (2026-11-22, Barbara: "add a river for the boat that is a moat and you can sail around across the map").
 // A moat runs all the way round the walls (and round the gas station), with bridges at the gates. From the north side a river flows
 // north across the map to a lake. Walking through water is slow wading; cars can't go in; monsters can't cross it. A boat you build
@@ -2293,5 +2323,5 @@ ACTS.push({get pos(){return HOME.h.doorP;},r:2.4,hidden:()=>!!MYHOUSE,label:()=>
     const h=HOME.h;setHouseBuilt(h,true,MYHOUSE);for(let k=0;k<30;k++)PUFF.emit(new THREE.Vector3(h.x+rnd(-3,3),rnd(0,3),h.z+rnd(-2,2)),rnd3(1.5),C(0xc8b89a).multiplyScalar(.5),1.2,{drag:2});
     if(MP.ok&&h.name)setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall});lawSay("Your house is built! It's empty — build a bed and a chest at the workbench and put them in.");}});
 
-window.__el={openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

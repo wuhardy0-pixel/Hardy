@@ -29,6 +29,7 @@ const ITEMS={
   cart:{name:"cart",level:"hard",icon:"🛒",wiki:"Cart",needs:[{k:"wheels",n:2},{k:"basin",min:100},{k:"stands"},{k:"onePiece"}],ask:"I need a cart with wheels to carry hay from the field."},
   boat:{name:"boat",level:"hard",icon:"⛵",wiki:"Boat",needs:[{k:"basin",min:150},{k:"floats",kg:80},{k:"wideBoat",min:80},{k:"onePiece"}],ask:"I want to fish on the lake. I need a boat that floats with me in it."},
   chest:{name:"chest",level:"medium",icon:"🧰",wiki:"Chest (furniture)",needs:[{k:"storage",min:50},{k:"stands"},{k:"onePiece"}],ask:"I have nowhere to keep my things. I need a chest with a lid."},
+  horn:{name:"horn",level:"easy",icon:"📯",wiki:"Horn (instrument)",needs:[{k:"horn",len:20},{k:"onePiece"}],ask:"The soldiers need a horn — when I blow it, they come running to fight the monsters."},
 };
 const ORDER=Object.keys(ITEMS);
 // what each design idea is about — the library's "Design ideas" book shows a picture and these words; nothing is loaded into the workbench
@@ -88,6 +89,9 @@ const IDEA_TEXT={
   "Rowing boat":"A hollow wooden hull, open at the top, with a seat across the middle.",
   "Canoe":"A long, narrow, light hull — fast through the water.",
   "Fishing boat":"A big, wide hull with a mast in the middle.",
+  "Hunting horn":"A long metal cone, hollow inside, with a small mouthpiece at the narrow end — the wide end spreads the sound far.",
+  "Trumpet":"A long thin tube with a flared bell at the end — the long tube makes the note low and loud.",
+  "Ram's horn":"An animal horn, hollowed out — the oldest kind of horn people ever blew.",
   "Treasure chest":"A hollow box with a separate lid resting on top and a lock on the front.",
   "Toy box":"A hollow box with its lid built on.",
   "Big storage chest":"A long, deep chest with a metal band around it to keep the wood from splitting.",
@@ -157,6 +161,9 @@ const DESIGNS=(()=>{let k=0;const id=()=>"d"+(k++).toString(36);
   boat:[{name:"Rowing boat",parts:()=>[shell(120,50,280,3,0,0,25,0,"wood","#a8743f","hull"),box(114,4,30,0,40,0,"wood","#7a4a28","seat")]},
         {name:"Canoe",parts:()=>[shell(80,40,450,1,0,0,20,0,"wood","#c8603a","hull")]},
         {name:"Fishing boat",parts:()=>[shell(180,80,420,4,0,0,40,0,"wood","#3f6fa8","hull"),box(10,200,10,0,180,0,"wood","#7a4a28","mast")]}],
+  horn:[{name:"Hunting horn",parts:()=>[P("cone",{r:6,h:35,wall:.4,x:0,y:7,z:0,rz:90},"metal","#d8ac4a","horn"),P("tube",{r:1,h:6,wall:.3,bottom:0,x:-20.5,y:7,z:0,rz:90},"metal","#b8902a","mouthpiece")]},
+         {name:"Trumpet",parts:()=>[P("tube",{r:1,h:50,wall:.2,bottom:0,x:0,y:6,z:0,rz:90},"metal","#e8c040","tube"),P("cone",{r:6,h:12,wall:.3,x:31,y:6,z:0,rz:-90},"metal","#e8c040","bell")]},
+         {name:"Ram's horn",parts:()=>[P("cone",{r:5,h:40,wall:.6,x:0,y:6,z:0,rz:90,ry:20},"stone","#e8dcc0","horn")]}],
   chest:[{name:"Treasure chest",parts:()=>[shell(80,50,50,2,0,0,25,0,"wood","#8a5a32","box"),box(80,6,50,0,53,0,"wood","#6a3a22","lid"),box(10,8,2,0,48,-26,"metal","#d8ac4a","lock")]},
          {name:"Toy box",parts:()=>[shell(70,45,45,2,1,0,22.5,0,"wood","#e8c040","box")]},
          {name:"Big storage chest",parts:()=>[shell(110,60,60,2.5,0,0,30,0,"wood","#5a3a22","box"),box(110,6,60,0,63,0,"wood","#5a3a22","lid"),box(116,4,4,0,30,-31,"metal","#333","band")]}],
@@ -334,6 +341,11 @@ function check(nd,A,item){const r=(ok,fact,why,whyFail,extra)=>Object.assign({ok
     return push>=total*1.3?r(true,`It can push aside ${Math.round(push)} litres of water, which can hold up ${kg(push)}; the boat plus a ${kg(nd.kg)} rider weighs ${kg(total)} — it floats with room to spare.`,"A boat floats because it pushes water out of the way, and the water pushes back up. Every litre of water pushed aside holds up 1 kg (that's Archimedes' discovery). A hollow hull pushes aside a lot of water but weighs little, so it floats.",undefined,{float:true}):
       r(false,`It can push aside only ${Math.round(push)} litres of water (holding up ${kg(push)}), but the boat plus a ${kg(nd.kg)} rider weighs ${kg(total)} — it sinks.`,"","Water holds up 1 kg for every litre the boat pushes aside (Archimedes' principle). To float, the hollow inside must be big enough that the water it can push away weighs more than the boat and everything in it.",{float:false});}
   case "wideBoat":{const w=Math.min(A.box.max.x-A.box.min.x,A.box.max.z-A.box.min.z);return w>=nd.min?r(true,`It's ${cm(w)} wide — steady on the water.`,"A wide hull is steady: when it leans, one side sinks deeper and pushes up harder, rolling it back upright."):r(false,`It's only ${cm(w)} wide — it would roll over when you climb in.`,"","A narrow boat rolls over easily: a wide hull pushes back when it leans, so it stays upright.");}
+  case "horn":{const hs=A.P.filter(a=>(a.p.shape==="cone"&&n(a.p.wall,0)>0)||(a.p.shape==="tube"&&!(n(a.p.bottom,0)>0)&&!(n(a.p.top,0)>=.5)));
+    const solid=A.P.find(a=>a.p.shape==="cone"||a.p.shape==="cylinder");const L=Math.max(A.box.max.x-A.box.min.x,A.box.max.y-A.box.min.y,A.box.max.z-A.box.min.z);
+    if(!hs.length)return r(false,solid?"It's solid all the way through — there's no air inside to vibrate, so it can't make a sound.":"There's no hollow tube or cone for the air to go through.","","A horn works because air inside a hollow tube vibrates when you buzz your lips at one end. A solid part has no air inside, so it stays silent. (Make the cone or cylinder hollow — and leave its ends open.)");
+    if(L<nd.len)return r(false,`It's only ${cm(L)} long — too short to make a loud, low call (at least ${nd.len} cm).`,"","A longer column of air vibrates more slowly, which makes a lower, louder note that carries far. Short tubes only squeak.");
+    return r(true,`It's a hollow horn ${cm(L)} long, open at the ends${hs.some(a=>a.p.shape==="cone")?", flaring wider at one end":""}.`,"When you buzz your lips into the narrow end, the air inside the tube vibrates. A longer tube makes a lower note, and a wide flared end (the bell) pushes the sound out into the air so it carries a long way — far enough for the soldiers to hear.");}
   case "storage":{const sh=A.P.filter(a=>a.p.shape==="shell"&&upright(a)&&a.up.y>0).map(a=>{const p=a.p,t=Math.min(p.wall,p.w/2,p.d/2);return {a,L:(p.w-2*t)*(p.d-2*t)*(p.h-t)/1000};}).sort((x,y)=>y.L-x.L)[0];
     if(!sh)return r(false,"There's no hollow box to keep things in.","","A chest is a hollow box: a floor and four walls around an empty space, and a lid on top. A solid block has no room inside. (Start from a Hollow box, or use Make hollow.)");
     const lid=n(sh.a.p.top,0)>=.5||A.P.some(b=>b!==sh.a&&A.touch(b,sh.a)&&b.box.min.y>=sh.a.box.max.y-2);

@@ -3750,7 +3750,7 @@ ELEM_HOUSE_SLOTS = 6
 ELEM_WORLD = {}   # room -> {"seq": int, "events": [(seq, sender_id, ev)], "keys": {key: value}}
 # "mobs" (2026-11-21): the player who looks after a monster pack sends where its monsters are, so everyone sees them in the same place;
 # "mdmg": someone else hit one of those monsters
-ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take", "mobs", "mdmg"}
+ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take", "mobs", "mdmg", "horn"}   # "horn": someone blew a horn — soldiers come
 
 @app.post("/api/elementum/state")
 def elementum_state():
