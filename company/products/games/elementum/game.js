@@ -413,13 +413,13 @@ function howToGet(it){if(!it)return "";const make=id=>CRAFT.RECIPES.some(r=>r.gi
   if(it.t==="food")return "Buy it from the cook's 🍞 stall · or cook it at the ⚒️ Forge (Cook food).";
   if(it.t==="spell")return `Monsters drop spell scrolls · Mercator sells a few · make a ${SPELLS[it.id].el} scroll at the ⚒️ Forge.`;return "";}
 // every thing you can hold has a real picture (product-photo style, made with Gemini 2026-11-20, in items/): bag, shop, forge, the ground, your hand
-const PIC=k=>"/play/elementum/items/"+k+".webp";
-const picKey=it=>it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
+const PIC=k=>String(k).startsWith("data:")?k:"/play/elementum/items/"+k+".webp";
+const picKey=it=>it.t==="build"?(it.thumb||"hand_fist"):it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
 const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="false">`;
 const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
 function itemInfo(it){const f=itemInfo0(it);if(f)f.pic=picKey(it);return f;}
-function itemInfo0(it){if(!it)return null;if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
+function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:"Give it to whoever ordered it",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
   if(it.t==="food"){const f=FOODS[it.id];return {icon:f.icon,name:f.name,what:f.what,count:it.n};}
@@ -475,7 +475,7 @@ function dropItem(at,it,life,sid){const f=itemInfo(it);const hex=it.t==="spell"?
   scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||60,sid:sid||null});return PICKUPS[PICKUPS.length-1];}
 function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);setKey("drop:"+d.sid,{it:d.it,x:R2(d.g.position.x),z:R2(d.g.position.z)});}
 // dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
-function dropOwn(i){const it=INV[i];if(!it||P.down)return false;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=0;
+function dropOwn(i){const it=INV[i];if(!it||P.down)return false;if(it.t==="build"){popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),"keep it — someone is waiting for it","burn");return false;}const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=0;
   if(it.t==="weapon")it.ammo=null;const dp=dropItem(at,it,300);dp.hold=true;shareDrop(dp);INV[i]=null;if(i===SEL)select(SEL);invHud();hud();
   const f=itemInfo(it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`dropped ${f.name}`,"spell",f.pic);return true;}
 function stepPickups(dt){for(let i=PICKUPS.length-1;i>=0;i--){const d=PICKUPS[i];d.t+=dt;d.life-=dt;d.bob.position.y=.9+Math.sin(d.t*3)*.12;if(d.bob.isMesh)d.bob.rotation.y+=dt*2.2;d.ring.scale.setScalar(1+Math.sin(d.t*4)*.08);
@@ -511,7 +511,7 @@ function wallBetween(a,b){const d=b.clone().sub(a);const len=d.length();const r=
 // ---------------- coins and the market: the merchant's stall in town buys what you find and sells what you need ----------------
 let COINS=0;
 const WPRICE={rifle:8,shotgun:25,staff:30,repeater:45,cannon:50,arcus:45};
-function sellPrice(it){if(!it)return 0;if(it.t==="food")return Math.max(1,Math.floor(FOODS[it.id].price/2));if(it.t==="mat")return MAT[it.id].sell||1;if(it.t==="potion")return it.id==="fortis"?12:8;if(it.t==="spell")return 3*Math.max(1,it.uses);if(it.t==="weapon")return WPRICE[it.id]||10;return 0;}
+function sellPrice(it){if(!it||it.t==="build")return 0;if(it.t==="food")return Math.max(1,Math.floor(FOODS[it.id].price/2));if(it.t==="mat")return MAT[it.id].sell||1;if(it.t==="potion")return it.id==="fortis"?12:8;if(it.t==="spell")return 3*Math.max(1,it.uses);if(it.t==="weapon")return WPRICE[it.id]||10;return 0;}
 let OFFERS=[];let offersT=0;let HAG=null;const HAGNO=new Set();   // HAG: the deal Mercator is offering right now; HAGNO: stacks he won't haggle over again
 function refreshOffers(){HAGNO.clear();HAG=null;const sp=[...DROP_SPELLS].sort(()=>Math.random()-.5).slice(0,3);
   OFFERS=[{t:"weapon",id:"rifle",price:30},{t:"potion",id:"potion",n:1,price:20},{t:"potion",id:"fortis",n:1,price:30},{t:"mat",id:"ferrum",n:1,price:MAT.ferrum.buy},{t:"mat",id:"lignum",n:1,price:MAT.lignum.buy},
@@ -531,7 +531,7 @@ const MERCHANT={pos:new THREE.Vector3(2,.4,13.2),rig:null};
   LOOK.loadRig("/play/elementum/models/merchant.glb",false,r=>{if(!r)return;MERCHANT.rig=MERCHANT.o.rig=r;mh.add(r.root);r.root.traverse(o=>{if(o.name==="Mug")o.visible=true;});r.base("Idle",{snap:true});});
   {const m=block(2,12,3.6,1.4,1,0x8a5a32);m.material.visible=false;m.castShadow=false;}}   // the counter: you bump into it, shots stop at it
 const nearMerchant=()=>P.pos.distanceTo(MERCHANT.pos)<4.2;
-function sell(i){const it=INV[i];if(!it||!nearMerchant())return;const pr=sellPrice(it);COINS+=pr;
+function sell(i){const it=INV[i];if(!it||it.t==="build"||!nearMerchant())return;const pr=sellPrice(it);COINS+=pr;
   if(it.t==="mat"||it.t==="potion"||it.t==="food"){it.n--;if(!it.n)INV[i]=null;}else INV[i]=null;
   if(i===SEL)select(SEL);invHud();hud();coinHud();if(MERCHANT.rig)MERCHANT.rig.full("Interact",{once:true,restart:true,dur:.8,then:()=>MERCHANT.rig.clearFull()});return pr;}
 function buy(k,price){const o=OFFERS[k];if(!o||!nearMerchant())return "far";price=price===undefined?o.price:price;if(COINS<price)return "poor";const it=Object.assign({},o);delete it.price;delete it.deal;delete it.noHag;if(!addItem(it))return "full";
@@ -643,9 +643,9 @@ function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;$("#
   popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?(z.night?"Good morning — fully rested!":"what a nap — fully rested!"):"you woke up early"),"spell");}
 function stepSleep(){const z=P.sleeping;if(!z)return;const k=Math.min(1,(Date.now()-z.t0)/(z.until-z.t0));P.hp=z.hp0+(P.maxHp-z.hp0)*k;P.vel.set(0,0,0);
   $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(hourNow());const left=Math.ceil((z.until-Date.now())/1000);$("#sleepLeft").textContent=left>0?`about ${left>=60?Math.round(left/60)+" min":left+" s"} to go`:"";if(k>=1)endSleep(true);}
-ACTS.push({get pos(){return HOME.bed;},r:2.2,label:()=>isNight()?"🛏️ Sleep until morning":"🛏️ Take a nap",run:sleep});
-ACTS.push({get pos(){return HOME.chest;},r:2,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
-ACTS.push({get pos(){return HOME.door;},r:2,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
+ACTS.push({get pos(){return HOME.bed;},r:2.2,hidden:()=>!HOME.h.built,label:()=>isNight()?"🛏️ Sleep until morning":"🛏️ Take a nap",run:sleep});
+ACTS.push({get pos(){return HOME.chest;},r:2,hidden:()=>!HOME.h.built,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
+ACTS.push({get pos(){return HOME.door;},r:2,hidden:()=>!HOME.h.built,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
 HOUSES.forEach(h=>ACTS.push({pos:h.doorP,r:1.8,hidden:()=>h.mine||!h.locked,label:()=>`🔒 ${h.name}'s house is locked`,run:()=>{}}));
 // --- trees you can chop (punch or shoot them): wood for everything; they grow back
 const TREES=[];
@@ -720,7 +720,7 @@ function workNow(v,ans){const q=workQ(v);if(!q)return {ok:false,msg:""};const w=
 const MONSTER_NAMES=()=>Object.keys(ENEMY_TYPES);
 function newQuest(v){let r=Math.random();let q;
   if(v.q&&v.q.k==="work"&&!v.q.fixed)cottageState(v.home,v.q.job,v.q.job==="fence"&&v.home.fenced?"fixed":"ok");   // a job nobody did: put the cottage back
-  if(r<.42){const job=pick(["roof","patch","fence"]),w=Object.assign(CRAFT.job(job,MATH.lv),{tries:0});
+  if(r<.42&&(!v.home.lot||v.home.lot.built)){const job=pick(["roof","patch","fence"]),w=Object.assign(CRAFT.job(job,MATH.lv),{tries:0});
     const text={roof:"A storm tore holes in my roof! Could you fix it with 🪵 planks? Come to my cottage — you'll have to work out how many planks it takes.",
       patch:"Something smashed holes in my cottage wall. Could you patch them with 🔩 iron plates? Work out how many at my cottage.",
       fence:v.home.fenced?"The wind knocked my garden fence flat! Could you rebuild it with 🪵 posts? Work out how many at my garden.":"The sheep keep eating my cabbages. Could you build a fence around my garden with 🪵 posts? Work out how many at my garden."}[job];
@@ -914,7 +914,7 @@ const SPECIAL={"1,1,-1":{name:"Taberna — deep-dish pizza",awning:0xc8432f,eat:
 // ---------------- inside the buildings (2026-11-22): shops with a counter, shelves of goods and a shopkeeper; the library with
 // labeled shelves and a computer; the school with desks and a blackboard. One warm lamp follows you into whichever room you're in.
 const ROOM_LIGHT=new THREE.PointLight(0xffe2b0,0,14,1.4);scene.add(ROOM_LIGHT);
-const inRoom=p=>INTERIORS.find(r=>p.x>r.x0&&p.x<r.x1&&p.z>r.z0&&p.z<r.z1&&p.y>=r.y0-.2&&p.y<r.y1);
+const inRoom=p=>INTERIORS.find(r=>(!r.lot||r.lot.built)&&p.x>r.x0&&p.x<r.x1&&p.z>r.z0&&p.z<r.z1&&p.y>=r.y0-.2&&p.y<r.y1);
 // what each shop sells: food from FOODS, plus the barber's haircut and the shoemaker's running sandals
 const SHOPS={Pistrinum:{keeper:"Faustina",items:["panis","mel","puls"]},Macellum:{keeper:"Gnaeus",items:["pomum","uvae","caseus","piscis"]},Taberna:{keeper:"Petronia",items:["panis","caseus","piscis"]},
   Thermopolium:{keeper:"Servius",items:["puls","piscis","mel"]},Tonsor:{keeper:"Tullius",items:["haircut"]},Sutor:{keeper:"Crispina",items:["sandals"]}};
@@ -953,8 +953,8 @@ function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4
   {const wx=bd.x,wz=bd.z+f*3.2;const top=block(wx,wz,3,1,1.4,0x7a5232);top.material=LOOK.toon(0x8a5a32);
     [["stick",-1,.3],["plank",0,-.2],["iron",1,.2]].forEach(([k,dx,dz])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(1.2,.08,.12),LOOK.toon({stick:0xc08a4e,plank:0x8a5a2e,iron:0x8b96a4}[k]));m.position.set(wx+dx*.6,1.05,wz+dz);m.rotation.y=dx*.4;scene.add(m);bd.parts.push(m);});
     const sg=signBoard("Workbench — build and test your ideas",0xffe08a);sg.scale.setScalar(.55);sg.position.set(wx,1.9,wz);sg.rotation.y=f>0?Math.PI:0;scene.add(sg);bd.parts.push(sg);
-    ACTS.push({pos:new THREE.Vector3(wx,0,wz+f*1.2),r:1.6,label:"Workbench — build and test",run:()=>uiOpen(o=>DESIGN.openProjects(Object.assign(o,{at:"bench"})))});
-    ACTS.push({pos:new THREE.Vector3(wx,0,wz-f*1.2),r:1.6,label:"Workbench — build and test",run:()=>uiOpen(o=>DESIGN.openProjects(Object.assign(o,{at:"bench"})))});}
+    ACTS.push({pos:new THREE.Vector3(wx,0,wz+f*1.2),r:1.6,label:"Workbench — build and test",run:openBench});
+    ACTS.push({pos:new THREE.Vector3(wx,0,wz-f*1.2),r:1.6,label:"Workbench — build and test",run:openBench});}
   ACTS.push({pos:new THREE.Vector3(bd.x+.6,0,zb+f*4.1),r:1.6,label:"Use the computer",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{computer:true})))});
   ACTS.push({pos:new THREE.Vector3(bd.x-.6,0,zb+f*4.1),r:1.4,label:"Talk to Varro",hidden:()=>LIBRARIAN.pp.down,run:()=>uiOpen(o=>DESIGN.openLibrary(o))});}
 // the school: a blackboard, rows of desks, Magistra Cornelia at the front; sit at a desk to listen
@@ -1172,8 +1172,8 @@ CITIZEN_NAMES.forEach((name,i)=>{const start=i%3===2?strollPoint():pick(SPOTS.st
 // Livia, Marcus, Felix and Octavia come out of their cottages and walk the town too (their ❗ quests go with them)
 VILLAGERS.forEach(v=>{const cz={name:v.name,o:v.o,st:"idle",t:rnd(3,10),path:[],goal:null,bub:null,bubT:0,pp:PEOPLE.find(pp=>pp.o===v.o),villager:v};v.cz=cz;CITIZENS.push(cz);});
 function citizenNext(cz){const r=Math.random();cz.goal=null;
-  if(r<.3&&SPOTS.eat.some(s=>!s.taken)){const s=pick(SPOTS.eat.filter(s=>!s.taken));s.taken=cz;cz.goal={k:"eat",s};}
-  else if(r<.55&&SPOTS.shop.length){cz.goal={k:"shop",s:pick(SPOTS.shop)};}
+  if(r<.3&&SPOTS.eat.some(s=>!s.taken&&(!s.lot||s.lot.built))){const s=pick(SPOTS.eat.filter(s=>!s.taken&&(!s.lot||s.lot.built)));s.taken=cz;cz.goal={k:"eat",s};}
+  else if(r<.55&&SPOTS.shop.length){cz.goal={k:"shop",s:pick(SPOTS.shop.filter(s=>!s.lot||s.lot.built))};}
   else if(r<.8){const g=SPOTS.gossip.find(g=>g.who.length===1)||pick(SPOTS.gossip.filter(g=>g.who.length<2));if(g){g.who.push(cz);cz.goal={k:"gossip",s:g};}}
   if(!cz.goal)cz.goal={k:"stroll",s:{pos:strollPoint()}};
   const to=cz.goal.k==="gossip"?(cz.goal.s.who[0]===cz?cz.goal.s.a:cz.goal.s.b):cz.goal.s.pos;cz.path=navRoute(cz.o.g.position,to);cz.st="walk";}
@@ -1239,7 +1239,7 @@ function stepProblems(dt){let best=null,bd=2.8;
     if(d<16&&!asked&&!p.bub&&Math.random()<dt*.12)say(p,sc.says,3.6);}
   for(const n in QMARK){const sc=nextProblem(n);if(!sc)QMARK[n].visible=false;}
   ASK.who=best&&best.p;ASK.sc=best&&best.sc;if(best){ASK.pos.set(best.x,0,best.z);const t=P.pos.clone().sub(ASK.pos);t.y=0;if(t.length()>.01)ASK.pos.addScaledVector(t.normalize(),.25);}}
-addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(e.code==="KeyP"&&started&&!bagOpen&&!(window.DESIGN&&DESIGN.isOpen()))uiOpen(o=>DESIGN.openProjects(o));});
+addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(e.code==="KeyP"&&started&&!bagOpen&&!designOpen())toggleBag(true,"orders");});
 // ---------------- the job board in the plaza (2026-11-22, "more jobs to do"): small paid jobs around the city, one at a time ----------------
 const JOB={cur:null,done:0,board:new THREE.Vector3(63.5,0,10.4),marks:[]};
 {const g=new THREE.Group();g.position.set(63.5,0,11.6);scene.add(g);const wood=LOOK.toon(0x6b4423);[-1,1].forEach(k=>{const p=new THREE.Mesh(new THREE.BoxGeometry(.12,2.2,.12),wood);p.position.set(k*1,1.1,0);g.add(p);});
@@ -1375,8 +1375,8 @@ const nearPump=()=>P.inCar&&GAS.pumps.some(v=>Math.hypot(v.x-P.pos.x,v.z-P.pos.z
 const fillCost=()=>P.inCar?Math.ceil((P.inCar.max-P.inCar.fuel)/GAS.price):0;
 // shared cars: taking one hides it for everyone else in the room; getting out parks it where you left it (keys "car:<n>")
 const carKey=c=>"car:"+CARS.indexOf(c);
-function enterCar(c){if(!c||P.down)return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}setKey(carKey(c),{d:MP.id});P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
-function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;setKey(carKey(c),{x:+c.g.position.x.toFixed(2),z:+c.g.position.z.toFixed(2),yaw:+c.yaw.toFixed(3)});const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
+function enterCar(c){if(!c||P.down)return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}if(!c.own)setKey(carKey(c),{d:MP.id});P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
+function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;if(!c.own)setKey(carKey(c),{x:+c.g.position.x.toFixed(2),z:+c.g.position.z.toFixed(2),yaw:+c.yaw.toFixed(3)});const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
 function carBlocked(p){for(const b of BLOCKS){if(b.pass||b.y>1.5||b.h<.3)continue;if(Math.abs(p.x-b.x)<b.w/2+1.1&&Math.abs(p.z-b.z)<b.d/2+1.1)return b;}return null;}
 function driveCar(dt,inp){if(P.down||LAW.jailT>0){exitCar();return;}const c=P.inCar;const thr=c.fuel>0?-inp.z:0,st=inp.x,brake=keys.Space;
   if(thr)c.speed+=thr*(thr*c.speed<0?20:10)*dt;else c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),(2+.015*c.speed*c.speed)*dt);
@@ -1394,7 +1394,7 @@ function driveCar(dt,inp){if(P.down||LAW.jailT>0){exitCar();return;}const c=P.in
     for(const id in MP.others){const o=MP.others[id];if(o.g.position.distanceTo(pos)<2&&cool(o))hitPlayer(o,Math.round(sp*2),o.g.position.clone());}}
   P.pos.copy(c.g.position);P.vel.set(0,0,0);P.onGround=true;P.yaw=c.yaw+Math.PI;
   let d=(c.yaw+Math.PI)-look.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));look.yaw+=d*Math.min(1,2.5*dt);}   // the camera swings round behind the car
-function stepCars(){for(const c of CARS)if(c.taken&&c.taken!==MP.id&&!MP.others[c.taken]){c.goneT=(c.goneT||0)+1;if(c.goneT>300){c.taken=null;c.g.visible=true;c.goneT=0;}}else c.goneT=0;   // a driver who left the game: the car comes back
+function stepCars(){for(const c of CARS)if(c.taken&&c.taken!==MP.id&&!MP.others[c.taken]){c.goneT=(c.goneT||0)+1;if(c.goneT>300){c.taken=null;c.g.visible=!c.hidden;c.goneT=0;}}else c.goneT=0;   // a driver who left the game: the car comes back
   CAR_ACT.car=null;if(P.inCar){CAR_ACT.pos.copy(P.pos);return;}let bd=2.8;for(const c of CARS){if(!c.g.visible)continue;const d=Math.hypot(c.g.position.x-P.pos.x,c.g.position.z-P.pos.z);if(d<bd){bd=d;CAR_ACT.car=c;}}
   if(CAR_ACT.car){CAR_ACT.pos.copy(CAR_ACT.car.g.position);const t=P.pos.clone().sub(CAR_ACT.pos);t.y=0;if(t.length()>.01)CAR_ACT.pos.addScaledVector(t.normalize(),Math.min(1.2,t.length()));}
   for(const c of CARS){if(Math.abs(c.speed)>.01&&c!==P.inCar){c.speed*=.95;}}}
@@ -1446,7 +1446,7 @@ const STARS=(()=>{const n=700,pos=new Float32Array(n*3);for(let i=0;i<n;i++){con
   const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));const m=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false,fog:false}));m.renderOrder=-1;scene.add(m);return m;})();
 const C_=h=>new THREE.Color(h),SKY_DAY=[C_(0xd8e9e0),C_(0x98cfe8),C_(0x5aa8dc)],SKY_DUSK=[C_(0xf2a878),C_(0x8a7ab0),C_(0x3a4a8a)],SKY_NIGHT=[C_(0x1a2440),C_(0x0e1530),C_(0x050914)];
 const FOG_DAY=C_(0x9fc08a),FOG_NIGHT=C_(0x141c2c),_c1=new THREE.Color(),_c2=new THREE.Color();let clockSaveT=0;
-function stepDay(dt){const sNow=(Date.now()-CLOCK.epoch)/1000/DAY.len+CLOCK.offset/DAY.len,nd=Math.floor(sNow)+1;DAY.t=sNow-Math.floor(sNow);if(nd!==DAY.day){const first=!DAY.day;DAY.day=nd;if(!first){lawSay(`Day ${DAY.day} begins.`);marketDay();}}
+function stepDay(dt){const sNow=(Date.now()-CLOCK.epoch)/1000/DAY.len+CLOCK.offset/DAY.len,nd=Math.floor(sNow)+1;DAY.t=sNow-Math.floor(sNow);if(nd!==DAY.day){const first=!DAY.day;DAY.day=nd;if(!first){lawSay(`Day ${townDay()} begins.`);marketDay();}}
   const t=DAY.t,DAYLEN=.62;const sunUp=t<DAYLEN?Math.sin(Math.PI*t/DAYLEN):0;            // 0 at dawn and dusk, 1 at noon
   const dusk=t<DAYLEN?Math.max(0,1-Math.min(t,DAYLEN-t)/.08):Math.max(0,1-Math.min(t-DAYLEN,1-t)/.06); // warm colors near sunrise/sunset
   const night=t<DAYLEN?0:Math.min(1,Math.min(t-DAYLEN,1-t)/.05);DAY.night=Math.max(0,night-0)*(1-dusk*.6);DAY.night=night;
@@ -1463,10 +1463,10 @@ function stepDay(dt){const sNow=(Date.now()-CLOCK.epoch)/1000/DAY.len+CLOCK.offs
   HEMI.intensity=.28+.72*Math.min(1,day*1.5);HEMI.color.set(day>.15?0xcfe8ff:0x6070a0);
   STARS.material.opacity=night*.9;STARS.position.copy(cam.position);
   const glowK=Math.max(night,dusk*.5);NIGHT_MATS.forEach(m=>m.emissiveIntensity=glowK*.85);LAMPS.forEach(l=>l.material.color.setScalar(.85+.6*glowK));
-  const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${DAY.day} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
+  const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${townDay()} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
 }
 scene.add(sun.target);
-function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepProblems(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
+function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepOrders(dt);stepTown(dt);stepHomes();stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
   const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
@@ -1550,9 +1550,10 @@ function applyKey(key,val){
   if(key.startsWith("drop:")){const id=key.slice(5);const i=PICKUPS.findIndex(d=>d.sid===id);
     if(val===null){if(i>=0){scene.remove(PICKUPS[i].g);PICKUPS.splice(i,1);}return;}
     if(i<0&&val&&val.it){dropItem(new THREE.Vector3(val.x,0,val.z),val.it,300,id);}return;}
+  if(key.startsWith("hb:")){if(val)WORLD_KEYS[key]=val;else delete WORLD_KEYS[key];return;}
   if(key.startsWith("bld:")){const bd=BUILDINGS[+key.slice(4)];if(!bd)return;if(val&&!bd.down)collapse(bd);else if(!val&&bd.down)rebuild(bd);return;}
-  if(key.startsWith("car:")){const c=CARS[+key.slice(4)];if(!c||!val||c===P.inCar)return;
-    if(val.d){c.taken=val.d;c.g.visible=val.d===MP.id;}else{c.taken=null;c.g.visible=true;c.g.position.set(val.x,0,val.z);c.yaw=val.yaw;c.g.rotation.y=val.yaw;c.speed=0;}return;}
+  if(key.startsWith("car:")){const c=CARS[+key.slice(4)];if(!c||c.own||!val||c===P.inCar)return;
+    if(val.d){c.taken=val.d;c.g.visible=val.d===MP.id&&!c.hidden;}else{c.taken=null;c.g.visible=!c.hidden;c.g.position.set(val.x,0,val.z);c.yaw=val.yaw;c.g.rotation.y=val.yaw;c.speed=0;}return;}
   if(key.startsWith("law:")){const id=key.slice(4);if(val)WORLD.wanted.add(id);else WORLD.wanted.delete(id);}}
 function applyEv(ev){
   if(ev.k==="key")return applyKey(ev.key,ev.val);
@@ -1577,7 +1578,7 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
   const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar?P.inCar.color:0,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
-    .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;
+    .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
       if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.name}`,"spell",f.pic);}});MP.you=j.you||"";if(j.room===MP.room&&j.roomName&&j.roomName!==MP.roomName){MP.roomName=j.roomName;try{localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}}MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
 
@@ -1752,7 +1753,7 @@ function stepDummyGuns(dt){for(const d of DUMMIES){if(!d.gun||d.down)continue;co
     if(!done&&!P.down&&segDist(p0,p,P.pos.clone().add(new THREE.Vector3(0,1,0)))<.6){hurt(2);done=true;}
     if(done){sparks(p,6,0xff8a4a);scene.remove(b.s);DSHOTS.splice(i,1);}}}
 
-function hitTargets(){const t=[...SOLIDS];for(const id in MP.others)if(MP.others[id].hb)t.push(MP.others[id].hb);PEOPLE.forEach(pp=>{if(!pp.down)t.push(pp.hb);});NODES.forEach(n=>{if(!n.down)t.push(n.rock);});TREES.forEach(tr=>{if(!tr.down)t.push(tr.trunk);});DUMMIES.forEach(d=>{if(!d.down)t.push(...d.parts);});return t;}
+function hitTargets(){const t=[...SOLIDS];for(const id in MP.others)if(MP.others[id].hb)t.push(MP.others[id].hb);PEOPLE.forEach(pp=>{if(!pp.down&&pp.o.g.visible!==false)t.push(pp.hb);});NODES.forEach(n=>{if(!n.down)t.push(n.rock);});TREES.forEach(tr=>{if(!tr.down)t.push(tr.trunk);});DUMMIES.forEach(d=>{if(!d.down)t.push(...d.parts);});return t;}
 function damage(d,n,at,headshot,o){o=o||{};if(d.down)return;if(P.mightT>0)n=Math.round(n*1.5);else if(P.strongT>0)n=Math.round(n*1.25);   // Potio Fortis, grilled fish
   const el=o.el||"plain",hex=FX.HEX[el];d.hp=Math.max(0,d.hp-n);if(d.enemy){if(d.pack.mine===false&&MP.ok)share({k:"mdmg",i:d.idx,n});else if(d.hp>0)mobAct(d,"hit");}popNum(at,(headshot?"HEAD ":"")+"-"+n,headshot?"head":"");sparks(at,12,hex);
   if(!o.area){FX.impact(at,el,headshot?1.0:.7);FX.stars(at,el,headshot?3:2,.9);}
@@ -1778,7 +1779,7 @@ function status(d,el,at){const hex=FX.HEX[el];
     for(let i=0;i<10;i++)SPARK.emit(at,rnd3(1).normalize().multiplyScalar(rnd(2,5)),C(hex),.25,{drag:2});}}
 function popNum(p,text,cls,pic){const v=p.clone().project(cam);if(v.z>1)return;const el=document.createElement("span");el.className=cls||"";el.textContent=text;if(pic)el.insertAdjacentHTML("afterbegin",img(pic,"in"));el.style.left=(v.x+1)/2*innerWidth+"px";el.style.top=(1-v.y)/2*innerHeight+"px";$("#nums").appendChild(el);setTimeout(()=>el.remove(),900);}
 // beaten: everything you carry falls where you are (like Minecraft); coins and the house chest stay with you
-function dropAll(){const at=P.pos.clone();at.y=0;let n=0;for(let i=0;i<INV.length;i++){const it=INV[i];if(!it)continue;if(it.t==="weapon")it.ammo=null;shareDrop(dropItem(at,it,300));INV[i]=null;n++;}
+function dropAll(){const at=P.pos.clone();at.y=0;let n=0;for(let i=0;i<INV.length;i++){const it=INV[i];if(!it||it.t==="build")continue;if(it.t==="weapon")it.ammo=null;shareDrop(dropItem(at,it,300));INV[i]=null;n++;}
   G.item=null;select(SEL);invHud();return n;}
 function hurt(n){if(P.down||n<=0)return;if(P.sleeping)endSleep(false,"something woke you up!");const at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
   if(P.invulnT>0){popNum(at,"blocked","spell");return;}
@@ -1798,7 +1799,7 @@ function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held()
 
 // ---------------- input ----------------
 const keys={};let look={yaw:0,pitch:.22},stick={x:0,y:0},jumpQ=false,runBtn=false,paused=false,started=false,camSide=1;
-addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(designOpen()){if(e.key==="Escape")DESIGN.close();return;}keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
+addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(designOpen()){if(e.key==="Escape"){if(BUILD.isOpen())BUILD.close();else DESIGN.close();}return;}keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
   if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
 addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.deltaY>0?1:-1));},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
@@ -1927,7 +1928,7 @@ function setLevel(v,why){const old=MATH.lv;MATH.lv=Math.max(1,Math.min(8,v));MAT
 function mathRight(){MATH.streak=(MATH.streak||0)+1;MATH.wrong=0;if(MATH.streak>=2&&MATH.lv<8){MATH.streak=0;setLevel(MATH.lv+1);return "up";}return "";}
 function mathWrong(){MATH.streak=0;MATH.wrong++;if(MATH.wrong>=2&&MATH.lv>1){setLevel(MATH.lv-1);return "down";}return "";}
 const lvNote=r=>r==="up"?` ⬆ Your math level is now ${CRAFT.levelName(MATH.lv)}!`:r==="down"?` (The problems are a little easier now: ${CRAFT.levelName(MATH.lv)}.)`:"";
-const designOpen=()=>window.DESIGN&&DESIGN.isOpen();
+const designOpen=()=>(window.DESIGN&&DESIGN.isOpen())||(window.BUILD&&BUILD.isOpen());
 let bagOpen=false,bagTab="items",bagPick=-1,forgeId=CRAFT.RECIPES[0].id,tray={},forgeMsg="",forgeOk=false;
 const DRAWS={};const recipe=id=>CRAFT.RECIPES.find(r=>r.id===id);const drawFor=id=>DRAWS[id]||(DRAWS[id]=CRAFT.draw(recipe(id),MATH.lv));
 const CTX_TABS={stocks:"Stocks",biz:"Business",jobs:"Jobs",shop:"Shop",contest:"🏆 Contest",market:"🪙 Market",food:"🍞 Food",chest:"📦 Chest",build:"🔨 Build",quest:"📜 Help",work:"🔨 Job"};
@@ -1951,6 +1952,7 @@ function renderBag(){const box=$("#bagBody");document.querySelectorAll("#bag .ta
     h+=w.solved?`<p>You worked it out: <b>${w.n} ${w.unit}s</b>.</p><button class="go" id="workGo">🔨 Use ${w.n} ${matIco(m.id)}</button>`:`<div class="answer"><input id="workIn" type="number" min="0" inputmode="numeric" placeholder="?" autocomplete="off"><button class="go" id="workGo">🔨 Use that many</button></div>`;
     box.innerHTML=h+`<p class="msg ${forgeOk?"ok":""}">${esc(forgeMsg)}</p></div>`;return;}
   if(bagTab==="shop"){shopTab(box);return;}
+  if(bagTab==="orders"){ordersTab(box);return;}
   if(bagTab==="jobs"){jobsTab(box);return;}
   if(bagTab==="biz"){bizTab(box);return;}
   if(bagTab==="stocks"){stocksTab(box);return;}
@@ -2063,7 +2065,7 @@ $("#bagBody").addEventListener("keydown",e=>{if(e.key!=="Enter"||!e.target.match
 $("#bagBody").addEventListener("input",e=>{if(e.target.id==="conWhy")CONTEST.draft=e.target.value;if(e.target.id==="conIn")CONTEST.ans=e.target.value;});
 document.querySelectorAll("#bag .tabs button[data-tab]").forEach(b=>b.addEventListener("click",()=>{bagTab=b.dataset.tab;bagPick=-1;renderBag();}));
 $("#bagClose").addEventListener("click",()=>toggleBag(false));
-$("#online").addEventListener("click",()=>toggleRoom());$("#projBtn").addEventListener("click",()=>uiOpen(o=>DESIGN.openProjects(o)));$("#wakeBtn").addEventListener("click",()=>endSleep(false));$("#roomClose").addEventListener("click",()=>toggleRoom(false));
+$("#online").addEventListener("click",()=>toggleRoom());$("#projBtn").addEventListener("click",()=>{if(started)toggleBag(true,"orders");});$("#wakeBtn").addEventListener("click",()=>endSleep(false));$("#roomClose").addEventListener("click",()=>toggleRoom(false));
 $("#trade").addEventListener("click",()=>useAct());
 $("#hotbar").addEventListener("pointerdown",e=>{const s=e.target.closest("[data-i]");if(!s)return;e.preventDefault();e.stopPropagation();select(+s.dataset.i);});
 
@@ -2083,5 +2085,130 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
-window.__el={bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+// ---------------- the growing town (2026-11-22, Barbara: "the villagers should start on day 1 when the room is created and they should build
+// a whole house each day per 10 people — also shops and gas stations"). Each room has a birthday (the server keeps it). On day 1 there is only
+// the wall, the market stalls and the library with its workbench; the villagers build everything else one lot at a time, in the same order
+// for everyone in the room, so everyone sees the same town. Cars come once the gas station is built. Your own house you build yourself.
+const ROOMLIFE={born:1795372800};   // the public world's birthday, 2026-11-22 18:40 UTC (each private room gets its own from the server)
+const townAgeDays=()=>Math.max(0,(Date.now()/1000-ROOMLIFE.born)/CLOCK.len);
+const townDay=()=>Math.max(1,(DAY.day||1)-Math.floor((ROOMLIFE.born*1000-CLOCK.epoch)/1000/CLOCK.len));   // counted with the sky's days, so "Day 2" starts at dawn
+const LOTS=[];
+const lotHas=(L,x,z)=>L.rects.some(r=>x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1);
+const lotAt=(x,z)=>LOTS.find(L=>lotHas(L,x,z));
+function rectOf(x,z,w,d,face,front){const r={x0:x-w/2-.4,x1:x+w/2+.4,z0:z-d/2-.4,z1:z+d/2+.4};if(face>0)r.z1+=front;else if(face<0)r.z0-=front;return r;}
+{const bySpecial=n=>BUILDINGS.find(b=>b.name&&b.name.startsWith(n));
+  const first=[...VILLAGERS.map(v=>({cot:v})),{bd:bySpecial("Macellum")},{bd:bySpecial("Benzina"),gas:true},{bd:bySpecial("Pistrinum")},{bd:SCHOOL},{bd:bySpecial("Taberna Tua")},
+    {bd:bySpecial("Hospitium")},{bd:bySpecial("Thermopolium")},{bd:bySpecial("Tonsor")},{bd:bySpecial("Taberna —")},{bd:bySpecial("Sutor")},{bd:bySpecial("Insula")}].filter(o=>o.cot||o.bd);
+  const rest=BUILDINGS.filter(b=>b!==LIBRARY&&!first.some(o=>o.bd===b));let s=7;const rnd7=()=>(s=(s*16807)%2147483647)/2147483647;
+  rest.map(b=>[rnd7(),b]).sort((a,b)=>a[0]-b[0]).forEach(([,b])=>first.push({bd:b}));
+  first.forEach(o=>{let L;
+    if(o.cot){const c=o.cot.home;L={name:`${o.cot.name}'s cottage`,rects:[rectOf(c.x,c.z,CW+.8,CD+.8,1,1.2)],x:c.x,z:c.z,w:CW,d:CD,h:CH+CR,cot:c};c.lot=L;}
+    else{const b=o.bd;L={name:b.name?b.name.split(" — ")[0]:`${b.owner}'s house`,rects:[rectOf(b.x,b.z,b.w,b.d,b.face,b.enter?3.4:2.2)],x:b.x,z:b.z,w:b.w,d:b.d,h:b.h,bd:b};b.lot=L;
+      if(o.gas)L.rects.push({x0:138,x1:156,z0:-22,z1:-10});L.gas=!!o.gas;}
+    L.objs=[];L.blks=[];L.people=[];L.rooms=[];L.built=true;LOTS.push(L);});
+  // what stands on each lot: meshes, solid blocks, the people who work there, the rooms inside
+  const keep=new Set([...LAMPS.map(l=>l.parent),...TOWNFOLK.map(o=>o.g),...CARS.map(c=>c.g),...TREES.map(t=>t.g),body]);
+  for(const o of scene.children){if(keep.has(o)||o.isLight||o===STORM)continue;const g=o.geometry&&o.geometry.parameters;if(o.isMesh&&g&&g.width&&g.height&&g.width*g.height>500)continue;
+    const L=lotAt(o.position.x,o.position.z);if(L)L.objs.push({o,v:o.visible});}
+  BLOCKS.forEach(b=>{const L=lotAt(b.x,b.z);if(L)L.blks.push({b,pass:!!b.pass});});
+  PEOPLE.forEach(pp=>{if(CITIZENS.some(c=>c.pp===pp)||pp.guard)return;const p=pp.o.g.position,L=lotAt(p.x,p.z);if(L)L.people.push(pp);});
+  INTERIORS.forEach(r=>{const L=lotAt((r.x0+r.x1)/2,(r.z0+r.z1)/2);if(L){L.rooms.push(r);r.lot=L;}});
+  ACTS.forEach(a=>{let p;try{p=a.pos;}catch(e){return;}if(!p)return;const L=lotAt(p.x,p.z);if(!L)return;const h=a.hidden;a.hidden=()=>!L.built||(h?h():false);});
+  SPOTS.eat.forEach(s=>{const L=lotAt(s.pos.x,s.pos.z);if(L)s.lot=L;});SPOTS.shop.forEach(s=>{const L=lotAt(s.pos.x,s.pos.z);if(L)s.lot=L;});}
+function setLot(L,on){if(L.built===on)return;L.built=on;L.objs.forEach(({o,v})=>{o.visible=on?v:false;});
+  L.blks.forEach(({b,pass})=>{b.pass=on?(L.bd&&L.bd.down&&L.bd.blks.includes(b)?true:pass):true;});
+  L.people.forEach(pp=>{pp.o.g.visible=on;});if(L.gas)CARS.forEach(c=>{if(!c.own)c.g.visible=on&&!c.taken;c.hidden=!on;});}
+// the building site: a timber frame that rises as the villagers work, scaffold poles and four builders with hammers
+const SITE={g:new THREE.Group(),frame:null,lot:null,workers:[],k:0};scene.add(SITE.g);
+{const wood=LOOK.toon(0xb08a55);SITE.frameMat=new THREE.MeshLambertMaterial({color:0xd8b07a,transparent:true,opacity:.55});
+  SITE.slab=new THREE.Mesh(new THREE.BoxGeometry(1,.25,1),LOOK.toon(0xb8b0a0));SITE.slab.position.y=.12;SITE.g.add(SITE.slab);
+  SITE.frame=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),SITE.frameMat);SITE.g.add(SITE.frame);
+  SITE.poles=[];for(let i=0;i<8;i++){const p=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,1,6),wood);SITE.g.add(p);SITE.poles.push(p);}
+  SITE.sign=label("Building site",0xffe08a);SITE.sign.scale.set(3.4,.6,1);SITE.g.add(SITE.sign);
+  ["Tiro","Brocchus","Vibia","Sextus"].forEach((nm,i)=>{const o=npc(["villager.glb","merchant.glb","cook.glb","villager.glb"][i],0,0,0);const lb=label(`${nm} the builder`,0xffffff);lb.scale.set(2.2,.34,1);lb.position.y=2.35;o.g.add(lb);SITE.workers.push({o,name:nm,t:Math.random()*2});});}
+function placeSite(L){SITE.lot=L;SITE.g.visible=!!L;if(!L)return;const w=Math.max(2,L.w-.4),d=Math.max(2,L.d-.4);SITE.slab.scale.set(w,1,d);SITE.slab.position.set(L.x,.12,L.z);
+  SITE.poles.forEach((p,i)=>{const a=i%4,sx=a<2?-1:1,sz=a%2?-1:1,out=i<4?.4:1.1;p.position.set(L.x+sx*(w/2+out),0,L.z+sz*(d/2+out));});
+  SITE.sign.position.set(L.x,0,L.z);
+  const spots=[[-w/2-.9,0],[w/2+.9,0],[0,-d/2-.9],[0,d/2+.9]];SITE.workers.forEach((W,i)=>{const [dx,dz]=spots[i];W.o.g.position.set(L.x+dx,0,L.z+dz);W.o.g.lookAt(L.x,0,L.z);W.o.g.visible=true;});}
+function siteProgress(k){const L=SITE.lot;if(!L)return;const hh=Math.max(.3,L.h*k);SITE.frame.scale.set(Math.max(2,L.w-.6),hh,Math.max(2,L.d-.6));SITE.frame.position.set(L.x,.25+hh/2,L.z);
+  SITE.poles.forEach(p=>{p.scale.y=hh+1.2;p.position.y=(hh+1.2)/2;});SITE.sign.position.y=hh+1.6;}
+const TOWN_RATE=()=>Math.max(1,Math.floor(PEOPLE.filter(pp=>!pp.guard).length/10));   // whole buildings per day: one for every 10 villagers
+let townDone=-1;
+function stepTown(dt){const age=townAgeDays(),done=Math.min(LOTS.length,Math.floor(age*TOWN_RATE())),k=age*TOWN_RATE()-Math.floor(age*TOWN_RATE());
+  if(done!==townDone){const first=townDone<0;LOTS.forEach((L,i)=>setLot(L,i<done));
+    if(!first&&done>townDone&&LOTS[done-1]){const L=LOTS[done-1];lawSay(`The villagers finished building ${L.name}!`);if(Math.hypot(P.pos.x-L.x,P.pos.z-L.z)<60)for(let i=0;i<30;i++)PUFF.emit(new THREE.Vector3(L.x+rnd(-L.w/2,L.w/2),rnd(0,3),L.z+rnd(-L.d/2,L.d/2)),rnd3(1.5),C(0xc8b89a).multiplyScalar(.5),1.2,{drag:2});}
+    townDone=done;placeSite(LOTS[done]||null);}
+  if(SITE.lot){siteProgress(k);SITE.workers.forEach(W=>{const r=W.o.rig;W.t-=dt;if(r&&W.t<=0){W.t=rnd(1.2,2.4);r.full("1H_Melee_Attack_Chop",{once:true,restart:true,dur:.8,then:()=>r.clearFull()});
+      if(W.o.g.position.distanceTo(P.pos)<40)setTimeout(()=>{const at=W.o.g.position.clone().add(new THREE.Vector3(0,1.2,0)).lerp(new THREE.Vector3(SITE.lot.x,1.2,SITE.lot.z),.25);sparks(at,4,0xffd27a);},420);}});}
+  else SITE.workers.forEach(W=>{W.o.g.visible=false;});}
+// the town square noticeboard tells you how far along the town is
+function townNote(){const done=Math.max(0,townDone),N=LOTS.length,L=LOTS[done];return done>=N?`Day ${townDay()} — the town is finished!`:`Day ${townDay()} — ${done} of ${N} buildings done. Building now: ${L.name}. The ${PEOPLE.filter(pp=>!pp.guard).length} villagers finish ${TOWN_RATE()} building${TOWN_RATE()>1?"s":""} a day.`;}
+// ---------------- people's orders (2026-11-22, Barbara: "their complaints will now be like engineering — I need a cup — something you need
+// to build"). Each town day some villagers need something: easy (cup, bowl…), medium (chair, bed…), hard (house, car…). Talk to them to take
+// the order, build it at the workbench in the library, test it, make it and bring it back. Things break, too ("My chair broke!").
+const ORD_GIVERS=()=>[...VILLAGERS.map(v=>v.name),...CITIZEN_NAMES];
+function ordersFor(day){let s=(Math.floor(ROOMLIFE.born)%100000)*31+day*7919;const r=()=>(s=(s*48271)%2147483647)/2147483647;const G=ORD_GIVERS().slice(),out=[];
+  const pool={easy:BUILD.ORDER.filter(k=>BUILD.ITEMS[k].level==="easy"),medium:BUILD.ORDER.filter(k=>BUILD.ITEMS[k].level==="medium"),hard:BUILD.ORDER.filter(k=>BUILD.ITEMS[k].level==="hard")};
+  for(let i=0;i<7&&G.length;i++){const who=G.splice(Math.floor(r()*G.length),1)[0],q=r(),lv=q<.45?"easy":q<.85?"medium":"hard",list=pool[lv],item=list[Math.floor(r()*list.length)],I=BUILD.ITEMS[item];
+    const broke=r()<.35&&!["house","car","boat","doghouse"].includes(item);
+    out.push({key:`${Math.floor(ROOMLIFE.born)}:${day}:${who}`,who,item,day,pay:BUILD.LV[lv].pay+Math.floor(r()*6),text:broke?`My ${I.name} broke! I need a new one.`:I.ask});}
+  return out;}
+let ORDST;try{ORDST=JSON.parse(localStorage.getItem("elementum.orders")||"{}");}catch(e){ORDST={};}
+const ordSave=()=>{try{localStorage.setItem("elementum.orders",JSON.stringify(ORDST));}catch(e){}};
+function openOrders(){const d=townDay();const all=[...ordersFor(d),...ordersFor(d-1),...ordersFor(d-2)];return all.filter((o,i)=>all.findIndex(x=>x.who===o.who)===i||ORDST[o.key]);}   // today's, and older ones you took
+const myOrders=()=>openOrders().filter(o=>ORDST[o.key]&&ORDST[o.key].acc&&!ORDST[o.key].done);
+const hasBuilt=id=>INV.findIndex(s=>s&&s.t==="build"&&s.id===id);
+const ORD={pos:new THREE.Vector3(),o:null,p:null},OMARK={};
+ACTS.push({pos:ORD.pos,r:2.6,hidden:()=>!ORD.o,label:()=>{const o=ORD.o;if(!o)return "";const st=ORDST[o.key]||{};const I=BUILD.ITEMS[o.item];
+    return st.acc?(hasBuilt(o.item)>=0?`Give ${o.who} your ${I.name}`:`${o.who} is waiting for a ${I.name}`):`Talk to ${o.who}`;},
+  run:()=>{const o=ORD.o;if(!o)return;const st=ORDST[o.key]||{},I=BUILD.ITEMS[o.item],L=BUILD.LV[I.level];
+    if(!st.acc){ask(`${o.who}: “${o.text}” — ${I.icon} ${I.name} · ${L.name} · pays ${o.pay} denarii`,[["I'll build it",()=>{ORDST[o.key]={acc:1};ordSave();lawSay(`Order taken: a ${I.name} for ${o.who}. Build it at the workbench in the library (P shows your orders).`);}],["Not now",null]]);return;}
+    const i=hasBuilt(o.item);if(i<0){lawSay(`${o.who}: “Have you built my ${I.name} yet? The workbench is in the library.”`);return;}
+    INV[i]=null;select(SEL);invHud();ORDST[o.key]={acc:1,done:1};ordSave();COINS+=o.pay;coinHud();const p=ORD.p;if(p&&p.o&&p.o.rig)p.o.rig.full("Cheer",{once:true,restart:true,dur:1.4,then:()=>p.o.rig.clearFull()});
+    lawSay(`${o.who}: “My own ${I.name}! Thank you!” — +${o.pay} denarii`);FX.stars(P.pos.clone().add(new THREE.Vector3(0,2,0)),"gold",6,1.4);}});
+function stepOrders(dt){let best=null,bd=2.6;const list=openOrders();const seen=new Set();
+  for(const o of list){const st=ORDST[o.key]||{};if(st.done)continue;const p=personNamed(o.who);if(!p||!p.o||!p.o.g)continue;seen.add(o.who);const wp=p.o.g.getWorldPosition(_wp);
+    let q=OMARK[o.who];if(!q){q=OMARK[o.who]=label("?",0xffd84a);q.scale.set(.9,.7,1);q.position.y=3.5;p.o.g.add(q);}
+    const ready=st.acc&&hasBuilt(o.item)>=0;q.visible=p.o.g.visible!==false&&(!st.acc||ready)&&!(p.pp&&p.pp.down);if(ready&&q.userData.t!=="✅"){p.o.g.remove(q);q=OMARK[o.who]=label("✅",0x9dffb0);q.scale.set(.9,.7,1);q.position.y=3.5;q.userData.t="✅";p.o.g.add(q);}
+    const d=Math.hypot(wp.x-P.pos.x,wp.z-P.pos.z);if(d<bd&&!(p.pp&&p.pp.down)&&p.o.g.visible!==false){bd=d;best={o,p,x:wp.x,z:wp.z};}
+    if(p.fixed&&p.bub){p.bubT-=dt;if(p.bubT<=0)say(p,null);}
+    if(d<16&&!st.acc&&!p.bub&&Math.random()<dt*.1)say(p,o.text,3.6);}
+  for(const n in OMARK)if(!seen.has(n))OMARK[n].visible=false;
+  ORD.o=best&&best.o;ORD.p=best&&best.p;if(best){ORD.pos.set(best.x,0,best.z);const t=P.pos.clone().sub(ORD.pos);t.y=0;if(t.length()>.01)ORD.pos.addScaledVector(t.normalize(),.25);}}
+function ordersTab(box){const mine=myOrders();let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p><p class="tip">${esc(townNote())}</p><h3>Your orders</h3>`;
+  if(!mine.length)h+=`<p class="tip">No orders yet. People with a <b>?</b> over their head need something built — walk up and talk to them.</p>`;
+  else h+=`<div class="list">${mine.map(o=>{const I=BUILD.ITEMS[o.item],L=BUILD.LV[I.level];return `<div class="deal"><span>${I.icon} <b>${esc(I.name)}</b> for ${esc(o.who)} · ${L.name} · ${o.pay} 🪙<br><small>“${esc(o.text)}” ${hasBuilt(o.item)>=0?"— ✅ built! Take it to "+esc(o.who)+".":"— build it at the workbench in the library."}</small></span></div>`;}).join("")}</div>`;
+  box.innerHTML=h;}
+// the workbench: in the library (Barbara's rule) — orders first, or build anything for yourself
+function openBench(){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();
+  BUILD.open({orders:myOrders().map(o=>Object.assign({},o)),onClose:()=>hud(),made:res=>{const I=BUILD.ITEMS[res.item];
+    if(res.item==="car"&&!res.order){const col=carColor(res.parts);makeOwnCar(col);try{localStorage.setItem("elementum.mycar",String(col));}catch(e){}lawSay("Your car is parked outside the library! Walk up to it and press T to drive.");return true;}
+    const it={t:"build",id:res.item,n:1,thumb:res.thumb};if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
+    if(!addItem(it)){lawSay("Your bag is full — make some room first.");return false;}return true;}});}
+function hexOf(p){return p.color?parseInt(p.color.slice(1),16):({wood:0xa8743f,clay:0xe9dcc8,metal:0x9aa3ad,plastic:0x4f8fd8,glass:0xbfe6ff,fabric:0xd85a6a,stone:0x9a958c,rubber:0x2a2a2e,door:0x7a4a28,window:0xa9d8ff}[p.mat]||0xa8743f);}
+function carColor(parts){const body=parts.filter(p=>p.shape==="box").sort((a,b)=>(b.w*b.h*b.d)-(a.w*a.h*a.d))[0];return body?hexOf(body):0xc8432f;}
+function houseColors(parts){const big=parts.filter(p=>p.mat!=="door"&&p.mat!=="window").map(p=>({p,v:BUILD.meshOf(p)})).map(o=>({p:o.p,b:new THREE.Box3().setFromObject(o.v)}));
+  const top=big.sort((a,b)=>b.b.max.y-a.b.max.y)[0],wall=big.filter(o=>o!==top).sort((a,b)=>(b.b.max.y-b.b.min.y)-(a.b.max.y-a.b.min.y))[0];return {wall:wall?hexOf(wall.p):0xd9c7a6,roof:top?hexOf(top.p):0xb5482f};}
+// your own car (made at the workbench): parked outside the library, yours alone (not one of the town's shared cars)
+function makeOwnCar(col){const c=makeCar(LIBRARY.x+9,LIBRARY.z-LIBRARY.d/2-5,0,col);c.own=true;c.hidden=false;c.g.visible=true;return c;}
+{let col=null;try{col=localStorage.getItem("elementum.mycar");}catch(e){}if(col)makeOwnCar(+col);}
+// your own house (Barbara: "you also build your own house"): the plot is empty until you bring house plans made at the workbench.
+// Everyone in your room sees it once it's built.
+HOUSES.forEach(h=>{const r={x0:h.x-HW/2-.6,x1:h.x+HW/2+.6,z0:h.z-HD/2-1.6,z1:h.z+HD/2+.6};h.lotObjs=[];h.lotBlks=[];
+  for(const o of scene.children){if(o===body||o.isLight)continue;const g=o.geometry&&o.geometry.parameters;if(o.isMesh&&g&&g.width&&g.height&&g.width*g.height>500)continue;if(TOWNFOLK.some(t=>t.g===o))continue;
+    if(o.position.x>=r.x0&&o.position.x<=r.x1&&o.position.z>=r.z0&&o.position.z<=r.z1&&o!==h.sign)h.lotObjs.push({o,v:o.visible});}
+  BLOCKS.forEach(b=>{if(b.x>=r.x0&&b.x<=r.x1&&b.z>=r.z0&&b.z<=r.z1)h.lotBlks.push({b,pass:!!b.pass});});h.built=true;});
+let MYHOUSE=null;try{MYHOUSE=JSON.parse(localStorage.getItem("elementum.myhouse")||"null");}catch(e){}
+function setHouseBuilt(h,on,col){if(h.door&&!on)h.door.pass=true;if(h.built===on&&!col)return;h.built=on;h.lotObjs.forEach(({o,v})=>{o.visible=on?v:false;});h.lotBlks.forEach(({b,pass})=>{if(b===h.door)return;b.pass=on?pass:true;});
+  if(on&&col&&col.roof!==undefined)h.lotObjs.forEach(({o})=>{if(o.geometry&&o.geometry.type==="ConeGeometry"&&o.material&&o.material.color){o.material=o.material.clone();o.material.color.setHex(col.roof);}});}
+function stepHomes(){HOUSES.forEach(h=>{const key=WORLD_KEYS["hb:"+h.slot];const on=h.mine?!!MYHOUSE:!!(h.name&&key&&key.n===h.name);setHouseBuilt(h,on,on?(h.mine?MYHOUSE:key):null);
+    if(h.mine&&MYHOUSE&&MP.ok&&h.name&&(!key||key.n!==h.name)&&!h.claimT){h.claimT=1;setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall});setTimeout(()=>{h.claimT=0;},5000);}});}
+const WORLD_KEYS={};
+ACTS.push({get pos(){return HOME.h.doorP;},r:2.4,hidden:()=>!!MYHOUSE,label:()=>hasBuilt("house")>=0?"🏠 Build your house here (you have the plans)":"🏠 Your empty plot — make house plans at the library's workbench",
+  run:()=>{const i=hasBuilt("house");if(i<0){lawSay("Design a house at the workbench in the library. When it passes the test, make it — you'll get the plans. Bring them here.");return;}
+    const it=INV[i];INV[i]=null;select(SEL);invHud();MYHOUSE={roof:it.roof!==undefined?it.roof:0xb5482f,wall:it.wall};try{localStorage.setItem("elementum.myhouse",JSON.stringify(MYHOUSE));}catch(e){}
+    const h=HOME.h;setHouseBuilt(h,true,MYHOUSE);for(let k=0;k<30;k++)PUFF.emit(new THREE.Vector3(h.x+rnd(-3,3),rnd(0,3),h.z+rnd(-2,2)),rnd3(1.5),C(0xc8b89a).multiplyScalar(.5),1.2,{drag:2});
+    if(MP.ok&&h.name)setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall});lawSay("Your house is built! Your bed and your chest are inside.");}});
+
+window.__el={LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

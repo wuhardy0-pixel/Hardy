@@ -3824,9 +3824,13 @@ def elementum_state():
         del w["events"][:-600]
         oldest = w["events"][0][0] if w["events"] else w["seq"] + 1
         if room != "PUBLIC":
-            rr = ELEM_ROOMS.setdefault(room, {"name": "Room " + room, "t": now})
+            rr = ELEM_ROOMS.setdefault(room, {"name": "Room " + room, "t": now, "born": now})
+            if now - rr["t"] > 3600:
+                rr["t"] = now
+                _rooms_save()
             rr["t"] = now
-        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won,
+            rr.setdefault("born", now)
+        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won, born=_room_born(room),
                    events=[e for s, by, e in w["events"] if s > since and by != pid])
         if since <= 0 or since < oldest - 1 or since > w["seq"]:
             out["keys"], out["events"] = w["keys"], []   # first call, or too far behind: the whole picture (old one-off events are skipped)
@@ -3834,7 +3838,32 @@ def elementum_state():
 
 # private rooms work like Kahoot (Barbara, 2026-11-20): you name your room, the game hands you a 6-digit code, friends join with the code
 # and see the name. Kept in memory; a room nobody has played in for a day is forgotten.
-ELEM_ROOMS = {}   # code -> {"name": str, "t": last used}
+ELEM_ROOMS = {}   # code -> {"name": str, "t": last used, "born": when it was made}
+# the town grows from the day a room is made (Barbara, 2026-11-22: "the villagers should start on day 1 when the room is created"), so rooms
+# and their birthdays are kept in a small file and survive restarts; a room nobody has played in for 30 days is forgotten.
+# The public world was born when the growing town started.
+ELEM_PUBLIC_BORN = 1795372800.0   # 2026-11-22 18:40 UTC, when the growing town went live
+ELEM_ROOMS_FILE = str(DATA_DIR / "elementum_rooms.json")
+try:
+    with open(ELEM_ROOMS_FILE) as _f:
+        ELEM_ROOMS.update({str(k): v for k, v in json.load(_f).items() if isinstance(v, dict)})
+except (OSError, ValueError):
+    pass
+
+def _rooms_save():
+    try:
+        tmp = ELEM_ROOMS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(ELEM_ROOMS, f)
+        os.replace(tmp, ELEM_ROOMS_FILE)
+    except OSError as e:
+        print("elementum rooms:", repr(e)[:200])
+
+def _room_born(room):
+    if room == "PUBLIC":
+        return ELEM_PUBLIC_BORN
+    r = ELEM_ROOMS.get(room) or {}
+    return float(r.get("born") or r.get("t") or time.time())
 
 def _room_name(raw):
     return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9 '!&.,-]", "", str(raw or ""))).strip()[:24]
@@ -3978,6 +4007,8 @@ def elementum_library():
             return jsonify(error="The librarian has looked up a lot today. Come back tomorrow — or read the books you already found!"), 429
         ELEM_LIB_USE[(who, day)] = mine + 1
     prompt = (f"Search Google for: {q}\n"
+              "Use only trustworthy sources: Wikipedia, encyclopedias such as Britannica, museums, universities (.edu), government sites (.gov) "
+              "and well-known science or engineering organisations. Ignore shops, adverts, forums and social media.\n"
               f"Then write one page of a library book for a grade-{grade} student, in simple English that a grade-{grade} child can read. "
               + (f"The student asked this while working on: {focus}. Only if the question is really about that, connect the page to it; otherwise don't mention it. " if focus else "")
               + "Stay exactly on the question asked. Start with one line 'Title: ...'. Then 2 or 3 short paragraphs (120-180 words in all). "
@@ -4020,6 +4051,137 @@ def elementum_library():
         ELEM_LIB_CACHE[key] = out
     return jsonify(out)
 
+# Wikipedia at the library computer (Barbara, 2026-11-22: "get the information about how to make stuff from wikipedia and other trustworthy
+# and reliable resources"): the article's opening and its sections about design, materials and how it is made, with the link.
+ELEM_WIKI_CACHE = {}
+
+@app.get("/api/elementum/wiki")
+def elementum_wiki():
+    q = re.sub(r"\s+", " ", re.sub(r"[^\w\s'\-]", "", str(request.args.get("q") or ""))).strip()[:80]
+    if len(q) < 2:
+        return jsonify(error="Type what you want to read about."), 400
+    if q.lower() in ELEM_WIKI_CACHE:
+        return jsonify(ELEM_WIKI_CACHE[q.lower()])
+    import urllib.request, urllib.parse
+    ua = {"User-Agent": "ElementumLibrary/1.0 (children's educational game)"}
+    def get(params):
+        u = "https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode(dict(params, format="json", formatversion=2))
+        return json.load(urllib.request.urlopen(urllib.request.Request(u, headers=ua), timeout=15))
+    try:
+        hits = get({"action": "query", "list": "search", "srsearch": q, "srlimit": 1}).get("query", {}).get("search", [])
+        if not hits:
+            return jsonify(error="Wikipedia has no article about that. Try another word."), 200
+        title = hits[0]["title"]
+        pg = get({"action": "query", "prop": "extracts", "explaintext": 1, "exsectionformat": "wiki", "titles": title, "redirects": 1}).get("query", {}).get("pages", [{}])[0]
+    except Exception as e:
+        print("elementum wiki:", repr(e)[:200])
+        return jsonify(error="Wikipedia can't be reached right now. Try again in a moment."), 502
+    text = pg.get("extract") or ""
+    parts = re.split(r"\n(={2,3})\s*(.+?)\s*\1\n", "\n" + text)
+    intro = parts[0].strip()
+    want = re.compile(r"design|construct|material|manufactur|making|production|build|how|type|part|structure|use|history", re.I)
+    skip = re.compile(r"see also|reference|external|further|notes|bibliograph|gallery|in popular|citation", re.I)
+    secs = []
+    for i in range(1, len(parts) - 2, 3):
+        h, body = parts[i + 1], parts[i + 2].strip()
+        if body and want.search(h) and not skip.search(h):
+            secs.append({"h": h[:80], "text": body[:900]})
+        if len(secs) >= 4:
+            break
+    out = dict(title=pg.get("title", title), url="https://en.wikipedia.org/wiki/" + urllib.parse.quote(pg.get("title", title).replace(" ", "_")),
+               intro=intro[:1400], sections=secs, source="Wikipedia")
+    with _elem_lock:
+        if len(ELEM_WIKI_CACHE) > 500:
+            ELEM_WIKI_CACHE.clear()
+        ELEM_WIKI_CACHE[q.lower()] = out
+    return jsonify(out)
+
+# the workbench's helper (Barbara, 2026-11-22: "the workbench is like Fusion 360 and AI helps you, so you say make a handle … and it will be built").
+# The player types what to make; Gemini changes the list of parts (boxes, cylinders, tubes, spheres, cones, rings) exactly as asked — it doesn't
+# add things nobody asked for and doesn't fix the design on its own (Barbara's rule: no coaching). 150 requests per player per day.
+ELEM_CAD_USE = {}
+ELEM_CAD_SHAPES = {"box", "cylinder", "tube", "sphere", "cone", "torus"}
+ELEM_CAD_MATS = {"wood", "clay", "metal", "plastic", "glass", "fabric", "stone", "rubber", "door", "window"}
+
+def _cad_clean(parts):
+    out = []
+    alias = {"ceramic": "clay", "porcelain": "clay", "pottery": "clay", "steel": "metal", "iron": "metal", "aluminum": "metal", "aluminium": "metal",
+             "copper": "metal", "cloth": "fabric", "cotton": "fabric", "foam": "fabric", "brick": "stone", "concrete": "stone", "timber": "wood"}
+    for p in (parts if isinstance(parts, list) else [])[:60]:
+        if not isinstance(p, dict):
+            continue
+        shape = str(p.get("shape") or p.get("type") or "").lower()
+        if shape not in ELEM_CAD_SHAPES:
+            continue
+        m = str(p.get("mat") or p.get("material") or "wood").lower()
+        m = alias.get(m, m)
+        q = {"shape": shape, "id": re.sub(r"[^\w\-]", "", str(p.get("id") or ""))[:16] or secrets.token_hex(3),
+             "name": re.sub(r"[^\w\s'\-]", "", str(p.get("name") or shape))[:30],
+             "mat": m if m in ELEM_CAD_MATS else "wood"}
+        for k, lo, hi in (("w", .2, 3000), ("h", .2, 3000), ("d", .2, 3000), ("r", .1, 1500), ("wall", .1, 200), ("bottom", 0, 200),
+                          ("R", .2, 1500), ("t", .1, 300), ("x", -3000, 3000), ("y", -100, 3000), ("z", -3000, 3000), ("rx", -360, 360), ("ry", -360, 360), ("rz", -360, 360)):
+            if k in p:
+                try:
+                    q[k] = round(max(lo, min(hi, float(p[k]))), 2)
+                except (TypeError, ValueError):
+                    pass
+        c = str(p.get("color") or "")
+        if re.fullmatch(r"#?[0-9a-fA-F]{6}", c):
+            q["color"] = "#" + c.lstrip("#")
+        out.append(q)
+    return out
+
+@app.post("/api/elementum/cad")
+def elementum_cad():
+    j = request.get_json(silent=True) or {}
+    say = re.sub(r"\s+", " ", str(j.get("say") or "")).strip()[:240]
+    item = re.sub(r"[^\w\s'\-]", "", str(j.get("item") or "something"))[:40]
+    parts = _cad_clean(j.get("parts"))
+    if len(say) < 2:
+        return jsonify(error="Tell the helper what to make."), 400
+    who, day = (str(session.get("v_name") or ""), str(request.remote_addr or "?")), time.strftime("%Y-%m-%d")
+    with _elem_lock:
+        for k in [k for k in ELEM_CAD_USE if k[1] != day]:
+            del ELEM_CAD_USE[k]
+        if ELEM_CAD_USE.get((who, day), 0) >= 150:
+            return jsonify(error="The helper has built a lot today — try again tomorrow, or change the parts by hand."), 429
+        ELEM_CAD_USE[(who, day)] = ELEM_CAD_USE.get((who, day), 0) + 1
+    rules = ("You are the 3D modelling helper inside a children's building game. It works like Fusion 360: a design is a list of solid parts.\n"
+             "Units are centimetres. y points up and the ground is y=0. x is left-right, z is front-back. x, y, z are the CENTRE of a part.\n"
+             "Shapes and their sizes:\n"
+             "- box: w (x), h (y), d (z)\n- cylinder: r, h (upright, along y)\n"
+             "- tube: a hollow cylinder, upright: r (outside radius), h, wall (wall thickness), bottom (thickness of a closed bottom; 0 = open at both ends)\n"
+             "- sphere: r\n- cone: r (base radius), h (upright, point at the top)\n"
+             "- torus: a ring standing upright in the x-y plane: R (ring radius, to the middle of the ring), t (thickness of the ring)\n"
+             "Every part may also have rx, ry, rz (rotation in degrees about its centre), mat (wood, clay, metal, plastic, glass, fabric, stone, rubber, "
+             "door, window) and color (#rrggbb), a short name, and an id.\n"
+             "Each part is an object with the field \"shape\" set to one of: box, cylinder, tube, sphere, cone, torus.\n"
+             "Rules: do exactly what the player asks — add, change, move, resize, recolour or remove parts. When asked to make a whole object, make only "
+             "its plain basic form (a cup is just the cup body; a handle only comes when they ask for one). Do NOT add or fix anything they did not ask for, "
+             "and do not give advice. Keep every other part exactly as it is, with the same id. Use real-world sizes. Parts that should touch must touch "
+             "(for example a handle must touch the side of a cup, chair legs must reach the ground and the seat). New parts get a new short id.\n"
+             "Reply with JSON only: {\"parts\": [...all parts...], \"note\": \"one short sentence saying what you did\"}. "
+             "If the request is not about building, or is not suitable for children, return the parts unchanged with note \"I can only help build things.\"")
+    prompt = f"The player is building: {item}.\nCurrent parts: {json.dumps(parts)}\nThe player says: \"{say}\""
+    body = {"systemInstruction": {"parts": [{"text": rules}]}, "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 4000, "responseMimeType": "application/json"},
+            "safetySettings": [{"category": c, "threshold": "BLOCK_LOW_AND_ABOVE"} for c in
+                               ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT")]}
+    import urllib.request
+    url = f"https://aiplatform.googleapis.com/v1/projects/hardywu-site-758a/locations/global/publishers/google/models/{ELEM_LIB_MODEL}:generateContent"
+    try:
+        req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
+        d = json.load(urllib.request.urlopen(req, timeout=45))
+        c = (d.get("candidates") or [{}])[0]
+        txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
+        res = json.loads(txt[txt.find("{"):txt.rfind("}") + 1])
+    except Exception as e:
+        print("elementum cad:", repr(e)[:300])
+        return jsonify(error="The helper couldn't build that right now. Try again, or say it another way."), 502
+    new = _cad_clean(res.get("parts"))
+    note = re.sub(r"\s+", " ", str(res.get("note") or "Done."))[:200]
+    return jsonify(parts=new, note=note)
+
 @app.post("/api/elementum/room")
 def elementum_new_room():
     """Make a private room: a name the player chose, and a fresh 6-digit code nobody is using."""
@@ -4028,13 +4190,14 @@ def elementum_new_room():
     name = _room_name(j.get("name")) or f"{first}'s room"
     now = time.time()
     with _elem_lock:
-        for c in [c for c, r in ELEM_ROOMS.items() if now - r["t"] > 86400]:
+        for c in [c for c, r in ELEM_ROOMS.items() if now - r["t"] > 30 * 86400]:
             del ELEM_ROOMS[c]
         used = set(ELEM_ROOMS) | {p["room"] for p in ELEM_PLAYERS.values()}
         for _ in range(50):
             code = str(secrets.randbelow(900000) + 100000)
             if code not in used:
-                ELEM_ROOMS[code] = {"name": name, "t": now}
+                ELEM_ROOMS[code] = {"name": name, "t": now, "born": now}
+                _rooms_save()
                 return jsonify(room=code, name=name)
     return jsonify(error="try again"), 503
 
@@ -4045,7 +4208,8 @@ def elementum_find_room(code):
     with _elem_lock:
         r = ELEM_ROOMS.get(code)
         if r is None and any(p["room"] == code for p in ELEM_PLAYERS.values()):
-            r = ELEM_ROOMS[code] = {"name": "Room " + code, "t": time.time()}   # a room from before a restart, still being played in
+            r = ELEM_ROOMS[code] = {"name": "Room " + code, "t": time.time(), "born": time.time()}   # a room being played in that we didn't know
+            _rooms_save()
     if r is None:
         return jsonify(error="No room with that code. Check the numbers."), 404
     return jsonify(room=code, name=r["name"])

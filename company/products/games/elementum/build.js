@@ -1,0 +1,326 @@
+// ---------------- the workbench (2026-11-22, Barbara: "the workbench is like Fusion 360 and AI helps you — you say make a handle if somebody
+// needs a cup and it will be built"). Villagers need things; each thing has a difficulty (cup easy · chair, bed medium · house, car hard).
+// A design is a list of solid parts in centimetres. You add and size parts by hand, or tell the helper what to make (the server asks Gemini;
+// it does only what you ask — no coaching). The testing area tries the design out (water in the cup, a weight on the chair, rain on the
+// house, a drive in the car); the report gives the facts, and Magistra Cornelia says why it works or why it didn't.
+// Real numbers: volumes in ml, weights from real densities, what a wooden leg can carry, how much water a boat pushes away.
+window.BUILD=(()=>{
+const $=s=>document.querySelector(s),esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const LV={easy:{name:"Easy",pay:15,cls:"e"},medium:{name:"Medium",pay:40,cls:"m"},hard:{name:"Hard",pay:120,cls:"h"}};
+// what each thing must do (the person's needs — not how to build it)
+const ITEMS={
+  cup:{name:"cup",level:"easy",icon:"☕",wiki:"Mug",needs:[{k:"container",min:150,max:1000},{k:"handle"},{k:"stands"},{k:"onePiece"}],ask:"I need a cup for my hot milk — one I can hold without burning my fingers."},
+  bowl:{name:"bowl",level:"easy",icon:"🥣",wiki:"Bowl (vessel)",needs:[{k:"container",min:300,max:3000},{k:"wide"},{k:"stands"},{k:"onePiece"}],ask:"I need a bowl for my soup."},
+  plate:{name:"plate",level:"easy",icon:"🍽️",wiki:"Plate (dishware)",needs:[{k:"plate"},{k:"stands"},{k:"onePiece"}],ask:"I need a plate for my bread and cheese."},
+  vase:{name:"vase",level:"easy",icon:"🏺",wiki:"Vase",needs:[{k:"container",min:500,max:8000},{k:"tall",min:20},{k:"stands"},{k:"onePiece"}],ask:"I picked flowers — I need a tall vase to put them in."},
+  bucket:{name:"bucket",level:"easy",icon:"🪣",wiki:"Bucket",needs:[{k:"container",min:5000,max:30000},{k:"handle"},{k:"stands"},{k:"onePiece"}],ask:"I carry water from the well every day. I need a bucket with a handle."},
+  door:{name:"door",level:"easy",icon:"🚪",wiki:"Door",needs:[{k:"doorLeaf"},{k:"handle",any:true},{k:"onePiece"}],ask:"My front door fell off its hinges. I need a new door with a handle."},
+  stool:{name:"stool",level:"medium",icon:"🪑",wiki:"Stool (seat)",needs:[{k:"surface",what:"seat",hMin:40,hMax:80,w:25,d:25},{k:"holds",kg:80},{k:"stands"},{k:"onePiece"}],ask:"I need a stool to sit on while I milk the goat."},
+  chair:{name:"chair",level:"medium",icon:"🪑",wiki:"Chair",needs:[{k:"surface",what:"seat",hMin:38,hMax:50,w:35,d:35},{k:"back",min:25},{k:"holds",kg:80},{k:"stands"},{k:"onePiece"}],ask:"I need a chair to sit at my table — with a back to lean on."},
+  table:{name:"table",level:"medium",icon:"🪵",wiki:"Table (furniture)",needs:[{k:"surface",what:"top",hMin:65,hMax:80,w:70,d:50},{k:"holds",kg:50},{k:"stands"},{k:"onePiece"}],ask:"My family has nowhere to eat. I need a table."},
+  bench:{name:"bench",level:"medium",icon:"🪑",wiki:"Bench (furniture)",needs:[{k:"surface",what:"seat",hMin:38,hMax:50,w:100,d:30},{k:"holds",kg:160},{k:"stands"},{k:"onePiece"}],ask:"I need a bench by my door so two people can sit and talk."},
+  bed:{name:"bed",level:"medium",icon:"🛏️",wiki:"Bed",needs:[{k:"surface",what:"bed",hMin:25,hMax:65,w:180,d:85},{k:"soft"},{k:"holds",kg:160},{k:"stands"},{k:"onePiece"}],ask:"I've been sleeping on the floor. I need a bed — with something soft to lie on."},
+  shelf:{name:"bookshelf",level:"medium",icon:"📚",wiki:"Bookcase",needs:[{k:"shelves",n:3,w:50},{k:"stands"},{k:"onePiece"}],ask:"My books are all over the floor! I need a bookshelf with at least three shelves."},
+  ladder:{name:"ladder",level:"medium",icon:"🪜",wiki:"Ladder",needs:[{k:"ladder",h:180,rungs:5},{k:"onePiece"}],ask:"I need a ladder to pick the apples at the top of my tree."},
+  doghouse:{name:"doghouse",level:"medium",icon:"🐕",wiki:"Doghouse",needs:[{k:"room",area:3000,head:50,door:{w:30,h:40},roof:true},{k:"stands"},{k:"onePiece"}],ask:"My dog sleeps out in the rain. I need a doghouse with a door and a roof."},
+  wheelbarrow:{name:"wheelbarrow",level:"medium",icon:"🛞",wiki:"Wheelbarrow",needs:[{k:"wheels",n:1},{k:"basin",min:40},{k:"handle",any:true},{k:"onePiece"}],ask:"I need a wheelbarrow to carry stones to the building site."},
+  house:{name:"house",level:"hard",icon:"🏠",wiki:"House",needs:[{k:"room",area:40000,head:200,door:{w:70,h:180},roof:true},{k:"stands"},{k:"onePiece"}],ask:"Our family needs a house: room inside to stand up, a door to get in and a roof against the rain."},
+  car:{name:"car",level:"hard",icon:"🚗",wiki:"Car",needs:[{k:"wheels",n:4,span:150},{k:"clear",min:10},{k:"carBody",len:250,wid:120},{k:"light",kg:2500},{k:"onePiece"}],ask:"I need a car to bring vegetables to the market — the cart is too slow."},
+  cart:{name:"cart",level:"hard",icon:"🛒",wiki:"Cart",needs:[{k:"wheels",n:2},{k:"basin",min:100},{k:"stands"},{k:"onePiece"}],ask:"I need a cart with wheels to carry hay from the field."},
+  boat:{name:"boat",level:"hard",icon:"⛵",wiki:"Boat",needs:[{k:"basin",min:150},{k:"floats",kg:80},{k:"wideBoat",min:80},{k:"onePiece"}],ask:"I want to fish on the lake. I need a boat that floats with me in it."},
+};
+const ORDER=Object.keys(ITEMS);
+// ---- parts ----
+const DENS={wood:.6,clay:2,metal:7.8,plastic:1,glass:2.5,fabric:.3,stone:2.4,rubber:1.2,door:.6,window:2.5};   // g per cm³
+const STR={wood:30,clay:20,metal:300,plastic:10,glass:10,fabric:.2,stone:40,rubber:1,door:30,window:10};     // what 1 cm² can safely carry, kg
+const MCOL={wood:"#a8743f",clay:"#e9dcc8",metal:"#9aa3ad",plastic:"#4f8fd8",glass:"#bfe6ff",fabric:"#d85a6a",stone:"#9a958c",rubber:"#2a2a2e",door:"#7a4a28",window:"#a9d8ff"};
+const MNAME={wood:"wood",clay:"clay",metal:"metal",plastic:"plastic",glass:"glass",fabric:"cloth",stone:"stone",rubber:"rubber",door:"door",window:"window"};
+const SHAPES={box:{w:20,h:20,d:20},cylinder:{r:10,h:20},tube:{r:10,h:20,wall:1,bottom:1},sphere:{r:10},cone:{r:10,h:20},torus:{R:8,t:2}};
+const SNAME={box:"Box",cylinder:"Cylinder",tube:"Tube",sphere:"Sphere",cone:"Cone",torus:"Ring"};
+const FIELDS={box:["w","h","d"],cylinder:["r","h"],tube:["r","h","wall","bottom"],sphere:["r"],cone:["r","h"],torus:["R","t"]};
+const FNAME={w:"width",h:"height",d:"depth",r:"radius",wall:"wall",bottom:"bottom",R:"ring radius",t:"thickness",x:"x",y:"y (up)",z:"z",rx:"tilt x°",ry:"turn y°",rz:"tilt z°"};
+const n=(v,d)=>{v=+v;return isFinite(v)?v:d;};
+const DEG=Math.PI/180;
+function geoOf(p){const s=p.shape;
+  if(s==="box")return new THREE.BoxGeometry(n(p.w,20),n(p.h,20),n(p.d,20));
+  if(s==="cylinder")return new THREE.CylinderGeometry(n(p.r,10),n(p.r,10),n(p.h,20),28);
+  if(s==="sphere")return new THREE.SphereGeometry(n(p.r,10),24,16);
+  if(s==="cone")return new THREE.ConeGeometry(n(p.r,10),n(p.h,20),28);
+  if(s==="torus")return new THREE.TorusGeometry(n(p.R,8),Math.max(.1,n(p.t,2)/2),12,36);
+  const r=n(p.r,10),h=n(p.h,20),w=Math.min(r-.05,Math.max(.1,n(p.wall,1))),b=Math.min(h-.1,Math.max(0,n(p.bottom,0)));   // tube: a lathe profile, open at the top
+  const pts=b>0?[[0,-h/2+b],[r-w,-h/2+b],[r-w,h/2],[r,h/2],[r,-h/2],[0,-h/2]]:[[r-w,-h/2],[r-w,h/2],[r,h/2],[r,-h/2],[r-w,-h/2]];
+  return new THREE.LatheGeometry(pts.map(([a,c])=>new THREE.Vector2(Math.max(0,a),c)),36);}
+function matOf(p){const c=p.color||MCOL[p.mat]||MCOL.wood;const m=new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});if(p.mat==="glass"||p.mat==="window"){m.transparent=true;m.opacity=.55;}return m;}
+function meshOf(p){const m=new THREE.Mesh(geoOf(p),matOf(p));m.position.set(n(p.x,0),n(p.y,0),n(p.z,0));m.rotation.set(n(p.rx,0)*DEG,n(p.ry,0)*DEG,n(p.rz,0)*DEG);m.userData.part=p;m.castShadow=true;m.updateMatrixWorld(true);return m;}
+function volOf(p){const s=p.shape,PI=Math.PI;
+  if(s==="box")return n(p.w,0)*n(p.h,0)*n(p.d,0);if(s==="cylinder")return PI*p.r*p.r*p.h;if(s==="sphere")return 4/3*PI*p.r**3;if(s==="cone")return PI*p.r*p.r*p.h/3;
+  if(s==="torus")return 2*PI*PI*p.R*(p.t/2)**2;const w=Math.min(p.r,p.wall||1),b=p.bottom||0;return PI*(p.r*p.r-(p.r-w)**2)*(p.h-b)+PI*p.r*p.r*b;}
+// is a world point inside a part? (in the part's own frame — handles any rotation)
+const _v=new THREE.Vector3();
+function inside(P,pt,pad){pad=pad||0;_v.copy(pt).applyMatrix4(P.inv);const p=P.p,x=_v.x,y=_v.y,z=_v.z,s=p.shape;
+  if(s==="box")return Math.abs(x)<=p.w/2+pad&&Math.abs(y)<=p.h/2+pad&&Math.abs(z)<=p.d/2+pad;
+  if(s==="cylinder")return Math.abs(y)<=p.h/2+pad&&x*x+z*z<=(p.r+pad)**2;
+  if(s==="sphere")return x*x+y*y+z*z<=(p.r+pad)**2;
+  if(s==="cone"){if(Math.abs(y)>p.h/2+pad)return false;const rr=p.r*(.5-y/p.h)+pad;return x*x+z*z<=rr*rr;}
+  if(s==="torus"){const q=Math.hypot(x,y)-p.R;return q*q+z*z<=(p.t/2+pad)**2;}
+  if(Math.abs(y)>p.h/2+pad)return false;const d=Math.hypot(x,z),w=Math.min(p.r,p.wall||1),b=p.bottom||0;if(d>p.r+pad)return false;if(d>=p.r-w-pad)return true;return b>0&&y<=-p.h/2+b+pad;}
+// ---- looking at a design: boxes, weights, what touches what ----
+function analyse(parts){const A={P:[],mass:0};
+  for(const p of parts){const m=meshOf(p);const box=new THREE.Box3().setFromObject(m);const inv=m.matrixWorld.clone().invert();const vol=volOf(p),mass=vol*(DENS[p.mat]||.6)/1000;
+    const up=new THREE.Vector3(0,1,0).applyQuaternion(m.quaternion);A.P.push({p,m,box,inv,vol,mass,up});A.mass+=mass;}
+  const touch=(a,b)=>a.box.clone().expandByScalar(1.2).intersectsBox(b.box);A.touch=touch;
+  A.P.forEach(a=>{a.nb=A.P.filter(b=>b!==a&&touch(a,b));a.ground=a.box.min.y<=1.5;});
+  // pieces: parts joined by touching
+  const seen=new Set();A.pieces=[];for(const a of A.P){if(seen.has(a))continue;const pc=[],q=[a];seen.add(a);while(q.length){const c=q.pop();pc.push(c);c.nb.forEach(b=>{if(!seen.has(b)){seen.add(b);q.push(b);}});}A.pieces.push(pc);}
+  A.box=new THREE.Box3();A.P.forEach(a=>A.box.union(a.box));
+  A.com=new THREE.Vector3();A.P.forEach(a=>{const c=a.box.getCenter(new THREE.Vector3());A.com.addScaledVector(c,a.mass);});if(A.mass>0)A.com.multiplyScalar(1/A.mass);
+  const g=A.P.filter(a=>a.ground);A.foot=g.length?g.reduce((r,a)=>({x0:Math.min(r.x0,a.box.min.x),x1:Math.max(r.x1,a.box.max.x),z0:Math.min(r.z0,a.box.min.z),z1:Math.max(r.z1,a.box.max.z)}),{x0:1e9,x1:-1e9,z0:1e9,z1:-1e9}):null;
+  return A;}
+const cm=v=>`${Math.round(v)} cm`,kg=v=>v<10?`${v.toFixed(1)} kg`:`${Math.round(v).toLocaleString()} kg`,ml=v=>v>=1000?`${(v/1000).toFixed(v>=10000?0:1)} litres`:`${Math.round(v)} ml`;
+const upright=a=>Math.abs(a.up.y)>.97,lying=a=>Math.abs(a.up.y)<.3;
+function containerOf(A){let best=null;for(const a of A.P){if(a.p.shape!=="tube")continue;const cap=Math.PI*(a.p.r-Math.min(a.p.r,a.p.wall||1))**2*Math.max(0,a.p.h-(a.p.bottom||0));
+    const c={a,cap,open:!(a.p.bottom>0),flip:a.up.y<-.97,tilt:!upright(a)};if(!best||(!c.open&&!c.flip&&!c.tilt&&c.cap>best.cap)||(best.open||best.flip||best.tilt))best=c;}return best;}
+// the grid look at a design from above at one height: which cells are solid, and which empty cells are closed in (no way out to the edge)
+function grid(A,y,opts){opts=opts||{};const B=A.box,ext=Math.max(B.max.x-B.min.x,B.max.z-B.min.z),c=Math.max(1,ext/90),x0=B.min.x-c,z0=B.min.z-c,nx=Math.ceil((B.max.x-B.min.x)/c)+3,nz=Math.ceil((B.max.z-B.min.z)/c)+3;
+  const solid=new Uint8Array(nx*nz),pt=new THREE.Vector3();
+  for(let i=0;i<nx;i++)for(let k=0;k<nz;k++){pt.set(x0+(i+.5)*c,y,z0+(k+.5)*c);let s=0;for(const a of A.P){if(pt.y<a.box.min.y||pt.y>a.box.max.y)continue;if(inside(a,pt)){if(a.p.mat==="door"){s=2;break;}s=1;}}solid[i*nz+k]=s;}
+  const out=new Uint8Array(nx*nz),q=[];const pass=s=>s===0||(opts.doorsOpen&&s===2);
+  for(let i=0;i<nx;i++)for(let k=0;k<nz;k++)if((i===0||k===0||i===nx-1||k===nz-1)&&pass(solid[i*nz+k])){out[i*nz+k]=1;q.push(i*nz+k);}
+  while(q.length){const id=q.pop(),i=Math.floor(id/nz),k=id%nz;for(const [di,dk] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=k+dk;if(a<0||b<0||a>=nx||b>=nz)continue;const j=a*nz+b;if(!out[j]&&pass(solid[j])){out[j]=1;q.push(j);}}}
+  const cells=[];for(let i=0;i<nx;i++)for(let k=0;k<nz;k++){const j=i*nz+k;if(solid[j]===0&&!out[j])cells.push([x0+(i+.5)*c,z0+(k+.5)*c]);}
+  return {cells,area:cells.length*c*c,c,solid,nx,nz};}
+// a basin (boat, cart, barrow): the lowest wide part is the floor; how deep can it hold water before it spills?
+function basinOf(A){const t=containerOf(A);if(t&&!t.open&&!t.flip&&!t.tilt)return {cap:t.cap/1000,how:"tube"};
+  const floors=A.P.filter(a=>a.p.shape==="box"&&upright(a)).sort((a,b)=>(b.box.max.x-b.box.min.x)*(b.box.max.z-b.box.min.z)-(a.box.max.x-a.box.min.x)*(a.box.max.z-a.box.min.z));
+  if(!floors.length)return {cap:0,why:"nothing that could hold anything"};const fl=floors[0],top=fl.box.max.y;let depth=0,area=0;
+  for(let y=top+2;y<=top+200;y+=3){const g=grid(A,y);const under=g.cells.filter(([x,z])=>x>fl.box.min.x&&x<fl.box.max.x&&z>fl.box.min.z&&z<fl.box.max.z);if(under.length<4)break;area=Math.max(area,under.length*g.c*g.c);depth=y-top;}
+  if(!depth)return {cap:0,why:"no sides around the floor — anything you put in falls off"};return {cap:area*depth/1000,depth,area,how:"box"};}
+// what a surface's supports can carry
+function supportsOf(A,s){const legs=new Set();s.nb.forEach(b=>{if(b.ground&&b.box.max.y<=s.box.max.y+1)legs.add(b);else b.nb.forEach(c=>{if(c!==s&&c.ground&&c.box.max.y<=s.box.max.y+1)legs.add(c);});});
+  if(s.ground)legs.add(s);let cap=0;
+  for(const l of legs){const bx=l.box,dx=bx.max.x-bx.min.x,dz=bx.max.z-bx.min.z,h=bx.max.y-bx.min.y;let area;
+    if(l.p.shape==="tube")area=Math.PI*(l.p.r**2-(l.p.r-Math.min(l.p.r,l.p.wall||1))**2);else if(l.p.shape==="cylinder"&&upright(l))area=Math.PI*l.p.r**2;else area=dx*dz*(l.p.shape==="box"?1:.7);
+    const thin=Math.max(1,Math.min(dx,dz)),slim=h/thin,k=slim>40?.25:slim>20?.6:1;cap+=area*(STR[l.p.mat]||10)*k;}
+  return {legs:[...legs],cap};}
+function surfaceOf(A,nd){let best=null;for(const a of A.P){if(!["box","cylinder"].includes(a.p.shape)||!upright(a))continue;const top=a.box.max.y,dx=a.box.max.x-a.box.min.x,dz=a.box.max.z-a.box.min.z;
+    const big=Math.max(dx,dz),small=Math.min(dx,dz),fit=(top>=nd.hMin&&top<=nd.hMax?2:0)+(big>=Math.max(nd.w,nd.d)&&small>=Math.min(nd.w,nd.d)?1:0);
+    if(a.box.max.y-a.box.min.y>Math.max(12,small*.6))continue;   // a tall block is a leg or a wall, not a seat
+    if(!best||fit>best.fit||(fit===best.fit&&big*small>best.big*best.small))best={a,top,big,small,fit,thick:a.box.max.y-a.box.min.y};}return best;}
+// ---- the tests: each gives a fact, and passes or not ----
+function check(nd,A,item){const r=(ok,fact,why,whyFail,extra)=>Object.assign({ok,fact,why,whyFail,k:nd.k},extra||{});const C=containerOf(A);
+  switch(nd.k){
+  case "onePiece":{if(A.pieces.length<=1)return r(true,"Every part is joined to the rest — it's one piece.","Parts only hold together where they touch. Every part here touches another, so the whole thing moves as one piece.");
+    const loose=A.pieces.slice().sort((a,b)=>a.length-b.length)[0];return r(false,`It's in ${A.pieces.length} separate pieces — the ${loose.map(a=>a.p.name||SNAME[a.p.shape].toLowerCase()).slice(0,3).join(", ")} ${loose.length>1?"aren't":"isn't"} attached to anything.`,"",
+      `A part that doesn't touch any other part isn't connected — in real life it would just fall off or stay behind when you pick the thing up. Builders join parts where they meet: glue, nails, screws or one piece of clay.`);}
+  case "stands":{if(!A.foot)return r(false,"Nothing touches the ground — it's floating in the air.","","Things don't float: gravity pulls everything down. Something has to rest on the ground (or on a table) and carry the weight.");
+    const f=A.foot,c=A.com,inX=c.x>=f.x0-.5&&c.x<=f.x1+.5,inZ=c.z>=f.z0-.5&&c.z<=f.z1+.5;
+    if(inX&&inZ)return r(true,`It stands steady: its weight (${kg(A.mass)}) sits right over what it stands on.`,`Everything has a centre of weight — the point it balances on. If that point is above the part touching the ground, gravity presses it straight down and it stays up. That's why wide bases are steady.`);
+    return r(false,`It tips over: its centre of weight is outside the part that touches the ground.`,"",`Gravity pulls on an object's centre of weight. When that point is not above what the object stands on, gravity turns it over that edge — like leaning too far back on a chair. A wider base, or weight lower down and nearer the middle, keeps it standing.`,{tip:true});}
+  case "container":{if(!C)return r(false,"There's nothing that can hold water — no hollow part.","","To hold a liquid you need a hollow shape: walls all the way round and a closed bottom. A solid block has no room inside, and flat parts let it run off.",{water:"none"});
+    if(C.open)return r(false,`The ${C.a.p.name||"tube"} has no bottom — the water runs straight out.`,"","Water flows downwards and out of any gap. A container needs a closed bottom as well as walls — without it, it's just a pipe.",{water:"through",ca:C.a});
+    if(C.flip||C.tilt)return r(false,`The ${C.a.p.name||"tube"} is ${C.flip?"upside down":"on its side"} — its open end isn't at the top.`,"","A container only holds liquid with its opening at the top: water always settles at the lowest point and pours out of an opening that faces sideways or down.",{water:"spill",ca:C.a});
+    const cap=C.cap;if(cap<nd.min)return r(false,`It holds ${ml(cap)} — that's not enough; it needs at least ${ml(nd.min)}.`,"",`How much a container holds is the space inside: the area of the opening (π × inside radius²) times the inside height. Here that's ${ml(cap)}. A little wider or taller inside makes it hold a lot more — doubling the width holds four times as much.`,{water:"fill",ca:C.a,level:1});
+    if(nd.max&&cap>nd.max)return r(false,`It holds ${ml(cap)} — much too big for this; it should hold at most ${ml(nd.max)}.`,"",`The space inside is π × inside radius² × inside height = ${ml(cap)}. Something this big is too heavy to lift when it's full: every litre of water weighs a kilogram.`,{water:"fill",ca:C.a,level:1});
+    return r(true,`It holds ${ml(cap)} of water.`,`The space inside is π × (inside radius)² × (inside height) = ${ml(cap)}. The walls and the closed bottom keep the water in, because water always flows down and out through any gap — and there isn't one.`,"",{water:"fill",ca:C.a,level:1});}
+  case "handle":{const base=C?C.a:null;const others=A.P.filter(a=>a!==base);
+    const h=others.find(a=>A.touch(a,base||A.P[0])&&(a.p.shape==="torus"||a.p.shape==="box"||a.p.shape==="cylinder")&&(!base||Math.hypot(a.box.getCenter(new THREE.Vector3()).x-base.box.getCenter(new THREE.Vector3()).x,a.box.getCenter(new THREE.Vector3()).z-base.box.getCenter(new THREE.Vector3()).z)>(base.p.r||0)*.8||a.box.min.y>base.box.max.y-1));
+    if(nd.any){const any=A.P.length>1;return any?r(true,"It has something to hold it by.","A handle sticks out so your hand can grip it. It also keeps your fingers away from what's inside or what's hot, and gives you leverage to pull or lift."):r(false,"There's nothing to hold it by.","","Without a handle there's nothing your fingers can close around — you'd have to grab flat or hot surfaces, and it slips.");}
+    if(h)return r(true,`It has a handle (${h.p.name||SNAME[h.p.shape].toLowerCase()}) on the ${h.box.min.y>=(base?base.box.max.y-1:0)?"top":"side"}.`,"A handle sticks out so your fingers can wrap round it. The air gap keeps your hand away from the hot sides — air doesn't carry heat well — and it lets you tip the container to pour.");
+    return r(false,"There's no handle — you'd have to hold it by its sides.","","Hot drinks heat the walls of the cup, and heat flows into your fingers. A handle sticks out from the side, so you hold something that stays cool, and you can tip it to pour.");}
+  case "wide":{if(!C||!C.a)return r(false,"There's no bowl shape to measure.","","A bowl is a container that is wider than it is tall, so you can reach in with a spoon.");const w=C.a.p.r*2,h=C.a.p.h;
+    return w>h?r(true,`It's ${cm(w)} wide and ${cm(h)} tall — wider than tall, easy to reach into.`,"A bowl is wider than it is tall: a spoon can reach every corner, and food spreads out so it cools down faster."):r(false,`It's ${cm(w)} wide but ${cm(h)} tall — that's a cup or a jar, not a bowl.`,"","A bowl is wider than it is tall so a spoon can reach the bottom. A tall, narrow container is a cup or a vase.");}
+  case "tall":{const h=A.box.max.y-A.box.min.y;return h>=nd.min?r(true,`It's ${cm(h)} tall.`,"Tall stems need a tall container to lean on: the sides hold the flowers up."):r(false,`It's only ${cm(h)} tall — flowers would flop over; it needs at least ${cm(nd.min)}.`,"","Long stems tip over unless the sides of the vase come up far enough to hold them. Taller sides support more of the stem.");}
+  case "plate":{const flat=A.P.find(a=>(a.p.shape==="cylinder"||a.p.shape==="box")&&upright(a)&&(a.box.max.y-a.box.min.y)<=4&&Math.min(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=18);
+    return flat?r(true,`It's a flat plate ${cm(Math.max(flat.box.max.x-flat.box.min.x,flat.box.max.z-flat.box.min.z))} across.`,"A plate is wide and thin: food lies flat on it, and it's light enough to carry. Thin but wide shapes are stiff enough when the load is small and spread out."):r(false,"There's no thin flat part at least 18 cm across to put food on.","","A plate needs a wide, flat top (about 18 cm or more across) that's thin enough to be light. A tall block is heavy and food rolls off a round ball.");}
+  case "surface":{const s=surfaceOf(A,nd);if(!s)return r(false,`There's no flat ${nd.what} to ${nd.what==="top"?"put things on":nd.what==="bed"?"lie on":"sit on"}.`,"",`A ${nd.what} has to be a flat, level part, the right height off the ground, big enough for the body that uses it.`);
+    const bad=[];if(s.top<nd.hMin||s.top>nd.hMax)bad.push(`its top is ${cm(s.top)} off the ground (it should be ${nd.hMin}–${nd.hMax} cm)`);if(s.big<Math.max(nd.w,nd.d)||s.small<Math.min(nd.w,nd.d))bad.push(`it's ${cm(s.big)} × ${cm(s.small)} (it needs at least ${Math.max(nd.w,nd.d)} × ${Math.min(nd.w,nd.d)} cm)`);
+    if(s.thick<1.5)bad.push(`it's only ${s.thick.toFixed(1)} cm thick — it would bend and snap`);A.surf=s;
+    if(!bad.length)return r(true,`The ${nd.what} is ${cm(s.top)} off the ground and ${cm(s.big)} × ${cm(s.small)}.`,`Furniture is sized for people: a seat about 45 cm high lets your feet rest flat on the floor with your knees bent at a right angle; a table at about 75 cm is at elbow height when you sit; a bed is long enough for a grown-up (about 180 cm).`,"",{surf:s});
+    return r(false,`The ${nd.what}: ${bad.join("; ")}.`,"",`Furniture has to fit the body: a seat about 40–50 cm high lets your feet touch the floor; a table top is about 70–75 cm so it's at elbow height; a bed must be longer than the person. Sizes come from measuring people — that's called ergonomics.`,{surf:s});}
+  case "back":{const s=A.surf||surfaceOf(A,{hMin:0,hMax:999,w:0,d:0});if(!s)return r(false,"There's no seat for a back to go on.","","A back rests against the seat's edge and rises above it so you can lean.");
+    const b=A.P.find(a=>a!==s.a&&A.touch(a,s.a)&&a.box.max.y>=s.top+nd.min);
+    return b?r(true,`It has a back reaching ${cm(b.box.max.y-s.top)} above the seat.`,"A backrest takes some of your weight when you lean back, so your back muscles can relax. It works because it's joined to the seat and the seat's legs carry the push."):r(false,`There's no back: nothing joined to the seat rises ${nd.min} cm or more above it.`,"","Without a back you have to hold yourself up with your own muscles. A chair's back is a part fixed to the seat that rises above it — that's what makes a chair different from a stool.");}
+  case "holds":{const s=A.surf||surfaceOf(A,{hMin:0,hMax:999,w:0,d:0});if(!s)return r(false,`There's nothing for the ${kg(nd.kg)} to rest on.`,"","Weight has to be carried by a surface and passed down to the ground.",{load:nd.kg});
+    const S=supportsOf(A,s.a);if(!S.legs.length)return r(false,"Nothing carries the weight down to the ground — the top isn't held up by anything.","","Weight travels down through the parts: from the top into legs or sides and into the ground. If no part joins the top to the ground, there's no path for the weight to go.",{load:nd.kg,breaks:true});
+    const safe=S.cap,need=nd.kg*2;
+    if(safe>=need)return r(true,`${S.legs.length} support${S.legs.length>1?"s":""} carry the weight down to the ground. Together they can hold about ${kg(safe)}; the job is ${kg(nd.kg)}.`,`Each leg is pushed on from above (that's called compression). How much a leg can carry depends on how thick it is and what it's made of — a 5 × 5 cm wooden leg can carry over 700 kg straight down. Long thin legs bend sideways (buckle) much sooner, so thick, short legs are strongest.`,"",{load:nd.kg});
+    return r(false,`The supports can hold about ${kg(safe/2)} safely, but it has to carry ${kg(nd.kg)} — it breaks.`,"",`Each leg is squeezed by the weight above (compression). A leg's strength grows with its cross-section — the area you'd see if you cut it — and with the material (metal is about ten times stronger than wood). Long, thin legs also bend sideways (buckle). Thicker legs, more legs, shorter legs or a stronger material carry more.`,{load:nd.kg,breaks:true});}
+  case "soft":{const s=A.surf;const soft=s&&A.P.find(a=>a.p.mat==="fabric"&&a.box.min.y>=s.top-2&&A.touch(a,s.a));
+    return soft?r(true,`There's a soft ${soft.p.name||"mattress"} on top.`,"A mattress spreads your weight over a big area, so no single spot of your body presses hard. Soft materials squash to fit your shape — that's why they feel comfortable."):r(false,"There's nothing soft to lie on — just the hard frame.","","Lying on a hard board, your weight presses on a few small spots (hips, shoulders) and it hurts. A soft mattress (cloth) squashes to fit your shape and spreads the weight out.");}
+  case "shelves":{const sh=A.P.filter(a=>a.p.shape==="box"&&upright(a)&&(a.box.max.y-a.box.min.y)<=6&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=nd.w).sort((a,b)=>a.box.max.y-b.box.max.y);
+    const lv=[];sh.forEach(a=>{if(!lv.length||a.box.max.y-lv[lv.length-1].box.max.y>=20)lv.push(a);});const held=lv.filter(a=>a.nb.length>0);
+    if(held.length>=nd.n)return r(true,`It has ${held.length} shelves, each at least ${nd.w} cm wide, with room for books between them.`,"Each shelf is a flat board held at its ends by the sides. Books are heavy, so the boards rest on the sides and pass the weight down to the floor.");
+    return r(false,`It has ${held.length} shelf${held.length===1?"":"s"} you could use (it needs ${nd.n}, each at least ${nd.w} cm wide and 20 cm apart so books fit).`,"","A shelf is a flat board, wide enough for a row of books and joined at its ends to the sides. Shelves need space between them taller than a book (about 20–30 cm).");}
+  case "ladder":{const rails=A.P.filter(a=>a.ground&&(a.box.max.y-a.box.min.y)>=nd.h&&Math.min(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)<20);
+    const rungs=A.P.filter(a=>!rails.includes(a)&&rails.filter(rl=>A.touch(a,rl)).length>=2).sort((a,b)=>a.box.min.y-b.box.min.y);
+    if(rails.length<2)return r(false,`It needs two long side rails at least ${cm(nd.h)} tall standing on the ground — it has ${rails.length}.`,"","A ladder has two long side rails and rungs between them. Both rails carry the climber's weight down to the ground.");
+    const gaps=rungs.slice(1).map((a,i)=>a.box.min.y-rungs[i].box.min.y),badGap=gaps.find(g=>g<20||g>40);
+    if(rungs.length<nd.rungs)return r(false,`Only ${rungs.length} rung${rungs.length===1?"":"s"} join both rails (it needs at least ${nd.rungs}).`,"","Rungs are the steps: each must reach from one rail to the other so both rails share the weight. About every 30 cm is a comfortable step.");
+    if(badGap!==undefined)return r(false,`Some rungs are ${cm(badGap)} apart — steps should be 20–40 cm apart.`,"","People can lift a foot comfortably about 30 cm. Rungs much further apart are too hard to climb; very close ones waste wood.");
+    return r(true,`Two rails ${cm(Math.min(...rails.map(a=>a.box.max.y-a.box.min.y)))} tall with ${rungs.length} rungs about ${cm(gaps.reduce((s,g)=>s+g,0)/Math.max(1,gaps.length))} apart.`,"Each rung passes the climber's weight to both rails, and the rails carry it to the ground. Even steps about 30 cm apart match how high people lift their feet.");}
+  case "room":{const B=A.box,floorY=Math.max(0,B.min.y),mid=floorY+Math.min(nd.head*.5,100);const g=grid(A,mid);
+    if(g.area<nd.area*.25){const solid=A.P.some(a=>a.p.shape==="box"&&(a.box.max.x-a.box.min.x)*(a.box.max.z-a.box.min.z)>=nd.area*.5&&a.box.min.y<=mid&&a.box.max.y>=mid);
+      return r(false,solid?"There's no room inside: the walls are one solid block all the way through.":`There's no closed-in room: at ${cm(mid)} high the walls don't go all the way round.`,"",solid?"A building is a shell: walls around an empty space. A solid block has no inside at all — you can only stand on top of it.":"To make a room, walls must join up all the way round, leaving empty space in the middle. Any gap (other than the door) lets the wind and rain in.",{rain:"in"});}
+    const head=grid(A,floorY+nd.head-5);const tall=head.area>=g.area*.6;const roofCells=g.cells.filter(([x,z])=>A.P.some(a=>a.box.min.y>=floorY+nd.head*.7&&x>=a.box.min.x&&x<=a.box.max.x&&z>=a.box.min.z&&z<=a.box.max.z)).length;
+    const roofOk=roofCells>=g.cells.length*.9;const open=grid(A,floorY+Math.min(nd.door.h*.5,90),{doorsOpen:true});const doorWorks=open.area<g.area*.6;
+    const doors=A.P.filter(a=>a.p.mat==="door");const bigDoor=doors.find(a=>(a.box.max.y-a.box.min.y)>=nd.door.h&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=nd.door.w);
+    const facts=[`The room inside is ${(g.area/10000).toFixed(g.area<10000?2:1)} m²`];const fails=[];
+    if(g.area<nd.area)fails.push(`that's too small (it needs ${(nd.area/10000).toFixed(nd.area<10000?2:1)} m²)`);
+    if(!tall)fails.push(`there isn't ${cm(nd.head)} of headroom inside`);
+    if(!roofOk)fails.push(`the roof covers only ${Math.round(roofCells/Math.max(1,g.cells.length)*100)}% of the room`);
+    if(!doors.length)fails.push("there's no door (a part made of door material)");else if(!bigDoor)fails.push(`the door is too small (at least ${nd.door.w} × ${nd.door.h} cm)`);else if(!doorWorks)fails.push("the door doesn't lead into the room");
+    const wins=A.P.filter(a=>a.p.mat==="window").length;
+    if(!fails.length)return r(true,`${facts[0]}, there's ${cm(nd.head)} of headroom, the roof covers it, and the door opens into it${wins?` · ${wins} window${wins>1?"s":""} let light in`:""}.`,"Walls joined all the way round make a closed space that keeps the wind out. A roof over the whole room sheds rain off its slope, and the door is a gap in the wall that you can close.",""+"",{rain:"out"});
+    return r(false,`${facts[0]}, but ${fails.join("; ")}.`,"","A home must keep weather out and let people in: walls closed all round, a roof over every part of the room (rain falls straight down, and wind blows it sideways), enough height to stand, and a door that opens into the room.",{rain:roofOk?"out":"in"});}
+  case "wheels":{const W=A.P.filter(a=>(a.p.shape==="cylinder"||a.p.shape==="torus")&&(a.p.shape==="torus"?Math.abs(a.up.z)>.9||Math.abs(a.up.x)>.9:lying(a))&&a.box.min.y<=2&&a.nb.length>0);
+    if(W.length<nd.n)return r(false,`${W.length} wheel${W.length===1?"":"s"} touch the ground and are attached (it needs ${nd.n}).`,"",`A wheel is a disc turned on its edge, joined to the body by an axle, that rolls along the ground. Wheels only help if they actually touch the ground and are attached — and you need ${nd.n} to keep it level.`,{roll:false});
+    if(nd.span){const xs=W.map(a=>a.box.getCenter(new THREE.Vector3())),sx=Math.max(...xs.map(v=>v.x))-Math.min(...xs.map(v=>v.x)),sz=Math.max(...xs.map(v=>v.z))-Math.min(...xs.map(v=>v.z));
+      if(Math.max(sx,sz)<nd.span)return r(false,`The wheels are only ${cm(Math.max(sx,sz))} apart front to back — it would rock and tip (cars need about ${cm(nd.span)} or more).`,"","Wheels far apart (front to back and side to side) make a big rectangle under the car, so its weight stays inside and it doesn't tip when it brakes or turns.",{roll:true});}
+    return r(true,`${W.length} wheel${W.length===1?"":"s"} touch the ground and turn.`,"A wheel turns sliding into rolling: only a tiny patch touches the ground, so there's much less friction than dragging. That's why one person can push a heavy load on wheels.",undefined,{roll:true});}
+  case "clear":{const W=A.P.filter(a=>(a.p.shape==="cylinder"||a.p.shape==="torus")&&a.box.min.y<=2);const body=A.P.filter(a=>!W.includes(a));const low=body.length?Math.min(...body.map(a=>a.box.min.y)):0;
+    return low>=nd.min?r(true,`The body rides ${cm(low)} above the ground.`,"The wheels hold the body up so it doesn't scrape: only the wheels touch the ground, so it can roll over small bumps."):r(false,`The body is only ${cm(Math.max(0,low))} above the ground — it scrapes along.`,"","If the body touches the ground it drags instead of rolling, and every bump stops it. The wheels must be big enough (or the body high enough) to leave a gap underneath.");}
+  case "carBody":{const W=A.P.filter(a=>(a.p.shape==="cylinder"||a.p.shape==="torus")&&a.box.min.y<=2);const body=A.P.filter(a=>!W.includes(a));if(!body.length)return r(false,"There's no body — only wheels.","","A car needs a body to sit in and to join the wheels together.");
+    const b=new THREE.Box3();body.forEach(a=>b.union(a.box));const L=Math.max(b.max.x-b.min.x,b.max.z-b.min.z),Wd=Math.min(b.max.x-b.min.x,b.max.z-b.min.z);
+    return L>=nd.len&&Wd>=nd.wid?r(true,`The body is ${cm(L)} long and ${cm(Wd)} wide — room for people.`,"A car is sized for its passengers: about 2.5–4.5 m long and 1.5–1.8 m wide holds a driver and passengers sitting one behind the other."):r(false,`The body is ${cm(L)} × ${cm(Wd)} — too small for a person to sit in (at least ${nd.len} × ${nd.wid} cm).`,"","A person sitting needs about 1 m of length and 60 cm of width; a car carrying a driver and goods needs at least 2.5 m by 1.2 m.");}
+  case "light":{return A.mass<=nd.kg?r(true,`It weighs ${kg(A.mass)} — light enough for an engine to move.`,"An engine can only push so much weight. Real cars weigh about 1,000–2,000 kg because their bodies are thin metal sheets around an empty inside, not solid metal."):r(false,`It weighs ${kg(A.mass)}! An engine can only move about ${kg(nd.kg)}.`,"",`Weight = volume × density. Solid metal is very heavy — 7.8 grams in every cubic centimetre. Real cars are thin metal shells with empty space inside, so they're light enough to move and to stop.`);}
+  case "basin":{const b=basinOf(A);if(!b.cap)return r(false,`It can't carry a load: ${b.why}.`,"","To carry loose things — stones, hay, water — you need a floor with sides all the way round, like a tray or a tub.");
+    return b.cap>=nd.min?r(true,`It can carry ${b.cap>=10?Math.round(b.cap):b.cap.toFixed(1)} litres.`,"A floor with sides all round makes a tray: the floor holds the load up and the sides stop it sliding off. Its size is floor area × height of the sides."):r(false,`It can carry only ${b.cap.toFixed(1)} litres — it needs at least ${nd.min}.`,"","What it can carry is floor area × the height of the lowest side. Higher sides or a bigger floor carry more.");}
+  case "floats":{const b=basinOf(A);const push=b.cap||0;const total=A.mass+nd.kg;
+    return push>=total*1.3?r(true,`It can push aside ${Math.round(push)} litres of water, which can hold up ${kg(push)}; the boat plus a ${kg(nd.kg)} rider weighs ${kg(total)} — it floats with room to spare.`,"A boat floats because it pushes water out of the way, and the water pushes back up. Every litre of water pushed aside holds up 1 kg (that's Archimedes' discovery). A hollow hull pushes aside a lot of water but weighs little, so it floats.",undefined,{float:true}):
+      r(false,`It can push aside only ${Math.round(push)} litres of water (holding up ${kg(push)}), but the boat plus a ${kg(nd.kg)} rider weighs ${kg(total)} — it sinks.`,"","Water holds up 1 kg for every litre the boat pushes aside (Archimedes' principle). To float, the hollow inside must be big enough that the water it can push away weighs more than the boat and everything in it.",{float:false});}
+  case "wideBoat":{const w=Math.min(A.box.max.x-A.box.min.x,A.box.max.z-A.box.min.z);return w>=nd.min?r(true,`It's ${cm(w)} wide — steady on the water.`,"A wide hull is steady: when it leans, one side sinks deeper and pushes up harder, rolling it back upright."):r(false,`It's only ${cm(w)} wide — it would roll over when you climb in.`,"","A narrow boat rolls over easily: a wide hull pushes back when it leans, so it stays upright.");}
+  case "doorLeaf":{const d=A.P.find(a=>a.p.shape==="box"&&(a.box.max.y-a.box.min.y)>=190&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=75&&Math.min(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=2.5);
+    return d?r(true,`The door is ${cm(d.box.max.y-d.box.min.y)} tall and ${cm(Math.max(d.box.max.x-d.box.min.x,d.box.max.z-d.box.min.z))} wide.`,"A door is sized for people: about 2 m tall and 80–90 cm wide so a grown-up walks through without ducking, and thick enough (3–5 cm) not to bend."):r(false,"There's no door-sized board: it should be at least 190 cm tall, 75 cm wide and 2.5 cm thick.","","Doorways are made for people: most grown-ups are under 1.9 m tall and need about 75 cm of width to walk through. A thin board bends and cracks when you slam it.");}
+  }
+  return r(true,"","");}
+function test(id,parts){const it=ITEMS[id],A=analyse(parts);if(!parts.length)return {ok:false,res:[{ok:false,fact:"There's nothing on the workbench yet.",whyFail:"Start with a part — or tell the helper what to make."}],A};
+  const res=it.needs.map(nd=>check(nd,A,it));return {ok:res.every(x=>x.ok),res,A};}
+// ---- the screen ----
+let S=null;   // the open workbench
+const CSS=`#bench{position:fixed;inset:0;z-index:50;background:#15161a;color:#eef;display:flex;font:14px system-ui,sans-serif}
+#bench.hidden{display:none}#bench .view{flex:1;position:relative;min-width:0}#bench canvas{width:100%;height:100%;display:block;touch-action:none}
+#bench .side{width:390px;max-width:48vw;overflow:auto;background:#1e2026;border-left:1px solid #333;padding:12px 14px}
+#bench h2{margin:0 0 4px;font-size:19px}#bench .chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;margin-left:6px}
+#bench .chip.e{background:#2f8a4f}#bench .chip.m{background:#c98a2b}#bench .chip.h{background:#b5392b}
+#bench .need{margin:6px 0 10px;padding:8px 10px;background:#272a32;border-radius:10px;font-size:13px;line-height:1.4}
+#bench .ai{display:flex;gap:6px;margin:8px 0}#bench .ai input{flex:1;padding:9px 10px;border-radius:10px;border:1px solid #444;background:#111;color:#fff;font-size:14px}
+#bench button{margin:0;padding:7px 11px;border-radius:9px;border:1px solid #444;background:#2b2e36;color:#fff;font-size:13px;cursor:pointer}#bench button.go{background:#e8b84a;color:#222;border-color:#e8b84a;font-weight:700}
+#bench button:disabled{opacity:.45;cursor:default}#bench .row{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+#bench .parts{list-style:none;margin:6px 0;padding:0}#bench .parts li{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;cursor:pointer}#bench .parts li.on{background:#3a3f4c}
+#bench .parts .sw{width:12px;height:12px;border-radius:3px;flex:none}#bench .ed{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+#bench .ed label{font-size:11px;color:#aab}#bench .ed input,#bench .ed select{width:100%;box-sizing:border-box;padding:5px;border-radius:7px;border:1px solid #444;background:#111;color:#fff}
+#bench .note{font-size:12.5px;color:#bcd;min-height:16px}#bench .rep{margin-top:8px}#bench .rep p{margin:5px 0;line-height:1.4}#bench .rep .y{color:#8fe39a}#bench .rep .n{color:#ff9a8a}
+#bench .tutor{background:#262b3a;border-radius:10px;padding:8px 10px;margin-top:6px;line-height:1.45}#bench .top{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap}
+#bench .lab{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:8px;font-size:12.5px;max-width:70%}
+#bench .wiki{background:#20252e;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:13px;line-height:1.45;max-height:340px;overflow:auto}#bench .wiki a{color:#9fd3ff}
+#bench .list button{display:block;width:100%;text-align:left;margin:4px 0}
+@media (max-width:760px){#bench{flex-direction:column}#bench .side{width:auto;max-width:none;height:52vh;border-left:0;border-top:1px solid #333}}`;
+function ensureDom(){if($("#bench"))return;const st=document.createElement("style");st.textContent=CSS;document.head.appendChild(st);
+  const d=document.createElement("div");d.id="bench";d.className="hidden";d.innerHTML=`<div class="view"><canvas id="bcv"></canvas><div class="top"><button id="bClose">✕ Close</button><button id="bView">⟲ Reset view</button></div><div class="lab" id="bLab">Drag to turn · scroll or pinch to zoom · click a part to pick it</div></div><div class="side" id="bSide"></div>`;
+  document.body.appendChild(d);$("#bClose").onclick=close;$("#bView").onclick=()=>{fit();};setupView();}
+let R,SC,CAM,ROOT,TEST=null,orbit={yaw:.7,pitch:.45,dist:100,tx:0,ty:0,tz:0},drag=null;
+function setupView(){const cv=$("#bcv");R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(2,devicePixelRatio||1));SC=new THREE.Scene();SC.background=new THREE.Color(0x1b1d23);
+  CAM=new THREE.PerspectiveCamera(40,1,1,50000);SC.add(new THREE.HemisphereLight(0xffffff,0x445566,1.1));const sun=new THREE.DirectionalLight(0xffffff,.9);sun.position.set(300,600,400);SC.add(sun);
+  ROOT=new THREE.Group();SC.add(ROOT);
+  cv.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,moved:0,id:e.pointerId};cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.moved+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;orbit.yaw-=dx*.008;orbit.pitch=Math.max(-.2,Math.min(1.45,orbit.pitch+dy*.006));});
+  cv.addEventListener("pointerup",e=>{if(drag&&drag.moved<6)pickAt(e);drag=null;});
+  cv.addEventListener("wheel",e=>{e.preventDefault();orbit.dist*=Math.exp(e.deltaY*.0012);},{passive:false});
+  let pinch=0;cv.addEventListener("touchmove",e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinch)orbit.dist*=pinch/d;pinch=d;}},{passive:true});cv.addEventListener("touchend",()=>{pinch=0;});
+  const loop=()=>{requestAnimationFrame(loop);if(!S)return;const w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==Math.floor(w*R.getPixelRatio())||cv.height!==Math.floor(h*R.getPixelRatio())){R.setSize(w,h,false);CAM.aspect=w/Math.max(1,h);CAM.updateProjectionMatrix();}
+    const o=orbit;CAM.position.set(o.tx+o.dist*Math.cos(o.pitch)*Math.sin(o.yaw),o.ty+o.dist*Math.sin(o.pitch),o.tz+o.dist*Math.cos(o.pitch)*Math.cos(o.yaw));CAM.lookAt(o.tx,o.ty,o.tz);
+    if(TEST)stepTest();R.render(SC,CAM);};loop();}
+function pickAt(e){const cv=$("#bcv"),r=cv.getBoundingClientRect();const v=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);const rc=new THREE.Raycaster();rc.setFromCamera(v,CAM);
+  const hit=rc.intersectObjects(ROOT.children,true).find(h=>h.object.userData.part);S.sel=hit?S.parts.indexOf(hit.object.userData.part):-1;side();}
+function draw(){ROOT.clear();if(!S)return;const ext=Math.max(60,...S.parts.map(p=>Math.max(Math.abs(n(p.x,0))+60,Math.abs(n(p.z,0))+60)));
+  const g=new THREE.GridHelper(Math.ceil(ext/50)*100,Math.ceil(ext/50)*10,0x556070,0x30343c);ROOT.add(g);
+  S.parts.forEach((p,i)=>{const m=meshOf(p);if(i===S.sel){m.material.emissive=new THREE.Color(0x4a3a10);}ROOT.add(m);if(i===S.sel){const bh=new THREE.BoxHelper(m,0xffd36a);ROOT.add(bh);}});}
+function fit(){const b=new THREE.Box3();S.parts.forEach(p=>b.union(new THREE.Box3().setFromObject(meshOf(p))));if(b.isEmpty())b.set(new THREE.Vector3(-20,0,-20),new THREE.Vector3(20,30,20));
+  const c=b.getCenter(new THREE.Vector3()),s=b.getSize(new THREE.Vector3());orbit.tx=c.x;orbit.ty=c.y;orbit.tz=c.z;orbit.dist=Math.max(40,Math.max(s.x,s.y,s.z)*2.2);}
+// ---- the testing area: the test acted out in the view ----
+function startTest(rep){const A=rep.A;TEST={t:0,rep,objs:[],A};const add=o=>{ROOT.add(o);TEST.objs.push(o);return o;};
+  const find=k=>rep.res.find(x=>x.k===k&&x.fact);const ct=find("container"),hd=find("holds"),rm=find("room"),wh=find("wheels"),fl=find("floats"),st=find("stands");
+  if(ct&&ct.ca){const a=ct.ca,p=a.p,ir=Math.max(.5,p.r-(p.wall||1));if(ct.water==="fill"){const w=add(new THREE.Mesh(new THREE.CylinderGeometry(ir*.98,ir*.98,1,24),new THREE.MeshLambertMaterial({color:0x3a8cff,transparent:true,opacity:.75})));w.position.copy(a.m.position);TEST.water={m:w,a,ir,h:p.h-(p.bottom||0)};}
+    else TEST.drip={a,ir};}
+  if(hd){const s=A.surf;const top=s?s.top:A.box.max.y,c=s?s.a.box.getCenter(new THREE.Vector3()):A.box.getCenter(new THREE.Vector3());const sz=Math.max(12,Math.min(40,(s?s.small:40)*.6));
+    const w=add(new THREE.Mesh(new THREE.BoxGeometry(sz,sz,sz),new THREE.MeshLambertMaterial({color:hd.ok?0x8a7a5a:0xb5392b})));w.position.set(c.x,top+sz/2+120,c.z);TEST.weight={m:w,top,sz,ok:hd.ok,legs:s?supportsOf(A,s.a).legs:[]};}
+  if(rm){TEST.rain={drops:[],ok:rm.ok};}
+  if(wh){TEST.roll={ok:wh.ok};}
+  if(fl){const wt=add(new THREE.Mesh(new THREE.BoxGeometry(A.box.max.x-A.box.min.x+200,1,A.box.max.z-A.box.min.z+200),new THREE.MeshLambertMaterial({color:0x2f7fd8,transparent:true,opacity:.55})));wt.position.set((A.box.min.x+A.box.max.x)/2,0,(A.box.min.z+A.box.max.z)/2);TEST.sea={m:wt,ok:fl.float};}
+  if(st&&st.tip)TEST.tip=true;}
+function stepTest(){const T=TEST;T.t+=1/60;const k=Math.min(1,T.t/2.4);
+  if(T.water){const w=T.water;const lv=w.h*Math.min(1,k*1.1);w.m.scale.y=Math.max(.01,lv);const base=w.a.box.min.y+(w.a.p.bottom||0);w.m.position.y=base+lv/2;}
+  if(T.drip&&Math.random()<.6){const a=T.drip.a;const d=new THREE.Mesh(new THREE.SphereGeometry(Math.max(.4,a.p.r*.06),6,5),new THREE.MeshBasicMaterial({color:0x5aa8ff}));d.position.set(a.m.position.x+(Math.random()-.5)*a.p.r,a.box.max.y+5,a.m.position.z+(Math.random()-.5)*a.p.r);d.userData.v=0;ROOT.add(d);T.objs.push(d);}
+  T.objs.forEach(o=>{if(o.userData.v!==undefined){o.userData.v+=.4;o.position.y-=o.userData.v*.1;if(o.position.y<-30)o.visible=false;}});
+  if(T.weight){const w=T.weight;const y=Math.max(w.top+w.sz/2,w.m.position.y-(T.t*T.t*60));w.m.position.y=y;if(y<=w.top+w.sz/2+.1&&!w.hit){w.hit=true;if(!w.ok){ROOT.children.forEach(m=>{if(m.userData.part&&w.legs.some(l=>l.p===m.userData.part)){m.material.color.set(0xff5544);m.scale.y=.4;}});}}}
+  if(T.rain){const R2=T.rain,B=T.A.box;if(T.t<3)for(let i=0;i<6;i++){const d=new THREE.Mesh(new THREE.BoxGeometry(1.2,14,1.2),new THREE.MeshBasicMaterial({color:0x9fd3ff}));d.position.set(B.min.x+Math.random()*(B.max.x-B.min.x),B.max.y+120,B.min.z+Math.random()*(B.max.z-B.min.z));d.userData.v=0;ROOT.add(d);T.objs.push(d);
+      const ray=new THREE.Raycaster(d.position.clone(),new THREE.Vector3(0,-1,0));const hits=ray.intersectObjects(ROOT.children.filter(m=>m.userData.part),false);d.userData.stop=hits.length?hits[0].point.y:0;}
+    T.objs.forEach(o=>{if(o.userData.stop!==undefined&&o.position.y<=o.userData.stop)o.visible=false;});}
+  if(T.roll){const dz=T.roll.ok?Math.sin(T.t*1.4)*60:Math.sin(T.t*1.4)*6;ROOT.children.forEach(m=>{if(m.userData.part){if(m.userData.z0===undefined)m.userData.z0=m.position.z;m.position.z=m.userData.z0+dz;}});}
+  if(T.sea){const s=T.sea;const sink=s.ok?0:Math.min(1,T.t/2.5);ROOT.children.forEach(m=>{if(m.userData.part){if(m.userData.y0===undefined)m.userData.y0=m.position.y;m.position.y=m.userData.y0-(s.ok?3+Math.sin(T.t*2)*2:sink*(T.A.box.max.y+30));}});s.m.position.y=Math.min(T.A.box.max.y*.35,T.t*20);}
+  if(T.tip){const ang=Math.min(1.2,T.t*T.t*.5);ROOT.children.forEach(m=>{if(m.userData.part){if(!m.userData.p0){m.userData.p0=m.position.clone();m.userData.r0=m.rotation.z;}const p0=m.userData.p0,pv=new THREE.Vector3(T.A.foot?T.A.foot.x1:0,0,0);const v=p0.clone().sub(pv);v.applyAxisAngle(new THREE.Vector3(0,0,1),-ang);m.position.copy(pv.add(v));m.rotation.z=m.userData.r0-ang;}});}
+  if(T.t>6){TEST=null;draw();}}
+// ---- the side panel ----
+function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel];let h="";
+  if(S.choose){h+=`<h2>Workbench</h2><p class="need">What do you want to build? People's orders come first; you can also build anything for yourself.</p><div class="list">`;
+    (S.orders||[]).forEach((o,i)=>{const I=ITEMS[o.item];h+=`<button data-order="${i}">${I.icon} <b>${esc(I.name)}</b> for ${esc(o.who)} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span><br><small>${esc(o.text)}</small></button>`;});
+    h+=`<h3 style="margin:12px 0 4px">Build for yourself</h3>`;ORDER.forEach(k=>{const I=ITEMS[k];h+=`<button data-free="${k}">${I.icon} ${esc(I.name[0].toUpperCase()+I.name.slice(1))} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span></button>`;});
+    $("#bSide").innerHTML=h+`</div>`;return;}
+  h+=`<button id="bBack" style="float:right">☰ Orders</button><h2>${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}<span class="chip ${L.cls}">${L.name}</span></h2>`;
+  h+=S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
+  h+=`<div class="ai"><input id="bSay" placeholder="Tell the helper: “make a ${esc(it.name)}”, “add a handle”…" maxlength="240"><button class="go" id="bAsk">Build</button></div><div class="note" id="bNote">${esc(S.note||"")}</div>`;
+  h+=`<div class="row">${Object.keys(SHAPES).map(s=>`<button data-add="${s}">+ ${SNAME[s]}</button>`).join("")}</div>`;
+  h+=`<ul class="parts">${S.parts.map((q,i)=>`<li data-sel="${i}" class="${i===S.sel?"on":""}"><span class="sw" style="background:${esc(q.color||MCOL[q.mat]||"#a8743f")}"></span>${esc(q.name||SNAME[q.shape])} <small style="color:#99a">${SNAME[q.shape]} · ${MNAME[q.mat]||q.mat}</small></li>`).join("")||"<li><small>Nothing yet.</small></li>"}</ul>`;
+  if(p){h+=`<div class="ed">`;[...FIELDS[p.shape],"x","y","z","rx","ry","rz"].forEach(f=>{h+=`<div><label>${FNAME[f]} (${f.startsWith("r")&&f.length===2?"°":"cm"})</label><input type="number" step="0.5" data-f="${f}" value="${n(p[f],0)}"></div>`;});
+    h+=`<div><label>material</label><select data-f="mat">${Object.keys(DENS).map(m=>`<option value="${m}" ${p.mat===m?"selected":""}>${MNAME[m]}</option>`).join("")}</select></div><div><label>colour</label><input type="color" data-f="color" value="${esc(p.color||MCOL[p.mat]||"#a8743f")}"></div><div><label>name</label><input data-f="name" value="${esc(p.name||"")}" maxlength="30"></div></div>`;
+    h+=`<div class="row"><button id="bDup">Copy part</button><button id="bDel">Delete part</button></div>`;}
+  h+=`<div class="row" style="margin-top:10px"><button class="go" id="bTest">🧪 Test it in the testing area</button><button id="bMake" ${S.passed?"":"disabled"}>✅ Make it</button><button id="bWiki">📖 Read about ${esc(it.name)}s</button></div>`;
+  h+=`<div class="rep" id="bRep">${S.rep||""}</div><div id="bWikiBox">${S.wiki||""}</div>`;
+  $("#bSide").innerHTML=h;const say=$("#bSay");if(say)say.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")askAI();};}
+function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)return;
+  if(t.dataset.order!==undefined){const o=S.orders[+t.dataset.order];start(o.item,o);return;}
+  if(t.dataset.free){start(t.dataset.free,null);return;}
+  if(t.id==="bBack"){S.choose=true;side();return;}
+  if(t.dataset.add){const s=t.dataset.add,p=Object.assign({shape:s,id:Math.random().toString(36).slice(2,8),name:SNAME[s],mat:"wood",x:0,z:0},SHAPES[s]);const B=new THREE.Box3();S.parts.forEach(q=>B.union(new THREE.Box3().setFromObject(meshOf(q))));
+    p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"?p.h/2:s==="sphere"?p.r:p.R+p.t/2)+(B.isEmpty()?0:0);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;changed();return;}
+  if(t.dataset.sel!==undefined){S.sel=+t.dataset.sel;side();draw();return;}
+  if(t.id==="bDel"){S.parts.splice(S.sel,1);S.sel=-1;changed();return;}
+  if(t.id==="bDup"){const q=Object.assign({},S.parts[S.sel],{id:Math.random().toString(36).slice(2,8)});q.x=n(q.x,0)+10;S.parts.push(q);S.sel=S.parts.length-1;changed();return;}
+  if(t.id==="bAsk"){askAI();return;}
+  if(t.id==="bTest"){runTest();return;}
+  if(t.id==="bMake"){make();return;}
+  if(t.id==="bWiki"){wiki();return;}}
+function onEdit(e){const t=e.target;if(!S||!t.dataset||!t.dataset.f)return;const p=S.parts[S.sel];if(!p)return;const f=t.dataset.f;
+  if(f==="mat"){p.mat=t.value;delete p.color;}else if(f==="color")p.color=t.value;else if(f==="name")p.name=t.value.slice(0,30);else{const v=parseFloat(t.value);if(isFinite(v))p[f]=v;}
+  S.passed=false;S.rep="";save();draw();if(e.type==="change")side();}
+function changed(){S.passed=false;S.rep="";save();draw();side();}
+function save(){try{const all=JSON.parse(localStorage.getItem("elementum.designs")||"{}");all[S.id]=S.parts;localStorage.setItem("elementum.designs",JSON.stringify(all));}catch(e){}}
+function load(id){try{return JSON.parse(localStorage.getItem("elementum.designs")||"{}")[id]||[];}catch(e){return [];}}
+function askAI(){const i=$("#bSay");const say=i?i.value.trim():"";if(!say)return;S.note="The helper is building…";$("#bNote").textContent=S.note;$("#bAsk").disabled=true;
+  fetch("/api/elementum/cad",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({item:ITEMS[S.id].name,parts:S.parts,say})})
+    .then(r=>r.json().catch(()=>({error:"The helper isn't answering."}))).then(j=>{if(!S)return;if(j.error){S.note=j.error;}else{S.parts=j.parts||S.parts;S.note="Helper: "+(j.note||"Done.");S.sel=-1;fit();}S.passed=false;S.rep="";save();draw();side();})
+    .catch(()=>{if(!S)return;S.note="The helper can't be reached right now (it works on play.hardywu.com).";side();});}
+function runTest(){const rep=test(S.id,S.parts);const it=ITEMS[S.id];let h=`<h3 style="margin:6px 0">Testing area — ${rep.ok?"<span class='y'>it works!</span>":"<span class='n'>it doesn't work yet</span>"}</h3>`;
+  rep.res.forEach(x=>{if(x.fact)h+=`<p class="${x.ok?"y":"n"}">${x.ok?"✔":"✘"} ${esc(x.fact)}</p>`;});
+  if(rep.ok)h+=`<div class="tutor"><b>Magistra Cornelia — why it works:</b> ${rep.res.filter(x=>x.why).map(x=>esc(x.why)).join(" ")}</div>`;
+  else h+=`<div class="tutor"><b>Magistra Cornelia — why it didn't work:</b> ${rep.res.filter(x=>!x.ok&&x.whyFail).map(x=>esc(x.whyFail)).join(" ")}</div>`;
+  S.rep=h;S.passed=rep.ok;draw();startTest(rep);side();if(S.hooks.tested)S.hooks.tested(S.id,rep.ok);}
+function make(){if(!S.passed)return;const it=ITEMS[S.id];const thumb=snapshot();const res={item:S.id,name:it.name,parts:JSON.parse(JSON.stringify(S.parts)),thumb,order:S.order||null};
+  if(S.hooks.made&&S.hooks.made(res)!==false){S.rep=`<p class="y">✅ You made the ${esc(it.name)}! It's in your bag.${S.order?` Take it to ${esc(S.order.who)}.`:""}</p>`;S.passed=false;side();}}
+function snapshot(){try{const c=document.createElement("canvas");c.width=c.height=96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
+    const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();S.parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
+    const cc=b.getCenter(new THREE.Vector3()),s=Math.max(...b.getSize(new THREE.Vector3()).toArray());const cam=new THREE.PerspectiveCamera(35,1,1,50000);cam.position.set(cc.x+s*1.4,cc.y+s*1.1,cc.z+s*1.8);cam.lookAt(cc);r.render(sc,cam);
+    const u=c.toDataURL("image/png");r.dispose();return u;}catch(e){return "";}}
+function wiki(){const it=ITEMS[S.id];S.wiki=`<div class="wiki">Looking it up on Wikipedia…</div>`;side();
+  fetch("/api/elementum/wiki?q="+encodeURIComponent(it.wiki||it.name),{credentials:"include"}).then(r=>r.json()).then(j=>{if(!S)return;
+    if(j.error){S.wiki=`<div class="wiki">${esc(j.error)}</div>`;side();return;}
+    S.wiki=`<div class="wiki"><b>${esc(j.title)}</b> <small>— from <a href="${esc(j.url)}" target="_blank" rel="noopener">Wikipedia</a></small><p>${esc(j.intro).replace(/\n+/g,"</p><p>")}</p>${(j.sections||[]).map(s=>`<h4 style="margin:8px 0 2px">${esc(s.h)}</h4><p>${esc(s.text).replace(/\n+/g,"</p><p>")}</p>`).join("")}</div>`;side();})
+    .catch(()=>{if(!S)return;S.wiki=`<div class="wiki">Wikipedia can't be reached right now.</div>`;side();});}
+function start(id,order){S.id=id;S.order=order;S.who=order?order.who:"";S.text=order?order.text:"";S.pay=order?order.pay:0;
+  S.parts=load(id);S.sel=-1;S.note="";S.rep="";S.wiki="";S.passed=false;S.choose=false;fit();draw();side();}
+function open(hooks){ensureDom();S={hooks:hooks||{},orders:(hooks&&hooks.orders)||[],choose:true,parts:[],sel:-1,id:ORDER[0]};$("#bench").classList.remove("hidden");
+  const sd=$("#bSide");sd.onclick=onSide;sd.oninput=onEdit;sd.onchange=onEdit;sd.onkeydown=e=>e.stopPropagation();
+  if(hooks&&hooks.item)start(hooks.item,hooks.order||null);else side();draw();}
+function close(){if(!S)return;const h=S.hooks;S=null;TEST=null;$("#bench").classList.add("hidden");if(h.onClose)h.onClose();}
+return {ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+})();
