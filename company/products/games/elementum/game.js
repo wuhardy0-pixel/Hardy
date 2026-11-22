@@ -2344,8 +2344,9 @@ function placedShare(q,gone){if(!MP.ok)return;setKey("pl:"+q.pid,gone?null:place
 // walls and roofs of what you set down are solid (Barbara: "make the walls solid and roof"): each big part becomes a box you bump into and
 // can stand on (a doghouse's walls, a table top, a roof); thin bits (legs, rails, handles) and doors stay walk-through
 const NOGHOST={material:{visible:false}};
-function solidify(q){unsolidify(q);q.blks=[];q.g.updateMatrixWorld(true);q.g.traverse(m=>{if(!m.isMesh||!m.userData.part||m.userData.part.mat==="door")return;const b=new THREE.Box3().setFromObject(m),w=b.max.x-b.min.x,d=b.max.z-b.min.z,h=b.max.y-b.min.y;
-    if(Math.max(w,d)<.3||h<.03)return;const rec={x:(b.min.x+b.max.x)/2,y:Math.max(0,b.min.y),z:(b.min.z+b.max.z)/2,w,h:b.max.y-Math.max(0,b.min.y),d,mesh:NOGHOST,marks:[],placed:true};BLOCKS.push(rec);q.blks.push(rec);});}
+function solidify(q){unsolidify(q);q.blks=[];if(q.item.id==="ladder")return;q.g.updateMatrixWorld(true);   // a ladder is climbed with T, never walked up like stairs (Barbara: "you climb it very fast then fall down")
+  q.g.traverse(m=>{if(!m.isMesh||!m.userData.part||m.userData.part.mat==="door")return;const b=new THREE.Box3().setFromObject(m),w=b.max.x-b.min.x,d=b.max.z-b.min.z,h=b.max.y-b.min.y;
+    if(Math.min(w,d)<.25||h<.03)return;const rec={x:(b.min.x+b.max.x)/2,y:Math.max(0,b.min.y),z:(b.min.z+b.max.z)/2,w,h:b.max.y-Math.max(0,b.min.y),d,mesh:NOGHOST,marks:[],placed:true};BLOCKS.push(rec);q.blks.push(rec);});}
 function unsolidify(q){(q.blks||[]).forEach(b=>{const i=BLOCKS.indexOf(b);if(i>=0)BLOCKS.splice(i,1);});q.blks=[];}
 function addPlaced(q){const fl=q.fl;q.g=placedMesh(q.item);q.g.position.set(q.x,q.y||0,q.z);q.g.rotation.y=q.r+(q.open?Math.PI/2:0);scene.add(q.g);PLACED.mine.push(q);solidify(q);if(fl){q.flowers=null;addFlowers(q);}return q;}
 function addFlowers(q){if(q.flowers)return;q.flowers=new THREE.Group();[0xff6a8a,0xffd84a,0xb07aff,0xff9a3a,0xffffff].forEach((c,i)=>{const st=new THREE.Mesh(new THREE.CylinderGeometry(.008,.008,.35,4),LOOK.toon(0x3f8a3a));const a=i/5*6.28;st.position.set(Math.cos(a)*.03,.2,Math.sin(a)*.03);st.rotation.set(Math.sin(a)*.25,0,Math.cos(a)*.25);q.flowers.add(st);
