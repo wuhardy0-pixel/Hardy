@@ -31,6 +31,68 @@ const ITEMS={
   chest:{name:"chest",level:"medium",icon:"🧰",wiki:"Chest (furniture)",needs:[{k:"storage",min:50},{k:"stands"},{k:"onePiece"}],ask:"I have nowhere to keep my things. I need a chest with a lid."},
 };
 const ORDER=Object.keys(ITEMS);
+// what each design idea is about — the library's "Design ideas" book shows a picture and these words; nothing is loaded into the workbench
+const IDEA_TEXT={
+  "Mug":"A tall, straight-sided cup with a loop handle on the side — thick walls keep a drink hot longer.",
+  "Tea cup":"A short, wide cup on a little plate (a saucer) that catches drips; a small handle for two fingers.",
+  "Tall mug":"A narrow, tall mug that holds a lot without being wide; a bigger handle so the whole hand fits.",
+  "Soup bowl":"Wider than it is tall, with low sides, so a spoon reaches everything.",
+  "Wooden bowl":"Carved from one piece of wood, with thick walls so it doesn't crack.",
+  "Footed bowl":"A bowl sitting on a small round foot, which lifts it up and keeps it steady.",
+  "Dinner plate":"One thin, wide, round disc — light to carry, flat so food doesn't roll.",
+  "Square plate":"The same idea in a square shape — it fits neatly in a row on a shelf.",
+  "Wooden board":"A thick rectangle of wood for bread and cheese — you can cut on it too.",
+  "Tall vase":"A tall, narrow glass tube with a closed bottom — the sides hold long stems up.",
+  "Wide vase":"Shorter and wider, for a big bunch of flowers; a heavy clay bottom keeps it from tipping.",
+  "Vase on a stand":"A slim vase on a wide stone base — the wide base stops it falling over.",
+  "Metal bucket":"Thin metal walls (light but strong) and a handle that arches over the top, so it hangs straight when you carry it.",
+  "Wooden bucket":"Thick wooden walls, wider at the bottom, with a carrying handle across the top.",
+  "Plain door":"One flat board, as tall and wide as a person needs, with a knob to pull it.",
+  "Panel door":"A door with raised panels on the front — they make it stiffer so it doesn't bend.",
+  "Barn door":"A big, wide door with a cross bar to keep the boards from sagging.",
+  "Square stool":"A square seat on four legs, one at each corner — very steady.",
+  "Three-leg stool":"A round seat on three legs — three legs never wobble, even on an uneven floor.",
+  "Bar stool":"A tall seat for a high counter, on thin metal legs (metal is strong even when thin).",
+  "Kitchen chair":"A seat on four legs with a flat back fixed to the back edge of the seat.",
+  "Tall-back chair":"Like a kitchen chair but with a much taller back, so you can rest your head.",
+  "Armchair":"A wide, soft cushion seat with arm rests on both sides and a soft back.",
+  "Dining table":"A long rectangular top on four legs at the corners — room for a family.",
+  "Round table":"A round top on one thick middle post with a wide foot at the bottom — no corners to bump.",
+  "Kitchen table":"A smaller table with thin metal legs that hold a lot.",
+  "Park bench":"A long seat for two or three people, with a back to lean on and metal legs.",
+  "Simple bench":"A long plank resting on two wide end boards.",
+  "Stone bench":"A heavy stone slab on two stone blocks — it lasts for hundreds of years.",
+  "Single bed":"A frame on four legs, long enough for a grown-up, with a soft mattress on top.",
+  "Double bed":"A wider frame for two, with a tall board at the head end.",
+  "Bunk-style bed":"A bed with tall corner posts — they hold the frame up from the sides.",
+  "Bookshelf":"Two tall side boards with flat shelves between them, spaced a book's height apart.",
+  "Wide shelf":"A low, wide shelf with thick boards, for heavy books.",
+  "Tall bookcase":"A tall case with many shelves — it holds a whole library in a small space.",
+  "Wooden ladder":"Two long side rails with round rungs between them, one step apart.",
+  "Tall ladder":"A longer ladder with more rungs, for reaching high roofs and trees.",
+  "Metal ladder":"Thin metal rails and flat metal steps — light to carry but strong.",
+  "Classic doghouse":"A hollow box with a door hole in the front and a pointed roof that sheds rain.",
+  "Flat-roof doghouse":"A hollow box with a closed top (a flat roof) and a door hole.",
+  "Big dog's house":"A bigger doghouse with a tall door and a pointed roof, for a big dog.",
+  "Garden barrow":"An open metal tray on one wheel at the front, two long handles and two legs at the back.",
+  "Wooden barrow":"The same idea in wood, with a bigger wheel for bumpy ground.",
+  "Cottage":"Stone walls around one room, a pointed (gable) roof that sheds rain, a door in the middle and a window on each side.",
+  "Flat-roof house":"A simple box house with a flat roof, one big window and a door at the side.",
+  "Tower house":"A tall, narrow house with a door at the bottom, a high window and a cone-shaped roof.",
+  "Round hut":"Round walls made of one big tube, a door, and a dome roof on top.",
+  "Hatchback":"A hollow metal body (thin sheets around an empty inside) on four wheels at the corners.",
+  "Pickup truck":"A closed cab for the driver and an open box behind it for carrying loads, on four big wheels.",
+  "Race car":"Long, low and wide, with a sloping glass windshield and wide wheels for grip.",
+  "Hay cart":"An open wooden box on two big wheels, with a long shaft at the front to pull it.",
+  "Market cart":"A bigger cart with a prop at the front so it stands level when you stop.",
+  "Rowing boat":"A hollow wooden hull, open at the top, with a seat across the middle.",
+  "Canoe":"A long, narrow, light hull — fast through the water.",
+  "Fishing boat":"A big, wide hull with a mast in the middle.",
+  "Treasure chest":"A hollow box with a separate lid resting on top and a lock on the front.",
+  "Toy box":"A hollow box with its lid built on.",
+  "Big storage chest":"A long, deep chest with a metal band around it to keep the wood from splitting.",
+};
+
 // ---- ready-made designs to start from (Barbara, 2026-11-22: "add different designs of a house and everything else so the player can choose").
 // Each is a list of parts in cm, made to work; pick one, then change anything you like.
 const DESIGNS=(()=>{let k=0;const id=()=>"d"+(k++).toString(36);
@@ -356,7 +418,6 @@ function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel
     $("#bSide").innerHTML=h+`</div>`;return;}
   h+=`<button id="bBack" style="float:right">☰ Orders</button><h2>${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}<span class="chip ${L.cls}">${L.name}</span></h2>`;
   h+=S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
-  const DS=DESIGNS[S.id]||[];if(DS.length)h+=`<div class="row" style="align-items:center"><small>📐 Start from a design:</small>${DS.map((d,i)=>`<button data-design="${i}">${esc(d.name)}</button>`).join("")}</div>`;
   h+=`<div class="ai"><input id="bSay" placeholder="Tell the helper one part: “add a handle on the right”, “make the walls 3 m tall”…" maxlength="240"><button class="go" id="bAsk">Build</button></div><div class="note" id="bNote">${esc(S.note||"")}</div>`;
   h+=`<div class="row">${Object.keys(SHAPES).map(s=>`<button data-add="${s}">+ ${SNAME[s]}</button>`).join("")}</div>`;
   h+=`<ul class="parts">${S.parts.map((q,i)=>`<li data-sel="${i}" class="${i===S.sel?"on":""}"><span class="sw" style="background:${esc(q.color||MCOL[q.mat]||"#a8743f")}"></span>${esc(q.name||SNAME[q.shape])} <small style="color:#99a">${SNAME[q.shape]} · ${MNAME[q.mat]||q.mat}</small></li>`).join("")||"<li><small>Nothing yet.</small></li>"}</ul>`;
@@ -369,7 +430,6 @@ function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel
 function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)return;
   if(t.dataset.order!==undefined){const o=S.orders[+t.dataset.order];start(o.item,o);return;}
   if(t.dataset.free){start(t.dataset.free,null);return;}
-  if(t.dataset.design!==undefined){const d=(DESIGNS[S.id]||[])[+t.dataset.design];if(!d)return;S.parts=d.parts();S.sel=-1;S.note=`Loaded the “${d.name}” design — change anything you like, then test it.`;fit();changed();return;}
   if(t.id==="bBack"){S.choose=true;side();return;}
   if(t.dataset.add){const s=t.dataset.add,p=Object.assign({shape:s,id:Math.random().toString(36).slice(2,8),name:SNAME[s],mat:"wood",x:0,z:0},SHAPES[s]);const B=new THREE.Box3();S.parts.forEach(q=>B.union(new THREE.Box3().setFromObject(meshOf(q))));
     p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"||s==="shell"||s==="wedge"?p.h/2:s==="sphere"?p.r:s==="dome"?p.r/2:p.R+p.t/2);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;changed();return;}
@@ -402,9 +462,10 @@ function runTest(){const rep=test(S.id,S.parts);const it=ITEMS[S.id];let h=`<h3 
   S.rep=h;S.passed=rep.ok;draw();startTest(rep);side();if(S.hooks.tested)S.hooks.tested(S.id,rep.ok);}
 function make(){if(!S.passed)return;const it=ITEMS[S.id];const thumb=snapshot();const res={item:S.id,name:it.name,parts:JSON.parse(JSON.stringify(S.parts)),thumb,order:S.order||null};
   if(S.hooks.made&&S.hooks.made(res)!==false){S.rep=`<p class="y">✅ You made the ${esc(it.name)}! It's in your bag.${S.order?` Take it to ${esc(S.order.who)}.`:""}</p>`;S.passed=false;side();}}
-function snapshot(){try{const c=document.createElement("canvas");c.width=c.height=96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
-    const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();S.parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
-    const cc=b.getCenter(new THREE.Vector3()),s=Math.max(...b.getSize(new THREE.Vector3()).toArray());const cam=new THREE.PerspectiveCamera(35,1,1,50000);cam.position.set(cc.x+s*1.4,cc.y+s*1.1,cc.z+s*1.8);cam.lookAt(cc);r.render(sc,cam);
+function snapshot(){return snap(S.parts,96);}
+function snap(parts,px){try{const c=document.createElement("canvas");c.width=c.height=px||96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
+    const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
+    const cc=b.getCenter(new THREE.Vector3()),s=Math.max(...b.getSize(new THREE.Vector3()).toArray());const cam=new THREE.PerspectiveCamera(35,1,1,50000);cam.position.set(cc.x+s*1.3,cc.y+s*1.0,cc.z-s*1.8);cam.lookAt(cc);r.render(sc,cam);
     const u=c.toDataURL("image/png");r.dispose();return u;}catch(e){return "";}}
 function wiki(){const it=ITEMS[S.id];S.wiki=`<div class="wiki">Looking it up on Wikipedia…</div>`;side();
   fetch("/api/elementum/wiki?q="+encodeURIComponent(it.wiki||it.name),{credentials:"include"}).then(r=>r.json()).then(j=>{if(!S)return;
@@ -417,5 +478,18 @@ function open(hooks){ensureDom();S={hooks:hooks||{},orders:(hooks&&hooks.orders)
   const sd=$("#bSide");sd.onclick=onSide;sd.oninput=onEdit;sd.onchange=onEdit;sd.onkeydown=e=>e.stopPropagation();
   if(hooks&&hooks.item)start(hooks.item,hooks.order||null);else side();draw();}
 function close(){if(!S)return;const h=S.hooks;S=null;TEST=null;$("#bench").classList.add("hidden");if(h.onClose)h.onClose();}
-return {DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+const IDEAS={item:ORDER[0],pics:{}};
+function openIdeas(hooks){if(!$("#ideas")){const st=document.createElement("style");st.textContent=`#ideas{position:fixed;inset:0;z-index:50;background:rgba(18,16,14,.96);color:#f3ead8;overflow:auto;font:15px Georgia,serif}#ideas.hidden{display:none}
+#ideas .in{max-width:980px;margin:0 auto;padding:18px}#ideas h1{margin:0 0 4px;font-size:26px}#ideas .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}#ideas .tabs button{margin:0;padding:6px 10px;border-radius:999px;border:1px solid #5a4a38;background:#2a231c;color:#f3ead8;font:13px system-ui,sans-serif;cursor:pointer}
+#ideas .tabs button.on{background:#e8b84a;color:#222;border-color:#e8b84a}#ideas .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}#ideas .card{background:#f6efe0;color:#2a2018;border-radius:12px;padding:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#ideas .card img{width:100%;aspect-ratio:1;background:#e8dcc4;border-radius:8px;display:block}#ideas .card h3{margin:8px 0 4px;font-size:17px}#ideas .card p{margin:0;font-size:14px;line-height:1.4}#ideas .close{float:right;margin:0;padding:8px 14px;border-radius:10px;border:0;background:#e8b84a;color:#222;font:600 14px system-ui;cursor:pointer}`;document.head.appendChild(st);
+    const d=document.createElement("div");d.id="ideas";d.className="hidden";document.body.appendChild(d);d.onclick=e=>{const t=e.target.closest("[data-it],.close");if(!t)return;if(t.classList.contains("close")){closeIdeas();return;}IDEAS.item=t.dataset.it;drawIdeas();};}
+  IDEAS.hooks=hooks||{};if(hooks&&hooks.item&&DESIGNS[hooks.item])IDEAS.item=hooks.item;$("#ideas").classList.remove("hidden");drawIdeas();}
+function drawIdeas(){const it=ITEMS[IDEAS.item],L=LV[it.level];let h=`<div class="in"><button class="close">Close the book</button><h1>📐 Design ideas</h1><p>Ideas from builders before you. Look at how each one works — then design your own at the workbench. (Nothing here builds anything for you.)</p>`;
+  h+=`<div class="tabs">${ORDER.filter(k=>DESIGNS[k]).map(k=>`<button data-it="${k}" class="${k===IDEAS.item?"on":""}">${ITEMS[k].icon} ${esc(ITEMS[k].name)}</button>`).join("")}</div>`;
+  h+=`<h2 style="margin:6px 0 10px">${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}s <small style="font:13px system-ui">· ${L.name} to build</small></h2><div class="cards">`;
+  (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p></div>`;});
+  $("#ideas").innerHTML=h+`</div></div>`;}
+function closeIdeas(){const e=$("#ideas");if(!e||e.classList.contains("hidden"))return;e.classList.add("hidden");if(IDEAS.hooks&&IDEAS.hooks.onClose)IDEAS.hooks.onClose();}
+return {openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();
