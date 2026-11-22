@@ -477,8 +477,8 @@ function dropItem(at,it,life,sid){const f=itemInfo(it);const hex=it.t==="spell"?
   else{bob=picSprite(f.pic);bob.scale.setScalar(.75);if((it.n||0)>1){const lb=label("×"+it.n,0xffffff);lb.scale.set(1.2,.22,1);lb.position.y=1.5;g.add(lb);}}
   bob.position.y=.9;g.add(bob);
   const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.44,30),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
-  scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||60,sid:sid||null});return PICKUPS[PICKUPS.length-1];}
-const DROP_FULL={};
+  scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||300,sid:sid||null});/* everything on the ground lasts 5 minutes (Barbara, 2026-11-22) */return PICKUPS[PICKUPS.length-1];}
+const DROP_FULL={},TAKING={};   // TAKING: things you picked up, waiting for the server to say they're yours
 function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);let it=d.it;if(it.t==="build"){DROP_FULL[d.sid]=it;it={t:"build",id:it.id,n:1};if(d.it.wall!==undefined){it.wall=d.it.wall;it.roof=d.it.roof;}}
   setKey("drop:"+d.sid,{it,x:R2(d.g.position.x),z:R2(d.g.position.z),s:d.sid});}
 // dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
@@ -489,7 +489,7 @@ function stepPickups(dt){for(let i=PICKUPS.length-1;i>=0;i--){const d=PICKUPS[i]
     if(d.life<6)d.g.visible=Math.sin(d.t*16)>-.2;
     const dx=P.pos.x-d.g.position.x,dz=P.pos.z-d.g.position.z,dist=Math.hypot(dx,dz);
     if(d.hold&&dist>3.5)d.hold=false;
-    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1&&d.sid&&MP.ok){share({k:"take",id:d.sid});scene.remove(d.g);PICKUPS.splice(i,1);continue;}if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.name}`,"spell",f.pic);scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
+    if(!d.hold&&!P.down&&dist<3&&P.pos.y<2){if(dist<1&&d.sid&&MP.ok){TAKING[d.sid]=d.it;share({k:"take",id:d.sid});scene.remove(d.g);PICKUPS.splice(i,1);continue;}if(dist<1){if(addItem(d.it)){const f=itemInfo(d.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${d.it.n||d.it.uses||1} ${f.name}`,"spell",f.pic);scene.remove(d.g);PICKUPS.splice(i,1);continue;}}
       else{d.g.position.x+=dx/dist*dt*6;d.g.position.z+=dz/dist*dt*6;}}
     if(d.life<=0){if(d.sid)setKey("drop:"+d.sid,null);scene.remove(d.g);PICKUPS.splice(i,1);}}}
 // ---------------- mining: crystal veins and iron rocks; shoot them to break them, they grow back ----------------
@@ -1592,7 +1592,8 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
-      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.won||[]).forEach(v=>{if(v&&v.s&&DROP_FULL[v.s]){v.it=DROP_FULL[v.s];delete DROP_FULL[v.s];}if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.name}`,"spell",f.pic);}});MP.you=j.you||"";if(j.room===MP.room&&j.roomName&&j.roomName!==MP.roomName){MP.roomName=j.roomName;try{localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}}MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
+      if(typeof j.seq==="number")WORLD.seq=j.seq;(j.lost||[]).forEach(id=>{const it=TAKING[id];if(!it)return;delete TAKING[id];if(DROP_FULL[id]){delete DROP_FULL[id];}if(!addItem(it))dropItem(P.pos.clone(),it,300);else{const f=itemInfo(it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${it.n||it.uses||1} ${f.name}`,"spell",f.pic);}});
+      (j.won||[]).forEach(v=>{if(v&&v.s){delete TAKING[v.s];if(DROP_FULL[v.s]){v.it=DROP_FULL[v.s];delete DROP_FULL[v.s];}}if(v&&v.it&&!addItem(v.it))dropItem(P.pos.clone(),v.it,300);else if(v&&v.it){const f=itemInfo(v.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`+${v.it.n||v.it.uses||1} ${f.name}`,"spell",f.pic);}});MP.you=j.you||"";if(j.room===MP.room&&j.roomName&&j.roomName!==MP.roomName){MP.roomName=j.roomName;try{localStorage.setItem("elementum.roomName",MP.roomName);}catch(e){}}MP.list=j.players;if(body.lock!==undefined&&MP.lockReq===body.lock)delete MP.lockReq;setHouses(j.houses);mpApply(j.players);if(roomOpen)renderRoom();}).catch(()=>{MP.busy=false;MP.ok=false;WORLD.out.unshift(...sent);});}
 
 // ---------------- the range in town: dummies with health bars (and slow guns) ----------------
 const DUMMIES=[];

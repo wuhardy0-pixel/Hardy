@@ -3801,7 +3801,10 @@ def elementum_state():
         for r in [r for r in ELEM_WORLD if r not in live]:
             del ELEM_WORLD[r]
         w = ELEM_WORLD.setdefault(room, {"seq": 0, "events": [], "keys": {}})
-        won = []
+        won, lost = [], []
+        taken = w.setdefault("taken", {})   # drops picked up in the last 10 minutes: someone else already has these
+        for k in [k for k, t in taken.items() if now - t > 600]:
+            del taken[k]
         for ev in evs[:40]:
             # a thing someone set down carries its whole design (so everyone sees it exactly as built): those may be bigger
             big = ev.get("k") == "key" and str(ev.get("key", "")).startswith("pl:") if isinstance(ev, dict) else False
@@ -3811,8 +3814,13 @@ def elementum_state():
             if ev["k"] == "take":   # picking up something from the ground: the first one to ask gets it
                 key = "drop:" + str(ev.get("id", ""))[:24]
                 if key not in w["keys"]:
+                    # never heard of it (it ran out, or a restart forgot it): the player keeps what they picked up.
+                    # (Barbara, 2026-11-22: "when I pick up stuff they disappear.") If someone else just took it, it's really gone.
+                    if key not in taken:
+                        lost.append(key[5:])
                     continue
                 won.append(w["keys"].pop(key))
+                taken[key] = now
                 ev = {"k": "key", "key": key, "val": None, "by": name}
             elif ev["k"] == "key":
                 key = str(ev.get("key", ""))[:40]
@@ -3833,7 +3841,7 @@ def elementum_state():
                 _rooms_save()
             rr["t"] = now
             rr.setdefault("born", now)
-        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won, born=_room_born(room),
+        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won, lost=lost, born=_room_born(room),
                    events=[e for s, by, e in w["events"] if s > since and by != pid])
         if since <= 0 or since < oldest - 1 or since > w["seq"]:
             out["keys"], out["events"] = w["keys"], []   # first call, or too far behind: the whole picture (old one-off events are skipped)
