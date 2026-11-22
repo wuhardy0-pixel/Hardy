@@ -419,7 +419,7 @@ const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="
 const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
 function itemInfo(it){const f=itemInfo0(it);if(f)f.pic=picKey(it);return f;}
-function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:"Give it to whoever ordered it",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
+function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:it.id==="bed"||it.id==="chest"?"Put it in your house — or give it to whoever ordered one":"Give it to whoever ordered it",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
   if(it.t==="food"){const f=FOODS[it.id];return {icon:f.icon,name:f.name,what:f.what,count:it.n};}
@@ -643,8 +643,8 @@ function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;$("#
   popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?(z.night?"Good morning — fully rested!":"what a nap — fully rested!"):"you woke up early"),"spell");}
 function stepSleep(){const z=P.sleeping;if(!z)return;const k=Math.min(1,(Date.now()-z.t0)/(z.until-z.t0));P.hp=z.hp0+(P.maxHp-z.hp0)*k;P.vel.set(0,0,0);
   $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(hourNow());const left=Math.ceil((z.until-Date.now())/1000);$("#sleepLeft").textContent=left>0?`about ${left>=60?Math.round(left/60)+" min":left+" s"} to go`:"";if(k>=1)endSleep(true);}
-ACTS.push({get pos(){return HOME.bed;},r:2.2,hidden:()=>!HOME.h.built,label:()=>isNight()?"🛏️ Sleep until morning":"🛏️ Take a nap",run:sleep});
-ACTS.push({get pos(){return HOME.chest;},r:2,hidden:()=>!HOME.h.built,label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
+ACTS.push({get pos(){return HOME.bed;},r:2.2,hidden:()=>!HOME.h.built||!(MYHOUSE&&MYHOUSE.bed),label:()=>isNight()?"🛏️ Sleep until morning":"🛏️ Take a nap",run:sleep});
+ACTS.push({get pos(){return HOME.chest;},r:2,hidden:()=>!HOME.h.built||!(MYHOUSE&&MYHOUSE.chest),label:"📦 Open your chest",run:()=>toggleBag(true,"chest")});
 ACTS.push({get pos(){return HOME.door;},r:2,hidden:()=>!HOME.h.built,label:()=>HOME.h.locked?"🔓 Unlock your door":"🔒 Lock your door",run:toggleLock});
 HOUSES.forEach(h=>ACTS.push({pos:h.doorP,r:1.8,hidden:()=>h.mine||!h.locked,label:()=>`🔒 ${h.name}'s house is locked`,run:()=>{}}));
 // --- trees you can chop (punch or shoot them): wood for everything; they grow back
@@ -1369,21 +1369,21 @@ const GAS={pumps:[new THREE.Vector3(143,0,-17),new THREE.Vector3(149,0,-17)],pri
   [[139.5,-21,Math.PI/2],[152.5,-21,-Math.PI/2]].forEach(([gx,gz,f])=>{const o=npc("guard.glb",gx,gz,f);const t=setInterval(()=>{if(!o.rig)return;clearInterval(t);o.rig.root.traverse(m=>{if(m.name==="1H_Sword"||m.name==="Round_Shield")m.visible=true;});},300);personize(o,"Guard",true);});
   const sg=label("Safe here — guarded",0x9dffb0);sg.scale.set(3.4,.6,1);sg.position.set(x,5.4,z+3.6);scene.add(sg);}
 const CAR_ACT={pos:new THREE.Vector3(),car:null};
-ACTS.push({pos:CAR_ACT.pos,r:2.8,label:()=>P.inCar?(nearPump()?`Fill up the tank (${fillCost()} denarii)`:"Get out of the car"):CAR_ACT.car?`Get in the car (fuel ${Math.round(CAR_ACT.car.fuel/CAR_ACT.car.max*100)}%)`:"",hidden:()=>!P.inCar&&!CAR_ACT.car,
-  run:()=>{if(P.inCar){if(nearPump()){const c=fillCost();if(!c)return lawSay("The tank is already full.");if(COINS<c)return lawSay(`Filling up costs ${c} — you have ${COINS}.`);COINS-=c;coinHud();P.inCar.fuel=P.inCar.max;lawSay("Tank full!");return;}exitCar();}else enterCar(CAR_ACT.car);}});
+ACTS.push({pos:CAR_ACT.pos,r:2.8,label:()=>P.inCar?(nearPump()?`Fill up the tank (${fillCost()} denarii)`:P.inCar.boat?(isWater(P.pos.x,P.pos.z,false)&&landNear(P.pos).distanceTo(P.pos)>6?"Sail closer to the bank to get out":"Get out of the boat"):"Get out of the car"):CAR_ACT.car?(CAR_ACT.car.boat?"⛵ Get in your boat":CAR_ACT.car.own?`🚗 Your car (${CAR_ACT.car.locked?"🔒 locked":"🔓 unlocked"})`:CAR_ACT.car.ownerId&&CAR_ACT.car.locked?`🔒 ${CAR_ACT.car.ownerName}'s car is locked`:`Get in ${CAR_ACT.car.ownerId?CAR_ACT.car.ownerName+"'s":"the"} car (fuel ${Math.round(CAR_ACT.car.fuel/CAR_ACT.car.max*100)}%)`):"",hidden:()=>!P.inCar&&!CAR_ACT.car,
+  run:()=>{if(P.inCar){if(nearPump()){const c=fillCost();if(!c)return lawSay("The tank is already full.");if(COINS<c)return lawSay(`Filling up costs ${c} — you have ${COINS}.`);COINS-=c;coinHud();P.inCar.fuel=P.inCar.max;lawSay("Tank full!");return;}exitCar();}else carUse(CAR_ACT.car);}});
 const nearPump=()=>P.inCar&&GAS.pumps.some(v=>Math.hypot(v.x-P.pos.x,v.z-P.pos.z)<4);
 const fillCost=()=>P.inCar?Math.ceil((P.inCar.max-P.inCar.fuel)/GAS.price):0;
 // shared cars: taking one hides it for everyone else in the room; getting out parks it where you left it (keys "car:<n>")
 const carKey=c=>"car:"+CARS.indexOf(c);
-function enterCar(c){if(!c||P.down)return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}if(!c.own)setKey(carKey(c),{d:MP.id});P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
-function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;if(!c.own)setKey(carKey(c),{x:+c.g.position.x.toFixed(2),z:+c.g.position.z.toFixed(2),yaw:+c.yaw.toFixed(3)});const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
+function enterCar(c){if(!c||P.down)return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}if(c.ownerId&&c.locked){lawSay(`🔒 ${c.ownerName}'s car is locked.`);return;}carShareState(c,true);P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
+function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;carShareState(c,false);const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);if(c.boat)P.pos.copy(landNear(c.g.position));P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
 function carBlocked(p){for(const b of BLOCKS){if(b.pass||b.y>1.5||b.h<.3)continue;if(Math.abs(p.x-b.x)<b.w/2+1.1&&Math.abs(p.z-b.z)<b.d/2+1.1)return b;}return null;}
 function driveCar(dt,inp){if(P.down||LAW.jailT>0){exitCar();return;}const c=P.inCar;const thr=c.fuel>0?-inp.z:0,st=inp.x,brake=keys.Space;
   if(thr)c.speed+=thr*(thr*c.speed<0?20:10)*dt;else c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),(2+.015*c.speed*c.speed)*dt);
   if(brake)c.speed*=Math.max(0,1-4*dt);c.speed=clamp(c.speed,-7,26);
   c.yaw-=st*1.9*dt*clamp(c.speed/6,-1,1);const f=new THREE.Vector3(Math.sin(c.yaw),0,Math.cos(c.yaw));
   const np=c.g.position.clone().addScaledVector(f,c.speed*dt);np.x=clamp(np.x,-188,188);np.z=clamp(np.z,-188,188);
-  const hit=carBlocked(np);if(hit){if(Math.abs(c.speed)>8){shake(Math.min(.4,Math.abs(c.speed)*.015));popNum(c.g.position.clone().add(new THREE.Vector3(0,2,0)),"Crash!","burn");if(Math.abs(c.speed)>16)hurt(Math.round((Math.abs(c.speed)-16)*3));}c.speed*=-.25;}
+  const hit=c.boat?(isWater(np.x,np.z,true)?null:{}):(carBlocked(np)||(isWater(np.x,np.z,false)?{}:null));if(hit){if(Math.abs(c.speed)>8){shake(Math.min(.4,Math.abs(c.speed)*.015));popNum(c.g.position.clone().add(new THREE.Vector3(0,2,0)),"Crash!","burn");if(Math.abs(c.speed)>16)hurt(Math.round((Math.abs(c.speed)-16)*3));}c.speed*=-.25;}
   else c.g.position.copy(np);
   c.fuel=Math.max(0,c.fuel-Math.abs(c.speed)*dt*.045);if(c.fuel<=0&&!c.outT){c.outT=1;lawSay("Out of fuel! Push… or walk to the gas station outside the east gate.");}if(c.fuel>0)c.outT=0;
   c.g.rotation.y=c.yaw;c.spin+=c.speed*dt/.38;c.wheels.forEach((w,i)=>{w.children[0].rotation.x=c.spin;if(i<2)w.rotation.y=-st*.4;});c.g.rotation.z=-st*clamp(c.speed/26,-1,1)*.05;
@@ -1552,7 +1552,8 @@ function applyKey(key,val){
     if(i<0&&val&&val.it){dropItem(new THREE.Vector3(val.x,0,val.z),val.it,300,id);}return;}
   if(key.startsWith("hb:")){if(val)WORLD_KEYS[key]=val;else delete WORLD_KEYS[key];return;}
   if(key.startsWith("bld:")){const bd=BUILDINGS[+key.slice(4)];if(!bd)return;if(val&&!bd.down)collapse(bd);else if(!val&&bd.down)rebuild(bd);return;}
-  if(key.startsWith("car:")){const c=CARS[+key.slice(4)];if(!c||c.own||!val||c===P.inCar)return;
+  if(key.startsWith("mycar:")){carKeyApply(key.slice(6),val);return;}
+  if(key.startsWith("car:")){const c=CARS[+key.slice(4)];if(!c||c.own||c.ownerId||!val||c===P.inCar)return;
     if(val.d){c.taken=val.d;c.g.visible=val.d===MP.id&&!c.hidden;}else{c.taken=null;c.g.visible=!c.hidden;c.g.position.set(val.x,0,val.z);c.yaw=val.yaw;c.g.rotation.y=val.yaw;c.speed=0;}return;}
   if(key.startsWith("law:")){const id=key.slice(4);if(val)WORLD.wanted.add(id);else WORLD.wanted.delete(id);}}
 function applyEv(ev){
@@ -1576,7 +1577,7 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
     o.glow.visible=!!o.might;if(o.might){o.glow.rotation.z+=dt*2;if(Math.random()<dt*10)SPARK.emit(o.g.position.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.8),rnd(-.5,.5))),new THREE.Vector3(0,1.2,0),C(0xffd36a),.6,{grav:-.5});}
     if(o.rig){o.rig.base(o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar?P.inCar.color:0,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
+  const sent=WORLD.out.splice(0,40);const it=held(),body={ev:sent,since:WORLD.seq,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,hp:Math.round(P.hp),bf:P.mightT>0?"S":"",held:itemInfo(it)?itemInfo(it).icon:"",fx:MP.fx};
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       worldApply(()=>{if(j.keys){for(const k in j.keys)applyKey(k,j.keys[k]);PICKUPS.filter(d=>d.sid&&!(("drop:"+d.sid) in j.keys)).forEach(d=>{scene.remove(d.g);PICKUPS.splice(PICKUPS.indexOf(d),1);});}(j.events||[]).forEach(applyEv);});
@@ -1698,7 +1699,7 @@ function stepGhost(d,dt){const r=d.rig;if(r&&d.g.position.distanceTo(P.pos)<80)r
 // tombstones around the skeletons' homes
 ["skwar","skmage","skrogue","skmin"].forEach(k=>{const [hx,hz]=ENEMY_TYPES[k].home;for(let i=0;i<9;i++){const a=i/9*6.28+rnd(-.2,.2),r=rnd(5,9);const t=LOOK.M(new THREE.BoxGeometry(.8,rnd(.9,1.4),.25),LOOK.toon(0x8a8a90),.015);
   t.position.set(hx+Math.cos(a)*r,.5,hz+Math.sin(a)*r);t.rotation.y=a+rnd(-.3,.3);t.rotation.z=rnd(-.15,.15);t.castShadow=true;scene.add(t);}});   // 9 packs of 4: they swarm together
-function blockedAt(p){if(inTown(p,1.5)||(typeof inArena==="function"&&inArena(p)))return true;   // monsters keep out of town and the arena
+function blockedAt(p){if(isWater(p.x,p.z,false)||inTown(p,1.5)||(typeof inArena==="function"&&inArena(p)))return true;   // monsters keep out of town and the arena
   for(const b of BLOCKS){if(b.h<.3||b.y>2||b.pass)continue;if(Math.abs(p.x-b.x)<b.w/2+.5&&Math.abs(p.z-b.z)<b.d/2+.5)return true;}return false;}
 function enemyDown(d){const T=d.T;const at=d.g.position.clone();const loot=!d.pack||d.pack.mine!==false;
   const dropItem=(a,it)=>{if(!loot)return;const dp=DROP_ITEM(a,it);if(MP.ok)shareDrop(dp);return dp;};
@@ -1831,7 +1832,7 @@ function moveInput(){let x=0,z=0;if(keys.KeyW||keys.ArrowUp)z-=1;if(keys.KeyS||k
 function step(dt){stepSleep();const inp=P.sleeping?{x:0,z:0,l:0}:moveInput();P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
   if(P.inCar)driveCar(dt,inp);else{   // driving replaces walking
   const s=Math.sin(look.yaw),c=Math.cos(look.yaw);const wx=inp.x*c+inp.z*s,wz=-inp.x*s+inp.z*c;   // forward = away from the camera
-  const target=(P.run?RUN:WALK)*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1);const ax=P.onGround?18:6;
+  const target=(P.run?RUN:WALK)*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1)*(P.pos.y<.6&&isWater(P.pos.x,P.pos.z,false)?.45:1);/* wading through the moat or the river is slow */const ax=P.onGround?18:6;
   if(P.dash>0)P.dash-=dt;   // a wind leap carries you before your own steering takes over again
   else{P.vel.x+=(wx*target-P.vel.x)*Math.min(1,ax*dt);P.vel.z+=(wz*target-P.vel.z)*Math.min(1,ax*dt);}
   {const want=look.yaw;let d=want-P.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));P.yaw+=d*Math.min(1,14*dt);}   // holding a gun, the body faces where the camera looks
@@ -2085,6 +2086,44 @@ function frame(){requestAnimationFrame(frame);const dt=Math.min(.05,clock.getDel
   $("#pos").textContent=`x ${P.pos.x.toFixed(1)}  y ${P.pos.y.toFixed(1)}  z ${P.pos.z.toFixed(1)}${P.run?"  run":""}`;R.render(scene,cam);}
 WORLD.STATIC=BLOCKS.length;
 frame();
+// ---------------- the moat and the river (2026-11-22, Barbara: "add a river for the boat that is a moat and you can sail around across the map").
+// A moat runs all the way round the walls (and round the gas station), with bridges at the gates. From the north side a river flows
+// north across the map to a lake. Walking through water is slow wading; cars can't go in; monsters can't cross it. A boat you build
+// (for yourself) waits at the dock by the north gate — sail it anywhere on the water, even under the bridges.
+const MOAT={x0:-54,x1:166,z0:-45,z1:51,w:6,river:{x0:20,x1:26,z0:45,z1:170},lake:{x:23,z:178,r:11},dock:new THREE.Vector3(9,0,48)};
+function isWater(x,z,boat){const M=MOAT,ring=x>=M.x0&&x<=M.x1&&z>=M.z0&&z<=M.z1&&!(x>M.x0+M.w&&x<M.x1-M.w&&z>M.z0+M.w&&z<M.z1-M.w);
+  const w=ring||(x>=M.river.x0&&x<=M.river.x1&&z>=M.river.z0&&z<=M.river.z1)||Math.hypot(x-M.lake.x,z-M.lake.z)<=M.lake.r;if(!w||boat)return w;return !onBridge(x,z);}
+function onBridge(x,z){const M=MOAT;return (Math.abs(x)<=3.6&&(z>=M.z1-M.w-1&&z<=M.z1+1||z>=M.z0-1&&z<=M.z0+M.w+1))||(z>=-8.6&&z<=-1.4&&(x>=M.x0-1&&x<=M.x0+M.w+1||x>=M.x1-M.w-1&&x<=M.x1+1));}
+{const M=MOAT,wm=new THREE.MeshLambertMaterial({color:0x3a8fd0,transparent:true,opacity:.86}),bank=new THREE.MeshLambertMaterial({color:0x8a7a5a});
+  const sheet=(x0,x1,z0,z1)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0,z1-z0),wm);m.rotation.x=-Math.PI/2;m.position.set((x0+x1)/2,.05,(z0+z1)/2);scene.add(m);
+    const b=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0+1,z1-z0+1),bank);b.rotation.x=-Math.PI/2;b.position.set((x0+x1)/2,.03,(z0+z1)/2);scene.add(b);};
+  sheet(M.x0,M.x1,M.z0,M.z0+M.w);sheet(M.x0,M.x1,M.z1-M.w,M.z1);sheet(M.x0,M.x0+M.w,M.z0+M.w,M.z1-M.w);sheet(M.x1-M.w,M.x1,M.z0+M.w,M.z1-M.w);
+  sheet(M.river.x0,M.river.x1,M.z1,M.river.z1+2);
+  {const l=new THREE.Mesh(new THREE.CircleGeometry(M.lake.r,40),wm);l.rotation.x=-Math.PI/2;l.position.set(M.lake.x,.05,M.lake.z);scene.add(l);}
+  // bridges: a plank deck with rails at each gate (and on the road out east)
+  const wood=LOOK.toon(0x8a5a2e),dark=LOOK.toon(0x6b4423);
+  const bridge=(x,z,len,along)=>{const g=new THREE.Group();g.position.set(x,0,z);if(along==="x")g.rotation.y=Math.PI/2;scene.add(g);
+    const deck=LOOK.M(new THREE.BoxGeometry(7.2,.16,len),wood,.012);deck.position.y=.12;g.add(deck);
+    [-1,1].forEach(k=>{const r=LOOK.M(new THREE.BoxGeometry(.12,.1,len),dark,.01);r.position.set(k*3.5,1,0);g.add(r);for(let i=0;i<=4;i++){const p=new THREE.Mesh(new THREE.BoxGeometry(.12,1,.12),dark);p.position.set(k*3.5,.55,-len/2+i*len/4);g.add(p);}});};
+  bridge(0,M.z1-M.w/2,M.w+2.4,"z");bridge(0,M.z0+M.w/2,M.w+2.4,"z");bridge(M.x0+M.w/2,-5,M.w+2.4,"x");bridge(M.x1-M.w/2,-5,M.w+2.4,"x");
+  // the dock by the north gate, where your boat waits
+  const dk=LOOK.M(new THREE.BoxGeometry(3,.2,4),wood,.012);dk.position.set(M.dock.x,.15,M.z1-M.w-1);scene.add(dk);
+  const sg=label("⛵ Boat dock",0x9fd3ff);sg.scale.set(2.6,.5,1);sg.position.set(M.dock.x,2.4,M.z1-M.w-2.6);scene.add(sg);
+  // nothing grows or stands in the water: trees and rocks that would be in it move to the bank
+  TREES.forEach(t=>{const p=t.g.position;for(let k=0;k<6&&isWater(p.x,p.z,true);k++)p.z+=4;});
+  NODES.forEach(nd=>{const g=nd.g||(nd.rock&&nd.rock.parent);if(!g)return;const p=g.position;for(let k=0;k<6&&isWater(p.x,p.z,true);k++)p.z+=4;});}
+// your boat: built at the workbench; it looks like your design and sails only on water
+const MYBOAT={boat:null};
+function makeBoat(parts){if(MYBOAT.boat){if(P.inCar===MYBOAT.boat)exitCar();scene.remove(MYBOAT.boat.g);CARS.splice(CARS.indexOf(MYBOAT.boat),1);}
+  const g=new THREE.Group(),inner=new THREE.Group();g.add(inner);const box=new THREE.Box3();parts.forEach(p=>{const m=BUILD.meshOf(p);inner.add(m);box.union(new THREE.Box3().setFromObject(m));});
+  const c0=box.getCenter(new THREE.Vector3());inner.position.set(-c0.x,-box.min.y,-c0.z);g.scale.setScalar(.01);g.position.set(MOAT.dock.x+4,.12,MOAT.z1-MOAT.w/2);g.rotation.y=Math.PI/2;scene.add(g);
+  const len=(box.max.z-box.min.z)/100,wid=(box.max.x-box.min.x)/100;
+  const c={g,wheels:[],speed:0,yaw:Math.PI/2,fuel:Infinity,max:Infinity,spin:0,hitCool:new Map(),color:0x8a5a32,boat:true,own:true,len,wid};CARS.push(c);MYBOAT.boat=c;
+  try{localStorage.setItem("elementum.myboat",JSON.stringify(parts));}catch(e){}return c;}
+{let v=null;try{v=JSON.parse(localStorage.getItem("elementum.myboat")||"null");}catch(e){}if(Array.isArray(v)&&v.length)makeBoat(v);}
+// getting out of a boat: step onto the nearest dry land
+function landNear(p){for(let r=1.5;r<12;r+=.75)for(let a=0;a<6.28;a+=.35){const x=p.x+Math.cos(a)*r,z=p.z+Math.sin(a)*r;if(!isWater(x,z,false)&&!carBlocked(new THREE.Vector3(x,0,z)))return new THREE.Vector3(x,0,z);}return p.clone();}
+
 // ---------------- the growing town (2026-11-22, Barbara: "the villagers should start on day 1 when the room is created and they should build
 // a whole house each day per 10 people — also shops and gas stations"). Each room has a birthday (the server keeps it). On day 1 there is only
 // the wall, the market stalls and the library with its workbench; the villagers build everything else one lot at a time, in the same order
@@ -2184,16 +2223,41 @@ function ordersTab(box){const mine=myOrders();let h=`<p class="purse">🪙 <b>${
 // the workbench: in the library (Barbara's rule) — orders first, or build anything for yourself
 function openBench(){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();
   BUILD.open({orders:myOrders().map(o=>Object.assign({},o)),onClose:()=>hud(),made:res=>{const I=BUILD.ITEMS[res.item];
-    if(res.item==="car"&&!res.order){const col=carColor(res.parts);makeOwnCar(col);try{localStorage.setItem("elementum.mycar",String(col));}catch(e){}lawSay("Your car is parked outside the library! Walk up to it and press T to drive.");return true;}
-    const it={t:"build",id:res.item,n:1,thumb:res.thumb};if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
+    if(res.item==="boat"&&!res.order){const had=!!MYBOAT.boat;makeBoat(res.parts);lawSay(had?"Your new boat replaced your old one — it's at the boat dock by the north gate.":"Your boat is waiting at the boat dock by the north gate. Walk up to it and press T to sail!");return true;}
+    if(res.item==="car"&&!res.order){const had=!!MYCAR.car;makeOwnCar(carColor(res.parts));myCarShare();lawSay(had?"Your new car replaced your old one — it's parked outside the library, locked.":"Your car is parked outside the library, locked — only you can get in. Walk up to it and press T.");return true;}
+    const it={t:"build",id:res.item,n:1,thumb:res.thumb};if(res.item==="bed"||res.item==="chest")it.parts=res.parts;if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
     if(!addItem(it)){lawSay("Your bag is full — make some room first.");return false;}return true;}});}
 function hexOf(p){return p.color?parseInt(p.color.slice(1),16):({wood:0xa8743f,clay:0xe9dcc8,metal:0x9aa3ad,plastic:0x4f8fd8,glass:0xbfe6ff,fabric:0xd85a6a,stone:0x9a958c,rubber:0x2a2a2e,door:0x7a4a28,window:0xa9d8ff}[p.mat]||0xa8743f);}
 function carColor(parts){const body=parts.filter(p=>p.shape==="box").sort((a,b)=>(b.w*b.h*b.d)-(a.w*a.h*a.d))[0];return body?hexOf(body):0xc8432f;}
 function houseColors(parts){const big=parts.filter(p=>p.mat!=="door"&&p.mat!=="window").map(p=>({p,v:BUILD.meshOf(p)})).map(o=>({p:o.p,b:new THREE.Box3().setFromObject(o.v)}));
   const top=big.sort((a,b)=>b.b.max.y-a.b.max.y)[0],wall=big.filter(o=>o!==top).sort((a,b)=>(b.b.max.y-b.b.min.y)-(a.b.max.y-a.b.min.y))[0];return {wall:wall?hexOf(wall.p):0xd9c7a6,roof:top?hexOf(top.p):0xb5482f};}
 // your own car (made at the workbench): parked outside the library, yours alone (not one of the town's shared cars)
-function makeOwnCar(col){const c=makeCar(LIBRARY.x+9,LIBRARY.z-LIBRARY.d/2-5,0,col);c.own=true;c.hidden=false;c.g.visible=true;return c;}
-{let col=null;try{col=localStorage.getItem("elementum.mycar");}catch(e){}if(col)makeOwnCar(+col);}
+// (Barbara, 2026-11-22: "when I make a car it should be only one car that can be locked so no one can get inside other than me")
+// One car each: making another replaces the old one. It is locked unless you unlock it. Everyone in the room sees it parked
+// (key "mycar:<your car id>"); a locked car only lets its owner in; an unlocked one anyone can drive, and it stays where they park it.
+const MYCAR={id:(()=>{let v="";try{v=localStorage.getItem("elementum.carid")||"";}catch(e){}if(!/^[a-z0-9]{8,20}$/.test(v)){v="c"+Math.random().toString(36).slice(2,11).replace(/[^a-z0-9]/g,"");try{localStorage.setItem("elementum.carid",v);}catch(e){}}return v;})(),car:null,room:null};
+const carPos=c=>({x:+c.g.position.x.toFixed(2),z:+c.g.position.z.toFixed(2),yaw:+c.yaw.toFixed(3)});
+function myCarSave(){const c=MYCAR.car;if(!c)return null;const v=Object.assign({col:c.color,lock:c.locked?1:0},carPos(c));try{localStorage.setItem("elementum.mycar2",JSON.stringify(v));}catch(e){}return v;}
+function myCarShare(d){const v=myCarSave();if(!v||!MP.ok)return;setKey("mycar:"+MYCAR.id,Object.assign(v,{n:(MP.you||"Someone").slice(0,16),d:d||null}));}
+function makeOwnCar(col,at){if(MYCAR.car){if(P.inCar===MYCAR.car)exitCar();scene.remove(MYCAR.car.g);CARS.splice(CARS.indexOf(MYCAR.car),1);}
+  const s=at||{x:LIBRARY.x+9,z:LIBRARY.z-LIBRARY.d/2-5,yaw:0,lock:1};const c=makeCar(+s.x||0,+s.z||0,+s.yaw||0,col);c.own=true;c.locked=s.lock!==0;c.hidden=false;c.g.visible=true;MYCAR.car=c;MYCAR.room=null;myCarSave();return c;}
+{let v=null;try{v=JSON.parse(localStorage.getItem("elementum.mycar2")||"null");}catch(e){}if(v&&v.col!==undefined)makeOwnCar(v.col,v);
+  else{let col=null;try{col=localStorage.getItem("elementum.mycar");}catch(e){}if(col)makeOwnCar(+col);}}
+const REMOTE_CARS={};
+function carKeyApply(id,val){
+  if(id===MYCAR.id){const c=MYCAR.car;if(!c||!val||P.inCar===c)return;c.taken=val.d&&val.d!==MP.id?val.d:null;c.g.visible=!c.taken;if(!val.d){c.g.position.set(+val.x||0,0,+val.z||0);c.yaw=+val.yaw||0;c.g.rotation.y=c.yaw;myCarSave();}return;}
+  let c=REMOTE_CARS[id];
+  if(!val){if(c&&P.inCar!==c){scene.remove(c.g);CARS.splice(CARS.indexOf(c),1);delete REMOTE_CARS[id];}return;}
+  if(!c||c.color!==(val.col|0)){if(c){if(P.inCar===c)return;scene.remove(c.g);CARS.splice(CARS.indexOf(c),1);}c=REMOTE_CARS[id]=makeCar(+val.x||0,+val.z||0,+val.yaw||0,val.col|0);c.ownerId=id;}
+  c.ownerName=String(val.n||"Someone").slice(0,16);c.locked=!!val.lock;if(P.inCar===c)return;c.taken=val.d&&val.d!==MP.id?val.d:null;c.g.visible=!c.taken;
+  if(!val.d){c.g.position.set(+val.x||0,0,+val.z||0);c.yaw=+val.yaw||0;c.g.rotation.y=c.yaw;}}
+// tell the room where a car is and who is driving it
+function carShareState(c,driving){if(c.boat)return;const d=driving?MP.id:null;if(c.own){myCarShare(d);return;}
+  if(c.ownerId){setKey("mycar:"+c.ownerId,Object.assign({col:c.color,lock:c.locked?1:0,n:c.ownerName,d},carPos(c)));return;}
+  setKey(carKey(c),driving?{d}:carPos(c));}
+function carUse(c){if(!c)return;if(c.boat){enterCar(c);return;}
+  if(c.own){ask(`Your car — ${c.locked?"🔒 locked: only you can get in":"🔓 unlocked: anyone can drive it"}.`,[["🚗 Drive",()=>enterCar(c)],[c.locked?"🔓 Unlock it":"🔒 Lock it",()=>{c.locked=!c.locked;myCarShare();lawSay(c.locked?"Your car is locked — only you can get in.":"Your car is unlocked — anyone can drive it.");}],["Cancel",null]]);return;}
+  if(c.ownerId&&c.locked){lawSay(`🔒 ${c.ownerName}'s car is locked.`);return;}enterCar(c);}
 // your own house (Barbara: "you also build your own house"): the plot is empty until you bring house plans made at the workbench.
 // Everyone in your room sees it once it's built.
 HOUSES.forEach(h=>{const r={x0:h.x-HW/2-.6,x1:h.x+HW/2+.6,z0:h.z-HD/2-1.6,z1:h.z+HD/2+.6};h.lotObjs=[];h.lotBlks=[];
@@ -2201,16 +2265,32 @@ HOUSES.forEach(h=>{const r={x0:h.x-HW/2-.6,x1:h.x+HW/2+.6,z0:h.z-HD/2-1.6,z1:h.z
     if(o.position.x>=r.x0&&o.position.x<=r.x1&&o.position.z>=r.z0&&o.position.z<=r.z1&&o!==h.sign)h.lotObjs.push({o,v:o.visible});}
   BLOCKS.forEach(b=>{if(b.x>=r.x0&&b.x<=r.x1&&b.z>=r.z0&&b.z<=r.z1)h.lotBlks.push({b,pass:!!b.pass});});h.built=true;});
 let MYHOUSE=null;try{MYHOUSE=JSON.parse(localStorage.getItem("elementum.myhouse")||"null");}catch(e){}
-function setHouseBuilt(h,on,col){if(h.door&&!on)h.door.pass=true;if(h.built===on&&!col)return;h.built=on;h.lotObjs.forEach(({o,v})=>{o.visible=on?v:false;});h.lotBlks.forEach(({b,pass})=>{if(b===h.door)return;b.pass=on?pass:true;});
-  if(on&&col&&col.roof!==undefined)h.lotObjs.forEach(({o})=>{if(o.geometry&&o.geometry.type==="ConeGeometry"&&o.material&&o.material.color){o.material=o.material.clone();o.material.color.setHex(col.roof);}});}
-function stepHomes(){HOUSES.forEach(h=>{const key=WORLD_KEYS["hb:"+h.slot];const on=h.mine?!!MYHOUSE:!!(h.name&&key&&key.n===h.name);setHouseBuilt(h,on,on?(h.mine?MYHOUSE:key):null);
-    if(h.mine&&MYHOUSE&&MP.ok&&h.name&&(!key||key.n!==h.name)&&!h.claimT){h.claimT=1;setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall});setTimeout(()=>{h.claimT=0;},5000);}});}
+// a house comes empty (Barbara: "there shouldn't be beds in the house and chests — add that in the workbench"): you build a bed and a chest
+// at the workbench and put them in. Your own house shows the bed and chest you designed; other players' houses show theirs as simple ones.
+function setHouseBuilt(h,on,col){if(h.door&&!on)h.door.pass=true;const ck=on?JSON.stringify(col||{}):"";if(h.built===on&&h.ck===ck)return;h.built=on;h.ck=ck;
+  if(!h.bedG){h.bedG=(h.lotObjs.find(({o})=>o.position.distanceTo(h.bed)<.05)||{}).o;h.chestG=(h.lotObjs.find(({o})=>o.position.distanceTo(h.chest)<.05)||{}).o;}
+  h.lotObjs.forEach(({o,v})=>{o.visible=on?v:false;});h.lotBlks.forEach(({b,pass})=>{if(b===h.door)return;b.pass=on?pass:true;});
+  if(on&&col&&col.roof!==undefined)h.lotObjs.forEach(({o})=>{if(o.geometry&&o.geometry.type==="ConeGeometry"&&o.material&&o.material.color){if(!o.userData.own){o.material=o.material.clone();o.userData.own=1;}o.material.color.setHex(col.roof);}});
+  const mineF=h.mine&&MYHOUSE;["bed","chest"].forEach(k=>{const G=k==="bed"?h.bedG:h.chestG;const custom=h["my_"+k];if(custom){scene.remove(custom);h["my_"+k]=null;}
+    const has=on&&col&&col[k];if(G)G.visible=!!has&&!(mineF&&MYHOUSE[k+"Parts"]);
+    if(has&&mineF&&MYHOUSE[k+"Parts"]){const g=furnitureMesh(MYHOUSE[k+"Parts"]);g.position.copy(k==="bed"?h.bed:h.chest);scene.add(g);h["my_"+k]=g;}});}
+function furnitureMesh(parts){const g=new THREE.Group(),inner=new THREE.Group();g.add(inner);const box=new THREE.Box3();
+  parts.forEach(p=>{const m=BUILD.meshOf(p);inner.add(m);box.union(new THREE.Box3().setFromObject(m));});const c=box.getCenter(new THREE.Vector3());inner.position.set(-c.x,-box.min.y,-c.z);g.scale.setScalar(.01);return g;}
+function putFurniture(k){const h=HOME.h,I=BUILD.ITEMS[k];if(!h.built||!MYHOUSE)return;const i=hasBuilt(k);if(i<0){lawSay(`Your ${I.name} goes here. Build one at the workbench in the library (Build for yourself → ${I.name[0].toUpperCase()+I.name.slice(1)}).`);return;}
+  const it=INV[i];INV[i]=null;select(SEL);invHud();MYHOUSE[k]=1;if(it.parts)MYHOUSE[k+"Parts"]=it.parts;try{localStorage.setItem("elementum.myhouse",JSON.stringify(MYHOUSE));}catch(e){}
+  if(MP.ok&&h.name)setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall,bed:MYHOUSE.bed||0,chest:MYHOUSE.chest||0});h.ck="";
+  lawSay(k==="bed"?"Your bed is in! Now you can sleep at home.":"Your chest is in! Keep your things in it.");FX.stars((k==="bed"?h.bed:h.chest).clone().add(new THREE.Vector3(0,1,0)),"gold",6,1.2);}
+ACTS.push({get pos(){return HOME.bed;},r:2.2,hidden:()=>!HOME.h.built||!MYHOUSE||!!MYHOUSE.bed,label:()=>hasBuilt("bed")>=0?"🛏️ Put your bed here":"🛏️ Your bed goes here — build one at the workbench",run:()=>putFurniture("bed")});
+ACTS.push({get pos(){return HOME.chest;},r:2,hidden:()=>!HOME.h.built||!MYHOUSE||!!MYHOUSE.chest,label:()=>hasBuilt("chest")>=0?"🧰 Put your chest here":"🧰 Your chest goes here — build one at the workbench",run:()=>putFurniture("chest")});
+function stepHomes(){if(MP.ok&&MYCAR.car&&MYCAR.room!==MP.room&&P.inCar!==MYCAR.car){MYCAR.room=MP.room;myCarShare();}
+  HOUSES.forEach(h=>{const key=WORLD_KEYS["hb:"+h.slot];const on=h.mine?!!MYHOUSE:!!(h.name&&key&&key.n===h.name);setHouseBuilt(h,on,on?(h.mine?MYHOUSE:key):null);
+    if(h.mine&&MYHOUSE&&MP.ok&&h.name&&(!key||key.n!==h.name)&&!h.claimT){h.claimT=1;setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall,bed:MYHOUSE.bed||0,chest:MYHOUSE.chest||0});setTimeout(()=>{h.claimT=0;},5000);}});}
 const WORLD_KEYS={};
 ACTS.push({get pos(){return HOME.h.doorP;},r:2.4,hidden:()=>!!MYHOUSE,label:()=>hasBuilt("house")>=0?"🏠 Build your house here (you have the plans)":"🏠 Your empty plot — make house plans at the library's workbench",
   run:()=>{const i=hasBuilt("house");if(i<0){lawSay("Design a house at the workbench in the library. When it passes the test, make it — you'll get the plans. Bring them here.");return;}
     const it=INV[i];INV[i]=null;select(SEL);invHud();MYHOUSE={roof:it.roof!==undefined?it.roof:0xb5482f,wall:it.wall};try{localStorage.setItem("elementum.myhouse",JSON.stringify(MYHOUSE));}catch(e){}
     const h=HOME.h;setHouseBuilt(h,true,MYHOUSE);for(let k=0;k<30;k++)PUFF.emit(new THREE.Vector3(h.x+rnd(-3,3),rnd(0,3),h.z+rnd(-2,2)),rnd3(1.5),C(0xc8b89a).multiplyScalar(.5),1.2,{drag:2});
-    if(MP.ok&&h.name)setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall});lawSay("Your house is built! Your bed and your chest are inside.");}});
+    if(MP.ok&&h.name)setKey("hb:"+h.slot,{n:h.name,roof:MYHOUSE.roof,wall:MYHOUSE.wall});lawSay("Your house is built! It's empty — build a bed and a chest at the workbench and put them in.");}});
 
-window.__el={LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

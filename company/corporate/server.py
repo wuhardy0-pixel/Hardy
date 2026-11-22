@@ -4100,7 +4100,7 @@ def elementum_wiki():
 # The player types what to make; Gemini changes the list of parts (boxes, cylinders, tubes, spheres, cones, rings) exactly as asked — it doesn't
 # add things nobody asked for and doesn't fix the design on its own (Barbara's rule: no coaching). 150 requests per player per day.
 ELEM_CAD_USE = {}
-ELEM_CAD_SHAPES = {"box", "cylinder", "tube", "sphere", "cone", "torus"}
+ELEM_CAD_SHAPES = {"box", "cylinder", "tube", "sphere", "cone", "torus", "shell", "wedge", "dome"}
 ELEM_CAD_MATS = {"wood", "clay", "metal", "plastic", "glass", "fabric", "stone", "rubber", "door", "window"}
 
 def _cad_clean(parts):
@@ -4118,7 +4118,7 @@ def _cad_clean(parts):
         q = {"shape": shape, "id": re.sub(r"[^\w\-]", "", str(p.get("id") or ""))[:16] or secrets.token_hex(3),
              "name": re.sub(r"[^\w\s'\-]", "", str(p.get("name") or shape))[:30],
              "mat": m if m in ELEM_CAD_MATS else "wood"}
-        for k, lo, hi in (("w", .2, 3000), ("h", .2, 3000), ("d", .2, 3000), ("r", .1, 1500), ("wall", .1, 200), ("bottom", 0, 200),
+        for k, lo, hi in (("w", .2, 3000), ("h", .2, 3000), ("d", .2, 3000), ("r", .1, 1500), ("wall", 0, 200), ("bottom", 0, 200), ("top", 0, 1),
                           ("R", .2, 1500), ("t", .1, 300), ("x", -3000, 3000), ("y", -100, 3000), ("z", -3000, 3000), ("rx", -360, 360), ("ry", -360, 360), ("rz", -360, 360)):
             if k in p:
                 try:
@@ -4139,6 +4139,21 @@ def elementum_cad():
     parts = _cad_clean(j.get("parts"))
     if len(say) < 2:
         return jsonify(error="Tell the helper what to make."), 400
+    # Barbara (2026-11-22): "don't say make a house and he will make it — that defeats the whole purpose". The player designs; the helper only
+    # makes the one part they describe. Asking for the whole thing, or for it to be finished or fixed, gets a polite no before Gemini is asked.
+    whole = {"cup", "mug", "bowl", "plate", "vase", "bucket", "door", "stool", "chair", "table", "bench", "bed", "bookshelf", "bookcase", "shelf", "ladder",
+             "doghouse", "kennel", "wheelbarrow", "barrow", "house", "home", "cottage", "hut", "building", "car", "truck", "vehicle", "cart", "boat", "canoe", "ship", "chest"}
+    ok_parts = {"house": {"door"}, "doghouse": {"door"}, "bookshelf": {"shelf"}, "bed": set(), "car": set()}.get(item.lower(), set())
+    low = say.lower()
+    asks_whole = False
+    for m in re.finditer(r"\b(?:make|build|create|design|construct|generate|draw|give me|do)\s+(?:me\s+|us\s+)?(?:a|an|the|my|one|another|new|whole|complete|full|nice|big|small|little|simple)?\s*(?:[a-z]+\s+)?([a-z]+)\b(?!\s+(?:walls?|roof|doors?|legs?|seat|top|handles?|wheels?|body|floor|sides?|base|lid|bottom|windows?|shel(?:f|ves)|frame|mast|hull|posts?|rungs?|rails?|back))", low):
+        w = m.group(1)
+        w = w if w in whole else w[:-1] if w.endswith("s") and w[:-1] in whole else w[:-2] if w.endswith("es") and w[:-2] in whole else ""
+        if w and w not in ok_parts:
+            asks_whole = True
+    finish = re.search(r"\b(whole thing|everything|all of it|finish it|finish the|complete it|complete the|make it work|fix it|fix the design|pass the test|do it for me|the rest)\b", low)
+    if asks_whole or finish:
+        return jsonify(parts=parts, note="I can't build the whole thing — that's your job! Tell me one part at a time, like “add a handle on the right side” or “make the walls 3 metres tall”.", refused=True)
     who, day = (str(session.get("v_name") or ""), str(request.remote_addr or "?")), time.strftime("%Y-%m-%d")
     with _elem_lock:
         for k in [k for k in ELEM_CAD_USE if k[1] != day]:
@@ -4150,14 +4165,23 @@ def elementum_cad():
              "Units are centimetres. y points up and the ground is y=0. x is left-right, z is front-back. x, y, z are the CENTRE of a part.\n"
              "Shapes and their sizes:\n"
              "- box: w (x), h (y), d (z)\n- cylinder: r, h (upright, along y)\n"
-             "- tube: a hollow cylinder, upright: r (outside radius), h, wall (wall thickness), bottom (thickness of a closed bottom; 0 = open at both ends)\n"
-             "- sphere: r\n- cone: r (base radius), h (upright, point at the top)\n"
+             "- tube: a hollow cylinder, upright: r (outside radius), h, wall (wall thickness), bottom (thickness of a closed bottom; 0 = open), top (1 = closed lid, 0 = open)\n"
+             "- shell: a hollow box (like Fusion's Shell command), with a floor: w, h, d, wall (wall thickness), top (1 = closed lid/ceiling, 0 = open top). "
+             "Use it whenever something needs empty space inside: a room, a house, a box, a tray, a boat, a car body.\n"
+             "- sphere: r, wall (0 = solid; more than 0 = a hollow ball with that wall thickness)\n"
+             "- cone: r (base radius), h (upright, point at the top), wall (0 = solid, or hollow)\n"
+             "- wedge: a triangular prism like a roof: w (base width along x), h (height of the ridge), d (length along z); the ridge runs along z at the top\n"
+             "- dome: half a ball, flat side down: r, wall (0 = solid, or hollow)\n"
              "- torus: a ring standing upright in the x-y plane: R (ring radius, to the middle of the ring), t (thickness of the ring)\n"
+             "A part with mat \"door\" that sits in a wall makes an opening through that wall (and is the door); \"window\" parts are glass.\n"
+             "If the player asks to make something hollow, or to make room / space inside, change that part into a shell (or a tube, or give it a wall).\n"
              "Every part may also have rx, ry, rz (rotation in degrees about its centre), mat (wood, clay, metal, plastic, glass, fabric, stone, rubber, "
              "door, window) and color (#rrggbb), a short name, and an id.\n"
-             "Each part is an object with the field \"shape\" set to one of: box, cylinder, tube, sphere, cone, torus.\n"
-             "Rules: do exactly what the player asks — add, change, move, resize, recolour or remove parts. When asked to make a whole object, make only "
-             "its plain basic form (a cup is just the cup body; a handle only comes when they ask for one). Do NOT add or fix anything they did not ask for, "
+             "Each part is an object with the field \"shape\" set to one of: box, shell, cylinder, tube, sphere, cone, wedge, dome, torus.\n"
+             "Rules: the PLAYER is the engineer, you are only their hands. Do exactly what the player asks to ONE part (or a few copies of the same part, like "
+             "\"four legs\") — add, change, move, resize, recolour or remove it. NEVER build a whole object (a cup, a chair, a house, a car, a boat…) or several "
+             "different parts of one at once: if asked to, change nothing and set note to \"I can't build the whole thing — that's your job! Tell me one part at a time.\" "
+             "Do NOT add or fix anything they did not ask for, "
              "and do not give advice. Keep every other part exactly as it is, with the same id. Use real-world sizes. Parts that should touch must touch "
              "(for example a handle must touch the side of a cup, chair legs must reach the ground and the seat). New parts get a new short id.\n"
              "Reply with JSON only: {\"parts\": [...all parts...], \"note\": \"one short sentence saying what you did\"}. "
@@ -4169,17 +4193,31 @@ def elementum_cad():
                                ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT")]}
     import urllib.request
     url = f"https://aiplatform.googleapis.com/v1/projects/hardywu-site-758a/locations/global/publishers/google/models/{ELEM_LIB_MODEL}:generateContent"
-    try:
-        req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
-        d = json.load(urllib.request.urlopen(req, timeout=45))
-        c = (d.get("candidates") or [{}])[0]
-        txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
-        res = json.loads(txt[txt.find("{"):txt.rfind("}") + 1])
-    except Exception as e:
-        print("elementum cad:", repr(e)[:300])
+    res, err = None, ""
+    for attempt in range(2):   # one quiet retry: a hiccup at Google or a cut-off answer
+        try:
+            req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
+            d = json.load(urllib.request.urlopen(req, timeout=45))
+            c = (d.get("candidates") or [{}])[0]
+            txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
+            res = json.loads(txt[txt.find("{"):txt.rfind("}") + 1])
+            break
+        except Exception as e:
+            body_txt = ""
+            try:
+                body_txt = e.read().decode()[:300]
+            except Exception:
+                pass
+            err = repr(e)[:200] + " " + body_txt + (" finish=" + str(c.get("finishReason")) if "c" in locals() and isinstance(c, dict) else "")
+            if "401" in err:
+                _ELEM_GTOK["t"] = 0   # a stale Google token: fetch a new one
+    if res is None:
+        print("elementum cad:", err, flush=True)
         return jsonify(error="The helper couldn't build that right now. Try again, or say it another way."), 502
     new = _cad_clean(res.get("parts"))
     note = re.sub(r"\s+", " ", str(res.get("note") or "Done."))[:200]
+    if len(new) - len(parts) > 6:   # it tried to build the whole thing anyway
+        return jsonify(parts=parts, note="I can't build the whole thing — that's your job! Tell me one part at a time.", refused=True)
     return jsonify(parts=new, note=note)
 
 @app.post("/api/elementum/room")

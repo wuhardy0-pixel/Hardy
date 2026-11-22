@@ -28,17 +28,87 @@ const ITEMS={
   car:{name:"car",level:"hard",icon:"🚗",wiki:"Car",needs:[{k:"wheels",n:4,span:150},{k:"clear",min:10},{k:"carBody",len:250,wid:120},{k:"light",kg:2500},{k:"onePiece"}],ask:"I need a car to bring vegetables to the market — the cart is too slow."},
   cart:{name:"cart",level:"hard",icon:"🛒",wiki:"Cart",needs:[{k:"wheels",n:2},{k:"basin",min:100},{k:"stands"},{k:"onePiece"}],ask:"I need a cart with wheels to carry hay from the field."},
   boat:{name:"boat",level:"hard",icon:"⛵",wiki:"Boat",needs:[{k:"basin",min:150},{k:"floats",kg:80},{k:"wideBoat",min:80},{k:"onePiece"}],ask:"I want to fish on the lake. I need a boat that floats with me in it."},
+  chest:{name:"chest",level:"medium",icon:"🧰",wiki:"Chest (furniture)",needs:[{k:"storage",min:50},{k:"stands"},{k:"onePiece"}],ask:"I have nowhere to keep my things. I need a chest with a lid."},
 };
 const ORDER=Object.keys(ITEMS);
+// ---- ready-made designs to start from (Barbara, 2026-11-22: "add different designs of a house and everything else so the player can choose").
+// Each is a list of parts in cm, made to work; pick one, then change anything you like.
+const DESIGNS=(()=>{let k=0;const id=()=>"d"+(k++).toString(36);
+  const P=(shape,o,mat,color,name)=>Object.assign({shape,id:id(),name:name||shape,mat:mat||"wood"},color?{color}:{},o);
+  const box=(w,h,d,x,y,z,mat,c,nm)=>P("box",{w,h,d,x,y,z},mat,c,nm),cyl=(r,h,x,y,z,mat,c,nm,rz)=>P("cylinder",{r,h,x,y,z,rz:rz||0},mat,c,nm),
+    tube=(r,h,wall,bottom,x,y,z,mat,c,nm)=>P("tube",{r,h,wall,bottom,x,y,z},mat,c,nm),shell=(w,h,d,wall,top,x,y,z,mat,c,nm)=>P("shell",{w,h,d,wall,top,x,y,z},mat,c,nm),
+    ring=(R,t,x,y,z,mat,c,nm,ry)=>P("torus",{R,t,x,y,z,ry:ry||0},mat,c,nm),wedge=(w,h,d,x,y,z,mat,c,nm)=>P("wedge",{w,h,d,x,y,z},mat,c,nm),
+    cone=(r,h,x,y,z,mat,c,nm)=>P("cone",{r,h,x,y,z},mat,c,nm),dome=(r,x,y,z,mat,c,nm)=>P("dome",{r,x,y,z,wall:0},mat,c,nm),ball=(r,x,y,z,mat,c,nm)=>P("sphere",{r,x,y,z},mat,c,nm);
+  const legs4=(sx,sz,h,t,mat,c)=>[[1,1],[-1,1],[1,-1],[-1,-1]].map(([a,b])=>box(t,h,t,a*sx,h/2,b*sz,mat,c,"leg"));
+  const wheels=(sx,sz,r,w,c)=>[[1,1],[-1,1],[1,-1],[-1,-1]].map(([a,b])=>cyl(r,w,a*sx,r,b*sz,"rubber",c||"#222226","wheel",90));
+  return {
+  cup:[{name:"Mug",parts:()=>[tube(4,10,.5,.5,0,5,0,"clay","#f2efe8","cup"),ring(2.5,.8,4.5,5,0,"clay","#f2efe8","handle")]},
+       {name:"Tea cup",parts:()=>[cyl(7,.8,0,.4,0,"clay","#e8f0ff","saucer"),tube(4.5,6,.4,.4,0,3.8,0,"clay","#e8f0ff","cup"),ring(1.8,.6,5,4.2,0,"clay","#e8f0ff","handle")]},
+       {name:"Tall mug",parts:()=>[tube(3.6,13,.5,.6,0,6.5,0,"clay","#3f6fa8","cup"),ring(3,1,4,7,0,"clay","#3f6fa8","handle")]}],
+  bowl:[{name:"Soup bowl",parts:()=>[tube(9,7,.6,.6,0,3.5,0,"clay","#f4efe4","bowl")]},
+        {name:"Wooden bowl",parts:()=>[tube(11,8,1,1,0,4,0,"wood","#a8743f","bowl")]},
+        {name:"Footed bowl",parts:()=>[cyl(5,2,0,1,0,"clay","#d8e8d0","foot"),tube(10,6,.6,.6,0,5,0,"clay","#d8e8d0","bowl")]}],
+  plate:[{name:"Dinner plate",parts:()=>[cyl(13,1.4,0,.7,0,"clay","#ffffff","plate")]},{name:"Square plate",parts:()=>[box(24,1.4,24,0,.7,0,"clay","#f0e6d8","plate")]},
+         {name:"Wooden board",parts:()=>[box(30,2,20,0,1,0,"wood","#b88a50","board")]}],
+  vase:[{name:"Tall vase",parts:()=>[tube(6,28,.6,1,0,14,0,"glass","#bfe6ff","vase")]},{name:"Wide vase",parts:()=>[tube(8,22,.8,1,0,11,0,"clay","#c8603a","vase")]},
+        {name:"Vase on a stand",parts:()=>[cyl(7,3,0,1.5,0,"stone","#9a958c","stand"),tube(5,25,.6,1,0,15.5,0,"clay","#5f9a6a","vase")]}],
+  bucket:[{name:"Metal bucket",parts:()=>[tube(14,30,.3,.3,0,15,0,"metal","#9aa3ad","bucket"),ring(14,1,0,30,0,"metal","#6a7078","handle")]},
+          {name:"Wooden bucket",parts:()=>[tube(15,32,1.5,1.5,0,16,0,"wood","#a8743f","bucket"),ring(4,1.5,0,33,0,"wood","#7a4a28","grip"),box(32,2,3,0,36.5,0,"wood","#7a4a28","bar")].slice(0,2).concat([ring(15,1.2,0,32,0,"metal","#555","handle")])}],
+  door:[{name:"Plain door",parts:()=>[box(85,200,4,0,100,0,"door","#7a4a28","door"),ball(2.5,34,100,-4,"metal","#d8ac4a","knob")]},
+        {name:"Panel door",parts:()=>[box(85,205,4.5,0,102.5,0,"door","#2e5a3a","door"),box(60,70,1,0,150,-2.7,"door","#3a6a48","top panel"),box(60,70,1,0,60,-2.7,"door","#3a6a48","bottom panel"),ball(2.5,35,100,-4.5,"metal","#d8ac4a","knob")]},
+        {name:"Barn door",parts:()=>[box(95,210,5,0,105,0,"door","#9a3a2a","door"),box(95,10,2,0,105,-3.4,"wood","#f0e6d8","cross bar"),box(6,30,6,40,105,-5.5,"metal","#333","handle")]}],
+  stool:[{name:"Square stool",parts:()=>[box(35,4,35,0,46,0,"wood","#a8743f","seat"),...legs4(14,14,44,4)]},
+         {name:"Three-leg stool",parts:()=>[cyl(18,4,0,46,0,"wood","#b88a50","seat"),cyl(2.5,44,12,22,0),cyl(2.5,44,-6,22,10.4),cyl(2.5,44,-6,22,-10.4)]},
+         {name:"Bar stool",parts:()=>[cyl(18,4,0,73,0,"wood","#5a3a22","seat"),...legs4(11,11,71,4,"metal","#333")]}],
+  chair:[{name:"Kitchen chair",parts:()=>[box(42,4,42,0,45,0,"wood","#a8743f","seat"),...legs4(18,18,43,4.5),box(42,40,4,0,67,-19,"wood","#a8743f","back")]},
+         {name:"Tall-back chair",parts:()=>[box(44,4,44,0,46,0,"wood","#5a3a22","seat"),...legs4(19,19,44,5,"wood","#5a3a22"),box(44,70,4,0,83,-20,"wood","#5a3a22","back")]},
+         {name:"Armchair",parts:()=>[box(60,12,55,0,40,0,"fabric","#3f6fa8","cushion"),...legs4(26,23,34,6,"wood","#5a3a22"),box(60,45,8,0,68.5,-23.5,"fabric","#3f6fa8","back"),box(8,22,55,-34,57,0,"fabric","#3f6fa8","arm"),box(8,22,55,34,57,0,"fabric","#3f6fa8","arm")]}],
+  table:[{name:"Dining table",parts:()=>[box(120,5,75,0,73.5,0,"wood","#8a5a32","top"),...legs4(54,32,71,6,"wood","#8a5a32")]},
+         {name:"Round table",parts:()=>[cyl(45,4,0,74,0,"wood","#a8743f","top"),cyl(6,70,0,37,0,"wood","#7a4a28","pillar"),cyl(25,3,0,1.5,0,"wood","#7a4a28","foot")]},
+         {name:"Kitchen table",parts:()=>[box(90,4,70,0,74,0,"wood","#d8c8a8","top"),...legs4(40,30,72,5,"metal","#333")]}],
+  bench:[{name:"Park bench",parts:()=>[box(150,5,40,0,45.5,0,"wood","#8a5a32","seat"),...legs4(68,16,43,5,"metal","#333"),box(150,35,4,0,65.5,-18,"wood","#8a5a32","back")]},
+         {name:"Simple bench",parts:()=>[box(120,5,35,0,45.5,0,"wood","#b88a50","seat"),box(5,43,35,-50,21.5,0,"wood","#b88a50","end"),box(5,43,35,50,21.5,0,"wood","#b88a50","end")]},
+         {name:"Stone bench",parts:()=>[box(140,8,40,0,44,0,"stone","#9a958c","seat"),box(20,40,40,-50,20,0,"stone","#8a857c","block"),box(20,40,40,50,20,0,"stone","#8a857c","block")]}],
+  bed:[{name:"Single bed",parts:()=>[box(92,10,200,0,40,0,"wood","#8a5a32","frame"),...legs4(42,95,35,6,"wood","#8a5a32"),box(90,15,195,0,52.5,0,"fabric","#f0f0f5","mattress")]},
+       {name:"Double bed",parts:()=>[box(165,12,210,0,39,0,"wood","#5a3a22","frame"),...legs4(78,100,33,8,"wood","#5a3a22"),box(160,20,205,0,55,0,"fabric","#e8e0f0","mattress"),box(165,60,6,0,75,-108,"wood","#5a3a22","headboard")]},
+       {name:"Bunk-style bed",parts:()=>[box(95,10,205,0,35,0,"wood","#b88a50","frame"),box(8,90,8,-44,45,-99,"wood","#b88a50","post"),box(8,90,8,44,45,-99,"wood","#b88a50","post"),box(8,90,8,-44,45,99,"wood","#b88a50","post"),box(8,90,8,44,45,99,"wood","#b88a50","post"),box(90,14,198,0,47,0,"fabric","#3f8a5a","mattress")]}],
+  shelf:[{name:"Bookshelf",parts:()=>[box(2,180,30,-41,90,0),box(2,180,30,41,90,0),...[1,45,90,135,179].map(y=>box(80,2,30,0,y,0,"wood","#a8743f","shelf"))]},
+         {name:"Wide shelf",parts:()=>[box(3,120,35,-61.5,60,0,"wood","#5a3a22"),box(3,120,35,61.5,60,0,"wood","#5a3a22"),...[1.5,40,80,118.5].map(y=>box(120,3,35,0,y,0,"wood","#5a3a22","shelf"))]},
+         {name:"Tall bookcase",parts:()=>[box(3,210,32,-46.5,105,0,"wood","#d8c8a8"),box(3,210,32,46.5,105,0,"wood","#d8c8a8"),...[1.5,42,84,126,168,208.5].map(y=>box(90,3,32,0,y,0,"wood","#d8c8a8","shelf"))]}],
+  ladder:[{name:"Wooden ladder",parts:()=>[box(5,200,5,-20,100,0,"wood","#a8743f","rail"),box(5,200,5,20,100,0,"wood","#a8743f","rail"),...[30,60,90,120,150,180].map(y=>cyl(1.5,40,0,y,0,"wood","#a8743f","rung",90))]},
+          {name:"Tall ladder",parts:()=>[box(6,300,6,-22,150,0,"wood","#8a5a32","rail"),box(6,300,6,22,150,0,"wood","#8a5a32","rail"),...[30,60,90,120,150,180,210,240,270].map(y=>cyl(1.8,44,0,y,0,"wood","#8a5a32","rung",90))]},
+          {name:"Metal ladder",parts:()=>[box(3,220,6,-20,110,0,"metal","#9aa3ad","rail"),box(3,220,6,20,110,0,"metal","#9aa3ad","rail"),...[28,56,84,112,140,168,196].map(y=>box(40,2,5,0,y,0,"metal","#9aa3ad","rung"))]}],
+  doghouse:[{name:"Classic doghouse",parts:()=>[shell(80,70,100,3,1,0,35,0,"wood","#c8603a","house"),box(36,48,8,0,24,-50,"door","#3a2a1a","door"),wedge(90,35,110,0,87.5,0,"wood","#5a3a22","roof")]},
+            {name:"Flat-roof doghouse",parts:()=>[shell(90,75,90,3,1,0,37.5,0,"wood","#3f6fa8","house"),box(36,50,8,0,25,-45,"door","#2a2a2a","door")]},
+            {name:"Big dog's house",parts:()=>[shell(110,90,130,4,1,0,45,0,"wood","#d8c8a8","house"),box(45,60,10,0,30,-65,"door","#5a3a22","door"),wedge(125,45,140,0,112.5,0,"wood","#b5392b","roof")]}],
+  wheelbarrow:[{name:"Garden barrow",parts:()=>[shell(60,30,80,1.5,0,0,45,0,"metal","#2f8a4f","tray"),cyl(20,8,0,20,45,"rubber","#222","wheel",90),box(4,4,70,-25,50,-70,"wood","#8a5a32","handle"),box(4,4,70,25,50,-70,"wood","#8a5a32","handle"),box(4,30,4,-25,15,-30,"metal","#333","leg"),box(4,30,4,25,15,-30,"metal","#333","leg")]},
+               {name:"Wooden barrow",parts:()=>[shell(70,35,90,2,0,0,47.5,0,"wood","#a8743f","tray"),cyl(22,10,0,22,50,"wood","#5a3a22","wheel",90),box(5,5,80,-28,55,-80,"wood","#7a4a28","handle"),box(5,5,80,28,55,-80,"wood","#7a4a28","handle"),box(5,30,5,-28,15,-35,"wood","#7a4a28","leg"),box(5,30,5,28,15,-35,"wood","#7a4a28","leg")]}],
+  house:[{name:"Cottage",parts:()=>[shell(500,260,400,20,1,0,130,0,"stone","#e8dcc0","walls"),box(95,215,30,0,107.5,-200,"door","#7a4a28","door"),box(80,80,30,-160,150,-200,"window","#a9d8ff","window"),box(80,80,30,160,150,-200,"window","#a9d8ff","window"),wedge(560,170,440,0,345,0,"wood","#b5482f","roof")]},
+         {name:"Flat-roof house",parts:()=>[shell(600,280,500,20,1,0,140,0,"stone","#f2f2f2","walls"),box(100,220,30,-150,110,-250,"door","#2e3e5a","door"),box(180,100,30,100,160,-250,"window","#a9d8ff","big window"),box(620,15,520,0,287.5,0,"wood","#555","roof edge")]},
+         {name:"Tower house",parts:()=>[shell(400,600,400,20,1,0,300,0,"stone","#c8b898","tower"),box(95,215,30,0,107.5,-200,"door","#5a3a22","door"),box(60,90,30,0,400,-200,"window","#a9d8ff","window"),cone(300,250,0,725,0,"wood","#3f6fa8","roof")]},
+         {name:"Round hut",parts:()=>[tube(300,250,20,20,0,125,0,"stone","#d8c8a8","walls"),box(95,215,30,0,107.5,-295,"door","#7a4a28","door"),dome(320,0,250+160,0,"wood","#8a5a32","roof")]}],
+  car:[{name:"Hatchback",parts:()=>[shell(170,120,400,.3,1,0,100,0,"metal","#c8432f","body"),...wheels(85,130,35,20)]},
+       {name:"Pickup truck",parts:()=>[shell(180,130,200,.3,1,0,110,-110,"metal","#3f6fa8","cab"),shell(180,60,240,.3,0,0,75,110,"metal","#3f6fa8","truck bed"),...wheels(90,150,38,22)]},
+       {name:"Race car",parts:()=>[shell(180,70,450,.3,1,0,70,0,"metal","#e8c040","body"),wedge(160,30,120,0,120,40,"glass","#bfe6ff","windshield"),...wheels(90,160,34,24)]}],
+  cart:[{name:"Hay cart",parts:()=>[shell(100,40,150,2,0,0,80,0,"wood","#a8743f","box"),cyl(45,8,-55,45,0,"wood","#5a3a22","wheel",90),cyl(45,8,55,45,0,"wood","#5a3a22","wheel",90),box(6,6,120,0,70,-130,"wood","#7a4a28","shaft")]},
+        {name:"Market cart",parts:()=>[shell(120,50,180,2,0,0,90,0,"wood","#3f8a5a","box"),cyl(50,10,-66,50,20,"wood","#333","wheel",90),cyl(50,10,66,50,20,"wood","#333","wheel",90),box(8,65,8,0,32.5,-80,"wood","#5a3a22","prop")]}],
+  boat:[{name:"Rowing boat",parts:()=>[shell(120,50,280,3,0,0,25,0,"wood","#a8743f","hull"),box(114,4,30,0,40,0,"wood","#7a4a28","seat")]},
+        {name:"Canoe",parts:()=>[shell(80,40,450,1,0,0,20,0,"wood","#c8603a","hull")]},
+        {name:"Fishing boat",parts:()=>[shell(180,80,420,4,0,0,40,0,"wood","#3f6fa8","hull"),box(10,200,10,0,180,0,"wood","#7a4a28","mast")]}],
+  chest:[{name:"Treasure chest",parts:()=>[shell(80,50,50,2,0,0,25,0,"wood","#8a5a32","box"),box(80,6,50,0,53,0,"wood","#6a3a22","lid"),box(10,8,2,0,48,-26,"metal","#d8ac4a","lock")]},
+         {name:"Toy box",parts:()=>[shell(70,45,45,2,1,0,22.5,0,"wood","#e8c040","box")]},
+         {name:"Big storage chest",parts:()=>[shell(110,60,60,2.5,0,0,30,0,"wood","#5a3a22","box"),box(110,6,60,0,63,0,"wood","#5a3a22","lid"),box(116,4,4,0,30,-31,"metal","#333","band")]}],
+  };})();
+
 // ---- parts ----
 const DENS={wood:.6,clay:2,metal:7.8,plastic:1,glass:2.5,fabric:.3,stone:2.4,rubber:1.2,door:.6,window:2.5};   // g per cm³
 const STR={wood:30,clay:20,metal:300,plastic:10,glass:10,fabric:.2,stone:40,rubber:1,door:30,window:10};     // what 1 cm² can safely carry, kg
 const MCOL={wood:"#a8743f",clay:"#e9dcc8",metal:"#9aa3ad",plastic:"#4f8fd8",glass:"#bfe6ff",fabric:"#d85a6a",stone:"#9a958c",rubber:"#2a2a2e",door:"#7a4a28",window:"#a9d8ff"};
 const MNAME={wood:"wood",clay:"clay",metal:"metal",plastic:"plastic",glass:"glass",fabric:"cloth",stone:"stone",rubber:"rubber",door:"door",window:"window"};
-const SHAPES={box:{w:20,h:20,d:20},cylinder:{r:10,h:20},tube:{r:10,h:20,wall:1,bottom:1},sphere:{r:10},cone:{r:10,h:20},torus:{R:8,t:2}};
-const SNAME={box:"Box",cylinder:"Cylinder",tube:"Tube",sphere:"Sphere",cone:"Cone",torus:"Ring"};
-const FIELDS={box:["w","h","d"],cylinder:["r","h"],tube:["r","h","wall","bottom"],sphere:["r"],cone:["r","h"],torus:["R","t"]};
-const FNAME={w:"width",h:"height",d:"depth",r:"radius",wall:"wall",bottom:"bottom",R:"ring radius",t:"thickness",x:"x",y:"y (up)",z:"z",rx:"tilt x°",ry:"turn y°",rz:"tilt z°"};
+const SHAPES={box:{w:20,h:20,d:20},shell:{w:40,h:30,d:40,wall:2,top:0},cylinder:{r:10,h:20},tube:{r:10,h:20,wall:1,bottom:1},sphere:{r:10},cone:{r:10,h:20},torus:{R:8,t:2},wedge:{w:40,h:20,d:40},dome:{r:20,wall:0}};
+const SNAME={box:"Box",shell:"Hollow box",cylinder:"Cylinder",tube:"Tube",sphere:"Sphere",cone:"Cone",torus:"Ring",wedge:"Roof wedge",dome:"Dome"};
+const FIELDS={box:["w","h","d"],shell:["w","h","d","wall","top"],cylinder:["r","h"],tube:["r","h","wall","bottom","top"],sphere:["r","wall"],cone:["r","h","wall"],torus:["R","t"],wedge:["w","h","d"],dome:["r","wall"]};
+const FNAME={top:"lid (1 = closed, 0 = open)",wall2:"",w:"width",h:"height",d:"depth",r:"radius",wall:"wall",bottom:"bottom",R:"ring radius",t:"thickness",x:"x",y:"y (up)",z:"z",rx:"tilt x°",ry:"turn y°",rz:"tilt z°"};
 const n=(v,d)=>{v=+v;return isFinite(v)?v:d;};
 const DEG=Math.PI/180;
 function geoOf(p){const s=p.shape;
@@ -47,23 +117,35 @@ function geoOf(p){const s=p.shape;
   if(s==="sphere")return new THREE.SphereGeometry(n(p.r,10),24,16);
   if(s==="cone")return new THREE.ConeGeometry(n(p.r,10),n(p.h,20),28);
   if(s==="torus")return new THREE.TorusGeometry(n(p.R,8),Math.max(.1,n(p.t,2)/2),12,36);
+  if(s==="wedge"){const w=n(p.w,40),h=n(p.h,20),d=n(p.d,40),sh=new THREE.Shape();sh.moveTo(-w/2,-h/2);sh.lineTo(w/2,-h/2);sh.lineTo(0,h/2);sh.closePath();const g=new THREE.ExtrudeGeometry(sh,{depth:d,bevelEnabled:false});g.translate(0,0,-d/2);return g;}
+  if(s==="dome"){const r=n(p.r,20),g=new THREE.SphereGeometry(r,28,14,0,Math.PI*2,0,Math.PI/2);g.translate(0,-r/2,0);return g;}
+  if(s==="tube"&&n(p.top,0)>=.5)return new THREE.CylinderGeometry(n(p.r,10),n(p.r,10),n(p.h,20),36);
   const r=n(p.r,10),h=n(p.h,20),w=Math.min(r-.05,Math.max(.1,n(p.wall,1))),b=Math.min(h-.1,Math.max(0,n(p.bottom,0)));   // tube: a lathe profile, open at the top
   const pts=b>0?[[0,-h/2+b],[r-w,-h/2+b],[r-w,h/2],[r,h/2],[r,-h/2],[0,-h/2]]:[[r-w,-h/2],[r-w,h/2],[r,h/2],[r,-h/2],[r-w,-h/2]];
   return new THREE.LatheGeometry(pts.map(([a,c])=>new THREE.Vector2(Math.max(0,a),c)),36);}
 function matOf(p){const c=p.color||MCOL[p.mat]||MCOL.wood;const m=new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});if(p.mat==="glass"||p.mat==="window"){m.transparent=true;m.opacity=.55;}return m;}
-function meshOf(p){const m=new THREE.Mesh(geoOf(p),matOf(p));m.position.set(n(p.x,0),n(p.y,0),n(p.z,0));m.rotation.set(n(p.rx,0)*DEG,n(p.ry,0)*DEG,n(p.rz,0)*DEG);m.userData.part=p;m.castShadow=true;m.updateMatrixWorld(true);return m;}
-function volOf(p){const s=p.shape,PI=Math.PI;
-  if(s==="box")return n(p.w,0)*n(p.h,0)*n(p.d,0);if(s==="cylinder")return PI*p.r*p.r*p.h;if(s==="sphere")return 4/3*PI*p.r**3;if(s==="cone")return PI*p.r*p.r*p.h/3;
+function shellParts(p){const w=n(p.w,40),h=n(p.h,30),d=n(p.d,40),t=Math.max(.1,Math.min(n(p.wall,2),w/2-.05,d/2-.05,h/2-.05)),top=n(p.top,0)>=.5;
+  const L=[[0,-h/2+t/2,0,w,t,d],[0,0,-d/2+t/2,w,h,t],[0,0,d/2-t/2,w,h,t],[-w/2+t/2,0,0,t,h,d-2*t],[w/2-t/2,0,0,t,h,d-2*t]];if(top)L.push([0,h/2-t/2,0,w,t,d]);return L;}
+function meshOf(p){if(p.shape==="shell"){const g=new THREE.Group(),mt=matOf(p);shellParts(p).forEach(([x,y,z,a,b,c])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),mt);m.position.set(x,y,z);m.userData.part=p;m.castShadow=true;g.add(m);});
+    g.position.set(n(p.x,0),n(p.y,0),n(p.z,0));g.rotation.set(n(p.rx,0)*DEG,n(p.ry,0)*DEG,n(p.rz,0)*DEG);g.userData.part=p;g.material=mt;g.updateMatrixWorld(true);return g;}
+  const m=new THREE.Mesh(geoOf(p),matOf(p));m.position.set(n(p.x,0),n(p.y,0),n(p.z,0));m.rotation.set(n(p.rx,0)*DEG,n(p.ry,0)*DEG,n(p.rz,0)*DEG);m.userData.part=p;m.castShadow=true;m.updateMatrixWorld(true);return m;}
+function volOf(p){const s=p.shape,PI=Math.PI;if(s==="shell")return shellParts(p).reduce((v,q)=>v+q[3]*q[4]*q[5],0);
+  const hw=n(p.wall,0);if(s==="box")return n(p.w,0)*n(p.h,0)*n(p.d,0);if(s==="cylinder")return PI*p.r*p.r*p.h;if(s==="sphere")return 4/3*PI*(p.r**3-(hw>0?Math.max(0,p.r-hw)**3:0));
+  if(s==="cone")return PI*p.r*p.r*p.h/3*(hw>0?1-Math.max(0,1-hw/p.r)**3:1);if(s==="wedge")return p.w*p.h*p.d/2;if(s==="dome")return 2/3*PI*(p.r**3-(hw>0?Math.max(0,p.r-hw)**3:0));
   if(s==="torus")return 2*PI*PI*p.R*(p.t/2)**2;const w=Math.min(p.r,p.wall||1),b=p.bottom||0;return PI*(p.r*p.r-(p.r-w)**2)*(p.h-b)+PI*p.r*p.r*b;}
 // is a world point inside a part? (in the part's own frame — handles any rotation)
 const _v=new THREE.Vector3();
 function inside(P,pt,pad){pad=pad||0;_v.copy(pt).applyMatrix4(P.inv);const p=P.p,x=_v.x,y=_v.y,z=_v.z,s=p.shape;
   if(s==="box")return Math.abs(x)<=p.w/2+pad&&Math.abs(y)<=p.h/2+pad&&Math.abs(z)<=p.d/2+pad;
+  if(s==="shell")return shellParts(p).some(([cx,cy,cz,a,b,c])=>Math.abs(x-cx)<=a/2+pad&&Math.abs(y-cy)<=b/2+pad&&Math.abs(z-cz)<=c/2+pad);
   if(s==="cylinder")return Math.abs(y)<=p.h/2+pad&&x*x+z*z<=(p.r+pad)**2;
-  if(s==="sphere")return x*x+y*y+z*z<=(p.r+pad)**2;
-  if(s==="cone"){if(Math.abs(y)>p.h/2+pad)return false;const rr=p.r*(.5-y/p.h)+pad;return x*x+z*z<=rr*rr;}
+  const wl=n(p.wall,0);
+  if(s==="sphere"){const d=Math.sqrt(x*x+y*y+z*z);return d<=p.r+pad&&(!(wl>0)||d>=p.r-wl-pad);}
+  if(s==="cone"){if(Math.abs(y)>p.h/2+pad)return false;const rr=p.r*(.5-y/p.h),d=Math.hypot(x,z);return d<=rr+pad&&(!(wl>0)||d>=rr-wl-pad||y<=-p.h/2+wl+pad);}
+  if(s==="wedge")return Math.abs(z)<=p.d/2+pad&&Math.abs(y)<=p.h/2+pad&&Math.abs(x)<=p.w/2*(.5-y/p.h)+pad;
+  if(s==="dome"){const yy=y+p.r/2,d=Math.sqrt(x*x+yy*yy+z*z);return yy>=-pad&&d<=p.r+pad&&(!(wl>0)||d>=p.r-wl-pad);}
   if(s==="torus"){const q=Math.hypot(x,y)-p.R;return q*q+z*z<=(p.t/2+pad)**2;}
-  if(Math.abs(y)>p.h/2+pad)return false;const d=Math.hypot(x,z),w=Math.min(p.r,p.wall||1),b=p.bottom||0;if(d>p.r+pad)return false;if(d>=p.r-w-pad)return true;return b>0&&y<=-p.h/2+b+pad;}
+  if(Math.abs(y)>p.h/2+pad)return false;const d=Math.hypot(x,z),w=Math.min(p.r,p.wall||1),b=p.bottom||0;if(d>p.r+pad)return false;if(d>=p.r-w-pad)return true;return (b>0&&y<=-p.h/2+b+pad)||(n(p.top,0)>=.5&&y>=p.h/2-w-pad);}
 // ---- looking at a design: boxes, weights, what touches what ----
 function analyse(parts){const A={P:[],mass:0};
   for(const p of parts){const m=meshOf(p);const box=new THREE.Box3().setFromObject(m);const inv=m.matrixWorld.clone().invert();const vol=volOf(p),mass=vol*(DENS[p.mat]||.6)/1000;
@@ -83,7 +165,7 @@ function containerOf(A){let best=null;for(const a of A.P){if(a.p.shape!=="tube")
 // the grid look at a design from above at one height: which cells are solid, and which empty cells are closed in (no way out to the edge)
 function grid(A,y,opts){opts=opts||{};const B=A.box,ext=Math.max(B.max.x-B.min.x,B.max.z-B.min.z),c=Math.max(1,ext/90),x0=B.min.x-c,z0=B.min.z-c,nx=Math.ceil((B.max.x-B.min.x)/c)+3,nz=Math.ceil((B.max.z-B.min.z)/c)+3;
   const solid=new Uint8Array(nx*nz),pt=new THREE.Vector3();
-  for(let i=0;i<nx;i++)for(let k=0;k<nz;k++){pt.set(x0+(i+.5)*c,y,z0+(k+.5)*c);let s=0;for(const a of A.P){if(pt.y<a.box.min.y||pt.y>a.box.max.y)continue;if(inside(a,pt)){if(a.p.mat==="door"){s=2;break;}s=1;}}solid[i*nz+k]=s;}
+  for(let i=0;i<nx;i++)for(let k=0;k<nz;k++){pt.set(x0+(i+.5)*c,y,z0+(k+.5)*c);let s=0;for(const a of A.P){const dp=a.p.mat==="door"?25:0;if(pt.y<a.box.min.y-dp||pt.y>a.box.max.y+dp)continue;if(a.p.mat==="door"){if(inside(a,pt,25)){s=2;break;}continue;}if(inside(a,pt)){s=1;}}solid[i*nz+k]=s;}
   const out=new Uint8Array(nx*nz),q=[];const pass=s=>s===0||(opts.doorsOpen&&s===2);
   for(let i=0;i<nx;i++)for(let k=0;k<nz;k++)if((i===0||k===0||i===nx-1||k===nz-1)&&pass(solid[i*nz+k])){out[i*nz+k]=1;q.push(i*nz+k);}
   while(q.length){const id=q.pop(),i=Math.floor(id/nz),k=id%nz;for(const [di,dk] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=k+dk;if(a<0||b<0||a>=nx||b>=nz)continue;const j=a*nz+b;if(!out[j]&&pass(solid[j])){out[j]=1;q.push(j);}}}
@@ -91,12 +173,13 @@ function grid(A,y,opts){opts=opts||{};const B=A.box,ext=Math.max(B.max.x-B.min.x
   return {cells,area:cells.length*c*c,c,solid,nx,nz};}
 // a basin (boat, cart, barrow): the lowest wide part is the floor; how deep can it hold water before it spills?
 function basinOf(A){const t=containerOf(A);if(t&&!t.open&&!t.flip&&!t.tilt)return {cap:t.cap/1000,how:"tube"};
+  const sh=A.P.filter(a=>a.p.shape==="shell"&&n(a.p.top,0)<.5&&upright(a)&&a.up.y>0).map(a=>{const p=a.p,t=Math.min(p.wall,p.w/2,p.d/2);return (p.w-2*t)*(p.d-2*t)*(p.h-t)/1000;}).sort((a,b)=>b-a);if(sh.length)return {cap:sh[0],how:"shell"};
   const floors=A.P.filter(a=>a.p.shape==="box"&&upright(a)).sort((a,b)=>(b.box.max.x-b.box.min.x)*(b.box.max.z-b.box.min.z)-(a.box.max.x-a.box.min.x)*(a.box.max.z-a.box.min.z));
   if(!floors.length)return {cap:0,why:"nothing that could hold anything"};const fl=floors[0],top=fl.box.max.y;let depth=0,area=0;
   for(let y=top+2;y<=top+200;y+=3){const g=grid(A,y);const under=g.cells.filter(([x,z])=>x>fl.box.min.x&&x<fl.box.max.x&&z>fl.box.min.z&&z<fl.box.max.z);if(under.length<4)break;area=Math.max(area,under.length*g.c*g.c);depth=y-top;}
   if(!depth)return {cap:0,why:"no sides around the floor — anything you put in falls off"};return {cap:area*depth/1000,depth,area,how:"box"};}
 // what a surface's supports can carry
-function supportsOf(A,s){const legs=new Set();s.nb.forEach(b=>{if(b.ground&&b.box.max.y<=s.box.max.y+1)legs.add(b);else b.nb.forEach(c=>{if(c!==s&&c.ground&&c.box.max.y<=s.box.max.y+1)legs.add(c);});});
+function supportsOf(A,s){const legs=new Set();s.nb.forEach(b=>{if(b.ground)legs.add(b);else b.nb.forEach(c=>{if(c!==s&&c.ground)legs.add(c);});});   // legs and posts may rise above the top (bed posts, chair backs)
   if(s.ground)legs.add(s);let cap=0;
   for(const l of legs){const bx=l.box,dx=bx.max.x-bx.min.x,dz=bx.max.z-bx.min.z,h=bx.max.y-bx.min.y;let area;
     if(l.p.shape==="tube")area=Math.PI*(l.p.r**2-(l.p.r-Math.min(l.p.r,l.p.wall||1))**2);else if(l.p.shape==="cylinder"&&upright(l))area=Math.PI*l.p.r**2;else area=dx*dz*(l.p.shape==="box"?1:.7);
@@ -123,9 +206,9 @@ function check(nd,A,item){const r=(ok,fact,why,whyFail,extra)=>Object.assign({ok
     if(nd.max&&cap>nd.max)return r(false,`It holds ${ml(cap)} — much too big for this; it should hold at most ${ml(nd.max)}.`,"",`The space inside is π × inside radius² × inside height = ${ml(cap)}. Something this big is too heavy to lift when it's full: every litre of water weighs a kilogram.`,{water:"fill",ca:C.a,level:1});
     return r(true,`It holds ${ml(cap)} of water.`,`The space inside is π × (inside radius)² × (inside height) = ${ml(cap)}. The walls and the closed bottom keep the water in, because water always flows down and out through any gap — and there isn't one.`,"",{water:"fill",ca:C.a,level:1});}
   case "handle":{const base=C?C.a:null;const others=A.P.filter(a=>a!==base);
-    const h=others.find(a=>A.touch(a,base||A.P[0])&&(a.p.shape==="torus"||a.p.shape==="box"||a.p.shape==="cylinder")&&(!base||Math.hypot(a.box.getCenter(new THREE.Vector3()).x-base.box.getCenter(new THREE.Vector3()).x,a.box.getCenter(new THREE.Vector3()).z-base.box.getCenter(new THREE.Vector3()).z)>(base.p.r||0)*.8||a.box.min.y>base.box.max.y-1));
+    const h=others.find(a=>A.touch(a,base||A.P[0])&&(a.p.shape==="torus"||a.p.shape==="box"||a.p.shape==="cylinder")&&(!base||Math.hypot(a.box.getCenter(new THREE.Vector3()).x-base.box.getCenter(new THREE.Vector3()).x,a.box.getCenter(new THREE.Vector3()).z-base.box.getCenter(new THREE.Vector3()).z)>(base.p.r||0)*.8||a.box.min.y>base.box.max.y-1||a.box.max.y>base.box.max.y+3));   // beside it, or arching over the top (a bucket's handle)
     if(nd.any){const any=A.P.length>1;return any?r(true,"It has something to hold it by.","A handle sticks out so your hand can grip it. It also keeps your fingers away from what's inside or what's hot, and gives you leverage to pull or lift."):r(false,"There's nothing to hold it by.","","Without a handle there's nothing your fingers can close around — you'd have to grab flat or hot surfaces, and it slips.");}
-    if(h)return r(true,`It has a handle (${h.p.name||SNAME[h.p.shape].toLowerCase()}) on the ${h.box.min.y>=(base?base.box.max.y-1:0)?"top":"side"}.`,"A handle sticks out so your fingers can wrap round it. The air gap keeps your hand away from the hot sides — air doesn't carry heat well — and it lets you tip the container to pour.");
+    if(h)return r(true,`It has a handle (${h.p.name||SNAME[h.p.shape].toLowerCase()}) on the ${base&&(h.box.min.y>=base.box.max.y-1||h.box.max.y>base.box.max.y+3)?"top":"side"}.`,"A handle sticks out so your fingers can wrap round it. The air gap keeps your hand away from the hot sides — air doesn't carry heat well — and it lets you tip the container to pour.");
     return r(false,"There's no handle — you'd have to hold it by its sides.","","Hot drinks heat the walls of the cup, and heat flows into your fingers. A handle sticks out from the side, so you hold something that stays cool, and you can tip it to pour.");}
   case "wide":{if(!C||!C.a)return r(false,"There's no bowl shape to measure.","","A bowl is a container that is wider than it is tall, so you can reach in with a spoon.");const w=C.a.p.r*2,h=C.a.p.h;
     return w>h?r(true,`It's ${cm(w)} wide and ${cm(h)} tall — wider than tall, easy to reach into.`,"A bowl is wider than it is tall: a spoon can reach every corner, and food spreads out so it cools down faster."):r(false,`It's ${cm(w)} wide but ${cm(h)} tall — that's a cup or a jar, not a bowl.`,"","A bowl is wider than it is tall so a spoon can reach the bottom. A tall, narrow container is a cup or a vase.");}
@@ -160,8 +243,8 @@ function check(nd,A,item){const r=(ok,fact,why,whyFail,extra)=>Object.assign({ok
     return r(true,`Two rails ${cm(Math.min(...rails.map(a=>a.box.max.y-a.box.min.y)))} tall with ${rungs.length} rungs about ${cm(gaps.reduce((s,g)=>s+g,0)/Math.max(1,gaps.length))} apart.`,"Each rung passes the climber's weight to both rails, and the rails carry it to the ground. Even steps about 30 cm apart match how high people lift their feet.");}
   case "room":{const B=A.box,floorY=Math.max(0,B.min.y),mid=floorY+Math.min(nd.head*.5,100);const g=grid(A,mid);
     if(g.area<nd.area*.25){const solid=A.P.some(a=>a.p.shape==="box"&&(a.box.max.x-a.box.min.x)*(a.box.max.z-a.box.min.z)>=nd.area*.5&&a.box.min.y<=mid&&a.box.max.y>=mid);
-      return r(false,solid?"There's no room inside: the walls are one solid block all the way through.":`There's no closed-in room: at ${cm(mid)} high the walls don't go all the way round.`,"",solid?"A building is a shell: walls around an empty space. A solid block has no inside at all — you can only stand on top of it.":"To make a room, walls must join up all the way round, leaving empty space in the middle. Any gap (other than the door) lets the wind and rain in.",{rain:"in"});}
-    const head=grid(A,floorY+nd.head-5);const tall=head.area>=g.area*.6;const roofCells=g.cells.filter(([x,z])=>A.P.some(a=>a.box.min.y>=floorY+nd.head*.7&&x>=a.box.min.x&&x<=a.box.max.x&&z>=a.box.min.z&&z<=a.box.max.z)).length;
+      return r(false,solid?"There's no room inside: the walls are one solid block all the way through.":`There's no closed-in room: at ${cm(mid)} high the walls don't go all the way round.`,"",solid?"A building is a shell: walls around an empty space. A solid block has no inside at all — you can only stand on top of it. (Pick the block and press “Make hollow” — like Fusion's Shell command — or start from a Hollow box.)":"To make a room, walls must join up all the way round, leaving empty space in the middle. Any gap (other than the door) lets the wind and rain in.",{rain:"in"});}
+    const head=grid(A,floorY+nd.head-5);const tall=head.area>=g.area*.6;const pt=new THREE.Vector3(),roofCells=g.cells.filter(([x,z])=>A.P.some(a=>{if(x<a.box.min.x||x>a.box.max.x||z<a.box.min.z||z>a.box.max.z||a.box.max.y<floorY+nd.head*.7)return false;for(let y=Math.max(a.box.min.y,floorY+nd.head*.7);y<=a.box.max.y+.5;y+=Math.max(1,(a.box.max.y-a.box.min.y)/24)){pt.set(x,y,z);if(inside(a,pt,.5))return true;}return false;})).length;
     const roofOk=roofCells>=g.cells.length*.9;const open=grid(A,floorY+Math.min(nd.door.h*.5,90),{doorsOpen:true});const doorWorks=open.area<g.area*.6;
     const doors=A.P.filter(a=>a.p.mat==="door");const bigDoor=doors.find(a=>(a.box.max.y-a.box.min.y)>=nd.door.h&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=nd.door.w);
     const facts=[`The room inside is ${(g.area/10000).toFixed(g.area<10000?2:1)} m²`];const fails=[];
@@ -189,6 +272,11 @@ function check(nd,A,item){const r=(ok,fact,why,whyFail,extra)=>Object.assign({ok
     return push>=total*1.3?r(true,`It can push aside ${Math.round(push)} litres of water, which can hold up ${kg(push)}; the boat plus a ${kg(nd.kg)} rider weighs ${kg(total)} — it floats with room to spare.`,"A boat floats because it pushes water out of the way, and the water pushes back up. Every litre of water pushed aside holds up 1 kg (that's Archimedes' discovery). A hollow hull pushes aside a lot of water but weighs little, so it floats.",undefined,{float:true}):
       r(false,`It can push aside only ${Math.round(push)} litres of water (holding up ${kg(push)}), but the boat plus a ${kg(nd.kg)} rider weighs ${kg(total)} — it sinks.`,"","Water holds up 1 kg for every litre the boat pushes aside (Archimedes' principle). To float, the hollow inside must be big enough that the water it can push away weighs more than the boat and everything in it.",{float:false});}
   case "wideBoat":{const w=Math.min(A.box.max.x-A.box.min.x,A.box.max.z-A.box.min.z);return w>=nd.min?r(true,`It's ${cm(w)} wide — steady on the water.`,"A wide hull is steady: when it leans, one side sinks deeper and pushes up harder, rolling it back upright."):r(false,`It's only ${cm(w)} wide — it would roll over when you climb in.`,"","A narrow boat rolls over easily: a wide hull pushes back when it leans, so it stays upright.");}
+  case "storage":{const sh=A.P.filter(a=>a.p.shape==="shell"&&upright(a)&&a.up.y>0).map(a=>{const p=a.p,t=Math.min(p.wall,p.w/2,p.d/2);return {a,L:(p.w-2*t)*(p.d-2*t)*(p.h-t)/1000};}).sort((x,y)=>y.L-x.L)[0];
+    if(!sh)return r(false,"There's no hollow box to keep things in.","","A chest is a hollow box: a floor and four walls around an empty space, and a lid on top. A solid block has no room inside. (Start from a Hollow box, or use Make hollow.)");
+    const lid=n(sh.a.p.top,0)>=.5||A.P.some(b=>b!==sh.a&&A.touch(b,sh.a)&&b.box.min.y>=sh.a.box.max.y-2);
+    if(sh.L<nd.min)return r(false,`It holds ${Math.round(sh.L)} litres — too small (it needs ${nd.min} litres).`,"","What a chest holds is the space inside: inside width × inside depth × inside height.");
+    return lid?r(true,`It holds ${Math.round(sh.L)} litres, with a lid on top.`,"The walls and floor make an empty space; the lid closes it so dust and mice stay out. Inside width × depth × height gives how much it holds."):r(false,`It holds ${Math.round(sh.L)} litres but has no lid — anything inside gets dusty and wet.`,"","A chest needs a lid: a flat part resting on top of the walls (or a hollow box with its lid set to 1).");}
   case "doorLeaf":{const d=A.P.find(a=>a.p.shape==="box"&&(a.box.max.y-a.box.min.y)>=190&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=75&&Math.min(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=2.5);
     return d?r(true,`The door is ${cm(d.box.max.y-d.box.min.y)} tall and ${cm(Math.max(d.box.max.x-d.box.min.x,d.box.max.z-d.box.min.z))} wide.`,"A door is sized for people: about 2 m tall and 80–90 cm wide so a grown-up walks through without ducking, and thick enough (3–5 cm) not to bend."):r(false,"There's no door-sized board: it should be at least 190 cm tall, 75 cm wide and 2.5 cm thick.","","Doorways are made for people: most grown-ups are under 1.9 m tall and need about 75 cm of width to walk through. A thin board bends and cracks when you slam it.");}
   }
@@ -234,7 +322,7 @@ function pickAt(e){const cv=$("#bcv"),r=cv.getBoundingClientRect();const v=new T
   const hit=rc.intersectObjects(ROOT.children,true).find(h=>h.object.userData.part);S.sel=hit?S.parts.indexOf(hit.object.userData.part):-1;side();}
 function draw(){ROOT.clear();if(!S)return;const ext=Math.max(60,...S.parts.map(p=>Math.max(Math.abs(n(p.x,0))+60,Math.abs(n(p.z,0))+60)));
   const g=new THREE.GridHelper(Math.ceil(ext/50)*100,Math.ceil(ext/50)*10,0x556070,0x30343c);ROOT.add(g);
-  S.parts.forEach((p,i)=>{const m=meshOf(p);if(i===S.sel){m.material.emissive=new THREE.Color(0x4a3a10);}ROOT.add(m);if(i===S.sel){const bh=new THREE.BoxHelper(m,0xffd36a);ROOT.add(bh);}});}
+  S.parts.forEach((p,i)=>{const m=meshOf(p);if(i===S.sel){if(m.isGroup){m.material=m.material.clone();m.material.emissive=new THREE.Color(0x4a3a10);m.children.forEach(c=>{c.material=m.material;});}else m.material.emissive=new THREE.Color(0x4a3a10);}ROOT.add(m);if(i===S.sel){const bh=new THREE.BoxHelper(m,0xffd36a);ROOT.add(bh);}});}
 function fit(){const b=new THREE.Box3();S.parts.forEach(p=>b.union(new THREE.Box3().setFromObject(meshOf(p))));if(b.isEmpty())b.set(new THREE.Vector3(-20,0,-20),new THREE.Vector3(20,30,20));
   const c=b.getCenter(new THREE.Vector3()),s=b.getSize(new THREE.Vector3());orbit.tx=c.x;orbit.ty=c.y;orbit.tz=c.z;orbit.dist=Math.max(40,Math.max(s.x,s.y,s.z)*2.2);}
 // ---- the testing area: the test acted out in the view ----
@@ -254,7 +342,7 @@ function stepTest(){const T=TEST;T.t+=1/60;const k=Math.min(1,T.t/2.4);
   T.objs.forEach(o=>{if(o.userData.v!==undefined){o.userData.v+=.4;o.position.y-=o.userData.v*.1;if(o.position.y<-30)o.visible=false;}});
   if(T.weight){const w=T.weight;const y=Math.max(w.top+w.sz/2,w.m.position.y-(T.t*T.t*60));w.m.position.y=y;if(y<=w.top+w.sz/2+.1&&!w.hit){w.hit=true;if(!w.ok){ROOT.children.forEach(m=>{if(m.userData.part&&w.legs.some(l=>l.p===m.userData.part)){m.material.color.set(0xff5544);m.scale.y=.4;}});}}}
   if(T.rain){const R2=T.rain,B=T.A.box;if(T.t<3)for(let i=0;i<6;i++){const d=new THREE.Mesh(new THREE.BoxGeometry(1.2,14,1.2),new THREE.MeshBasicMaterial({color:0x9fd3ff}));d.position.set(B.min.x+Math.random()*(B.max.x-B.min.x),B.max.y+120,B.min.z+Math.random()*(B.max.z-B.min.z));d.userData.v=0;ROOT.add(d);T.objs.push(d);
-      const ray=new THREE.Raycaster(d.position.clone(),new THREE.Vector3(0,-1,0));const hits=ray.intersectObjects(ROOT.children.filter(m=>m.userData.part),false);d.userData.stop=hits.length?hits[0].point.y:0;}
+      const ray=new THREE.Raycaster(d.position.clone(),new THREE.Vector3(0,-1,0));const hits=ray.intersectObjects(ROOT.children.filter(m=>m.userData.part),true);d.userData.stop=hits.length?hits[0].point.y:0;}
     T.objs.forEach(o=>{if(o.userData.stop!==undefined&&o.position.y<=o.userData.stop)o.visible=false;});}
   if(T.roll){const dz=T.roll.ok?Math.sin(T.t*1.4)*60:Math.sin(T.t*1.4)*6;ROOT.children.forEach(m=>{if(m.userData.part){if(m.userData.z0===undefined)m.userData.z0=m.position.z;m.position.z=m.userData.z0+dz;}});}
   if(T.sea){const s=T.sea;const sink=s.ok?0:Math.min(1,T.t/2.5);ROOT.children.forEach(m=>{if(m.userData.part){if(m.userData.y0===undefined)m.userData.y0=m.position.y;m.position.y=m.userData.y0-(s.ok?3+Math.sin(T.t*2)*2:sink*(T.A.box.max.y+30));}});s.m.position.y=Math.min(T.A.box.max.y*.35,T.t*20);}
@@ -268,23 +356,29 @@ function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel
     $("#bSide").innerHTML=h+`</div>`;return;}
   h+=`<button id="bBack" style="float:right">☰ Orders</button><h2>${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}<span class="chip ${L.cls}">${L.name}</span></h2>`;
   h+=S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
-  h+=`<div class="ai"><input id="bSay" placeholder="Tell the helper: “make a ${esc(it.name)}”, “add a handle”…" maxlength="240"><button class="go" id="bAsk">Build</button></div><div class="note" id="bNote">${esc(S.note||"")}</div>`;
+  const DS=DESIGNS[S.id]||[];if(DS.length)h+=`<div class="row" style="align-items:center"><small>📐 Start from a design:</small>${DS.map((d,i)=>`<button data-design="${i}">${esc(d.name)}</button>`).join("")}</div>`;
+  h+=`<div class="ai"><input id="bSay" placeholder="Tell the helper one part: “add a handle on the right”, “make the walls 3 m tall”…" maxlength="240"><button class="go" id="bAsk">Build</button></div><div class="note" id="bNote">${esc(S.note||"")}</div>`;
   h+=`<div class="row">${Object.keys(SHAPES).map(s=>`<button data-add="${s}">+ ${SNAME[s]}</button>`).join("")}</div>`;
   h+=`<ul class="parts">${S.parts.map((q,i)=>`<li data-sel="${i}" class="${i===S.sel?"on":""}"><span class="sw" style="background:${esc(q.color||MCOL[q.mat]||"#a8743f")}"></span>${esc(q.name||SNAME[q.shape])} <small style="color:#99a">${SNAME[q.shape]} · ${MNAME[q.mat]||q.mat}</small></li>`).join("")||"<li><small>Nothing yet.</small></li>"}</ul>`;
   if(p){h+=`<div class="ed">`;[...FIELDS[p.shape],"x","y","z","rx","ry","rz"].forEach(f=>{h+=`<div><label>${FNAME[f]} (${f.startsWith("r")&&f.length===2?"°":"cm"})</label><input type="number" step="0.5" data-f="${f}" value="${n(p[f],0)}"></div>`;});
     h+=`<div><label>material</label><select data-f="mat">${Object.keys(DENS).map(m=>`<option value="${m}" ${p.mat===m?"selected":""}>${MNAME[m]}</option>`).join("")}</select></div><div><label>colour</label><input type="color" data-f="color" value="${esc(p.color||MCOL[p.mat]||"#a8743f")}"></div><div><label>name</label><input data-f="name" value="${esc(p.name||"")}" maxlength="30"></div></div>`;
-    h+=`<div class="row"><button id="bDup">Copy part</button><button id="bDel">Delete part</button></div>`;}
+    h+=`<div class="row"><button id="bDup">Copy part</button><button id="bDel">Delete part</button>${canHollow(p)?`<button id="bHollow" title="Like Fusion's Shell command">◻ Make hollow</button>`:""}</div>`;}
   h+=`<div class="row" style="margin-top:10px"><button class="go" id="bTest">🧪 Test it in the testing area</button><button id="bMake" ${S.passed?"":"disabled"}>✅ Make it</button><button id="bWiki">📖 Read about ${esc(it.name)}s</button></div>`;
   h+=`<div class="rep" id="bRep">${S.rep||""}</div><div id="bWikiBox">${S.wiki||""}</div>`;
   $("#bSide").innerHTML=h;const say=$("#bSay");if(say)say.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")askAI();};}
 function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)return;
   if(t.dataset.order!==undefined){const o=S.orders[+t.dataset.order];start(o.item,o);return;}
   if(t.dataset.free){start(t.dataset.free,null);return;}
+  if(t.dataset.design!==undefined){const d=(DESIGNS[S.id]||[])[+t.dataset.design];if(!d)return;S.parts=d.parts();S.sel=-1;S.note=`Loaded the “${d.name}” design — change anything you like, then test it.`;fit();changed();return;}
   if(t.id==="bBack"){S.choose=true;side();return;}
   if(t.dataset.add){const s=t.dataset.add,p=Object.assign({shape:s,id:Math.random().toString(36).slice(2,8),name:SNAME[s],mat:"wood",x:0,z:0},SHAPES[s]);const B=new THREE.Box3();S.parts.forEach(q=>B.union(new THREE.Box3().setFromObject(meshOf(q))));
-    p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"?p.h/2:s==="sphere"?p.r:p.R+p.t/2)+(B.isEmpty()?0:0);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;changed();return;}
+    p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"||s==="shell"||s==="wedge"?p.h/2:s==="sphere"?p.r:s==="dome"?p.r/2:p.R+p.t/2);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;changed();return;}
   if(t.dataset.sel!==undefined){S.sel=+t.dataset.sel;side();draw();return;}
   if(t.id==="bDel"){S.parts.splice(S.sel,1);S.sel=-1;changed();return;}
+  if(t.id==="bHollow"){const p=S.parts[S.sel];if(p&&canHollow(p)){const th=v=>Math.max(.5,Math.round(v*.08*2)/2);
+      if(p.shape==="box"){p.shape="shell";p.wall=th(Math.min(p.w,p.h,p.d));p.top=1;S.note=`Made hollow: walls ${p.wall} cm thick, with a lid. Set the lid to 0 to open the top.`;}
+      else if(p.shape==="cylinder"){p.shape="tube";p.wall=th(p.r*2);p.bottom=p.wall;p.top=1;S.note=`Made hollow: a tube with walls ${p.wall} cm thick, a bottom and a lid. Set the lid to 0 to open the top, or the bottom to 0 to open the bottom.`;}
+      else{p.wall=th(p.r*2);S.note=`Made hollow: the ${SNAME[p.shape].toLowerCase()} is now a shell ${p.wall} cm thick. Change "wall" to make it thicker or thinner.`;}}changed();return;}
   if(t.id==="bDup"){const q=Object.assign({},S.parts[S.sel],{id:Math.random().toString(36).slice(2,8)});q.x=n(q.x,0)+10;S.parts.push(q);S.sel=S.parts.length-1;changed();return;}
   if(t.id==="bAsk"){askAI();return;}
   if(t.id==="bTest"){runTest();return;}
@@ -293,6 +387,7 @@ function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)retu
 function onEdit(e){const t=e.target;if(!S||!t.dataset||!t.dataset.f)return;const p=S.parts[S.sel];if(!p)return;const f=t.dataset.f;
   if(f==="mat"){p.mat=t.value;delete p.color;}else if(f==="color")p.color=t.value;else if(f==="name")p.name=t.value.slice(0,30);else{const v=parseFloat(t.value);if(isFinite(v))p[f]=v;}
   S.passed=false;S.rep="";save();draw();if(e.type==="change")side();}
+function canHollow(p){return p.shape==="box"||p.shape==="cylinder"||((p.shape==="sphere"||p.shape==="cone"||p.shape==="dome")&&!(n(p.wall,0)>0));}
 function changed(){S.passed=false;S.rep="";save();draw();side();}
 function save(){try{const all=JSON.parse(localStorage.getItem("elementum.designs")||"{}");all[S.id]=S.parts;localStorage.setItem("elementum.designs",JSON.stringify(all));}catch(e){}}
 function load(id){try{return JSON.parse(localStorage.getItem("elementum.designs")||"{}")[id]||[];}catch(e){return [];}}
@@ -322,5 +417,5 @@ function open(hooks){ensureDom();S={hooks:hooks||{},orders:(hooks&&hooks.orders)
   const sd=$("#bSide");sd.onclick=onSide;sd.oninput=onEdit;sd.onchange=onEdit;sd.onkeydown=e=>e.stopPropagation();
   if(hooks&&hooks.item)start(hooks.item,hooks.order||null);else side();draw();}
 function close(){if(!S)return;const h=S.hooks;S=null;TEST=null;$("#bench").classList.add("hidden");if(h.onClose)h.onClose();}
-return {ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+return {DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();
