@@ -2168,8 +2168,10 @@ ACTS.push({pos:ORD.pos,r:2.6,hidden:()=>!ORD.o,label:()=>{const o=ORD.o;if(!o)re
     lawSay(`${o.who}: “My own ${I.name}! Thank you!” — +${o.pay} denarii`);FX.stars(P.pos.clone().add(new THREE.Vector3(0,2,0)),"gold",6,1.4);}});
 function stepOrders(dt){let best=null,bd=2.6;const list=openOrders();const seen=new Set();
   for(const o of list){const st=ORDST[o.key]||{};if(st.done)continue;const p=personNamed(o.who);if(!p||!p.o||!p.o.g)continue;seen.add(o.who);const wp=p.o.g.getWorldPosition(_wp);
-    let q=OMARK[o.who];if(!q){q=OMARK[o.who]=label("?",0xffd84a);q.scale.set(.9,.7,1);q.position.y=3.5;p.o.g.add(q);}
-    const ready=st.acc&&hasBuilt(o.item)>=0;q.visible=p.o.g.visible!==false&&(!st.acc||ready)&&!(p.pp&&p.pp.down);if(ready&&q.userData.t!=="✅"){p.o.g.remove(q);q=OMARK[o.who]=label("✅",0x9dffb0);q.scale.set(.9,.7,1);q.position.y=3.5;q.userData.t="✅";p.o.g.add(q);}
+    // above their head: "?" and how hard the job is (Barbara, 2026-11-22: "say the level it is above"); ✅ once you have their thing
+    const ready=st.acc&&hasBuilt(o.item)>=0,lv=BUILD.ITEMS[o.item].level,txt=ready?"✅ Ready":`? ${BUILD.LV[lv].name}`;let q=OMARK[o.who];
+    if(!q||q.userData.t!==txt){if(q&&q.parent)q.parent.remove(q);q=OMARK[o.who]=label(txt,ready?0x9dffb0:{easy:0x7de08a,medium:0xffc24a,hard:0xff7a6a}[lv]);q.scale.set(3.4,.85,1);q.position.y=3.6;q.userData.t=txt;p.o.g.add(q);}
+    q.visible=p.o.g.visible!==false&&(!st.acc||ready)&&!(p.pp&&p.pp.down);
     const d=Math.hypot(wp.x-P.pos.x,wp.z-P.pos.z);if(d<bd&&!(p.pp&&p.pp.down)&&p.o.g.visible!==false){bd=d;best={o,p,x:wp.x,z:wp.z};}
     if(p.fixed&&p.bub){p.bubT-=dt;if(p.bubT<=0)say(p,null);}
     if(d<16&&!st.acc&&!p.bub&&Math.random()<dt*.1)say(p,o.text,3.6);}
