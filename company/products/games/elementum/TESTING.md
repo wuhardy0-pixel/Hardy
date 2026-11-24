@@ -70,3 +70,5 @@ trainPlan(), buildTraining(), newQuest(v), cottageState(c, kind, state).
   → "won't fit"; right with too little material → asks for more; right with enough → materials used, the repair shows, ✅ pays.
 - Build tab: both amounts must be right before the walls go up; two wrong tries → easier plan.
 - In town no monster health bars show (they used to show through the walls).
+
+- Sync: open two browsers in one room. Everything one player does or makes must look the same for the other (every new feature too — Barbara, 2026-11-24).

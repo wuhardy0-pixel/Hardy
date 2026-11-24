@@ -478,7 +478,7 @@ function snapshot(){return snap(S.parts,96);}
 function snap(parts,px){try{const c=document.createElement("canvas");c.width=c.height=px||96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
     const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
     const cc=b.getCenter(new THREE.Vector3()),s=Math.max(...b.getSize(new THREE.Vector3()).toArray());const cam=new THREE.PerspectiveCamera(35,1,1,50000);cam.position.set(cc.x+s*1.3,cc.y+s*1.0,cc.z-s*1.8);cam.lookAt(cc);r.render(sc,cam);
-    const u=c.toDataURL("image/png");r.dispose();return u;}catch(e){return "";}}
+    const u=c.toDataURL("image/png");r.dispose();r.forceContextLoss();return u;}catch(e){return "";}}
 function wiki(){const it=ITEMS[S.id];S.wiki=`<div class="wiki">Looking it up on Wikipedia…</div>`;side();
   fetch("/api/elementum/wiki?q="+encodeURIComponent(it.wiki||it.name),{credentials:"include"}).then(r=>r.json()).then(j=>{if(!S)return;
     if(j.error){S.wiki=`<div class="wiki">${esc(j.error)}</div>`;side();return;}
@@ -503,5 +503,5 @@ function drawIdeas(){const it=ITEMS[IDEAS.item],L=LV[it.level];let h=`<div class
   (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p></div>`;});
   $("#ideas").innerHTML=h+`</div></div>`;}
 function closeIdeas(){const e=$("#ideas");if(!e||e.classList.contains("hidden"))return;e.classList.add("hidden");if(IDEAS.hooks&&IDEAS.hooks.onClose)IDEAS.hooks.onClose();}
-return {openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+return {snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();

@@ -3750,7 +3750,8 @@ ELEM_HOUSE_SLOTS = 6
 ELEM_WORLD = {}   # room -> {"seq": int, "events": [(seq, sender_id, ev)], "keys": {key: value}}
 # "mobs" (2026-11-21): the player who looks after a monster pack sends where its monsters are, so everyone sees them in the same place;
 # "mdmg": someone else hit one of those monsters
-ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take", "mobs", "mdmg", "horn"}   # "horn": someone blew a horn — soldiers come
+ELEM_EV_KINDS = {"hit", "key", "tree", "node", "wall", "scorch", "ko", "dummy", "take", "mobs", "mdmg", "horn",   # "horn": someone blew a horn — soldiers come
+                 "npc", "say", "flee", "shot", "cast"}   # townspeople (one player's game walks them for everyone), what others shoot and cast
 
 @app.post("/api/elementum/state")
 def elementum_state():
@@ -3770,7 +3771,8 @@ def elementum_state():
               yaw=round(num("yaw", -10, 10), 3), sp=round(num("sp", 0, 30), 2), air=bool(j.get("air")), hp=int(num("hp", 0, 100)),
               held=str(j.get("held") or "")[:4], fx=str(j.get("fx") or "")[:24], bf=str(j.get("bf") or "")[:4], room=room, t=now,
               car=int(num("car", 0, 16777215)),   # the color of the car they're driving (0 = on foot), so the others see the car
-              po=re.sub(r"[^a-z]", "", str(j.get("po") or ""))[:8], bo=bool(j.get("bo")))   # what they're doing (sitting, climbing, sleeping) and whether they're in a boat
+              po=re.sub(r"[^a-z]", "", str(j.get("po") or ""))[:8], bo=bool(j.get("bo")),   # what they're doing (sitting, climbing, sleeping) and whether they're in a boat
+              hi=re.sub(r"[^A-Za-z0-9:_-]", "", str(j.get("hi") or ""))[:32], hc=int(num("hc", 0, 16777215)))   # what's in their hand, and their hair color
     evs = j.get("ev") if isinstance(j.get("ev"), list) else []
     try:
         since = int(j.get("since") or 0)
@@ -3779,8 +3781,10 @@ def elementum_state():
     with _elem_lock:
         ELEM_PLAYERS[pid] = me
         for k in [k for k, v in ELEM_PLAYERS.items() if now - v["t"] > 10]:
-            del ELEM_PLAYERS[k]
-        others = [{k: v for k, v in p.items() if k != "t"} for k, p in ELEM_PLAYERS.items() if k != pid and p["room"] == room]
+            gone = ELEM_PLAYERS.pop(k)
+            for old in ("hold:", "law:"):   # what only mattered while they were here
+                ELEM_WORLD.get(gone["room"], {}).get("keys", {}).pop(old + k, None)
+        others =[{k: v for k, v in p.items() if k != "t"} for k, p in ELEM_PLAYERS.items() if k != pid and p["room"] == room]
         # houses: free the ones whose owner left (or moved rooms), give this player one, and let the owner lock or unlock it
         for r, hs in ELEM_HOUSES.items():
             for slot in [sl for sl, h in hs.items() if h["id"] not in ELEM_PLAYERS or ELEM_PLAYERS[h["id"]]["room"] != r]:
@@ -3800,14 +3804,15 @@ def elementum_state():
         live = {p["room"] for p in ELEM_PLAYERS.values()}
         for r in [r for r in ELEM_WORLD if r not in live]:
             del ELEM_WORLD[r]
-        w = ELEM_WORLD.setdefault(room, {"seq": 0, "events": [], "keys": {}})
+        # "id" tells the players when this world is a fresh one (after a restart), so they give back what the room had
+        w = ELEM_WORLD.setdefault(room, {"seq": 0, "events": [], "keys": {}, "id": secrets.token_hex(4)})
         won, lost = [], []
         taken = w.setdefault("taken", {})   # drops picked up in the last 10 minutes: someone else already has these
         for k in [k for k, t in taken.items() if now - t > 600]:
             del taken[k]
         for ev in evs[:40]:
-            # a thing someone set down carries its whole design (so everyone sees it exactly as built): those may be bigger
-            big = ev.get("k") == "key" and str(ev.get("key", "")).startswith("pl:") if isinstance(ev, dict) else False
+            # things people build carry their whole design (so everyone sees them exactly as built): keys may be bigger
+            big = isinstance(ev, dict) and ev.get("k") == "key"
             if not isinstance(ev, dict) or ev.get("k") not in ELEM_EV_KINDS or len(json.dumps(ev)) > (8000 if big else 600):
                 continue
             ev = dict(ev, by=name)
@@ -3841,9 +3846,9 @@ def elementum_state():
                 _rooms_save()
             rr["t"] = now
             rr.setdefault("born", now)
-        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won, lost=lost, born=_room_born(room),
+        out = dict(players=others, you=name, room=room, roomName=ELEM_ROOMS[room]["name"] if room != "PUBLIC" else "", houses=houses, seq=w["seq"], won=won, lost=lost, wid=w["id"], born=_room_born(room),
                    events=[e for s, by, e in w["events"] if s > since and by != pid])
-        if since <= 0 or since < oldest - 1 or since > w["seq"]:
+        if since <= 0 or since < oldest - 1 or since > w["seq"] or (j.get("wid") and j.get("wid") != w["id"]):
             out["keys"], out["events"] = w["keys"], []   # first call, or too far behind: the whole picture (old one-off events are skipped)
     return jsonify(out)
 
