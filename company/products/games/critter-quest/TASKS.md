@@ -12,3 +12,4 @@
 ## 2026-09-21
 - 💬 feedback button (top right under ⏸) → hardywu.com/feedback.
 
+- 2026-11-24 Barbara: "a mute button for every game" — a 🔊/🔇 button that silences everything (sounds, music, voices) and is remembered on this device. Browser test on computer and phone size: shows, can be clicked on the start screen too, no errors.

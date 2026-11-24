@@ -18,3 +18,4 @@
 - Confirm the 260-pack licence (where Hardy got it) before any paid release.
 - Walk animation for the mage's legs; creature attack lunge; idle cloth sway.
 - Performance pass on old phones (particle counts, pixel ratio) once Hardy tries it on his.
+- 2026-11-24 Barbara: "a mute button for every game" — a 🔊/🔇 button that silences everything (sounds, music, voices) and is remembered on this device. Browser test on computer and phone size: shows, can be clicked on the start screen too, no errors.

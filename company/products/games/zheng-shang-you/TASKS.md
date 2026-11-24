@@ -16,3 +16,4 @@
 ## Next
 - Ask Hardy: should the champion's rank carry over as points across games? Any regional extras (e.g. 2s as wild)?
 - Sound and card-deal animation.
+- 2026-11-24 Barbara: "a mute button for every game" — a 🔊/🔇 button that silences everything (sounds, music, voices) and is remembered on this device. Browser test on computer and phone size: shows, can be clicked on the start screen too, no errors.

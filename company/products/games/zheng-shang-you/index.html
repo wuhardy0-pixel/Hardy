@@ -1,5 +1,15 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>争上游 Zheng Shang You — Hardy Wu</title>
+<script>/* mute button (Barbara, 2026-11-24: "a mute button for every game"): silences everything — sounds, music, voices — and remembers it */
+(()=>{let off=false;try{off=localStorage.getItem("hw.mute")==="1";}catch(e){}const gains=new Set(),media=new Set();
+const AN=window.AudioNode;if(AN){const oc=AN.prototype.connect;AN.prototype.connect=function(d,...a){const c=this.context;if(c&&d===c.destination&&!this.hwMaster){if(!c.hwGain){c.hwGain=c.createGain();c.hwGain.hwMaster=true;c.hwGain.gain.value=off?0:1;oc.call(c.hwGain,c.destination);gains.add(c.hwGain);}d=c.hwGain;}return oc.call(this,d,...a);};}
+const MP=window.HTMLMediaElement&&HTMLMediaElement.prototype;if(MP){const op=MP.play;MP.play=function(){media.add(this);this.muted=off;return op.call(this);};}
+const SS=window.speechSynthesis;if(SS){const os=SS.speak.bind(SS);SS.speak=u=>{if(!off)os(u);else setTimeout(()=>u.onend&&u.onend({}),50);};}
+const set=v=>{off=v;try{localStorage.setItem("hw.mute",v?"1":"0");}catch(e){}gains.forEach(g=>g.gain.value=v?0:1);media.forEach(m=>m.muted=v);if(v&&SS)SS.cancel();paint();};
+let b;const paint=()=>{if(b){b.textContent=off?"🔇":"🔊";b.title=off?"Sound is off — click to turn it on":"Mute";b.setAttribute("aria-label",b.title);b.setAttribute("aria-pressed",off);}};
+document.addEventListener("DOMContentLoaded",()=>{b=document.createElement("button");b.id="hwMute";b.type="button";b.style.cssText="position:fixed;right:66px;top:8px;z-index:90;width:40px;height:40px;padding:0;margin:0;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.62);color:#fff;font-size:18px;line-height:1;cursor:pointer";
+b.addEventListener("click",e=>{e.stopPropagation();set(!off);b.blur();});["pointerdown","mousedown","touchstart"].forEach(k=>b.addEventListener(k,e=>e.stopPropagation()));document.body.appendChild(b);paint();});
+window.hwMute={set,get off(){return off;}};})();</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <link rel="icon" href="/favicon.png">
 <style>
