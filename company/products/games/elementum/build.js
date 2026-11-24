@@ -29,9 +29,47 @@ const ITEMS={
   cart:{name:"cart",level:"hard",icon:"🛒",wiki:"Cart",needs:[{k:"wheels",n:2},{k:"basin",min:100},{k:"stands"},{k:"onePiece"}],ask:"I need a cart with wheels to carry hay from the field."},
   boat:{name:"boat",level:"hard",icon:"⛵",wiki:"Boat",needs:[{k:"basin",min:150},{k:"floats",kg:80},{k:"wideBoat",min:80},{k:"onePiece"}],ask:"I want to fish on the lake. I need a boat that floats with me in it."},
   chest:{name:"chest",level:"medium",icon:"🧰",wiki:"Chest (furniture)",needs:[{k:"storage",min:50},{k:"stands"},{k:"onePiece"}],ask:"I have nowhere to keep my things. I need a chest with a lid."},
+  book:{name:"book",level:"easy",icon:"📕",wiki:"Book",needs:[{k:"pages"},{k:"onePiece"}],ask:"I want to write down how I build things. I need a book with a cover."},
+  lamp:{name:"magic lamp",level:"easy",icon:"🏮",wiki:"Lantern",needs:[{k:"bulb"},{k:"stands"},{k:"onePiece"}],ask:"It's so dark at night! I need a lamp with a glass to keep the light in."},
+  magnet:{name:"magnet",level:"medium",icon:"🧲",wiki:"Magnet",needs:[{k:"magnet"},{k:"onePiece"}],ask:"I keep dropping nails all over the yard. I need a magnet that pulls everything to me."},
+  stairs:{name:"staircase",level:"medium",icon:"🪜",wiki:"Stairs",needs:[{k:"steps",n:4},{k:"stands"},{k:"onePiece"}],ask:"I can't get up to my attic. I need stairs."},
+  healstone:{name:"healing crystal",level:"medium",icon:"💎",wiki:"Crystal",needs:[{k:"crystal"},{k:"stands"},{k:"onePiece"}],ask:"My knee hurts. They say a tall glass crystal on a heavy stand makes you feel better."},
+  computer:{name:"computer",level:"hard",icon:"🖥️",wiki:"Computer",needs:[{k:"screen"},{k:"stands"},{k:"onePiece"}],ask:"The library is far away. I need a computer at home, with a screen and keys."},
+  gate:{name:"magic gate",level:"hard",icon:"🌀",wiki:"Arch",needs:[{k:"arch"},{k:"stands"},{k:"onePiece"}],ask:"Walking takes forever. Build a gate big enough to walk through — two of them, and you step from one to the other!"},
+  invention:{name:"invention",level:"easy",icon:"✨",wiki:"Invention",needs:[],ask:"",free:true},
   horn:{name:"horn",level:"easy",icon:"📯",wiki:"Horn (instrument)",needs:[{k:"horn",len:20},{k:"onePiece"}],ask:"The soldiers need a horn — when I blow it, they come running to fight the monsters."},
 };
-const ORDER=Object.keys(ITEMS);
+const ORDER=Object.keys(ITEMS).filter(k=>!ITEMS[k].free);
+// what a magical thing can do (Barbara, 2026-11-24: "you make anything you want and then the game turns it into something that does a thing")
+const FNS={
+  magnet:{icon:"🧲",name:"collector",what:"carry it (or set it down): everything lying nearby flies to you"},
+  light:{icon:"💡",name:"lamp",what:"set it down: it lights up the dark"},
+  heal:{icon:"💚",name:"healer",what:"set it down: everyone near it slowly heals"},
+  bounce:{icon:"🦘",name:"bouncer",what:"set it down and step on it: it throws you high into the air"},
+  portal:{icon:"🌀",name:"portal",what:"set down two: step into one and you come out of the other"},
+  zap:{icon:"⚡",name:"lightning tower",what:"set it down: it strikes monsters that come near"},
+  freeze:{icon:"❄️",name:"freezer",what:"set it down: monsters near it become very slow"},
+  speed:{icon:"💨",name:"speed maker",what:"set it down: everyone near it runs faster"},
+  fly:{icon:"🪽",name:"flyer",what:"hold it and click: it carries you through the air",hand:1},
+  wand:{icon:"🪄",name:"wand",what:"hold it and click: it shoots magic",hand:1},
+  music:{icon:"🎵",name:"music maker",what:"hold it and click (or press T at it): it plays a tune everyone nearby hears",hand:1},
+  firework:{icon:"🎆",name:"firework launcher",what:"hold it and click (or press T at it): fireworks for everyone to see",hand:1},
+  guard:{icon:"🛡️",name:"guard caller",what:"hold it and click: soldiers come and fight the monsters",hand:1},
+  maker:{icon:"⚙️",name:"maker machine",what:"set it down and press T: every minute it makes one material for you"},
+  bubbles:{icon:"🫧",name:"bubble blower",what:"set it down: it fills the air with bubbles"},
+  water:{icon:"⛲",name:"fountain",what:"set it down and press T: drink from it to heal"},
+  computer:{icon:"🖥️",name:"computer",what:"set it down and press T: look things up, like at the library"},
+  storage:{icon:"🧰",name:"keeper",what:"set it down and press T: it opens your chest"},
+};
+const ITEMFN={magnet:"magnet",lamp:"light",healstone:"heal",computer:"computer",gate:"portal"};
+// when the game can't ask the helper, it looks at the shape and the materials itself
+function guessFn(parts){const A=analyse(parts),B=A.box,w=B.max.x-B.min.x,h=B.max.y-B.min.y,d=B.max.z-B.min.z,mx=Math.max(w,h,d),mn=Math.min(w,h,d);const m=k=>A.P.filter(a=>a.p.mat===k).length,sh=k=>A.P.filter(a=>a.p.shape===k).length;
+  const hollow=A.P.some(a=>(a.p.shape==="cone"&&n(a.p.wall,0)>0)||(a.p.shape==="tube"&&!(n(a.p.bottom,0)>0)));
+  if(sh("torus")&&A.P.some(a=>a.p.shape==="torus"&&n(a.p.R,0)>=60))return "portal";if(m("metal")>=2&&(sh("torus")||A.P.length<=4)&&mx<150&&!hollow)return "magnet";
+  if(hollow)return m("metal")?"music":"firework";if(m("rubber")&&!sh("cylinder"))return "bounce";if(m("fabric")&&mx>mn*3)return "fly";if(m("fabric"))return "bounce";
+  if(mx>mn*8&&mx<200)return "wand";if(m("glass")&&m("stone"))return "heal";if(m("glass")&&(sh("sphere")||sh("dome")))return "light";if(m("glass"))return "freeze";
+  if(sh("cone")&&m("metal"))return "zap";if(A.P.some(a=>a.p.shape==="tube"))return "water";if(A.P.some(a=>a.p.shape==="shell"&&n(a.p.top,0)>=.5))return "storage";if(sh("cylinder")>=2)return "maker";
+  const c=["bubbles","speed","firework","music","maker","light"];return c[Math.round(A.mass*7+A.P.length*13)%c.length];}
 // what each design idea is about — the library's "Design ideas" book shows a picture and these words; nothing is loaded into the workbench
 const IDEA_TEXT={
   "Mug":"A tall, straight-sided cup with a loop handle on the side — thick walls keep a drink hot longer.",
@@ -89,6 +127,21 @@ const IDEA_TEXT={
   "Rowing boat":"A hollow wooden hull, open at the top, with a seat across the middle.",
   "Canoe":"A long, narrow, light hull — fast through the water.",
   "Fishing boat":"A big, wide hull with a mast in the middle.",
+  "Little notebook":"A few sheets of paper between two thin covers — small enough for a pocket.",
+  "Big book":"Many pages between two hard covers with a spine along one side that holds them together.",
+  "Paper lantern lamp":"A glass ball on a foot — the glass lets the light out but keeps the wind away.",
+  "Street lamp":"A tall post with a glass dome on top, so the light reaches far.",
+  "Horseshoe magnet":"A bar with two arms: both ends pull at the same time, so it's twice as strong.",
+  "Ring magnet":"A thick metal ring.",
+  "Wooden stairs":"Steps that all have the same height — your legs learn the rhythm and you don't trip.",
+  "Stone stairs":"Wide, low stone steps: slow to climb but easy for everyone.",
+  "Crystal on a stand":"A tall glass point on a heavy stone block — the heavy block keeps it from tipping over.",
+  "Crystal cluster":"Three crystals of different heights growing from one stone.",
+  "Desktop computer":"A screen on a stand, with a flat board of keys lying in front of it.",
+  "Laptop":"A screen standing at the back edge of a flat board of keys.",
+  "Stone gate":"Two posts and a beam across the top, wide and high enough to walk through.",
+  "Ring gate":"A giant metal ring standing on a block — you step through the middle.",
+  "Two-storey house":"One tall box with an upper floor inside. The upper floor has a hole where the stairs come up.",
   "Hunting horn":"A long metal cone, hollow inside, with a small mouthpiece at the narrow end — the wide end spreads the sound far.",
   "Trumpet":"A long thin tube with a flared bell at the end — the long tube makes the note low and loud.",
   "Ram's horn":"An animal horn, hollowed out — the oldest kind of horn people ever blew.",
@@ -152,15 +205,30 @@ const DESIGNS=(()=>{let k=0;const id=()=>"d"+(k++).toString(36);
   house:[{name:"Cottage",parts:()=>[shell(500,260,400,20,1,0,130,0,"stone","#e8dcc0","walls"),box(95,215,30,0,107.5,-200,"door","#7a4a28","door"),box(80,80,30,-160,150,-200,"window","#a9d8ff","window"),box(80,80,30,160,150,-200,"window","#a9d8ff","window"),wedge(560,170,440,0,345,0,"wood","#b5482f","roof")]},
          {name:"Flat-roof house",parts:()=>[shell(600,280,500,20,1,0,140,0,"stone","#f2f2f2","walls"),box(100,220,30,-150,110,-250,"door","#2e3e5a","door"),box(180,100,30,100,160,-250,"window","#a9d8ff","big window"),box(620,15,520,0,287.5,0,"wood","#555","roof edge")]},
          {name:"Tower house",parts:()=>[shell(400,600,400,20,1,0,300,0,"stone","#c8b898","tower"),box(95,215,30,0,107.5,-200,"door","#5a3a22","door"),box(60,90,30,0,400,-200,"window","#a9d8ff","window"),cone(300,250,0,725,0,"wood","#3f6fa8","roof")]},
+         {name:"Two-storey house",parts:()=>[shell(500,520,500,20,1,0,260,0,"stone","#f0e2c8","walls"),P("floor",{w:460,h:12,d:460,hw:100,hd:300,x:0,y:256,z:0},"wood","#a8743f","upper floor"),P("stairs",{w:90,h:242,d:300,steps:12,x:180,y:141,z:80},"wood","#8a5a32","stairs"),box(95,215,30,-60,107.5,-250,"door","#7a4a28","door"),box(80,80,30,120,150,-250,"window","#a9d8ff","window"),box(80,80,30,-120,390,-250,"window","#a9d8ff","window"),box(80,80,30,120,390,-250,"window","#a9d8ff","window"),wedge(540,180,540,0,610,0,"wood","#8a3a2a","roof")]},
          {name:"Round hut",parts:()=>[tube(300,250,20,20,0,125,0,"stone","#d8c8a8","walls"),box(95,215,30,0,107.5,-295,"door","#7a4a28","door"),dome(320,0,250+160,0,"wood","#8a5a32","roof")]}],
   car:[{name:"Hatchback",parts:()=>[shell(170,120,400,.3,1,0,100,0,"metal","#c8432f","body"),...wheels(85,130,35,20)]},
        {name:"Pickup truck",parts:()=>[shell(180,130,200,.3,1,0,110,-110,"metal","#3f6fa8","cab"),shell(180,60,240,.3,0,0,75,110,"metal","#3f6fa8","truck bed"),...wheels(90,150,38,22)]},
-       {name:"Race car",parts:()=>[shell(180,70,450,.3,1,0,70,0,"metal","#e8c040","body"),wedge(160,30,120,0,120,40,"glass","#bfe6ff","windshield"),...wheels(90,160,34,24)]}],
+       {name:"Race car",parts:()=>[shell(180,70,450,.3,1,0,70,0,"metal","#e8c040","body"),wedge(160,30,120,0,120,-40,"glass","#bfe6ff","windshield"),...wheels(90,160,34,24)]}],
   cart:[{name:"Hay cart",parts:()=>[shell(100,40,150,2,0,0,80,0,"wood","#a8743f","box"),cyl(45,8,-55,45,0,"wood","#5a3a22","wheel",90),cyl(45,8,55,45,0,"wood","#5a3a22","wheel",90),box(6,6,120,0,70,-130,"wood","#7a4a28","shaft")]},
         {name:"Market cart",parts:()=>[shell(120,50,180,2,0,0,90,0,"wood","#3f8a5a","box"),cyl(50,10,-66,50,20,"wood","#333","wheel",90),cyl(50,10,66,50,20,"wood","#333","wheel",90),box(8,65,8,0,32.5,-80,"wood","#5a3a22","prop")]}],
   boat:[{name:"Rowing boat",parts:()=>[shell(120,50,280,3,0,0,25,0,"wood","#a8743f","hull"),box(114,4,30,0,40,0,"wood","#7a4a28","seat")]},
         {name:"Canoe",parts:()=>[shell(80,40,450,1,0,0,20,0,"wood","#c8603a","hull")]},
         {name:"Fishing boat",parts:()=>[shell(180,80,420,4,0,0,40,0,"wood","#3f6fa8","hull"),box(10,200,10,0,180,0,"wood","#7a4a28","mast")]}],
+  book:[{name:"Little notebook",parts:()=>[box(14,.6,20,0,.3,0,"fabric","#3f6fa8","cover"),box(13,1.6,19,0,1.4,0,"paper","","pages"),box(14,.6,20,0,2.5,0,"fabric","#3f6fa8","cover")]},
+        {name:"Big book",parts:()=>[box(24,1,32,0,.5,0,"wood","#7a2a2a","cover"),box(22,5,30,0,3.5,0,"paper","","pages"),box(24,1,32,0,6.5,0,"wood","#7a2a2a","cover"),box(1,7,32,-12,3.5,0,"wood","#7a2a2a","spine")]}],
+  lamp:[{name:"Paper lantern lamp",parts:()=>[cyl(9,3,0,1.5,0,"wood","#5a3a22","foot"),cyl(1.5,20,0,13,0,"metal","#333","post"),P("sphere",{r:10,x:0,y:32,z:0,wall:.5},"glass","#ffe9b0","glass")]},
+        {name:"Street lamp",parts:()=>[cyl(20,8,0,4,0,"stone","#8a857c","foot"),cyl(5,240,0,128,0,"metal","#2a2a2e","post"),P("dome",{r:18,x:0,y:257,z:0,wall:.5},"glass","#ffe9b0","glass")]}],
+  magnet:[{name:"Horseshoe magnet",parts:()=>[box(20,5,5,0,2.5,0,"metal","#c8302a","bar"),box(5,18,5,-7.5,14,0,"metal","#c8302a","arm"),box(5,18,5,7.5,14,0,"metal","#c8302a","arm")]},
+          {name:"Ring magnet",parts:()=>[ring(10,5,0,12.5,0,"metal","#6a7078","ring")]}],
+  stairs:[{name:"Wooden stairs",parts:()=>[P("stairs",{w:90,h:200,d:260,steps:10,x:0,y:100,z:0},"wood","#a8743f","stairs")]},
+          {name:"Stone stairs",parts:()=>[P("stairs",{w:140,h:120,d:280,steps:8,x:0,y:60,z:0},"stone","#b8b0a0","stairs")]}],
+  healstone:[{name:"Crystal on a stand",parts:()=>[box(40,20,40,0,10,0,"stone","#8a857c","stand"),cone(12,60,0,50,0,"glass","#7dffb0","crystal")]},
+             {name:"Crystal cluster",parts:()=>[cyl(28,14,0,7,0,"stone","#6a655c","stone"),cone(9,70,0,49,0,"glass","#b07aff","crystal"),cone(6,45,14,36.5,4,"glass","#b07aff","crystal"),cone(5,35,-13,31.5,-5,"glass","#b07aff","crystal")]}],
+  computer:[{name:"Desktop computer",parts:()=>[box(50,4,40,0,2,0,"plastic","#d8d8d8","base"),box(40,2.5,14,0,5,-12,"plastic","#333333","keys"),box(6,12,6,0,10,12,"metal","#888888","stand"),box(52,34,3,0,33,12,"glass","#1a2a3a","screen")]},
+            {name:"Laptop",parts:()=>[box(36,2,25,0,1,0,"plastic","#9aa3ad","keys"),box(36,24,1.5,0,14,12,"glass","#1a2a3a","screen")]}],
+  gate:[{name:"Stone gate",parts:()=>[box(40,240,40,-80,120,0,"stone","#9a958c","post"),box(40,240,40,80,120,0,"stone","#9a958c","post"),box(220,35,45,0,257.5,0,"stone","#b8b0a0","beam")]},
+        {name:"Ring gate",parts:()=>[box(140,20,60,0,10,0,"stone","#6a655c","step"),ring(110,18,0,130,0,"metal","#7a5ad8","ring")]}],
   horn:[{name:"Hunting horn",parts:()=>[P("cone",{r:6,h:35,wall:.4,x:0,y:7,z:0,rz:90},"metal","#d8ac4a","horn"),P("tube",{r:1,h:6,wall:.3,bottom:0,x:-20.5,y:7,z:0,rz:90},"metal","#b8902a","mouthpiece")]},
          {name:"Trumpet",parts:()=>[P("tube",{r:1,h:50,wall:.2,bottom:0,x:0,y:6,z:0,rz:90},"metal","#e8c040","tube"),P("cone",{r:6,h:12,wall:.3,x:31,y:6,z:0,rz:-90},"metal","#e8c040","bell")]},
          {name:"Ram's horn",parts:()=>[P("cone",{r:5,h:40,wall:.6,x:0,y:6,z:0,rz:90,ry:20},"stone","#e8dcc0","horn")]}],
@@ -170,14 +238,14 @@ const DESIGNS=(()=>{let k=0;const id=()=>"d"+(k++).toString(36);
   };})();
 
 // ---- parts ----
-const DENS={wood:.6,clay:2,metal:7.8,plastic:1,glass:2.5,fabric:.3,stone:2.4,rubber:1.2,door:.6,window:2.5};   // g per cm³
-const STR={wood:30,clay:20,metal:300,plastic:10,glass:10,fabric:.2,stone:40,rubber:1,door:30,window:10};     // what 1 cm² can safely carry, kg
-const MCOL={wood:"#a8743f",clay:"#e9dcc8",metal:"#9aa3ad",plastic:"#4f8fd8",glass:"#bfe6ff",fabric:"#d85a6a",stone:"#9a958c",rubber:"#2a2a2e",door:"#7a4a28",window:"#a9d8ff"};
-const MNAME={wood:"wood",clay:"clay",metal:"metal",plastic:"plastic",glass:"glass",fabric:"cloth",stone:"stone",rubber:"rubber",door:"door",window:"window"};
-const SHAPES={box:{w:20,h:20,d:20},shell:{w:40,h:30,d:40,wall:2,top:0},cylinder:{r:10,h:20},tube:{r:10,h:20,wall:1,bottom:1},sphere:{r:10},cone:{r:10,h:20},torus:{R:8,t:2},wedge:{w:40,h:20,d:40},dome:{r:20,wall:0}};
-const SNAME={box:"Box",shell:"Hollow box",cylinder:"Cylinder",tube:"Tube",sphere:"Sphere",cone:"Cone",torus:"Ring",wedge:"Roof wedge",dome:"Dome"};
-const FIELDS={box:["w","h","d"],shell:["w","h","d","wall","top"],cylinder:["r","h"],tube:["r","h","wall","bottom","top"],sphere:["r","wall"],cone:["r","h","wall"],torus:["R","t"],wedge:["w","h","d"],dome:["r","wall"]};
-const FNAME={top:"lid (1 = closed, 0 = open)",wall2:"",w:"width",h:"height",d:"depth",r:"radius",wall:"wall",bottom:"bottom",R:"ring radius",t:"thickness",x:"x",y:"y (up)",z:"z",rx:"tilt x°",ry:"turn y°",rz:"tilt z°"};
+const DENS={wood:.6,clay:2,metal:7.8,plastic:1,glass:2.5,fabric:.3,stone:2.4,rubber:1.2,door:.6,window:2.5,paper:.8};   // g per cm³
+const STR={wood:30,clay:20,metal:300,plastic:10,glass:10,fabric:.2,stone:40,rubber:1,door:30,window:10,paper:1};     // what 1 cm² can safely carry, kg
+const MCOL={wood:"#a8743f",clay:"#e9dcc8",metal:"#9aa3ad",plastic:"#4f8fd8",glass:"#bfe6ff",fabric:"#d85a6a",stone:"#9a958c",rubber:"#2a2a2e",door:"#7a4a28",window:"#a9d8ff",paper:"#f6f0dc"};
+const MNAME={wood:"wood",clay:"clay",metal:"metal",plastic:"plastic",glass:"glass",fabric:"cloth",stone:"stone",rubber:"rubber",door:"door",window:"window",paper:"paper"};
+const SHAPES={box:{w:20,h:20,d:20},shell:{w:40,h:30,d:40,wall:2,top:0},cylinder:{r:10,h:20},tube:{r:10,h:20,wall:1,bottom:1},sphere:{r:10},cone:{r:10,h:20},torus:{R:8,t:2},wedge:{w:40,h:20,d:40},dome:{r:20,wall:0},stairs:{w:90,h:250,d:300,steps:12},floor:{w:400,h:12,d:400,hw:100,hd:300}};
+const SNAME={box:"Box",shell:"Hollow box",cylinder:"Cylinder",tube:"Tube",sphere:"Sphere",cone:"Cone",torus:"Ring",wedge:"Roof wedge",dome:"Dome",stairs:"Stairs",floor:"Upper floor"};
+const FIELDS={box:["w","h","d"],shell:["w","h","d","wall","top"],cylinder:["r","h"],tube:["r","h","wall","bottom","top"],sphere:["r","wall"],cone:["r","h","wall"],torus:["R","t"],wedge:["w","h","d"],dome:["r","wall"],stairs:["w","h","d","steps"],floor:["w","h","d","hw","hd"]};
+const FNAME={steps:"number of steps",hw:"stair hole width",hd:"stair hole depth",top:"lid (1 = closed, 0 = open)",wall2:"",w:"width",h:"height",d:"depth",r:"radius",wall:"wall",bottom:"bottom",R:"ring radius",t:"thickness",x:"x",y:"y (up)",z:"z",rx:"tilt x°",ry:"turn y°",rz:"tilt z°"};
 const n=(v,d)=>{v=+v;return isFinite(v)?v:d;};
 const DEG=Math.PI/180;
 function geoOf(p){const s=p.shape;
@@ -193,12 +261,16 @@ function geoOf(p){const s=p.shape;
   const pts=b>0?[[0,-h/2+b],[r-w,-h/2+b],[r-w,h/2],[r,h/2],[r,-h/2],[0,-h/2]]:[[r-w,-h/2],[r-w,h/2],[r,h/2],[r,-h/2],[r-w,-h/2]];
   return new THREE.LatheGeometry(pts.map(([a,c])=>new THREE.Vector2(Math.max(0,a),c)),36);}
 function matOf(p){const c=p.color||MCOL[p.mat]||MCOL.wood;const m=new THREE.MeshLambertMaterial({color:c,side:THREE.DoubleSide});if(p.mat==="glass"||p.mat==="window"){m.transparent=true;m.opacity=.55;}return m;}
+// stairs go up towards the back (+z), solid underneath; an upper floor has a hole at its right back corner where stairs come up (0 = no hole)
+function stairParts(p){const k=Math.max(2,Math.min(40,Math.round(n(p.steps,12)))),w=n(p.w,90),h=n(p.h,250),d=n(p.d,300),L=[];for(let i=0;i<k;i++){const sh=h*(i+1)/k;L.push([0,-h/2+sh/2,-d/2+d*(i+.5)/k,w,sh,d/k]);}return L;}
+function floorParts(p){const w=n(p.w,400),h=n(p.h,12),d=n(p.d,400),hw=Math.max(0,Math.min(w-1,n(p.hw,0))),hd=Math.max(0,Math.min(d-1,n(p.hd,0)));if(!(hw>0&&hd>0))return [[0,0,0,w,h,d]];return [[-hw/2,0,0,w-hw,h,d],[w/2-hw/2,0,-hd/2,hw,h,d-hd]];}
+const manyOf={shell:p=>shellParts(p),stairs:stairParts,floor:floorParts};
 function shellParts(p){const w=n(p.w,40),h=n(p.h,30),d=n(p.d,40),t=Math.max(.1,Math.min(n(p.wall,2),w/2-.05,d/2-.05,h/2-.05)),top=n(p.top,0)>=.5;
   const L=[[0,-h/2+t/2,0,w,t,d],[0,0,-d/2+t/2,w,h,t],[0,0,d/2-t/2,w,h,t],[-w/2+t/2,0,0,t,h,d-2*t],[w/2-t/2,0,0,t,h,d-2*t]];if(top)L.push([0,h/2-t/2,0,w,t,d]);return L;}
-function meshOf(p){if(p.shape==="shell"){const g=new THREE.Group(),mt=matOf(p);shellParts(p).forEach(([x,y,z,a,b,c])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),mt);m.position.set(x,y,z);m.userData.part=p;m.castShadow=true;g.add(m);});
+function meshOf(p){if(manyOf[p.shape]){const g=new THREE.Group(),mt=matOf(p);manyOf[p.shape](p).forEach(([x,y,z,a,b,c])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),mt);m.position.set(x,y,z);m.userData.part=p;m.castShadow=true;g.add(m);});
     g.position.set(n(p.x,0),n(p.y,0),n(p.z,0));g.rotation.set(n(p.rx,0)*DEG,n(p.ry,0)*DEG,n(p.rz,0)*DEG);g.userData.part=p;g.material=mt;g.updateMatrixWorld(true);return g;}
   const m=new THREE.Mesh(geoOf(p),matOf(p));m.position.set(n(p.x,0),n(p.y,0),n(p.z,0));m.rotation.set(n(p.rx,0)*DEG,n(p.ry,0)*DEG,n(p.rz,0)*DEG);m.userData.part=p;m.castShadow=true;m.updateMatrixWorld(true);return m;}
-function volOf(p){const s=p.shape,PI=Math.PI;if(s==="shell")return shellParts(p).reduce((v,q)=>v+q[3]*q[4]*q[5],0);
+function volOf(p){const s=p.shape,PI=Math.PI;if(manyOf[s])return manyOf[s](p).reduce((v,q)=>v+q[3]*q[4]*q[5],0);
   const hw=n(p.wall,0);if(s==="box")return n(p.w,0)*n(p.h,0)*n(p.d,0);if(s==="cylinder")return PI*p.r*p.r*p.h;if(s==="sphere")return 4/3*PI*(p.r**3-(hw>0?Math.max(0,p.r-hw)**3:0));
   if(s==="cone")return PI*p.r*p.r*p.h/3*(hw>0?1-Math.max(0,1-hw/p.r)**3:1);if(s==="wedge")return p.w*p.h*p.d/2;if(s==="dome")return 2/3*PI*(p.r**3-(hw>0?Math.max(0,p.r-hw)**3:0));
   if(s==="torus")return 2*PI*PI*p.R*(p.t/2)**2;const w=Math.min(p.r,p.wall||1),b=p.bottom||0;return PI*(p.r*p.r-(p.r-w)**2)*(p.h-b)+PI*p.r*p.r*b;}
@@ -206,7 +278,7 @@ function volOf(p){const s=p.shape,PI=Math.PI;if(s==="shell")return shellParts(p)
 const _v=new THREE.Vector3();
 function inside(P,pt,pad){pad=pad||0;_v.copy(pt).applyMatrix4(P.inv);const p=P.p,x=_v.x,y=_v.y,z=_v.z,s=p.shape;
   if(s==="box")return Math.abs(x)<=p.w/2+pad&&Math.abs(y)<=p.h/2+pad&&Math.abs(z)<=p.d/2+pad;
-  if(s==="shell")return shellParts(p).some(([cx,cy,cz,a,b,c])=>Math.abs(x-cx)<=a/2+pad&&Math.abs(y-cy)<=b/2+pad&&Math.abs(z-cz)<=c/2+pad);
+  if(manyOf[s])return manyOf[s](p).some(([cx,cy,cz,a,b,c])=>Math.abs(x-cx)<=a/2+pad&&Math.abs(y-cy)<=b/2+pad&&Math.abs(z-cz)<=c/2+pad);
   if(s==="cylinder")return Math.abs(y)<=p.h/2+pad&&x*x+z*z<=(p.r+pad)**2;
   const wl=n(p.wall,0);
   if(s==="sphere"){const d=Math.sqrt(x*x+y*y+z*z);return d<=p.r+pad&&(!(wl>0)||d>=p.r-wl-pad);}
@@ -351,6 +423,29 @@ function check(nd,A,item){const r=(ok,fact,why,whyFail,extra)=>Object.assign({ok
     const lid=n(sh.a.p.top,0)>=.5||A.P.some(b=>b!==sh.a&&A.touch(b,sh.a)&&b.box.min.y>=sh.a.box.max.y-2);
     if(sh.L<nd.min)return r(false,`It holds ${Math.round(sh.L)} litres — too small (it needs ${nd.min} litres).`,"","What a chest holds is the space inside: inside width × inside depth × inside height.");
     return lid?r(true,`It holds ${Math.round(sh.L)} litres, with a lid on top.`,"The walls and floor make an empty space; the lid closes it so dust and mice stay out. Inside width × depth × height gives how much it holds."):r(false,`It holds ${Math.round(sh.L)} litres but has no lid — anything inside gets dusty and wet.`,"","A chest needs a lid: a flat part resting on top of the walls (or a hollow box with its lid set to 1).");}
+  case "pages":{const pg=A.P.find(a=>a.p.mat==="paper");if(!pg)return r(false,"There are no pages — nothing is made of paper.","","A book keeps words on paper: thin, light and white, so ink shows up and you can have many pages.");
+    const covers=A.P.filter(a=>a!==pg&&A.touch(a,pg)&&a.p.mat!=="paper"&&(a.box.min.y>=pg.box.max.y-1||a.box.max.y<=pg.box.min.y+1));const up=covers.some(a=>a.box.min.y>=pg.box.max.y-1),dn=covers.some(a=>a.box.max.y<=pg.box.min.y+1);
+    const big=Math.max(A.box.max.x-A.box.min.x,A.box.max.z-A.box.min.z);if(big>60)return r(false,`It's ${cm(big)} long — too big to carry and read.`,"","A book is made to be held in your hands.");
+    return up&&dn?r(true,"It has pages with a cover above and below.","The covers are stiffer and stronger than paper, so they protect the pages from bending, tearing and getting wet."):r(false,"The pages need a cover on top and one underneath.","","Paper bends and tears easily. Covers made of something stronger on both sides protect it.");}
+  case "bulb":{const b=A.P.find(a=>a.p.mat==="glass"&&(["sphere","dome","tube","shell"].includes(a.p.shape)));return b?r(true,"It has a hollow glass to hold the light.","Glass lets light through but not wind, so a flame inside doesn't blow out."):r(false,"There's no hollow glass part (a glass ball, dome, tube or hollow box) to hold the light.","","Light has to get out, and wind has to stay out. Glass does both — it's see-through but solid.");}
+  case "magnet":{const M=A.P.filter(a=>a.p.mat==="metal");if(!M.length)return r(false,"Nothing in it is made of metal.","","Only a few materials can be magnets: iron, steel, nickel and cobalt — all metals. Wood, glass and plastic don't pull anything.");
+    const rg=M.some(a=>a.p.shape==="torus");const ends=M.filter(a=>M.some(b=>b!==a&&A.touch(a,b)));
+    return rg||ends.length>=3?r(true,rg?"It's a metal ring — a closed magnet.":"It's a metal bar with two arms — both ends pull together.","Inside a magnet, countless tiny magnets all point the same way. Their pulls add up at the ends, called poles. Bending it into a horseshoe or ring brings the poles close together, so the pull is stronger."):r(false,"It's one straight piece of metal — its pull is too weak to bring things to you.","","A magnet pulls most at its two ends (poles). In a straight bar they're far apart; bent into a horseshoe (a bar and two arms) or a ring, both ends work together.");}
+  case "steps":{const st=A.P.filter(a=>a.p.shape==="stairs");let ok=null;for(const a of st){const k=Math.round(n(a.p.steps,12)),rise=a.p.h/k,run=a.p.d/k;if(a.box.min.y<=2&&k>=nd.n&&rise<=30&&run>=15&&a.p.w>=50)ok={k,rise,run};else ok=ok||{bad:1,k,rise,run,w:a.p.w};}
+    const bx=A.P.filter(a=>a.p.shape==="box").sort((a,b)=>a.box.max.y-b.box.max.y);const g=bx.map(a=>a.box.max.y);const boxOk=bx.length>=nd.n&&g[0]<=30&&g.every((y,i)=>!i||y-g[i-1]<=30&&y-g[i-1]>=5);
+    if(ok&&!ok.bad)return r(true,`${ok.k} steps, each ${cm(ok.rise)} high and ${cm(ok.run)} deep.`,"Stairs turn one big climb into many small ones. Each step lifts you about 18–25 cm — less effort at a time — and every step is the same, so your feet know where the next one is.");
+    if(boxOk)return r(true,`${bx.length} steps going up evenly.`,"Stairs turn one big climb into many small ones, each about the same height.");
+    if(ok)return r(false,`The steps are ${cm(ok.rise)} high, ${cm(ok.run)} deep and ${cm(ok.w)} wide.`,"","A step you can climb is at most about 30 cm high, at least 15 cm deep (room for your foot) and 50 cm wide, and the lowest one starts at the ground.");
+    return r(false,`There aren't ${nd.n} steps to climb.`,"","Stairs need several steps, each a little higher than the one before (at most 30 cm).");}
+  case "crystal":{const c=A.P.find(a=>a.p.mat==="glass"&&a.p.shape==="cone"&&upright(a)&&a.up.y>0&&a.p.h>=25);return c?r(true,`It has a pointed glass crystal ${cm(c.p.h)} tall.`,"Real crystals grow in points because their atoms stack in the same pattern again and again."):r(false,"There's no tall glass point (a glass cone at least 25 cm tall, pointing up).","","Crystals are clear and pointed: the same pattern of atoms repeated over and over makes flat sides that meet in a point.");}
+  case "screen":{const sc=A.P.find(a=>(a.p.mat==="glass"||a.p.mat==="window")&&a.p.shape==="box"&&(a.box.max.y-a.box.min.y)>=12&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=20&&Math.min(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)<=10);
+    const ky=A.P.find(a=>a!==sc&&a.p.shape==="box"&&(a.box.max.y-a.box.min.y)<=8&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=18);
+    if(!sc)return r(false,"There's no screen (a thin, upright glass board).","","A computer shows you things on a screen: a thin sheet of glass with millions of tiny lights behind it.");if(!ky)return r(false,"There's nothing to type on (a flat board of keys).","","You tell a computer what to do by pressing keys: a flat board your fingers can reach.");
+    return r(true,"It has a screen to look at and keys to type on.","The keys are the input: they send your presses in. The screen is the output: it shows what the computer worked out.");}
+  case "arch":{const rg=A.P.find(a=>a.p.shape==="torus"&&Math.abs(a.up.y)>.9&&(a.p.R-a.p.t/2)*2>=180);if(rg)return r(true,`It's a ring ${cm((rg.p.R-rg.p.t/2)*2)} wide inside — big enough to walk through.`,"A ring has no corners, so its weight is shared all the way round — like an arch.");
+    const posts=A.P.filter(a=>a.ground&&(a.box.max.y-a.box.min.y)>=180);for(let i=0;i<posts.length;i++)for(let j=i+1;j<posts.length;j++){const a=posts[i].box,b=posts[j].box,gx=Math.max(a.min.x,b.min.x)-Math.min(a.max.x,b.max.x),gz=Math.max(a.min.z,b.min.z)-Math.min(a.max.z,b.max.z),gap=Math.max(gx,gz);if(gap<70)continue;
+        const beam=A.P.find(c=>c!==posts[i]&&c!==posts[j]&&A.touch(c,posts[i])&&A.touch(c,posts[j])&&c.box.min.y>=175);if(beam)return r(true,`It's a gate: the opening is ${cm(gap)} wide and ${cm(beam.box.min.y)} high.`,"The beam rests on both posts; the posts carry its weight straight down to the ground.");}
+    return r(false,"There's no opening to walk through: it needs two tall posts and a beam across them (or a big upright ring).","","To walk through, the opening has to be about 70 cm wide and 180 cm high — the size of a person.");}
   case "doorLeaf":{const d=A.P.find(a=>a.p.shape==="box"&&(a.box.max.y-a.box.min.y)>=190&&Math.max(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=75&&Math.min(a.box.max.x-a.box.min.x,a.box.max.z-a.box.min.z)>=2.5);
     return d?r(true,`The door is ${cm(d.box.max.y-d.box.min.y)} tall and ${cm(Math.max(d.box.max.x-d.box.min.x,d.box.max.z-d.box.min.z))} wide.`,"A door is sized for people: about 2 m tall and 80–90 cm wide so a grown-up walks through without ducking, and thick enough (3–5 cm) not to bend."):r(false,"There's no door-sized board: it should be at least 190 cm tall, 75 cm wide and 2.5 cm thick.","","Doorways are made for people: most grown-ups are under 1.9 m tall and need about 75 cm of width to walk through. A thin board bends and cracks when you slam it.");}
   }
@@ -426,17 +521,18 @@ function stepTest(){const T=TEST;T.t+=1/60;const k=Math.min(1,T.t/2.4);
 function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel];let h="";
   if(S.choose){h+=`<h2>Workbench</h2><p class="need">What do you want to build? People's orders come first; you can also build anything for yourself.</p><div class="list">`;
     (S.orders||[]).forEach((o,i)=>{const I=ITEMS[o.item];h+=`<button data-order="${i}">${I.icon} <b>${esc(I.name)}</b> for ${esc(o.who)} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span><br><small>${esc(o.text)}</small></button>`;});
-    h+=`<h3 style="margin:12px 0 4px">Build for yourself</h3>`;ORDER.forEach(k=>{const I=ITEMS[k];h+=`<button data-free="${k}">${I.icon} ${esc(I.name[0].toUpperCase()+I.name.slice(1))} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span></button>`;});
+    h+=`<button data-free="invention" style="background:#3a2f5a;border-color:#8a6ad8">✨ <b>Experiment</b><br><small>Make anything you like — then bring it to life, and it turns into something that does a thing.</small></button>`;h+=`<h3 style="margin:12px 0 4px">Build for yourself</h3>`;ORDER.forEach(k=>{const I=ITEMS[k];h+=`<button data-free="${k}">${I.icon} ${esc(I.name[0].toUpperCase()+I.name.slice(1))} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span></button>`;});
     $("#bSide").innerHTML=h+`</div>`;return;}
   h+=`<button id="bBack" style="float:right">☰ Orders</button><h2>${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}<span class="chip ${L.cls}">${L.name}</span></h2>`;
-  h+=S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
+  h+=it.free?`<div class="need"><b>Experiment.</b> Make anything you like. When you bring it to life, the game looks at what you made and turns it into something that does a thing.</div>`:S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
   h+=`<div class="ai"><input id="bSay" placeholder="Tell the helper one part: “add a handle on the right”, “make the walls 3 m tall”…" maxlength="240"><button class="go" id="bAsk">Build</button></div><div class="note" id="bNote">${esc(S.note||"")}</div>`;
   h+=`<div class="row">${Object.keys(SHAPES).map(s=>`<button data-add="${s}">+ ${SNAME[s]}</button>`).join("")}</div>`;
   h+=`<ul class="parts">${S.parts.map((q,i)=>`<li data-sel="${i}" class="${i===S.sel?"on":""}"><span class="sw" style="background:${esc(q.color||MCOL[q.mat]||"#a8743f")}"></span>${esc(q.name||SNAME[q.shape])} <small style="color:#99a">${SNAME[q.shape]} · ${MNAME[q.mat]||q.mat}</small></li>`).join("")||"<li><small>Nothing yet.</small></li>"}</ul>`;
-  if(p){h+=`<div class="ed">`;[...FIELDS[p.shape],"x","y","z","rx","ry","rz"].forEach(f=>{h+=`<div><label>${FNAME[f]} (${f.startsWith("r")&&f.length===2?"°":"cm"})</label><input type="number" step="0.5" data-f="${f}" value="${n(p[f],0)}"></div>`;});
+  if(p){h+=`<div class="ed">`;[...FIELDS[p.shape],"x","y","z","rx","ry","rz"].forEach(f=>{h+=`<div><label>${FNAME[f]}${f==="steps"?"":` (${f.startsWith("r")&&f.length===2?"°":"cm"})`}</label><input type="number" step="0.5" data-f="${f}" value="${n(p[f],0)}"></div>`;});
     h+=`<div><label>material</label><select data-f="mat">${Object.keys(DENS).map(m=>`<option value="${m}" ${p.mat===m?"selected":""}>${MNAME[m]}</option>`).join("")}</select></div><div><label>colour</label><input type="color" data-f="color" value="${esc(p.color||MCOL[p.mat]||"#a8743f")}"></div><div><label>name</label><input data-f="name" value="${esc(p.name||"")}" maxlength="30"></div></div>`;
     h+=`<div class="row"><button id="bDup">Copy part</button><button id="bDel">Delete part</button>${canHollow(p)?`<button id="bHollow" title="Like Fusion's Shell command">◻ Make hollow</button>`:""}</div>`;}
-  h+=`<div class="row" style="margin-top:10px"><button class="go" id="bTest">🧪 Test it in the testing area</button><button id="bMake" ${S.passed?"":"disabled"}>✅ Make it</button><button id="bWiki">📖 Read about ${esc(it.name)}s</button></div>`;
+  if(it.free)h+=`<div class="ai"><input id="bName" placeholder="Give it a name" maxlength="28" value="${esc(S.nm||"")}"></div><div class="row"><button class="go" id="bAlive" ${S.parts.length&&!S.busy?"":"disabled"}>✨ Bring it to life</button><button id="bNew">Start over</button></div>`;
+  else h+=`<div class="row" style="margin-top:10px"><button class="go" id="bTest">🧪 Test it in the testing area</button><button id="bMake" ${S.passed?"":"disabled"}>✅ Make it</button><button id="bWiki">📖 Read about ${esc(it.name)}s</button></div>`;
   h+=`<div class="rep" id="bRep">${S.rep||""}</div><div id="bWikiBox">${S.wiki||""}</div>`;
   $("#bSide").innerHTML=h;const say=$("#bSay");if(say)say.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")askAI();};}
 function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)return;
@@ -444,7 +540,7 @@ function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)retu
   if(t.dataset.free){start(t.dataset.free,null);return;}
   if(t.id==="bBack"){S.choose=true;side();return;}
   if(t.dataset.add){const s=t.dataset.add,p=Object.assign({shape:s,id:Math.random().toString(36).slice(2,8),name:SNAME[s],mat:"wood",x:0,z:0},SHAPES[s]);const B=new THREE.Box3();S.parts.forEach(q=>B.union(new THREE.Box3().setFromObject(meshOf(q))));
-    p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"||s==="shell"||s==="wedge"?p.h/2:s==="sphere"?p.r:s==="dome"?p.r/2:p.R+p.t/2);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;changed();return;}
+    p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"||s==="shell"||s==="wedge"||s==="stairs"||s==="floor"?p.h/2:s==="sphere"?p.r:s==="dome"?p.r/2:p.R+p.t/2);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;if(Math.max(n(p.w,0),n(p.h,0),n(p.d,0),n(p.r,0)*2)>orbit.dist*.45)fit();changed();return;}
   if(t.dataset.sel!==undefined){S.sel=+t.dataset.sel;side();draw();return;}
   if(t.id==="bDel"){S.parts.splice(S.sel,1);S.sel=-1;changed();return;}
   if(t.id==="bHollow"){const p=S.parts[S.sel];if(p&&canHollow(p)){const th=v=>Math.max(.5,Math.round(v*.08*2)/2);
@@ -453,10 +549,12 @@ function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)retu
       else{p.wall=th(p.r*2);S.note=`Made hollow: the ${SNAME[p.shape].toLowerCase()} is now a shell ${p.wall} cm thick. Change "wall" to make it thicker or thinner.`;}}changed();return;}
   if(t.id==="bDup"){const q=Object.assign({},S.parts[S.sel],{id:Math.random().toString(36).slice(2,8)});q.x=n(q.x,0)+10;S.parts.push(q);S.sel=S.parts.length-1;changed();return;}
   if(t.id==="bAsk"){askAI();return;}
+  if(t.id==="bAlive"){alive();return;}
+  if(t.id==="bNew"){S.parts=[];S.sel=-1;S.nm="";changed();return;}
   if(t.id==="bTest"){runTest();return;}
   if(t.id==="bMake"){make();return;}
   if(t.id==="bWiki"){wiki();return;}}
-function onEdit(e){const t=e.target;if(!S||!t.dataset||!t.dataset.f)return;const p=S.parts[S.sel];if(!p)return;const f=t.dataset.f;
+function onEdit(e){const t=e.target;if(S&&t.id==="bName"){S.nm=t.value.slice(0,28);return;}if(!S||!t.dataset||!t.dataset.f)return;const p=S.parts[S.sel];if(!p)return;const f=t.dataset.f;
   if(f==="mat"){p.mat=t.value;delete p.color;}else if(f==="color")p.color=t.value;else if(f==="name")p.name=t.value.slice(0,30);else{const v=parseFloat(t.value);if(isFinite(v))p[f]=v;}
   S.passed=false;S.rep="";save();draw();if(e.type==="change")side();}
 function canHollow(p){return p.shape==="box"||p.shape==="cylinder"||((p.shape==="sphere"||p.shape==="cone"||p.shape==="dome")&&!(n(p.wall,0)>0));}
@@ -474,6 +572,11 @@ function runTest(){const rep=test(S.id,S.parts);const it=ITEMS[S.id];let h=`<h3 
   S.rep=h;S.passed=rep.ok;draw();startTest(rep);side();if(S.hooks.tested)S.hooks.tested(S.id,rep.ok);}
 function make(){if(!S.passed)return;const it=ITEMS[S.id];const thumb=snapshot();const res={item:S.id,name:it.name,parts:JSON.parse(JSON.stringify(S.parts)),thumb,order:S.order||null};
   if(S.hooks.made&&S.hooks.made(res)!==false){S.rep=`<p class="y">✅ You made the ${esc(it.name)}! It's in your bag.${S.order?` Take it to ${esc(S.order.who)}.`:""}</p>`;S.passed=false;side();}}
+// bring an invention to life: the game's helper looks at the parts and the name and picks what it does (from FNS); if it can't be reached, the shape decides
+function alive(){if(!S.parts.length||S.busy)return;S.busy=true;S.note="Something is happening…";side();const parts=JSON.parse(JSON.stringify(S.parts)),nm=(S.nm||"").trim(),hooks=S.hooks;
+  const fin=(fn,name,say)=>{if(!S||S.id!=="invention"){return;}S.busy=false;if(!FNS[fn])fn=guessFn(parts);const F=FNS[fn];const res={item:"invention",name:nm||name||F.name,nm:nm||name||F.name,fn,parts,thumb:snap(parts,96),order:null};S.note="";
+    if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! Your ${esc(res.nm)} became a <b>${F.icon} ${esc(F.name)}</b>: ${esc(F.what)}.${say?" "+esc(say):""} It's in your bag.</p>`;side();};
+  fetch("/api/elementum/invent",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({parts,name:nm})}).then(r=>r.ok?r.json():null).then(j=>fin(j&&j.fn,j&&j.name,j&&j.say)).catch(()=>fin());}
 function snapshot(){return snap(S.parts,96);}
 function snap(parts,px){try{const c=document.createElement("canvas");c.width=c.height=px||96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
     const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
@@ -500,8 +603,8 @@ function openIdeas(hooks){if(!$("#ideas")){const st=document.createElement("styl
 function drawIdeas(){const it=ITEMS[IDEAS.item],L=LV[it.level];let h=`<div class="in"><button class="close">Close the book</button><h1>📐 Design ideas</h1><p>Ideas from builders before you. Look at how each one works — then design your own at the workbench. (Nothing here builds anything for you.)</p>`;
   h+=`<div class="tabs">${ORDER.filter(k=>DESIGNS[k]).map(k=>`<button data-it="${k}" class="${k===IDEAS.item?"on":""}">${ITEMS[k].icon} ${esc(ITEMS[k].name)}</button>`).join("")}</div>`;
   h+=`<h2 style="margin:6px 0 10px">${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}s <small style="font:13px system-ui">· ${L.name} to build</small></h2><div class="cards">`;
-  (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p></div>`;});
+  (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p>${IDEAS.hooks&&IDEAS.hooks.recipe?`<p style="font:12px system-ui;margin-top:6px;border-top:1px solid #cbb98f;padding-top:6px">${d.parts().map(q=>`<b>${esc(q.name||SNAME[q.shape])}</b> — ${MNAME[q.mat]||q.mat} ${SNAME[q.shape].toLowerCase()}, ${FIELDS[q.shape].filter(f=>n(q[f],0)>0).map(f=>`${(FNAME[f]||f).replace(/ \(.*/,"")} ${n(q[f],0)}`).join(", ")}; at ${n(q.x,0)}, ${n(q.y,0)}, ${n(q.z,0)}`).join("<br>")}</p>`:""}</div>`;});
   $("#ideas").innerHTML=h+`</div></div>`;}
 function closeIdeas(){const e=$("#ideas");if(!e||e.classList.contains("hidden"))return;e.classList.add("hidden");if(IDEAS.hooks&&IDEAS.hooks.onClose)IDEAS.hooks.onClose();}
-return {snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+return {FNS,ITEMFN,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();
