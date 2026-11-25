@@ -1885,7 +1885,8 @@ function hurt(n){if(P.down||n<=0)return;if(P.sleeping)endSleep(false,"something 
   if(P.toughT>0)n=Math.max(1,Math.round(n*.75));   // cheese
   P.hp=Math.max(0,P.hp-n);P.lastHit=tAcc;$("#vig").classList.add("on");setTimeout(()=>$("#vig").classList.remove("on"),160);shake(.08);hud();   // no healing by itself: only spells and potions heal
   if(P.hp<=0&&LAW.wanted){P.hp=1;return;}
-  if(P.hp<=0){P.down=true;toggleBag(false);const n=dropAll();$("#downMsg").textContent=n?`Everything you carried (${n} ${n===1?"stack":"stacks"}) is lying where you fell — go back for it within 5 minutes. Your coins and your chest are safe.`:"Health is back to full when you come back.";$("#down").classList.remove("hidden");if(document.exitPointerLock)document.exitPointerLock();}}
+  if(P.hp<=0)fallDown();}
+function fallDown(why){if(P.down)return;if(P.sleeping)endSleep(false,"");P.hp=0;hud();P.down=true;toggleBag(false);const n=dropAll();$("#downMsg").textContent=(why?why+" ":"")+(n?`Everything you carried (${n} ${n===1?"stack":"stacks"}) is lying where you fell — go back for it within 5 minutes. Your coins and your chest are safe.`:"Health is back to full when you come back.");$("#down").classList.remove("hidden");if(document.exitPointerLock)document.exitPointerLock();}
 function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=P.flipT=0;$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
   $("#wep").classList.toggle("noweap",!(it&&it.t==="weapon"));
@@ -2566,12 +2567,13 @@ const invShow=ev=>{invFx(ev,true);share(Object.assign({k:"inv"},ev));};
 const CALM=!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
 function feel(item,q){const e=BUILD.cleanEf(item.ef)||{hp:5},bad=BUILD.badEf(e),n=item.nm||"it",up=(k,s)=>{if(s)P[k]=Math.max(P[k]||0,s);},at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
   up("buffT",e.speed);up("slowT",e.slow);up("jumpT",e.jump);up("toughT",e.tough);up("dizzyT",e.dizzy);if(bad)up("flipT",Math.max(10,e.dizzy||0,e.slow||0));
-  if(e.hp>0){P.hp=Math.min(P.maxHp,P.hp+e.hp);popNum(at,`+${e.hp} HP`,"spell");}if(e.hp<0){P.sickT=10;P.sickN=-e.hp/10;popNum(at,"you feel sick…","burn");}
+  if(e.hp>0){P.hp=Math.min(P.maxHp,P.hp+e.hp);popNum(at,`+${e.hp} HP`,"spell");}if(e.hp<0){P.sickT=10;P.sickN=-e.hp/10;P.sickNm=n;popNum(at,"you feel sick…","burn");}
   hud();lawSay((e.say||(bad?`The ${n} makes you feel sick.`:`The ${n} makes you feel good.`))+(bad?" Everything feels backward!":""));invShow({f:"feel",a:V3r(P.pos),u:MP.id,b:bad?1:0,n:bad?Math.max(10,e.dizzy||0,e.slow||0):4});}
 const takeSome=item=>{if(cool("take:"+(item.nm||""),15))feel(item);};
 function stepFeel(dt){P.dizzyT=Math.max(0,(P.dizzyT||0)-dt);P.sickT=Math.max(0,(P.sickT||0)-dt);
   P.flipT=Math.max(0,(P.flipT||0)-dt);if(P.down)P.dizzyT=P.sickT=P.flipT=0;
-  if(P.sickT>0&&P.hp>1){P.hp=Math.max(1,P.hp-P.sickN*dt);P.sickV=(P.sickV||0)+dt;if(P.sickV>=1){P.sickV=0;popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`-${Math.round(P.sickN)||1}`,"burn");hud();}}
+  if(P.sickT>0&&!P.down&&!P.sleeping&&!(LAW.jailT>0)){P.hp=Math.max(0,P.hp-P.sickN*dt);   // it doesn't stop at 1: bad things can knock you down (Barbara, 2026-11-25)
+    if(P.hp<.5){fallDown(`The ${P.sickNm||"bad thing"} made you too sick.`);return;}P.sickV=(P.sickV||0)+dt;if(P.sickV>=1){P.sickV=0;popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`-${Math.round(P.sickN)||1}`,"burn");hud();}}
   if(P.dizzyT>0){const k=Math.min(1,P.dizzyT/2);if(!P.sitting&&!P.sleeping&&!CALM)look.yaw+=Math.sin(tAcc*1.9)*.55*k*dt;canvas.style.filter=`blur(${(1.6*k).toFixed(2)}px) saturate(.6)${CALM?"":` hue-rotate(${Math.round(Math.sin(tAcc*1.1)*45*k)}deg)`}`;P.dizzyOn=true;}
   else if(P.dizzyOn){P.dizzyOn=false;canvas.style.filter="";}}
 // a bomb: thrown where you aim (or set off where it stands, after two seconds); everyone sees it fly and blow up, only the one who set it off does the harm
@@ -2616,7 +2618,7 @@ function stepInvent(dt){stepFeel(dt);P.portT=Math.max(0,(P.portT||0)-dt);
     if(f==="light"){lit.push([d,q,top]);continue;}
     if(f==="aura"){const e=BUILD.cleanEf(q.item.ef)||{hp:5},bad=BUILD.badEf(e),fire=/fire|flame|stove|oven|torch/i.test(q.item.nm||"");if(fire)lit.push([d,q,top]);
       if(Math.random()<dt*9)fire?SPARK.emit(new THREE.Vector3(q.x+rnd(-.2,.2),top,q.z+rnd(-.2,.2)),new THREE.Vector3(rnd(-.2,.2),rnd(.8,1.8),rnd(-.2,.2)),C(Math.random()<.5?0xff8a2a:0xffd24a),.6,{grav:-1}):PUFF.emit(mid.clone().add(rnd3(.5)),new THREE.Vector3(rnd(-.5,.5),rnd(.3,.9),rnd(-.5,.5)),C(bad?0x7aa83a:0xffe9a8).multiplyScalar(.45),1.2,{drag:1});
-      if(d<5&&Math.abs(dy)<4&&!P.down&&!P.sleeping){if(e.hp>0&&P.hp<P.maxHp)P.hp=Math.min(P.maxHp,P.hp+Math.min(4,e.hp/5)*dt);if(e.hp<0&&P.hp>10)P.hp=Math.max(10,P.hp+Math.max(-4,e.hp/5)*dt);[["speed","buffT"],["slow","slowT"],["jump","jumpT"],["tough","toughT"]].forEach(([k,t])=>{if(e[k])P[t]=Math.max(P[t]||0,.4);});if(e.dizzy)P.dizzyT=Math.max(P.dizzyT||0,1.5);if(bad)P.flipT=Math.max(P.flipT||0,1);
+      if(d<5&&Math.abs(dy)<4&&!P.down&&!P.sleeping){if(e.hp>0&&P.hp<P.maxHp)P.hp=Math.min(P.maxHp,P.hp+Math.min(4,e.hp/5)*dt);if(e.hp<0&&!(LAW.jailT>0)){P.hp=Math.max(0,P.hp+Math.max(-4,e.hp/5)*dt);if(P.hp<.5){fallDown(`You stayed too close to the ${q.item.nm||"bad thing"}.`);continue;}}[["speed","buffT"],["slow","slowT"],["jump","jumpT"],["tough","toughT"]].forEach(([k,t])=>{if(e[k])P[t]=Math.max(P[t]||0,.4);});if(e.dizzy)P.dizzyT=Math.max(P.dizzyT||0,1.5);if(bad)P.flipT=Math.max(P.flipT||0,1);
         q.hudT=(q.hudT||0)-dt;if(q.hudT<=0){q.hudT=.4;hud();}if(e.say&&!(q.saidT>tAcc)){lawSay(e.say);}q.saidT=tAcc+20;}
       if(bad&&!q.remote&&e.hp<0){q.zT=(q.zT||0)-dt;if(q.zT<=0){q.zT=1;ENEMIES.forEach(m=>{if(!m.down&&Math.hypot(m.g.position.x-q.x,m.g.position.z-q.z)<5)damage(m,6,m.g.position.clone().add(new THREE.Vector3(0,1.2,0)),false,{el:"plain",area:true});});}}
       continue;}
