@@ -658,7 +658,7 @@ function startSleep(spot){if(P.sleeping||P.down)return;if(spot){const t=takenSpo
   const T7=(7-6)/12*.62,ms=night?((T7-DAY.t+1)%1)*CLOCK.len*1000:60000;
   P.sleeping={spot:spot||null,back:P.pos.clone(),t0:Date.now(),until:Date.now()+Math.max(4000,ms),hp0:P.hp,from:hourNow(),night};G.firing=false;
   $("#sleepBox").classList.remove("hidden");$("#sleepWhat").innerHTML=night?"Sleeping until <b>7 am</b>.":"Taking a nap (about a minute).";}
-function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;if(z.spot&&!P.down){P.pos.copy(z.back);P.vel.set(0,0,0);P.fallTop=undefined;}$("#sleepBox").classList.add("hidden");if(full){P.hp=P.maxHp;P.slowT=P.dizzyT=P.sickT=0;}hud();
+function endSleep(full,why){const z=P.sleeping;if(!z)return;P.sleeping=null;if(z.spot&&!P.down){P.pos.copy(z.back);P.vel.set(0,0,0);P.fallTop=undefined;}$("#sleepBox").classList.add("hidden");if(full){P.hp=P.maxHp;P.slowT=P.dizzyT=P.sickT=P.flipT=0;}hud();
   popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),why||(full?(z.night?"Good morning — fully rested!":"what a nap — fully rested!"):"you woke up early"),"spell");}
 function stepSleep(){const z=P.sleeping;if(!z)return;const k=Math.min(1,(Date.now()-z.t0)/(z.until-z.t0));P.hp=z.hp0+(P.maxHp-z.hp0)*k;P.vel.set(0,0,0);if(z.spot){P.pos.set(z.spot.x,z.spot.y,z.spot.z);P.fallTop=undefined;P.onGround=true;}
   $("#sleepBar").style.width=(k*100).toFixed(1)+"%";$("#sleepNow").textContent=fmtH(hourNow());const left=Math.ceil((z.until-Date.now())/1000);$("#sleepLeft").textContent=left>0?`about ${left>=60?Math.round(left/60)+" min":left+" s"} to go`:"";if(k>=1)endSleep(true);}
@@ -1510,7 +1510,7 @@ scene.add(sun.target);
 function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepOrders(dt);stepTown(dt);stepHomes();stepBoats();stepSoldiers(dt);stepPlaced();stepCastleGuard(dt);stepInvent(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
   if(TOWN.fountain&&Math.random()<dt*30)SPARK.emit(TOWN.fountain,new THREE.Vector3(rnd(-1.2,1.2),rnd(2,3),rnd(-1.2,1.2)),C(Math.random()<.5?0x9fdcff:0xffffff),.9,{grav:6});
   if(P.regenT>0&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+3*dt);hud();}stepActs();
-  const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"],["dizzyT","💫"],["sickT","🤢"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
+  const bf=[["mightT","⚗️"],["regenT","🥣"],["toughT","🧀"],["strongT","🐟"],["jumpT","🍇"],["buffT","💨"],["shieldT","🫧"],["invulnT","🌟"],["slowT","❄️"],["dizzyT","💫"],["sickT","🤢"],["flipT","🔄"]].filter(([k])=>P[k]>0).map(([k,i])=>`<span>${i} ${Math.ceil(P[k])}</span>`).join("");
   $("#buffs").innerHTML=bf;}
 
 // ---------------- multiplayer: everyone playing right now shows up as a hooded hero with a name tag ----------------
@@ -1886,7 +1886,7 @@ function hurt(n){if(P.down||n<=0)return;if(P.sleeping)endSleep(false,"something 
   P.hp=Math.max(0,P.hp-n);P.lastHit=tAcc;$("#vig").classList.add("on");setTimeout(()=>$("#vig").classList.remove("on"),160);shake(.08);hud();   // no healing by itself: only spells and potions heal
   if(P.hp<=0&&LAW.wanted){P.hp=1;return;}
   if(P.hp<=0){P.down=true;toggleBag(false);const n=dropAll();$("#downMsg").textContent=n?`Everything you carried (${n} ${n===1?"stack":"stacks"}) is lying where you fell — go back for it within 5 minutes. Your coins and your chest are safe.`:"Health is back to full when you come back.";$("#down").classList.remove("hidden");if(document.exitPointerLock)document.exitPointerLock();}}
-function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=0;$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
+function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=P.flipT=0;$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
   $("#wep").classList.toggle("noweap",!(it&&it.t==="weapon"));
   if(it&&it.t==="weapon"){$("#wname").textContent=w.name;$("#ammo").textContent=`${G.ammo} / ${w.mag}`;$("#crys").textContent=`${c.name} crystal · ${c.el}`;$("#crys").style.color="#"+FX.HEX[c.el].toString(16).padStart(6,"0");}
@@ -1926,7 +1926,7 @@ $("#camBtn").onclick=()=>{camSide=-camSide;};
 // ---------------- movement + collision ----------------
 function moveInput(){let x=0,z=0;if(keys.KeyW||keys.ArrowUp)z-=1;if(keys.KeyS||keys.ArrowDown)z+=1;if(keys.KeyA||keys.ArrowLeft)x-=1;if(keys.KeyD||keys.ArrowRight)x+=1;
   if(stick.x||stick.y){x=stick.x;z=stick.y;}const l=Math.hypot(x,z);if(l>1){x/=l;z/=l;}return{x,z,l:Math.min(1,l)};}
-function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:moveInput();if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
+function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:moveInput();if(P.flipT>0)inp=Object.assign({},inp,{x:-inp.x,z:-inp.z});/* something bad you took: every key goes the other way (Barbara, 2026-11-25: "the keys backward for bad effects") */if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
   if(P.inCar)driveCar(dt,inp);else if(P.climbing)climbStep(dt,inp);else{   // driving replaces walking
   const s=Math.sin(look.yaw),c=Math.cos(look.yaw);const wx=inp.x*c+inp.z*s,wz=-inp.x*s+inp.z*c;   // forward = away from the camera
   const target=(P.run?RUN:WALK)*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1)*(P.pos.y<.6&&isWater(P.pos.x,P.pos.z,false)?.45:1);/* wading through the moat or the river is slow */const ax=P.onGround?18:6;
@@ -2565,12 +2565,12 @@ const invShow=ev=>{invFx(ev,true);share(Object.assign({k:"inv"},ev));};
 // Everyone near sees it. Feeling sick never knocks you out by itself (1 HP is left). Sleeping a whole night cures it.
 const CALM=!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
 function feel(item,q){const e=BUILD.cleanEf(item.ef)||{hp:5},bad=BUILD.badEf(e),n=item.nm||"it",up=(k,s)=>{if(s)P[k]=Math.max(P[k]||0,s);},at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
-  up("buffT",e.speed);up("slowT",e.slow);up("jumpT",e.jump);up("toughT",e.tough);up("dizzyT",e.dizzy);
+  up("buffT",e.speed);up("slowT",e.slow);up("jumpT",e.jump);up("toughT",e.tough);up("dizzyT",e.dizzy);if(bad)up("flipT",Math.max(10,e.dizzy||0,e.slow||0));
   if(e.hp>0){P.hp=Math.min(P.maxHp,P.hp+e.hp);popNum(at,`+${e.hp} HP`,"spell");}if(e.hp<0){P.sickT=10;P.sickN=-e.hp/10;popNum(at,"you feel sick…","burn");}
-  hud();lawSay(e.say||(bad?`The ${n} makes you feel sick.`:`The ${n} makes you feel good.`));invShow({f:"feel",a:V3r(P.pos),u:MP.id,b:bad?1:0,n:bad?Math.max(e.hp<0?10:0,e.dizzy||0,e.slow||0):4});}
+  hud();lawSay((e.say||(bad?`The ${n} makes you feel sick.`:`The ${n} makes you feel good.`))+(bad?" Everything feels backward!":""));invShow({f:"feel",a:V3r(P.pos),u:MP.id,b:bad?1:0,n:bad?Math.max(10,e.dizzy||0,e.slow||0):4});}
 const takeSome=item=>{if(cool("take:"+(item.nm||""),15))feel(item);};
 function stepFeel(dt){P.dizzyT=Math.max(0,(P.dizzyT||0)-dt);P.sickT=Math.max(0,(P.sickT||0)-dt);
-  if(P.down)P.dizzyT=P.sickT=0;
+  P.flipT=Math.max(0,(P.flipT||0)-dt);if(P.down)P.dizzyT=P.sickT=P.flipT=0;
   if(P.sickT>0&&P.hp>1){P.hp=Math.max(1,P.hp-P.sickN*dt);P.sickV=(P.sickV||0)+dt;if(P.sickV>=1){P.sickV=0;popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`-${Math.round(P.sickN)||1}`,"burn");hud();}}
   if(P.dizzyT>0){const k=Math.min(1,P.dizzyT/2);if(!P.sitting&&!P.sleeping&&!CALM)look.yaw+=Math.sin(tAcc*1.9)*.55*k*dt;canvas.style.filter=`blur(${(1.6*k).toFixed(2)}px) saturate(.6)${CALM?"":` hue-rotate(${Math.round(Math.sin(tAcc*1.1)*45*k)}deg)`}`;P.dizzyOn=true;}
   else if(P.dizzyOn){P.dizzyOn=false;canvas.style.filter="";}}
@@ -2616,7 +2616,7 @@ function stepInvent(dt){stepFeel(dt);P.portT=Math.max(0,(P.portT||0)-dt);
     if(f==="light"){lit.push([d,q,top]);continue;}
     if(f==="aura"){const e=BUILD.cleanEf(q.item.ef)||{hp:5},bad=BUILD.badEf(e),fire=/fire|flame|stove|oven|torch/i.test(q.item.nm||"");if(fire)lit.push([d,q,top]);
       if(Math.random()<dt*9)fire?SPARK.emit(new THREE.Vector3(q.x+rnd(-.2,.2),top,q.z+rnd(-.2,.2)),new THREE.Vector3(rnd(-.2,.2),rnd(.8,1.8),rnd(-.2,.2)),C(Math.random()<.5?0xff8a2a:0xffd24a),.6,{grav:-1}):PUFF.emit(mid.clone().add(rnd3(.5)),new THREE.Vector3(rnd(-.5,.5),rnd(.3,.9),rnd(-.5,.5)),C(bad?0x7aa83a:0xffe9a8).multiplyScalar(.45),1.2,{drag:1});
-      if(d<5&&Math.abs(dy)<4&&!P.down&&!P.sleeping){if(e.hp>0&&P.hp<P.maxHp)P.hp=Math.min(P.maxHp,P.hp+Math.min(4,e.hp/5)*dt);if(e.hp<0&&P.hp>10)P.hp=Math.max(10,P.hp+Math.max(-4,e.hp/5)*dt);[["speed","buffT"],["slow","slowT"],["jump","jumpT"],["tough","toughT"]].forEach(([k,t])=>{if(e[k])P[t]=Math.max(P[t]||0,.4);});if(e.dizzy)P.dizzyT=Math.max(P.dizzyT||0,1.5);
+      if(d<5&&Math.abs(dy)<4&&!P.down&&!P.sleeping){if(e.hp>0&&P.hp<P.maxHp)P.hp=Math.min(P.maxHp,P.hp+Math.min(4,e.hp/5)*dt);if(e.hp<0&&P.hp>10)P.hp=Math.max(10,P.hp+Math.max(-4,e.hp/5)*dt);[["speed","buffT"],["slow","slowT"],["jump","jumpT"],["tough","toughT"]].forEach(([k,t])=>{if(e[k])P[t]=Math.max(P[t]||0,.4);});if(e.dizzy)P.dizzyT=Math.max(P.dizzyT||0,1.5);if(bad)P.flipT=Math.max(P.flipT||0,1);
         q.hudT=(q.hudT||0)-dt;if(q.hudT<=0){q.hudT=.4;hud();}if(e.say&&!(q.saidT>tAcc)){lawSay(e.say);}q.saidT=tAcc+20;}
       if(bad&&!q.remote&&e.hp<0){q.zT=(q.zT||0)-dt;if(q.zT<=0){q.zT=1;ENEMIES.forEach(m=>{if(!m.down&&Math.hypot(m.g.position.x-q.x,m.g.position.z-q.z)<5)damage(m,6,m.g.position.clone().add(new THREE.Vector3(0,1.2,0)),false,{el:"plain",area:true});});}}
       continue;}
