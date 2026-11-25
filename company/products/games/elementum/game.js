@@ -266,7 +266,7 @@ const EK=.25;   // enemy spells hit for 25% of the player's version
 const SPELL_ANIM={ray:"Spellcast_Long",bolt:"Spellcast_Shoot",strike:"Spellcast_Long",nova:"Spellcast_Raise",cone:"Spellcast_Shoot",zone:"Spellcast_Long",aura:"Spellcast_Raise",wave:"Spellcast_Shoot",shield:"Spellcast_Raise",heal:"Spellcast_Raise",line:"Spellcast_Raise",tornado:"Spellcast_Shoot",buff:"Spellcast_Raise",chain:"Spellcast_Long",orb:"Spellcast_Shoot",blink:"Spellcast_Shoot",invuln:"Spellcast_Raise",wall:"Spellcast_Raise",spring:"Spellcast_Raise"};
 const ACTIVE=[];   // spells that last a while: {t, life, step(dt,e), end(e)}
 function lasting(life,stepFn,endFn){const e={t:0,life,step:stepFn,end:endFn};ACTIVE.push(e);return e;}
-function label(text,hex){const c=document.createElement("canvas");c.width=512;c.height=96;const x=c.getContext("2d");x.font="700 44px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";
+function label(text,hex){const c=document.createElement("canvas");c.width=512;c.height=96;const x=c.getContext("2d");x.font="700 44px system-ui,sans-serif";{const w=x.measureText(text).width;if(w>496)x.font=`700 ${Math.max(16,Math.floor(44*496/w))}px system-ui,sans-serif`;}x.textAlign="center";x.textBaseline="middle";
   x.lineWidth=8;x.strokeStyle="rgba(0,0,0,.6)";x.strokeText(text,256,48);x.fillStyle="#"+new THREE.Color(hex).lerp(new THREE.Color(0xffffff),.45).getHexString();x.fillText(text,256,48);
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,transparent:true}));sp.scale.set(2.4,.45,1);return sp;}
 const fwdFlat=()=>new THREE.Vector3(-Math.sin(P.yaw),0,-Math.cos(P.yaw));
@@ -564,7 +564,7 @@ function haggle(ans){const H=HAG;HAG=null;if(!H||!nearMerchant())return {ok:fals
   const lv=mathRight(),r=buy(H.k,H.d.pay);
   if(r!=="ok")return {ok:false,msg:{poor:`Right — it's ${H.d.pay} 🪙. But you don't have that many coins yet.`,full:"Your bag is full.",far:"Walk to the stall first."}[r]+lvNote(lv)};
   return {ok:true,msg:`🤝 Deal! You paid ${H.d.pay} 🪙 instead of ${H.P}.`+lvNote(lv)};}
-function stepTown(dt){if(MERCHANT.rig)MERCHANT.rig.update(dt);if(offerSlot()!==refreshOffers.slot)refreshOffers();
+function stepStall(dt){if(MERCHANT.rig)MERCHANT.rig.update(dt);if(offerSlot()!==refreshOffers.slot)refreshOffers();
 }
 
 // ---------------- town life: food that helps you, your house (bed + chest), a training center you build, a fountain, guards ----------------
@@ -1456,7 +1456,7 @@ const inArena=p=>Math.hypot(p.x-ARENA.x,p.z-ARENA.z)<ARENA.r+2;
   const sign=label("Harena — battle ground →",0xff8a7a);sign.scale.set(4.5,.8,1);sign.position.set(TOWN.x0-4,4,-9);scene.add(sign);
   makeCar(A.x+A.r-8,A.z,Math.PI/2,0x222228);makeCar(A.x-10,A.z+20,0,0xb5482f);makeCar(A.x+5,A.z-25,Math.PI,0x4f8f3a);}
 // the storm wall: a tall glowing cylinder at the edge of the safe circle
-const STORM=new THREE.Mesh(new THREE.CylinderGeometry(1,1,60,64,1,true),new THREE.MeshBasicMaterial({color:0x8a3ab0,transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));STORM.position.y=30;scene.add(STORM);
+const STORM=new THREE.Mesh(new THREE.CylinderGeometry(1,1,60,64,1,true),new THREE.MeshBasicMaterial({color:0x8a3ab0,transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}));STORM.position.y=30;STORM.visible=false;scene.add(STORM);
 // loot chests
 function arenaLoot(){const r=Math.random();if(r<.3)return {t:"weapon",id:pick(["shotgun","repeater","cannon","arcus","staff"])};if(r<.5)return {t:"potion",id:Math.random()<.5?"potion":"fortis",n:1};
   if(r<.75){const id=pick(DROP_SPELLS);return {t:"spell",id,uses:SPELLS[id].uses};}if(r<.9)return {t:"food",id:pick(Object.keys(FOODS)),n:2};return {t:"coin",n:ri(5,15)};}
@@ -1954,7 +1954,7 @@ function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:moveInput();if(P.
   if(G.reloading>0){G.reloading-=dt;if(G.reloading<=0){G.reloading=0;G.ammo=WEAPONS[G.id].mag;if(G.item)G.item.ammo=G.ammo;const m=muzzleWorld();FX.stars(m,crystalEl(),2,.5);}hud();}
   if(G.firing){useHeld(!G.firedOnce);G.firedOnce=true;}else G.firedOnce=false;
   if(G.ammo===0&&!G.reloading&&held()&&held().t==="weapon")reload();   // an empty gun reloads by itself
-  stepBolts(dt);stepEnemies(dt);stepMagic(dt);stepPickups(dt);stepDummyGuns(dt);stepTown(dt);stepLife(dt);stepMP(dt);
+  stepBolts(dt);stepEnemies(dt);stepMagic(dt);stepPickups(dt);stepDummyGuns(dt);stepStall(dt);stepLife(dt);stepMP(dt);
   for(const t of TREES){if(t.down)continue;const dx=P.pos.x-t.g.position.x,dz=P.pos.z-t.g.position.z,l=Math.hypot(dx,dz);if(l<.7&&P.pos.y<2){P.pos.x=t.g.position.x+dx/l*.7;P.pos.z=t.g.position.z+dz/l*.7;}}
   for(const n of NODES){if(n.down)continue;const dx=P.pos.x-n.g.position.x,dz=P.pos.z-n.g.position.z,l=Math.hypot(dx,dz);if(l<1.3&&P.pos.y<1.2){P.pos.x=n.g.position.x+dx/l*1.3;P.pos.z=n.g.position.z+dz/l*1.3;}}
   animate(dt);}
@@ -2239,6 +2239,8 @@ function onBridge(x,z){const M=MOAT;return (Math.abs(x)<=3.6&&(z>=M.z1-M.w-1&&z<
   TREES.forEach(t=>{const p=t.g.position;for(let k=0;k<6&&isWater(p.x,p.z,true);k++)p.z+=4;});
   NODES.forEach(nd=>{const g=nd.g||(nd.rock&&nd.rock.parent);if(!g)return;const p=g.position;for(let k=0;k<6&&isWater(p.x,p.z,true);k++)p.z+=4;});}
 // your boat: built at the workbench; it looks like your design and sails only on water
+// putting a saved thing back when the game opens: if one is broken, say so in the console and carry on (the save itself is left alone)
+function restore(what,f){try{f();}catch(e){console.error("could not put back your saved "+what,e);}}
 const MYBOAT={boat:null};
 function makeBoat(parts){if(MYBOAT.boat){if(P.inCar===MYBOAT.boat)exitCar();scene.remove(MYBOAT.boat.g);CARS.splice(CARS.indexOf(MYBOAT.boat),1);}
   const g=new THREE.Group(),inner=new THREE.Group();g.add(inner);const box=new THREE.Box3();parts.forEach(p=>{const m=BUILD.meshOf(p);inner.add(m);box.union(new THREE.Box3().setFromObject(m));});
@@ -2246,7 +2248,7 @@ function makeBoat(parts){if(MYBOAT.boat){if(P.inCar===MYBOAT.boat)exitCar();scen
   const len=(box.max.z-box.min.z)/100,wid=(box.max.x-box.min.x)/100;
   const c={g,wheels:[],speed:0,yaw:Math.PI/2,fuel:Infinity,max:Infinity,spin:0,hitCool:new Map(),color:0x8a5a32,boat:true,own:true,len,wid,parts};CARS.push(c);MYBOAT.boat=c;MYBOAT.room=null;
   try{localStorage.setItem("elementum.myboat",JSON.stringify(parts));}catch(e){}return c;}
-{let v=null;try{v=JSON.parse(localStorage.getItem("elementum.myboat")||"null");}catch(e){}if(Array.isArray(v)&&v.length)makeBoat(v);}
+{let v=null;try{v=JSON.parse(localStorage.getItem("elementum.myboat")||"null");}catch(e){}if(Array.isArray(v)&&v.length)restore("boat",()=>makeBoat(v));}
 const REMOTE_BOATS={};
 function boatShare(d){const c=MYBOAT.boat;if(!c||!MP.ok)return;const p=compactParts(c.parts);setKey("boat:"+MYCAR.id,{x:+c.g.position.x.toFixed(2),z:+c.g.position.z.toFixed(2),yaw:+c.yaw.toFixed(3),d:d||null,p:JSON.stringify(p).length<15000?p:0});}
 function boatKeyApply(id,val){if(id===MYCAR.id)return;const b=REMOTE_BOATS[id];if(!val){if(b){scene.remove(b.g);delete REMOTE_BOATS[id];}return;}
@@ -2291,13 +2293,13 @@ function setLot(L,on){if(L.built===on)return;L.built=on;L.objs.forEach(({o,v})=>
   L.blks.forEach(({b,pass})=>{b.pass=on?(L.bd&&L.bd.down&&L.bd.blks.includes(b)?true:pass):true;});
   L.people.forEach(pp=>{pp.o.g.visible=on;});if(L.gas)CARS.forEach(c=>{if(!c.own)c.g.visible=on&&!c.taken;c.hidden=!on;});}
 // the building site: a timber frame that rises as the villagers work, scaffold poles and four builders with hammers
-const SITE={g:new THREE.Group(),frame:null,lot:null,workers:[],k:0};scene.add(SITE.g);
+const SITE={g:new THREE.Group(),frame:null,lot:null,workers:[],k:0};SITE.g.visible=false;scene.add(SITE.g);
 {const wood=LOOK.toon(0xb08a55);SITE.frameMat=new THREE.MeshLambertMaterial({color:0xd8b07a,transparent:true,opacity:.55});
   SITE.slab=new THREE.Mesh(new THREE.BoxGeometry(1,.25,1),LOOK.toon(0xb8b0a0));SITE.slab.position.y=.12;SITE.g.add(SITE.slab);
   SITE.frame=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),SITE.frameMat);SITE.g.add(SITE.frame);
   SITE.poles=[];for(let i=0;i<8;i++){const p=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,1,6),wood);SITE.g.add(p);SITE.poles.push(p);}
   SITE.sign=label("Building site",0xffe08a);SITE.sign.scale.set(3.4,.6,1);SITE.g.add(SITE.sign);
-  ["Tiro","Brocchus","Vibia","Sextus"].forEach((nm,i)=>{const o=npc(["villager.glb","merchant.glb","cook.glb","villager.glb"][i],0,0,0);const lb=label(`${nm} the builder`,0xffffff);lb.scale.set(2.2,.34,1);lb.position.y=2.35;o.g.add(lb);SITE.workers.push({o,name:nm,t:Math.random()*2});});}
+  ["Tiro","Brocchus","Vibia","Sextus"].forEach((nm,i)=>{const o=npc(["villager.glb","merchant.glb","cook.glb","villager.glb"][i],0,0,0);const lb=label(`${nm} the builder`,0xffffff);lb.scale.set(2.2,.34,1);lb.position.y=2.35;o.g.add(lb);o.g.visible=false;SITE.workers.push({o,name:nm,t:Math.random()*2});});}
 function placeSite(L){SITE.lot=L;SITE.g.visible=!!L;if(!L)return;const w=Math.max(2,L.w-.4),d=Math.max(2,L.d-.4);SITE.slab.scale.set(w,1,d);SITE.slab.position.set(L.x,.12,L.z);
   SITE.poles.forEach((p,i)=>{const a=i%4,sx=a<2?-1:1,sz=a%2?-1:1,out=i<4?.4:1.1;p.position.set(L.x+sx*(w/2+out),0,L.z+sz*(d/2+out));});
   SITE.sign.position.set(L.x,0,L.z);
@@ -2376,8 +2378,8 @@ function myCarSave(){const c=MYCAR.car;if(!c)return null;const v=Object.assign({
 function myCarShare(d){const v=myCarSave();if(!v||!MP.ok)return;setKey("mycar:"+MYCAR.id,Object.assign(v,{n:(MP.you||"Someone").slice(0,16),d:d||null}));}
 function makeOwnCar(col,at,parts){if(MYCAR.car){if(P.inCar===MYCAR.car)exitCar();scene.remove(MYCAR.car.g);CARS.splice(CARS.indexOf(MYCAR.car),1);}
   const s=at||{x:LIBRARY.x+9,z:LIBRARY.z-LIBRARY.d/2-5,yaw:0,lock:1};const c=parts&&parts.length?makeCarOf(parts,+s.x||0,+s.z||0,+s.yaw||0,col):makeCar(+s.x||0,+s.z||0,+s.yaw||0,col);if(s.f!==undefined)c.fuel=+s.f;c.own=true;c.locked=s.lock!==0;c.hidden=false;c.g.visible=true;MYCAR.car=c;MYCAR.room=null;myCarSave();return c;}
-{let v=null;try{v=JSON.parse(localStorage.getItem("elementum.mycar2")||"null");}catch(e){}if(v&&v.col!==undefined)makeOwnCar(v.col,v,v.parts);
-  else{let col=null;try{col=localStorage.getItem("elementum.mycar");}catch(e){}if(col)makeOwnCar(+col);}}
+{let v=null;try{v=JSON.parse(localStorage.getItem("elementum.mycar2")||"null");}catch(e){}if(v&&v.col!==undefined)restore("car",()=>makeOwnCar(v.col,v,v.parts));
+  else{let col=null;try{col=localStorage.getItem("elementum.mycar");}catch(e){}if(col)restore("car",()=>makeOwnCar(+col));}}
 const REMOTE_CARS={};
 function carKeyApply(id,val){
   if(id===MYCAR.id){const c=MYCAR.car;if(!c||!val||P.inCar===c)return;c.taken=val.d&&val.d!==MP.id?val.d:null;c.g.visible=!c.taken;if(!val.d){c.g.position.set(+val.x||0,0,+val.z||0);c.yaw=+val.yaw||0;c.g.rotation.y=c.yaw;myCarSave();}return;}
@@ -2445,7 +2447,8 @@ const PLACED={mine:[],remote:{},room:null,max:40};
 function placedMesh(it){const parts=it.parts&&it.parts.length?it.parts:((BUILD.DESIGNS[it.id]||[])[0]||{parts:()=>[]}).parts();
   if(parts.length)return furnitureMesh(parts);const s=iconSprite((BUILD.ITEMS[it.id]||{icon:"🛠️"}).icon);s.scale.setScalar(.8);s.position.y=.5;const g=new THREE.Group();g.add(s);return g;}
 function placedSave(){try{localStorage.setItem("elementum.placed",JSON.stringify(PLACED.mine.map(q=>({pid:q.pid,item:q.item,x:q.x,y:q.y||0,z:q.z,r:q.r,open:!!q.open,fl:!!q.flowers}))));}catch(e){}}
-const compactParts=parts=>(parts||[]).slice(0,120).map(p=>{const o={};for(const k in p){if(k==="id"||k==="name")continue;const v=p[k];o[k]=typeof v==="number"?Math.round(v*10)/10:v;}return o;});
+// (a "function", not a "const": a saved car is put back while this file is still loading, before this line — 2026-11-25 everyone with a car got a frozen game)
+function compactParts(parts){return (Array.isArray(parts)?parts:[]).slice(0,120).map(p=>{const o={};for(const k in p){if(k==="id"||k==="name")continue;const v=p[k];o[k]=typeof v==="number"?Math.round(v*10)/10:v;}return o;});}
 function placedVal(q){const v={i:q.item.id,x:R2(q.x),y:R2(q.y||0),z:R2(q.z),r:+q.r.toFixed(2),o:q.open?1:0,f:q.flowers?1:0,e:q.useT||0,w:MYCAR.id};["fn","nm"].forEach(k=>{if(q.item[k])v[k]=q.item[k];});const p=compactParts(q.item.parts);if(p.length&&JSON.stringify(p).length<15000)v.p=p;return v;}
 const placedGone=()=>{try{return JSON.parse(localStorage.getItem("elementum.placedGone")||"[]");}catch(e){return [];}};
 function placedShare(q,gone,force){if(gone){try{localStorage.setItem("elementum.placedGone",JSON.stringify(placedGone().concat(q.pid).slice(-200)));}catch(e){}}if(!MP.ok&&!force)return;setKey("pl:"+q.pid,gone?null:placedVal(q));}
@@ -2478,7 +2481,7 @@ function placeThing(i){const it=INV[i];if(!it||it.t!=="build")return;
     if(hit){const n=(BUILD.ITEMS[it.id]||{name:"thing"}).name;lawSay(hit.y>at.y+.3?`The ${n} is ${H.toFixed(1)} m tall — it doesn't fit under the ceiling here (only ${(hit.y-at.y).toFixed(1)} m). Find a higher space.`:`Something is in the way — there's no room for the ${n} there.`);return;}}
   INV[i]=null;select(SEL);invHud();const q=addPlaced({pid:"p"+Math.random().toString(36).slice(2,11),item:it,x:at.x,y:at.y,z:at.z,r:P.yaw+Math.PI});placedSave();placedShare(q);
   FX.stars(at.clone().add(new THREE.Vector3(0,.8,0)),"gold",4,1);popNum(at.clone().add(new THREE.Vector3(0,1.6,0)),`set down your ${it.nm||(BUILD.ITEMS[it.id]||{name:"thing"}).name}`,"spell");}
-{let v=[];try{v=JSON.parse(localStorage.getItem("elementum.placed")||"[]");}catch(e){}(Array.isArray(v)?v:[]).forEach(q=>{if(q&&q.item&&q.pid)addPlaced(q);});}
+{let v=[];try{v=JSON.parse(localStorage.getItem("elementum.placed")||"[]");}catch(e){}(Array.isArray(v)?v:[]).forEach(q=>{if(q&&q.item&&q.pid)restore("placed thing",()=>addPlaced(q));});}
 function placedKeyApply(pid,val){const mine=PLACED.mine.find(q=>q.pid===pid);if(mine){if(val&&val.e)mine.useT=+val.e||0;if(val&&(!!val.o!==!!mine.open||!!val.f!==!!mine.flowers)){mine.open=!!val.o;mine.g.rotation.y=mine.r+(mine.open?Math.PI/2:0);if(val.f)addFlowers(mine);placedSave();}return;}
   const old=PLACED.remote[pid];const wasQ=old&&old.userData.q;if(old){if(wasQ)unsolidify(wasQ);scene.remove(old);if(wasQ&&wasQ.flowers)scene.remove(wasQ.flowers);delete PLACED.remote[pid];}
   if(!val||!BUILD.ITEMS[val.i]){if(wasQ&&P.sitting&&P.sitting.q===wasQ)standUp();if(wasQ&&P.climbing&&P.climbing.q===wasQ)P.climbing=null;return;}
