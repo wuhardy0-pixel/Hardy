@@ -73,3 +73,4 @@ trainPlan(), buildTraining(), newQuest(v), cottageState(c, kind, state).
 
 - Sync: open two browsers in one room. Everything one player does or makes must look the same for the other (every new feature too — Barbara, 2026-11-24).
 - Saves: before shipping, fill localStorage with every kind of save (elementum.mycar, mycar2 with and without parts, myboat, myhouse with and without parts, placed, apartment, business), reload, click Start, and check there are no page errors and the clock moves. A fresh profile does not catch load-time errors.
+- Experiment: BUILD.resembles(parts) ranks the library things; library designs stretched 18% with a part missing should still be top or in the draw for about 70 of 76. Two browsers: a pet follows its owner in both, also after the owner reloads.

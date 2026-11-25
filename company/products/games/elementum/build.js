@@ -60,7 +60,31 @@ const FNS={
   water:{icon:"⛲",name:"fountain",what:"set it down and press T: drink from it to heal"},
   computer:{icon:"🖥️",name:"computer",what:"set it down and press T: look things up, like at the library"},
   storage:{icon:"🧰",name:"keeper",what:"set it down and press T: it opens your chest"},
+  sword:{icon:"⚔️",name:"sword",what:"hold it and click: it hits hard",hand:1},
+  food:{icon:"🍽️",name:"snack",what:"hold it and click: eat it to feel better (+30 HP)",hand:1},
+  pet:{icon:"🐾",name:"pet",what:"set it down: it comes alive and follows you around; press T to stroke it"},
 };
+// what a brought-to-life thing can become: a real thing (it works like one), or a power — whichever it looks most like (Barbara, 2026-11-25:
+// "it should be made into whatever the resemblance is; if they are similar resemblance, pick sticks")
+const ITEMDO={cup:"set it down and drink from it",bowl:"set it down and eat from it",plate:"set it down and eat from it",vase:"set it down and put flowers in it",bucket:"set it down and drink from it",door:"set it down, then open and close it",stool:"set it down and sit on it",chair:"set it down and sit on it",table:"set it down at home",bench:"set it down and sit on it",bed:"set it down and sleep in it",shelf:"set it down and read a book",ladder:"set it down and climb it",doghouse:"set it down anywhere",wheelbarrow:"set it down anywhere",house:"hold it and click to build it, then walk in",car:"it's parked outside the library — get in and drive",cart:"set it down anywhere",boat:"it's at the boat dock — climb in and sail",chest:"set it down and open it",book:"hold it and click to read it",stairs:"set it down and walk up",horn:"hold it and click: soldiers come running"};
+const ONLYFN=["bounce","zap","freeze","speed","fly","wand","music","firework","maker","bubbles","water","sword","food","pet"];   // the other powers belong to a thing (a lamp lights up, a gate is a portal…)
+const THINGS=ORDER.concat(ONLYFN),isThing=k=>THINGS.includes(k);
+const thingOf=k=>ITEMS[k]?{icon:ITEMS[k].icon,name:ITEMS[k].name,what:ITEMDO[k]||(FNS[ITEMFN[k]]||{}).what||"set it down anywhere"}:FNS[k];
+// how alike two designs are: both are blown up to the same size, cut into little cubes, turned every way round, and laid over each other
+const VN=14;
+function cubes(parts){const A=analyse(parts),B=A.box,sz=B.getSize(new THREE.Vector3()),L=Math.max(sz.x,sz.y,sz.z)||1,c=L/VN,cx=(B.min.x+B.max.x)/2,cz=(B.min.z+B.max.z)/2,pt=new THREE.Vector3(),pad=c*.35,V=new Uint8Array(VN*VN*VN);let num=0;
+  for(let j=0;j<VN;j++)for(let i=0;i<VN;i++)for(let k=0;k<VN;k++){pt.set(cx+(i+.5-VN/2)*c,B.min.y+(j+.5)*c,cz+(k+.5-VN/2)*c);
+    for(const a of A.P){if(pt.x<a.box.min.x-pad||pt.x>a.box.max.x+pad||pt.y<a.box.min.y-pad||pt.y>a.box.max.y+pad||pt.z<a.box.min.z-pad||pt.z>a.box.max.z+pad)continue;if(inside(a,pt,pad)){V[(j*VN+i)*VN+k]=1;num++;break;}}}
+  return {V,num,L};}
+function alike(a,b){let best=0;for(let t=0;t<8;t++){let both=0;for(let j=0;j<VN;j++)for(let i=0;i<VN;i++)for(let k=0;k<VN;k++){if(!a.V[(j*VN+i)*VN+k])continue;let x=t&4?VN-1-i:i,z=k;for(let q=t&3;q;q--){const o=x;x=VN-1-z;z=o;}if(b.V[(j*VN+x)*VN+z])both++;}
+    const u=both/Math.max(1,a.num+b.num-both);if(u>best)best=u;}return best;}
+let IDEACUBES=null;
+function resembles(parts){if(!IDEACUBES){IDEACUBES={};for(const k in DESIGNS)if(ITEMS[k]&&!ITEMS[k].free)IDEACUBES[k]=DESIGNS[k].map(d=>cubes(d.parts()));}
+  const C=cubes(parts),out=[];for(const k in IDEACUBES){let sc=0;IDEACUBES[k].forEach(d=>{sc=Math.max(sc,alike(C,d)-Math.min(.25,.06*Math.abs(Math.log2(C.L/d.L))));});
+    let fit=0;try{const r=test(k,parts).res.filter(x=>x.k!=="onePiece"&&x.k!=="stands");fit=r.length?r.filter(x=>x.ok).length/r.length:0;}catch(e){}out.push({as:k,s:Math.round(100*(.78*Math.max(0,sc)+.22*fit))});}
+  return out.sort((a,b)=>b.s-a.s);}
+// without the helper: the things it's most like by shape; nothing close enough = the power its shape and materials suggest
+function lookOffline(R,parts){if(R[0]&&R[0].s>=34)return R.slice(0,4).filter(r=>r.s>=R[0].s-6);let f=guessFn(parts);f={light:"lamp",heal:"healstone",portal:"gate",guard:"horn",storage:"chest"}[f]||f;return [{as:f,s:40}];}
 const ITEMFN={magnet:"magnet",lamp:"light",healstone:"heal",computer:"computer",gate:"portal"};
 // when the game can't ask the helper, it looks at the shape and the materials itself
 function guessFn(parts){const A=analyse(parts),B=A.box,w=B.max.x-B.min.x,h=B.max.y-B.min.y,d=B.max.z-B.min.z,mx=Math.max(w,h,d),mn=Math.min(w,h,d);const m=k=>A.P.filter(a=>a.p.mat===k).length,sh=k=>A.P.filter(a=>a.p.shape===k).length;
@@ -454,7 +478,7 @@ function test(id,parts){const it=ITEMS[id],A=analyse(parts);if(!parts.length)ret
   const res=it.needs.map(nd=>check(nd,A,it));return {ok:res.every(x=>x.ok),res,A};}
 // ---- the screen ----
 let S=null;   // the open workbench
-const CSS=`#bench{position:fixed;inset:0;z-index:50;background:#15161a;color:#eef;display:flex;font:14px system-ui,sans-serif}
+const CSS=`.sticks{background:#2a2438;border:1px solid #8a6ad8;border-radius:12px;padding:8px 12px;margin:8px 0}.sticks .sr{display:flex;gap:14px;justify-content:center;padding:8px 0 4px}#bench .stick{width:44px;height:110px;margin:0;padding:0;border:0;background:none;position:relative;cursor:pointer}#bench .stick:before{content:"";position:absolute;left:15px;top:6px;width:14px;height:98px;border-radius:7px;background:linear-gradient(90deg,#8a5a2e,#c8935a 45%,#7a4a22);box-shadow:0 2px 5px rgba(0,0,0,.5);transition:transform .25s}#bench .stick:hover:before,#bench .stick:focus-visible:before{transform:translateY(-6px)}#bench .stick i{position:absolute;left:0;right:0;top:34px;text-align:center;font:normal 26px system-ui;z-index:1}#bench .stick.up{opacity:.45}#bench .stick.up.on{opacity:1}#bench .stick.on:before{background:linear-gradient(90deg,#b8862a,#ffd86a 45%,#b8862a);transform:translateY(-6px)}#bench{position:fixed;inset:0;z-index:50;background:#15161a;color:#eef;display:flex;font:14px system-ui,sans-serif}
 #bench.hidden{display:none}#bench .view{flex:1;position:relative;min-width:0}#bench canvas{width:100%;height:100%;display:block;touch-action:none}
 #bench .side{width:390px;max-width:48vw;overflow:auto;background:#1e2026;border-left:1px solid #333;padding:12px 14px}
 #bench h2{margin:0 0 4px;font-size:19px}#bench .chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;margin-left:6px}
@@ -521,16 +545,17 @@ function stepTest(){const T=TEST;T.t+=1/60;const k=Math.min(1,T.t/2.4);
 function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel];let h="";
   if(S.choose){h+=`<h2>Workbench</h2><p class="need">What do you want to build? People's orders come first; you can also build anything for yourself.</p><div class="list">`;
     (S.orders||[]).forEach((o,i)=>{const I=ITEMS[o.item];h+=`<button data-order="${i}">${I.icon} <b>${esc(I.name)}</b> for ${esc(o.who)} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span><br><small>${esc(o.text)}</small></button>`;});
-    h+=`<button data-free="invention" style="background:#3a2f5a;border-color:#8a6ad8">✨ <b>Experiment</b><br><small>Make anything you like — then bring it to life, and it turns into something that does a thing.</small></button>`;h+=`<h3 style="margin:12px 0 4px">Build for yourself</h3>`;ORDER.forEach(k=>{const I=ITEMS[k];h+=`<button data-free="${k}">${I.icon} ${esc(I.name[0].toUpperCase()+I.name.slice(1))} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span></button>`;});
+    h+=`<button data-free="invention" style="background:#3a2f5a;border-color:#8a6ad8">✨ <b>Experiment</b><br><small>Make anything you like — then bring it to life, and it turns into whatever it looks like.</small></button>`;h+=`<h3 style="margin:12px 0 4px">Build for yourself</h3>`;ORDER.forEach(k=>{const I=ITEMS[k];h+=`<button data-free="${k}">${I.icon} ${esc(I.name[0].toUpperCase()+I.name.slice(1))} <span class="chip ${LV[I.level].cls}">${LV[I.level].name}</span></button>`;});
     $("#bSide").innerHTML=h+`</div>`;return;}
   h+=`<button id="bBack" style="float:right">☰ Orders</button><h2>${it.icon} ${esc(it.name[0].toUpperCase()+it.name.slice(1))}<span class="chip ${L.cls}">${L.name}</span></h2>`;
-  h+=it.free?`<div class="need"><b>Experiment.</b> Make anything you like. When you bring it to life, the game looks at what you made and turns it into something that does a thing.</div>`:S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
+  h+=it.free?`<div class="need"><b>Experiment.</b> Make anything you like. When you bring it to life, the game looks at what you made and turns it into whatever it looks like. If it looks like a few things, you pick a stick.</div>`:S.who?`<div class="need"><b>${esc(S.who)}:</b> “${esc(S.text)}”<br><small>Pays ${S.pay||L.pay} denarii.</small></div>`:`<div class="need"><b>Building for yourself.</b> People who need one say: “${esc(it.ask)}”</div>`;
   h+=`<div class="ai"><input id="bSay" placeholder="Tell the helper one part: “add a handle on the right”, “make the walls 3 m tall”…" maxlength="240"><button class="go" id="bAsk">Build</button></div><div class="note" id="bNote">${esc(S.note||"")}</div>`;
   h+=`<div class="row">${Object.keys(SHAPES).map(s=>`<button data-add="${s}">+ ${SNAME[s]}</button>`).join("")}</div>`;
   h+=`<ul class="parts">${S.parts.map((q,i)=>`<li data-sel="${i}" class="${i===S.sel?"on":""}"><span class="sw" style="background:${esc(q.color||MCOL[q.mat]||"#a8743f")}"></span>${esc(q.name||SNAME[q.shape])} <small style="color:#99a">${SNAME[q.shape]} · ${MNAME[q.mat]||q.mat}</small></li>`).join("")||"<li><small>Nothing yet.</small></li>"}</ul>`;
   if(p){h+=`<div class="ed">`;[...FIELDS[p.shape],"x","y","z","rx","ry","rz"].forEach(f=>{h+=`<div><label>${FNAME[f]}${f==="steps"?"":` (${f.startsWith("r")&&f.length===2?"°":"cm"})`}</label><input type="number" step="0.5" data-f="${f}" value="${n(p[f],0)}"></div>`;});
     h+=`<div><label>material</label><select data-f="mat">${Object.keys(DENS).map(m=>`<option value="${m}" ${p.mat===m?"selected":""}>${MNAME[m]}</option>`).join("")}</select></div><div><label>colour</label><input type="color" data-f="color" value="${esc(p.color||MCOL[p.mat]||"#a8743f")}"></div><div><label>name</label><input data-f="name" value="${esc(p.name||"")}" maxlength="30"></div></div>`;
     h+=`<div class="row"><button id="bDup">Copy part</button><button id="bDel">Delete part</button>${canHollow(p)?`<button id="bHollow" title="Like Fusion's Shell command">◻ Make hollow</button>`:""}</div>`;}
+  if(it.free)h+=sticksHtml();
   if(it.free)h+=`<div class="ai"><input id="bName" placeholder="Give it a name" maxlength="28" value="${esc(S.nm||"")}"></div><div class="row"><button class="go" id="bAlive" ${S.parts.length&&!S.busy?"":"disabled"}>✨ Bring it to life</button><button id="bNew">Start over</button></div>`;
   else h+=`<div class="row" style="margin-top:10px"><button class="go" id="bTest">🧪 Test it in the testing area</button><button id="bMake" ${S.passed?"":"disabled"}>✅ Make it</button><button id="bWiki">📖 Read about ${esc(it.name)}s</button></div>`;
   h+=`<div class="rep" id="bRep">${S.rep||""}</div><div id="bWikiBox">${S.wiki||""}</div>`;
@@ -538,7 +563,7 @@ function side(){if(!S)return;const it=ITEMS[S.id],L=LV[it.level],p=S.parts[S.sel
 function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)return;
   if(t.dataset.order!==undefined){const o=S.orders[+t.dataset.order];start(o.item,o);return;}
   if(t.dataset.free){start(t.dataset.free,null);return;}
-  if(t.id==="bBack"){S.choose=true;side();return;}
+  if(t.id==="bBack"){S.busy=false;S.sticks=null;S.sure=null;S.note="";S.choose=true;side();return;}
   if(t.dataset.add){const s=t.dataset.add,p=Object.assign({shape:s,id:Math.random().toString(36).slice(2,8),name:SNAME[s],mat:"wood",x:0,z:0},SHAPES[s]);const B=new THREE.Box3();S.parts.forEach(q=>B.union(new THREE.Box3().setFromObject(meshOf(q))));
     p.y=(s==="box"||s==="cylinder"||s==="tube"||s==="cone"||s==="shell"||s==="wedge"||s==="stairs"||s==="floor"?p.h/2:s==="sphere"?p.r:s==="dome"?p.r/2:p.R+p.t/2);if(!B.isEmpty())p.x=B.max.x+30;S.parts.push(p);S.sel=S.parts.length-1;if(Math.max(n(p.w,0),n(p.h,0),n(p.d,0),n(p.r,0)*2)>orbit.dist*.45)fit();changed();return;}
   if(t.dataset.sel!==undefined){S.sel=+t.dataset.sel;side();draw();return;}
@@ -550,6 +575,9 @@ function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)retu
   if(t.id==="bDup"){const q=Object.assign({},S.parts[S.sel],{id:Math.random().toString(36).slice(2,8)});q.x=n(q.x,0)+10;S.parts.push(q);S.sel=S.parts.length-1;changed();return;}
   if(t.id==="bAsk"){askAI();return;}
   if(t.id==="bAlive"){alive();return;}
+  if(t.dataset.stick!==undefined){drawStick(+t.dataset.stick);return;}
+  if(t.id==="bSure"){const q=S.sure;if(q)become(q.c,q.parts,q.nm,true);return;}
+  if(t.id==="bKeep"){S.sure=null;S.rep="";side();return;}
   if(t.id==="bNew"){S.parts=[];S.sel=-1;S.nm="";changed();return;}
   if(t.id==="bTest"){runTest();return;}
   if(t.id==="bMake"){make();return;}
@@ -558,7 +586,7 @@ function onEdit(e){const t=e.target;if(S&&t.id==="bName"){S.nm=t.value.slice(0,2
   if(f==="mat"){p.mat=t.value;delete p.color;}else if(f==="color")p.color=t.value;else if(f==="name")p.name=t.value.slice(0,30);else{const v=parseFloat(t.value);if(isFinite(v))p[f]=v;}
   S.passed=false;S.rep="";save();draw();if(e.type==="change")side();}
 function canHollow(p){return p.shape==="box"||p.shape==="cylinder"||((p.shape==="sphere"||p.shape==="cone"||p.shape==="dome")&&!(n(p.wall,0)>0));}
-function changed(){S.passed=false;S.rep="";save();draw();side();}
+function changed(){S.passed=false;S.rep="";S.sure=null;S.sticks=null;S.busy=false;save();draw();side();}
 function save(){try{const all=JSON.parse(localStorage.getItem("elementum.designs")||"{}");all[S.id]=S.parts;localStorage.setItem("elementum.designs",JSON.stringify(all));}catch(e){}}
 function load(id){try{return JSON.parse(localStorage.getItem("elementum.designs")||"{}")[id]||[];}catch(e){return [];}}
 function askAI(){const i=$("#bSay");const say=i?i.value.trim():"";if(!say)return;S.note="The helper is building…";$("#bNote").textContent=S.note;$("#bAsk").disabled=true;
@@ -572,11 +600,22 @@ function runTest(){const rep=test(S.id,S.parts);const it=ITEMS[S.id];let h=`<h3 
   S.rep=h;S.passed=rep.ok;draw();startTest(rep);side();if(S.hooks.tested)S.hooks.tested(S.id,rep.ok);}
 function make(){if(!S.passed)return;const it=ITEMS[S.id];const thumb=snapshot();const res={item:S.id,name:it.name,parts:JSON.parse(JSON.stringify(S.parts)),thumb,order:S.order||null};
   if(S.hooks.made&&S.hooks.made(res)!==false){S.rep=`<p class="y">✅ You made the ${esc(it.name)}! It's in your bag.${S.order?` Take it to ${esc(S.order.who)}.`:""}</p>`;S.passed=false;side();}}
-// bring an invention to life: the game's helper looks at the parts and the name and picks what it does (from FNS); if it can't be reached, the shape decides
-function alive(){if(!S.parts.length||S.busy)return;S.busy=true;S.note="Something is happening…";side();const parts=JSON.parse(JSON.stringify(S.parts)),nm=(S.nm||"").trim(),hooks=S.hooks;
-  const fin=(fn,name,say)=>{if(!S||S.id!=="invention"){return;}S.busy=false;if(!FNS[fn])fn=guessFn(parts);const F=FNS[fn];const res={item:"invention",name:nm||name||F.name,nm:nm||name||F.name,fn,parts,thumb:snap(parts,96),order:null};S.note="";
-    if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! Your ${esc(res.nm)} became a <b>${F.icon} ${esc(F.name)}</b>: ${esc(F.what)}.${say?" "+esc(say):""} It's in your bag.</p>`;side();};
-  fetch("/api/elementum/invent",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({parts,name:nm})}).then(r=>r.ok?r.json():null).then(j=>fin(j&&j.fn,j&&j.name,j&&j.say)).catch(()=>fin());}
+// bring an invention to life: it becomes what it looks most like. The shape is laid over every idea in the library, and the game's helper looks at
+// the picture; the helper being out of reach, the shape alone decides. Several things equally alike: the player draws a stick (closeness: within 15).
+function alive(){if(!S.parts.length||S.busy)return;S.busy=true;S.rep="";S.sticks=null;S.note="The game is looking at what you made…";side();const me=S,parts=JSON.parse(JSON.stringify(S.parts)),nm=(S.nm||"").trim();
+  setTimeout(()=>{let R=[];try{R=resembles(parts);}catch(e){console.error(e);}
+    const show=L=>{if(S!==me||S.id!=="invention"||!S.busy)return;L=L.filter((c,i)=>isThing(c.as)&&L.findIndex(o=>o.as===c.as)===i).slice(0,4);if(!L.length)L=lookOffline(R,parts);S.note="";
+      const top=L[0].s,close=L.filter(c=>c.s>=top-15);if(close.length<2){become(close[0],parts,nm);return;}
+      const deck=close.slice();for(let k=deck.length-1;k>0;k--){const o=Math.floor(Math.random()*(k+1));[deck[k],deck[o]]=[deck[o],deck[k]];}S.sticks={deck,parts,nm,shown:close,got:-1};side();};
+    const off=()=>show(lookOffline(R,parts));
+    fetch("/api/elementum/invent",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({parts,name:nm,shape:R.slice(0,5),pic:snap(parts,320)})}).then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.looks)&&j.looks.length)show(j.looks.map(c=>({as:c.as,s:+c.s||0,looks:c.looks})));else off();}).catch(off);},30);}
+function sticksHtml(){const K=S.sticks;if(!K)return "";const nms=K.shown.map(c=>{const T=thingOf(c.as);return `${T.icon} <b>${esc(c.looks||T.name)}</b>`;});
+  return `<div class="sticks"><p>It looks like ${nms.slice(0,-1).join(", ")} <b>and</b> ${nms[nms.length-1]}! ${K.got<0?"Pick a stick — it decides.":""}</p><div class="sr">${K.deck.map((c,i)=>{const T=thingOf(c.as);return `<button class="stick ${K.got>=0?"up":""} ${K.got===i?"on":""}" data-stick="${i}" ${K.got>=0?"disabled":""} aria-label="Stick ${i+1}"><i>${K.got>=0?T.icon:""}</i></button>`;}).join("")}</div></div>`;}
+function drawStick(i){const K=S.sticks;if(!K||K.got>=0||!K.deck[i])return;K.got=i;side();const me=S;setTimeout(()=>{if(S!==me||S.sticks!==K)return;become(K.deck[i],K.parts,K.nm);},1100);}
+function become(c,parts,nm,sure){const T=thingOf(c.as),isItem=!!ITEMS[c.as],hooks=S.hooks;
+  if(isItem&&!sure&&hooks.owns&&hooks.owns(c.as)){S.busy=false;S.sure={c,parts,nm};S.rep=`<p>It looks like a <b>${T.icon} ${esc(c.looks||T.name)}</b>! You already have a ${esc(T.name)} — this one would take its place.</p><div class="row"><button class="go" id="bSure">Yes, replace my old ${esc(T.name)}</button><button id="bKeep">No, keep my old one</button></div>`;side();return;}
+  const name=nm||c.looks||T.name,res={item:isItem?c.as:"invention",name,nm:name,fn:isItem?undefined:c.as,exp:1,parts,thumb:snap(parts,96),order:null};S.busy=false;S.sure=null;S.sticks=null;
+  if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! ${c.looks?`It looks like a ${esc(c.looks)}, so it`:"Your "+esc(name)} became a <b>${T.icon} ${esc(T.name)}</b>: ${esc(T.what)}.${c.as==="car"||c.as==="boat"?"":" It's in your bag."}</p>`;side();}
 function snapshot(){return snap(S.parts,96);}
 function snap(parts,px){try{const c=document.createElement("canvas");c.width=c.height=px||96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
     const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
@@ -588,7 +627,7 @@ function wiki(){const it=ITEMS[S.id];S.wiki=`<div class="wiki">Looking it up on 
     S.wiki=`<div class="wiki"><b>${esc(j.title)}</b> <small>— from <a href="${esc(j.url)}" target="_blank" rel="noopener">Wikipedia</a></small><p>${esc(j.intro).replace(/\n+/g,"</p><p>")}</p>${(j.sections||[]).map(s=>`<h4 style="margin:8px 0 2px">${esc(s.h)}</h4><p>${esc(s.text).replace(/\n+/g,"</p><p>")}</p>`).join("")}</div>`;side();})
     .catch(()=>{if(!S)return;S.wiki=`<div class="wiki">Wikipedia can't be reached right now.</div>`;side();});}
 function start(id,order){S.id=id;S.order=order;S.who=order?order.who:"";S.text=order?order.text:"";S.pay=order?order.pay:0;
-  S.parts=load(id);S.sel=-1;S.note="";S.rep="";S.wiki="";S.passed=false;S.choose=false;fit();draw();side();}
+  S.parts=load(id);S.sel=-1;S.busy=false;S.sticks=null;S.sure=null;S.note="";S.rep="";S.wiki="";S.passed=false;S.choose=false;fit();draw();side();}
 function open(hooks){ensureDom();S={hooks:hooks||{},orders:(hooks&&hooks.orders)||[],choose:true,parts:[],sel:-1,id:ORDER[0]};$("#bench").classList.remove("hidden");
   const sd=$("#bSide");sd.onclick=onSide;sd.oninput=onEdit;sd.onchange=onEdit;sd.onkeydown=e=>e.stopPropagation();
   if(hooks&&hooks.item)start(hooks.item,hooks.order||null);else side();draw();}
@@ -606,5 +645,5 @@ function drawIdeas(){const it=ITEMS[IDEAS.item],L=LV[it.level];let h=`<div class
   (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p>${IDEAS.hooks&&IDEAS.hooks.recipe?`<p style="font:12px system-ui;margin-top:6px;border-top:1px solid #cbb98f;padding-top:6px">${d.parts().map(q=>`<b>${esc(q.name||SNAME[q.shape])}</b> — ${MNAME[q.mat]||q.mat} ${SNAME[q.shape].toLowerCase()}, ${FIELDS[q.shape].filter(f=>n(q[f],0)>0).map(f=>`${(FNAME[f]||f).replace(/ \(.*/,"")} ${n(q[f],0)}`).join(", ")}; at ${n(q.x,0)}, ${n(q.y,0)}, ${n(q.z,0)}`).join("<br>")}</p>`:""}</div>`;});
   $("#ideas").innerHTML=h+`</div></div>`;}
 function closeIdeas(){const e=$("#ideas");if(!e||e.classList.contains("hidden"))return;e.classList.add("hidden");if(IDEAS.hooks&&IDEAS.hooks.onClose)IDEAS.hooks.onClose();}
-return {FNS,ITEMFN,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+return {FNS,ITEMFN,THINGS,thingOf,resembles,lookOffline,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();

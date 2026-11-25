@@ -426,7 +426,7 @@ const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
 const fnOf=it=>it&&it.t==="build"?it.fn||BUILD.ITEMFN[it.id]||null:null;
 function itemInfo(it){const f=itemInfo0(it);if(f)f.pic=picKey(it);return f;}
-function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};const fk=fnOf(it);if(fk&&BUILD.FNS[fk])return {icon:it.id==="invention"?BUILD.FNS[fk].icon:I.icon,name:it.nm||`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:`${BUILD.FNS[fk].icon} ${BUILD.FNS[fk].what}`,count:1};if(it.id==="book")return {icon:I.icon,name:"Book you made",what:"Hold it and click to read how things are built — sizes and all",count:1};return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:it.id==="house"?"Hold the plans and click to build your house right there — or take them to your house plot":it.id==="horn"?"Hold it and click to blow it: soldiers come and fight the monsters near you":it.id==="bed"||it.id==="chest"?"Put it in your house, hold it and click to set it down anywhere — or give it to whoever ordered one":"Hold it and click to set it down — or give it to whoever ordered one",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
+function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};const fk=fnOf(it);if(fk&&BUILD.FNS[fk])return {icon:it.id==="invention"?BUILD.FNS[fk].icon:I.icon,name:it.nm||`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:`${BUILD.FNS[fk].icon} ${BUILD.FNS[fk].what}`,count:1};if(it.id==="book")return {icon:I.icon,name:"Book you made",what:"Hold it and click to read how things are built — sizes and all",count:1};if(it.nm){const T=BUILD.thingOf(it.id);return {icon:I.icon,name:it.nm,what:T.what[0].toUpperCase()+T.what.slice(1),count:1};}return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:it.id==="house"?"Hold the plans and click to build your house right there — or take them to your house plot":it.id==="horn"?"Hold it and click to blow it: soldiers come and fight the monsters near you":it.id==="bed"||it.id==="chest"?"Put it in your house, hold it and click to set it down anywhere — or give it to whoever ordered one":"Hold it and click to set it down — or give it to whoever ordered one",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
   if(it.t==="food"){const f=FOODS[it.id];return {icon:f.icon,name:f.name,what:f.what,count:it.n};}
@@ -458,14 +458,14 @@ function useHeld(first){const it=held();if(P.inCar&&!(it&&(it.t==="weapon"||it.t
   if(it.t==="potion"){if(P.hp>=P.maxHp){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"already full","burn");return;}KINDS.heal(null,{amount:50});it.n--;if(!it.n)INV[SEL]=null;invHud();hud();return;}
   popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"craft with it: E","spell");}
 let punchN=0;
-function punch(){if(P.down||!started||paused||bagOpen||G.cool>0)return;G.cool=.45;punchN++;
+function punch(K){K=K||1;const RR=K>1?.6:0;if(P.down||!started||paused||bagOpen||G.cool>0)return;G.cool=.45;punchN++;
   if(RIG)RIG.up(punchN%2?"Unarmed_Melee_Attack_Punch_A":"Unarmed_Melee_Attack_Punch_B",{once:true,dur:.4,restart:true,then:()=>RIG.up("2H_Ranged_Aiming")});mpFx("punch");
   setTimeout(()=>{const f=fwdFlat(),at=P.pos.clone().add(new THREE.Vector3(0,1.1,0)).addScaledVector(f,.9);let hit=false;
-    DUMMIES.forEach(d=>{if(d.down||hit)return;const v=d.g.position.clone().sub(P.pos);v.y=0;const dist=v.length();if(dist<2.1&&v.normalize().dot(f)>.45){hit=true;damage(d,d.enemy?4:9,d.g.position.clone().add(new THREE.Vector3(0,1.2,0)),false,{el:"plain"});}});
-    if(!hit)for(const id in MP.others){const o=MP.others[id];const v=o.g.position.clone().sub(P.pos);v.y=0;if(!hit&&v.length()<1.8&&v.normalize().dot(f)>.45){hit=true;hitPlayer(o,8,o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}}
-    if(!hit)PEOPLE.forEach(pp=>{if(pp.down||hit)return;const v=pp.o.g.position.clone().sub(P.pos);v.y=0;if(v.length()<1.8&&v.normalize().dot(f)>.45){hit=true;hurtPerson(pp,6,pp.o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}});
-    if(!hit)TREES.forEach(tr=>{if(tr.down||hit)return;const v=tr.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2&&v.normalize().dot(f)>.4){hit=true;chopHit(tr,7,tr.g.position.clone().add(new THREE.Vector3(0,1.1,0)));}});
-    if(!hit)NODES.forEach(n=>{if(n.down||hit)return;const v=n.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2.3&&v.normalize().dot(f)>.4){hit=true;mineHit(n,7,n.g.position.clone().add(new THREE.Vector3(0,.8,0)));}});
+    DUMMIES.forEach(d=>{if(d.down||hit)return;const v=d.g.position.clone().sub(P.pos);v.y=0;const dist=v.length();if(dist<2.1+RR&&v.normalize().dot(f)>.45){hit=true;damage(d,Math.round((d.enemy?4:9)*K),d.g.position.clone().add(new THREE.Vector3(0,1.2,0)),false,{el:"plain"});}});
+    if(!hit)for(const id in MP.others){const o=MP.others[id];const v=o.g.position.clone().sub(P.pos);v.y=0;if(!hit&&v.length()<1.8+RR&&v.normalize().dot(f)>.45){hit=true;hitPlayer(o,Math.round(8*Math.min(2.2,K)),o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}}
+    if(!hit)PEOPLE.forEach(pp=>{if(pp.down||hit)return;const v=pp.o.g.position.clone().sub(P.pos);v.y=0;if(v.length()<1.8+RR&&v.normalize().dot(f)>.45){hit=true;hurtPerson(pp,Math.round(6*Math.min(2.2,K)),pp.o.g.position.clone().add(new THREE.Vector3(0,1.3,0)));}});
+    if(!hit)TREES.forEach(tr=>{if(tr.down||hit)return;const v=tr.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2&&v.normalize().dot(f)>.4){hit=true;chopHit(tr,Math.round(7*Math.min(2.5,K)),tr.g.position.clone().add(new THREE.Vector3(0,1.1,0)));}});
+    if(!hit)NODES.forEach(n=>{if(n.down||hit)return;const v=n.g.position.clone().sub(P.pos);v.y=0;if(v.length()<2.3&&v.normalize().dot(f)>.4){hit=true;mineHit(n,Math.round(7*Math.min(2.5,K)),n.g.position.clone().add(new THREE.Vector3(0,.8,0)));}});
     if(hit){shake(.05);for(let i=0;i<8;i++)PUFF.emit(at,rnd3(1.2),C(0xffffff).multiplyScalar(.4),.35,{drag:3});}},150);}
 function invHud(){const hb=$("#hotbar");if(!hb)return;let h="";for(let i=0;i<9;i++){const it=INV[i],f=itemInfo(it);
     h+=`<div class="slot${i===SEL?" sel":""}" data-i="${i}"><i>${i+1}</i>${f?`<span>${ico(f)}</span>${f.count>1||it.t==="spell"?`<b>${f.count}</b>`:""}${f.num?`<em>${f.num}</em>`:""}`:""}</div>`;}
@@ -485,7 +485,7 @@ function dropItem(at,it,life,sid,exact){if(it.t==="build"&&!it.thumb&&it.parts&&
   const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.44,30),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
   scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||300,sid:sid||null});/* everything on the ground lasts 5 minutes (Barbara, 2026-11-22) */return PICKUPS[PICKUPS.length-1];}
 const DROP_FULL={},TAKING={};   // TAKING: things you picked up, waiting for the server to say they're yours
-function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);let it=d.it;if(it.t==="build"){DROP_FULL[d.sid]=it;it={t:"build",id:it.id,n:1};["wall","roof","fn","nm"].forEach(k=>{if(d.it[k]!==undefined)it[k]=d.it[k];});const p=compactParts(d.it.parts);if(p.length&&JSON.stringify(p).length<15000)it.parts=p;}
+function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);let it=d.it;if(it.t==="build"){DROP_FULL[d.sid]=it;it={t:"build",id:it.id,n:1};["wall","roof","fn","nm","exp"].forEach(k=>{if(d.it[k]!==undefined)it[k]=d.it[k];});const p=compactParts(d.it.parts);if(p.length&&JSON.stringify(p).length<15000)it.parts=p;}
   setKey("drop:"+d.sid,{it,x:R2(d.g.position.x),y:R2(d.g.position.y),z:R2(d.g.position.z),s:d.sid,t:Math.round(Date.now()/1000)});}
 // dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
 function dropOwn(i){const it=INV[i];if(!it||P.down)return false;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=Math.max(0,floorUnder());at.drop=true;
@@ -1655,7 +1655,7 @@ function worldSnapshot(keys,wid){const pend=new Set(WORLD.out.filter(e=>e.k==="k
   again.forEach(([k,v])=>{keys[k]=v;setKey(k,v);});
   const gone=placedGone();for(const k in keys)if(k.startsWith("pl:")&&gone.includes(k.slice(3))){worldApply(()=>applyKey(k,null));setKey(k,null);}
   WORLD.dead.splice(0).forEach(k=>setKey(k,null));
-  PLACED.mine.forEach(q=>{if(!keys["pl:"+q.pid]&&!pend.has("pl:"+q.pid))placedShare(q,false,true);});PLACED.room=MP.room;
+  PLACED.mine.forEach(q=>{const k=keys["pl:"+q.pid];if((!k||(fnOf(q.item)==="pet"&&k.u!==MP.id))&&!pend.has("pl:"+q.pid))placedShare(q,false,true);});PLACED.room=MP.room;   // a pet also says who its owner is now (a new id after every reload)
   if(!keys["hold:"+MP.id])HOLDING="";if(MYCAR.car&&!keys["mycar:"+MYCAR.id])MYCAR.room=null;if(MYBOAT.boat&&!keys["boat:"+MYCAR.id])MYBOAT.room=null;}
 // hitting another player: they lose that much health in their own game
 function hitPlayer(o,n,at){if(!o||!o.id||n<=0)return;share({k:"hit",to:o.id,n:Math.round(n)});popNum(at||o.g.position.clone().add(new THREE.Vector3(0,2.2,0)),`-${Math.round(n)}`,"burn");
@@ -2331,19 +2331,19 @@ let ORDST;try{ORDST=JSON.parse(localStorage.getItem("elementum.orders")||"{}");}
 const ordSave=()=>{try{localStorage.setItem("elementum.orders",JSON.stringify(ORDST));}catch(e){}};
 function openOrders(){const d=townDay();const all=[...ordersFor(d),...ordersFor(d-1),...ordersFor(d-2)];return all.filter((o,i)=>all.findIndex(x=>x.who===o.who)===i||ORDST[o.key]);}   // today's, and older ones you took
 const myOrders=()=>openOrders().filter(o=>ORDST[o.key]&&ORDST[o.key].acc&&!ORDST[o.key].done);
-const hasBuilt=id=>INV.findIndex(s=>s&&s.t==="build"&&s.id===id);
+const hasBuilt=(id,tested)=>INV.findIndex(s=>s&&s.t==="build"&&s.id===id&&!(tested&&s.exp));   // tested: an order needs one that passed the test, not an experiment that only looks like one
 const ORD={pos:new THREE.Vector3(),o:null,p:null},OMARK={};
 ACTS.push({pos:ORD.pos,r:2.6,hidden:()=>!ORD.o,label:()=>{const o=ORD.o;if(!o)return "";const st=ORDST[o.key]||{};const I=BUILD.ITEMS[o.item];
-    return st.acc?(hasBuilt(o.item)>=0?`Give ${o.who} your ${I.name}`:`${o.who} is waiting for a ${I.name}`):`Talk to ${o.who}`;},
+    return st.acc?(hasBuilt(o.item,true)>=0?`Give ${o.who} your ${I.name}`:`${o.who} is waiting for a ${I.name}`):`Talk to ${o.who}`;},
   run:()=>{const o=ORD.o;if(!o)return;const st=ORDST[o.key]||{},I=BUILD.ITEMS[o.item],L=BUILD.LV[I.level];
     if(!st.acc){ask(`${o.who}: “${o.text}” — ${I.icon} ${I.name} · ${L.name} · pays ${o.pay} denarii`,[["I'll build it",()=>{ORDST[o.key]={acc:1};ordSave();lawSay(`Order taken: a ${I.name} for ${o.who}. Build it at the workbench in the library (P shows your orders).`);}],["Not now",null]]);return;}
-    const i=hasBuilt(o.item);if(i<0){lawSay(`${o.who}: “Have you built my ${I.name} yet? The workbench is in the library.”`);return;}
+    const i=hasBuilt(o.item,true);if(i<0){lawSay(`${o.who}: “Have you built my ${I.name} yet? The workbench is in the library.”`);return;}
     INV[i]=null;select(SEL);invHud();ORDST[o.key]={acc:1,done:1};ordSave();COINS+=o.pay;coinHud();const p=ORD.p;if(p&&p.o&&p.o.rig)p.o.rig.full("Cheer",{once:true,restart:true,dur:1.4,then:()=>p.o.rig.clearFull()});
     lawSay(`${o.who}: “My own ${I.name}! Thank you!” — +${o.pay} denarii`);FX.stars(P.pos.clone().add(new THREE.Vector3(0,2,0)),"gold",6,1.4);}});
 function stepOrders(dt){let best=null,bd=2.6;const list=openOrders();const seen=new Set();
   for(const o of list){const st=ORDST[o.key]||{};if(st.done)continue;const p=personNamed(o.who);if(!p||!p.o||!p.o.g)continue;seen.add(o.who);const wp=p.o.g.getWorldPosition(_wp);
     // above their head: "?" and how hard the job is (Barbara, 2026-11-22: "say the level it is above"); ✅ once you have their thing
-    const ready=st.acc&&hasBuilt(o.item)>=0,lv=BUILD.ITEMS[o.item].level,txt=ready?"✅ Ready":`? ${BUILD.LV[lv].name}`;let q=OMARK[o.who];
+    const ready=st.acc&&hasBuilt(o.item,true)>=0,lv=BUILD.ITEMS[o.item].level,txt=ready?"✅ Ready":`? ${BUILD.LV[lv].name}`;let q=OMARK[o.who];
     if(!q||q.userData.t!==txt){if(q&&q.parent)q.parent.remove(q);q=OMARK[o.who]=label(txt,ready?0x9dffb0:{easy:0x7de08a,medium:0xffc24a,hard:0xff7a6a}[lv]);q.scale.set(3.4,.85,1);q.position.y=3.6;q.userData.t=txt;p.o.g.add(q);}
     q.visible=p.o.g.visible!==false&&(!st.acc||ready)&&!(p.pp&&p.pp.down);
     const d=Math.hypot(wp.x-P.pos.x,wp.z-P.pos.z);if(d<bd&&!(p.pp&&p.pp.down)&&p.o.g.visible!==false){bd=d;best={o,p,x:wp.x,z:wp.z};}
@@ -2353,16 +2353,16 @@ function stepOrders(dt){let best=null,bd=2.6;const list=openOrders();const seen=
   ORD.o=best&&best.o;ORD.p=best&&best.p;if(best){ORD.pos.set(best.x,0,best.z);const t=P.pos.clone().sub(ORD.pos);t.y=0;if(t.length()>.01)ORD.pos.addScaledVector(t.normalize(),.25);}}
 function ordersTab(box){const mine=myOrders();let h=`<p class="purse">🪙 <b>${COINS}</b> denarii</p><p class="tip">${esc(townNote())}</p><h3>Your orders</h3>`;
   if(!mine.length)h+=`<p class="tip">No orders yet. People with a <b>?</b> over their head need something built — walk up and talk to them.</p>`;
-  else h+=`<div class="list">${mine.map(o=>{const I=BUILD.ITEMS[o.item],L=BUILD.LV[I.level];return `<div class="deal"><span>${I.icon} <b>${esc(I.name)}</b> for ${esc(o.who)} · ${L.name} · ${o.pay} 🪙<br><small>“${esc(o.text)}” ${hasBuilt(o.item)>=0?"— ✅ built! Take it to "+esc(o.who)+".":"— build it at the workbench in the library."}</small></span></div>`;}).join("")}</div>`;
+  else h+=`<div class="list">${mine.map(o=>{const I=BUILD.ITEMS[o.item],L=BUILD.LV[I.level];return `<div class="deal"><span>${I.icon} <b>${esc(I.name)}</b> for ${esc(o.who)} · ${L.name} · ${o.pay} 🪙<br><small>“${esc(o.text)}” ${hasBuilt(o.item,true)>=0?"— ✅ built! Take it to "+esc(o.who)+".":"— build it at the workbench in the library."}</small></span></div>`;}).join("")}</div>`;
   box.innerHTML=h;}
 // the workbench: in the library (Barbara's rule) — orders first, or build anything for yourself
 function readBook(){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();BUILD.openIdeas({recipe:true,onClose:()=>hud()});}
 function openIdeas(){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();BUILD.openIdeas({onClose:()=>hud()});}
 function openBench(){if(!started||P.down)return;G.firing=false;if(document.exitPointerLock)document.exitPointerLock();
-  BUILD.open({orders:myOrders().map(o=>Object.assign({},o)),onClose:()=>hud(),made:res=>{const I=BUILD.ITEMS[res.item];
+  BUILD.open({orders:myOrders().map(o=>Object.assign({},o)),onClose:()=>hud(),owns:k=>k==="car"?!!MYCAR.car:k==="boat"?!!MYBOAT.boat:false,made:res=>{const I=BUILD.ITEMS[res.item];
     if(res.item==="boat"&&!res.order){const had=!!MYBOAT.boat;makeBoat(res.parts);lawSay(had?"Your new boat replaced your old one — it's at the boat dock by the north gate.":"Your boat is waiting at the boat dock by the north gate. Walk up to it and press T to sail!");return true;}
     if(res.item==="car"&&!res.order){const had=!!MYCAR.car;makeOwnCar(carColor(res.parts),null,res.parts);myCarShare();lawSay(had?"Your new car replaced your old one — it's parked outside the library, locked.":"Your car is parked outside the library, locked — only you can get in. Walk up to it and press T.");return true;}
-    const it={t:"build",id:res.item,n:1,thumb:res.thumb};it.parts=res.parts;if(res.fn){it.fn=res.fn;it.nm=res.nm;}if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
+    const it={t:"build",id:res.item,n:1,thumb:res.thumb};it.parts=res.parts;if(res.fn)it.fn=res.fn;if(res.nm)it.nm=res.nm;if(res.exp)it.exp=1;if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
     if(!addItem(it)){lawSay("Your bag is full — make some room first.");return false;}return true;}});}
 function hexOf(p){return p.color?parseInt(p.color.slice(1),16):({wood:0xa8743f,clay:0xe9dcc8,metal:0x9aa3ad,plastic:0x4f8fd8,glass:0xbfe6ff,fabric:0xd85a6a,stone:0x9a958c,rubber:0x2a2a2e,door:0x7a4a28,window:0xa9d8ff}[p.mat]||0xa8743f);}
 function carColor(parts){const body=parts.filter(p=>p.shape==="box"||p.shape==="shell").sort((a,b)=>(b.w*b.h*b.d)-(a.w*a.h*a.d))[0];return (body?hexOf(body):0xc8432f)||1;}
@@ -2449,13 +2449,13 @@ function placedMesh(it){const parts=it.parts&&it.parts.length?it.parts:((BUILD.D
 function placedSave(){try{localStorage.setItem("elementum.placed",JSON.stringify(PLACED.mine.map(q=>({pid:q.pid,item:q.item,x:q.x,y:q.y||0,z:q.z,r:q.r,open:!!q.open,fl:!!q.flowers}))));}catch(e){}}
 // (a "function", not a "const": a saved car is put back while this file is still loading, before this line — 2026-11-25 everyone with a car got a frozen game)
 function compactParts(parts){return (Array.isArray(parts)?parts:[]).slice(0,120).map(p=>{const o={};for(const k in p){if(k==="id"||k==="name")continue;const v=p[k];o[k]=typeof v==="number"?Math.round(v*10)/10:v;}return o;});}
-function placedVal(q){const v={i:q.item.id,x:R2(q.x),y:R2(q.y||0),z:R2(q.z),r:+q.r.toFixed(2),o:q.open?1:0,f:q.flowers?1:0,e:q.useT||0,w:MYCAR.id};["fn","nm"].forEach(k=>{if(q.item[k])v[k]=q.item[k];});const p=compactParts(q.item.parts);if(p.length&&JSON.stringify(p).length<15000)v.p=p;return v;}
+function placedVal(q){const v={i:q.item.id,u:MP.id,x:R2(q.x),y:R2(q.y||0),z:R2(q.z),r:+q.r.toFixed(2),o:q.open?1:0,f:q.flowers?1:0,e:q.useT||0,w:MYCAR.id};["fn","nm"].forEach(k=>{if(q.item[k])v[k]=q.item[k];});const p=compactParts(q.item.parts);if(p.length&&JSON.stringify(p).length<15000)v.p=p;return v;}
 const placedGone=()=>{try{return JSON.parse(localStorage.getItem("elementum.placedGone")||"[]");}catch(e){return [];}};
 function placedShare(q,gone,force){if(gone){try{localStorage.setItem("elementum.placedGone",JSON.stringify(placedGone().concat(q.pid).slice(-200)));}catch(e){}}if(!MP.ok&&!force)return;setKey("pl:"+q.pid,gone?null:placedVal(q));}
 // walls and roofs of what you set down are solid (Barbara: "make the walls solid and roof"): each big part becomes a box you bump into and
 // can stand on (a doghouse's walls, a table top, a roof); thin bits (legs, rails, handles) and doors stay walk-through
 const NOGHOST={material:{visible:false}};
-function solidify(q){unsolidify(q);q.blks=[];if(q.item.id==="ladder")return;q.g.updateMatrixWorld(true);const recs=[],doors=[];
+function solidify(q){unsolidify(q);q.blks=[];if(q.item.id==="ladder"||fnOf(q.item)==="pet")return;q.g.updateMatrixWorld(true);const recs=[],doors=[];
   q.g.traverse(m=>{if(m.isMesh&&m.userData.part&&m.userData.part.mat==="door")doors.push(new THREE.Box3().setFromObject(m).expandByScalar(.05));});
   q.g.traverse(m=>{const pt=m.userData&&m.userData.part;if(!m.isMesh||!pt||pt.shape!=="tube"||(pt.r||0)<40)return;m.userData.ring=true;const c=m.getWorldPosition(new THREE.Vector3()),R=pt.r/100,t=Math.max(.15,(pt.wall||10)/100),H=(pt.h||200)/100,N=16;
     for(let i=0;i<N;i++){const a=(i+.5)/N*Math.PI*2,x=c.x+Math.cos(a)*(R-t/2),z=c.z+Math.sin(a)*(R-t/2),L=2*Math.PI*R/N;const box=new THREE.Box3(new THREE.Vector3(x-L/2,c.y-H/2,z-L/2),new THREE.Vector3(x+L/2,c.y+H/2,z+L/2));if(doors.some(D=>D.containsPoint(new THREE.Vector3(x,c.y,z))||D.intersectsBox(box)))continue;
@@ -2495,9 +2495,9 @@ ACTS.push({pos:PLACE_ACT.pos,r:1.6,hidden:()=>!PLACE_ACT.q||P.inCar||!!P.sitting
 // bed; open a chest (your chests all hold the same things); drink from a cup, bucket or bowl; read at a bookshelf; open and close a door;
 // put flowers in a vase. It works on other players' things too (except picking them up and their chests).
 const USE_ACT={pos:new THREE.Vector3(),q:null},SITS=["chair","stool","bench"];
-const TFN=["music","firework","guard","maker","water","computer","storage"];
+const TFN=["pet","music","firework","guard","maker","water","computer","storage"];
 function useKind(q){const k=q.item.id,f=fnOf(q.item);if(f)return TFN.includes(f)&&!(f==="storage"&&q.remote)?"fn":null;return k==="book"?"book":SITS.includes(k)?"sit":k==="bed"?"bed":k==="chest"&&!q.remote?"chest":k==="cup"||k==="bucket"?"drink":k==="bowl"||k==="plate"?"eat":k==="shelf"?"read":k==="door"?"door":k==="vase"?"vase":k==="ladder"?"climb":null;}
-function useLabel(q){const k=useKind(q),n=q.item.nm||(BUILD.ITEMS[q.item.id]||{name:"thing"}).name,ff=fnOf(q.item);return {book:"📕 Read the book",fn:ff?`${BUILD.FNS[ff].icon} ${{music:"Play",firework:"Launch",guard:"Call soldiers with",maker:(q.useT||0)>Date.now()?"(still working)":"Take what it made —",water:"Drink from",computer:"Use",storage:"Open"}[ff]||"Use"} ${n}`:"",sit:`🪑 Sit on the ${n}`,bed:isNight()?"🛏️ Sleep until morning":"🛏️ Lie down for a nap",chest:"🧰 Open the chest",drink:`🥤 Have a drink from the ${n}`,eat:`🍲 Eat from the ${n}`,read:"📚 Read a book",door:q.open?"🚪 Close the door":"🚪 Open the door",vase:q.flowers?"🌸 Smell the flowers":"🌸 Put flowers in the vase",climb:"🪜 Climb the ladder"}[k]||"";}
+function useLabel(q){const k=useKind(q),n=q.item.nm||(BUILD.ITEMS[q.item.id]||{name:"thing"}).name,ff=fnOf(q.item);return {book:"📕 Read the book",fn:ff?`${BUILD.FNS[ff].icon} ${{pet:"Stroke",music:"Play",firework:"Launch",guard:"Call soldiers with",maker:(q.useT||0)>Date.now()?"(still working)":"Take what it made —",water:"Drink from",computer:"Use",storage:"Open"}[ff]||"Use"} ${n}`:"",sit:`🪑 Sit on the ${n}`,bed:isNight()?"🛏️ Sleep until morning":"🛏️ Lie down for a nap",chest:"🧰 Open the chest",drink:`🥤 Have a drink from the ${n}`,eat:`🍲 Eat from the ${n}`,read:"📚 Read a book",door:q.open?"🚪 Close the door":"🚪 Open the door",vase:q.flowers?"🌸 Smell the flowers":"🌸 Put flowers in the vase",climb:"🪜 Climb the ladder"}[k]||"";}
 function seatOf(q){const parts=q.item.parts&&q.item.parts.length?q.item.parts:((BUILD.DESIGNS[q.item.id]||[])[0]||{parts:()=>[]}).parts();let top=.45;try{const t=BUILD.test(q.item.id,parts);if(t.A.surf)top=t.A.surf.top/100;}catch(e){}return top;}
 function sitOn(q){if(P.inCar||P.down)return;{const t=takenSpot({x:q.x,y:q.y||0,z:q.z});if(t){lawSay(`${t.name||"Someone"} is sitting here.`);return;}}P.sitting={q,pos:new THREE.Vector3(q.x,q.y||0,q.z),yaw:q.r+Math.PI,top:seatOf(q)};P.vel.set(0,0,0);P.pos.copy(P.sitting.pos);P.yaw=P.sitting.yaw;look.yaw=P.yaw;G.firing=false;
   popNum(P.pos.clone().add(new THREE.Vector3(0,2,0)),"move or press T to stand up","spell");}
@@ -2555,26 +2555,40 @@ function invFx(ev){const a=V3(ev.a||[0,0,0]);if(a.distanceTo(P.pos)>80)return;
   else if(ev.f==="firework"){for(let k=0;k<5;k++)setTimeout(()=>{const top=a.clone().add(new THREE.Vector3(rnd(-5,5),rnd(11,17),rnd(-5,5))),col=[0xff5a7a,0xffd84a,0x5ad8ff,0x9aff6a,0xc07aff][(k+(ev.s|0))%5],m=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:col}));m.position.copy(a);scene.add(m);
       tween(.8,t=>{m.position.lerpVectors(a,top,t);SPARK.emit(m.position,rnd3(.4),C(col),.4);},()=>{scene.remove(m);flash(top,col,10,.4);for(let i=0;i<60;i++)SPARK.emit(top,rnd3(1).normalize().multiplyScalar(rnd(3,7)),C(i%3?col:0xffffff),rnd(.7,1.3),{grav:3,drag:1});});},k*420);}
   else if(ev.f==="zap"){const b=V3(ev.b);boltLine(a,b,FX.HEX.lightning);FX.stars(b,"lightning",2,.9);}
+  else if(ev.f==="yum"){for(let i=0;i<14;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});}
+  else if(ev.f==="love"){for(let k=0;k<4;k++)setTimeout(()=>{const s=iconSprite("💗");s.scale.setScalar(.32);s.position.copy(a).add(new THREE.Vector3(rnd(-.4,.4),.6,rnd(-.4,.4)));scene.add(s);tween(1.1,t=>{s.position.y+=.014;s.material.opacity=1-t;},()=>scene.remove(s));},k*180);}
   else if(ev.f==="port"){shadowPuff(a);if(ev.b)shadowPuff(V3(ev.b));}}
 const invShow=ev=>{invFx(ev);share(Object.assign({k:"inv"},ev));};
 // used from the hand
 function inventUse(it){const f=fnOf(it),at=P.pos.clone().add(new THREE.Vector3(0,1,0));if(P.inCar&&f!=="wand")return;
   if(f==="wand"){if(!cool("wand",2.5))return;const ids=Object.keys(SPELLS).filter(k=>SPELLS[k].kind==="bolt"),id=ids[strHash(it.nm||"")%ids.length];G.spellCool=0;castSpell(id);return;}
+  if(f==="sword"){punch(5);return;}
+  if(f==="food"){ask(itemInfo(it).name,[["😋 Eat it",()=>{const i=INV.indexOf(it);if(i<0)return;if(P.hp>=P.maxHp){lawSay("You're full — save it for later.");return;}P.hp=Math.min(P.maxHp,P.hp+30);hud();INV[i]=null;select(SEL);invHud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"+30 HP — yum!","spell");invShow({f:"yum",a:V3r(P.pos)});}],["Set it down",()=>placeThing(SEL)],["Cancel",null]]);return;}
   if(f==="fly"){if(!cool("fly",14))return;P.flyT=6;P.softLand=1;P.vel.y=7;P.onGround=false;FX.stars(at,"air",4,1.4);return;}
   const go={music:()=>invShow({f:"music",a:V3r(P.pos),s:strHash(it.nm||it.id)%9999}),firework:()=>invShow({f:"firework",a:V3r(P.pos),s:ri(0,99)}),guard:()=>blowHorn()}[f];if(!go)return;
   ask(itemInfo(it).name,[[`${BUILD.FNS[f].icon} Use it`,()=>{if(f==="guard"||cool(f,8))go();}],["Set it down",()=>placeThing(SEL)],["Cancel",null]]);}
 // used where it stands (T)
 function fnUse(q){const f=fnOf(q.item),p=[R2(q.x),R2((q.y||0)+.6),R2(q.z)];const tell=()=>{if(q.remote){if(MP.ok)setKey("pl:"+q.pid,Object.assign({},q.val,{e:q.useT||0}));}else{placedShare(q);placedSave();}};
+  if(f==="pet"){if(cool("pet",1.5))invShow({f:"love",a:p});return;}
   if(f==="music"){if(cool("music",8))invShow({f:"music",a:p,s:strHash(q.item.nm||q.pid)%9999});return;}if(f==="firework"){if(cool("firework",8))invShow({f:"firework",a:p,s:ri(0,99)});return;}if(f==="guard")return blowHorn();
   if(f==="computer")return uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{computer:true})));if(f==="storage"){toggleBag(true,"chest");return;}
   if((q.useT||0)>Date.now()){popNum(V3(p),`ready in ${Math.ceil((q.useT-Date.now())/1000)} s`,"burn");return;}
   if(f==="water"){q.useT=Date.now()+15000;tell();P.hp=Math.min(P.maxHp,P.hp+15);hud();popNum(V3(p),"+15 HP","spell");return;}
   if(f==="maker"){const ids=Object.keys(MAT).filter(k=>MAT[k].sell!==0),it={t:"mat",id:pick(["lignum","lignum","ferrum","ferrum",...ids]),n:1};if(!canAdd(it)){lawSay("Your bag is full.");return;}q.useT=Date.now()+60000;tell();addItem(it);const fi=itemInfo(it);popNum(V3(p).add(new THREE.Vector3(0,1,0)),`+1 ${fi.name}`,"spell",fi.pic);return;}}
+// a pet trots after whoever made it and hops as it goes; far behind (or after a portal) it catches up at once; its owner gone, it waits where it is
+function stepPet(q,dt){const o=q.remote?MP.others[q.val&&q.val.u]:null,to=q.remote?o&&o.g.position:P.pos;q.hop=(q.hop||0);let moving=false;
+  if(to&&!(q.remote?o.po==="sleep":P.sleeping)){const dx=to.x-q.x,dz=to.z-q.z,d=Math.hypot(dx,dz),size=Math.min(2,qBox(q)?q.half:.4),near=1.5+size;
+    if(d>30){q.x=to.x+1.5;q.z=to.z+1.5;q.y=to.y;}
+    else if(d>near+(q.go?0:1)){q.go=true;moving=true;const sp=Math.min(d>8?11:5.2,(d-near)*3+.6)*dt;q.x+=dx/d*Math.min(sp,d);q.z+=dz/d*Math.min(sp,d);let a=Math.atan2(dx,dz)+Math.PI-q.r;a=Math.atan2(Math.sin(a),Math.cos(a));q.r+=a*Math.min(1,dt*8);}
+    else q.go=false;q.y=(q.y||0)+((to.y>.3&&d<8?to.y:0)-(q.y||0))*Math.min(1,dt*6);}
+  q.hop=moving?q.hop+dt*11:0;q.g.position.set(q.x,(q.y||0)+Math.abs(Math.sin(q.hop))*.22,q.z);q.g.rotation.y=q.r;q.g.rotation.z=moving?Math.sin(q.hop)*.08:0;
+  if(!q.remote){q.sv=(q.sv||0)+(moving?dt:0);if(q.sv>6){q.sv=0;placedSave();placedShare(q);}}}
 // what's set down works by itself
 function stepInvent(dt){P.portT=Math.max(0,(P.portT||0)-dt);
   if(P.flyT>0){P.flyT-=dt;P.softLand=1;P.vel.y+=GRAV*dt+((P.flyT>2.5?2.6:-.6)-P.vel.y)*Math.min(1,dt*5);if(Math.random()<dt*20)PUFF.emit(P.pos.clone(),rnd3(1),C(0xdff1ff).multiplyScalar(.4),.5,{drag:2});if(P.down||P.inCar||P.climbing)P.flyT=0;}
   const lit=[];let all=null;
-  for(const q of placedAll()){if(!q)continue;const f=fnOf(q.item);if(!f)continue;const dx=q.x-P.pos.x,dz=q.z-P.pos.z,d=Math.hypot(dx,dz);if(d>45&&f!=="zap"&&f!=="magnet")continue;const bb=qBox(q),top=bb.max.y,mid=new THREE.Vector3(q.x,(bb.min.y+top)/2,q.z),dy=P.pos.y-(q.y||0);
+  for(const q of placedAll()){if(!q)continue;const f=fnOf(q.item);if(!f)continue;const dx=q.x-P.pos.x,dz=q.z-P.pos.z,d=Math.hypot(dx,dz);if(d>45&&f!=="zap"&&f!=="magnet"&&f!=="pet")continue;const bb=qBox(q),top=bb.max.y,mid=new THREE.Vector3(q.x,(bb.min.y+top)/2,q.z),dy=P.pos.y-(q.y||0);
+    if(f==="pet"){stepPet(q,dt);continue;}
     if(f==="light"){lit.push([d,q,top]);continue;}
     if(f==="heal"){if(Math.random()<dt*6)SPARK.emit(mid.clone().add(rnd3(.4)),new THREE.Vector3(0,rnd(.5,1.2),0),C(0x7dff9a),.8,{grav:-1});if(d<5&&Math.abs(dy)<4&&!P.down&&P.hp<P.maxHp){P.hp=Math.min(P.maxHp,P.hp+4*dt);q.hudT=(q.hudT||0)-dt;if(q.hudT<=0){q.hudT=.4;hud();}}}
     else if(f==="speed"){if(d<6&&Math.abs(dy)<4)P.buffT=Math.max(P.buffT,.4);if(Math.random()<dt*5)PUFF.emit(mid.clone(),rnd3(1.5),C(0xdff1ff).multiplyScalar(.4),.5,{drag:2});}
