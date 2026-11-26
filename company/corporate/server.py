@@ -4246,7 +4246,7 @@ ELEM_INVENT_USE = {}
 ELEM_INVENT_THINGS = {
     "cup": "a cup, mug or glass", "bowl": "a bowl or pot", "plate": "a plate, dish or tray", "vase": "a vase or flower pot", "bucket": "a bucket or basket",
     "door": "a door", "stool": "a stool", "chair": "a chair, armchair or throne", "table": "a table or desk", "bench": "a bench or sofa", "bed": "a bed, cot or hammock",
-    "shelf": "a bookshelf or cupboard", "ladder": "a ladder", "doghouse": "a doghouse or small animal house", "wheelbarrow": "a wheelbarrow", "house": "a house, hut, castle, tent or tower",
+    "shelf": "a bookshelf or cupboard", "ladder": "a ladder", "doghouse": "a pet house, doghouse, stable or small animal house", "wheelbarrow": "a wheelbarrow", "house": "a house, hut, castle, tent or tower",
     "car": "a car, truck, bus, train or tank", "cart": "a cart or wagon", "boat": "a boat, ship or raft", "chest": "a chest, box with a lid or safe", "book": "a book or notebook",
     "lamp": "a lamp, lantern, torch, candle or lighthouse", "magnet": "a magnet, vacuum cleaner or hook", "stairs": "stairs, a slide or a pyramid with steps",
     "healstone": "a crystal, gem, heart or medicine", "computer": "a computer, television, phone or robot with a screen", "gate": "a gate, arch, portal or ring to walk through", "horn": "a horn or trumpet",

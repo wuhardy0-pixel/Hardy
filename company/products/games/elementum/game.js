@@ -420,7 +420,7 @@ function howToGet(it){if(!it)return "";const make=id=>CRAFT.RECIPES.some(r=>r.gi
 // every thing you can hold has a real picture (product-photo style, made with Gemini 2026-11-20, in items/): bag, shop, forge, the ground, your hand
 const PIC=k=>String(k).startsWith("data:")?k:"/play/elementum/items/"+k+".webp";
 const EMOJI_PIC={};const emojiPic=e=>{if(!EMOJI_PIC[e]){const c=document.createElement("canvas");c.width=c.height=96;const x=c.getContext("2d");x.font='72px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';x.textAlign="center";x.textBaseline="middle";x.fillText(e,48,54);EMOJI_PIC[e]=c.toDataURL();}return EMOJI_PIC[e];};
-const picKey=it=>it.t==="food"&&FOODS[it.id]&&FOODS[it.id].emoji?emojiPic(FOODS[it.id].icon):it.t==="build"?(it.thumb||emojiPic((BUILD.ITEMS[it.id]||{icon:"🛠️"}).icon)):it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
+const picKey=it=>it.t==="egg"?emojiPic("🥚"):it.t==="food"&&FOODS[it.id]&&FOODS[it.id].emoji?emojiPic(FOODS[it.id].icon):it.t==="build"?(it.thumb||emojiPic((BUILD.ITEMS[it.id]||{icon:"🛠️"}).icon)):it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
 const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="false">`;
 const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
@@ -430,6 +430,7 @@ function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
   if(it.t==="food"){const f=FOODS[it.id];return {icon:f.icon,name:f.name,what:f.what,count:it.n};}
+  if(it.t==="egg"){const E=EGGS[it.id]||EGGS.forest;return {icon:"🥚",name:E.name,what:`hold it by your pet house and click: it hatches into a ${E.baby}`,count:1};}
   const m=MAT[it.id];return {icon:m.icon,name:m.name,what:m.what,count:it.n,num:m.num};}
 const held=()=>INV[SEL];
 function addItem(it){it=Object.assign({},it);if(it.t==="build"&&!it.thumb&&it.parts&&it.parts.length)it.thumb=BUILD.snap(it.parts,96);if(it.t==="coin"){COINS+=it.n;coinHud();return true;}
@@ -451,6 +452,7 @@ function useHeld(first){const it=held();if(P.inCar&&!(it&&(it.t==="weapon"||it.t
   if(it.t==="build"&&it.id==="horn"){blowHorn();return;}
   if(it.t==="build"&&it.id==="book"){ask("Your book",[["📖 Read it",()=>readBook()],["Set it down",()=>placeThing(SEL)],["Cancel",null]]);return;}
   if(it.t==="build"&&fnOf(it)&&BUILD.FNS[fnOf(it)].hand){inventUse(it);return;}
+  if(it.t==="egg"){hatchEgg(SEL);return;}
   if(it.t==="build"&&HOLDW[it.id]){waterUse(it);return;}
   if(it.t==="build"){placeThing(SEL);return;}
   if(it.t==="spell"){if(castSpell(it.id)){it.uses--;if(it.uses<=0)INV[SEL]=null;invHud();hud();}return;}
@@ -526,7 +528,7 @@ function wallBetween(a,b){const d=b.clone().sub(a);const len=d.length();const r=
 // ---------------- coins and the market: the merchant's stall in town buys what you find and sells what you need ----------------
 let COINS=0;
 const WPRICE={rifle:8,shotgun:25,staff:30,repeater:45,cannon:50,arcus:45};
-function sellPrice(it){if(!it||it.t==="build")return 0;if(it.t==="food")return Math.max(1,Math.floor(FOODS[it.id].price/2));if(it.t==="mat")return MAT[it.id].sell||1;if(it.t==="potion")return it.id==="fortis"?12:8;if(it.t==="spell")return 3*Math.max(1,it.uses);if(it.t==="weapon")return WPRICE[it.id]||10;return 0;}
+function sellPrice(it){if(!it||it.t==="build"||it.t==="egg")return 0;if(it.t==="food")return Math.max(1,Math.floor(FOODS[it.id].price/2));if(it.t==="mat")return MAT[it.id].sell||1;if(it.t==="potion")return it.id==="fortis"?12:8;if(it.t==="spell")return 3*Math.max(1,it.uses);if(it.t==="weapon")return WPRICE[it.id]||10;return 0;}
 let OFFERS=[];let offersT=0;let HAG=null;const HAGNO=new Set();   // HAG: the deal Mercator is offering right now; HAGNO: stacks he won't haggle over again
 const offerSlot=()=>Math.floor(Date.now()/120000);
 function refreshOffers(){HAGNO.clear();HAG=null;refreshOffers.slot=offerSlot();const R0=seedRnd(refreshOffers.slot*7919+5);const sp=DROP_SPELLS.map(id=>[R0(),id]).sort((a,b)=>a[0]-b[0]).slice(0,3).map(a=>a[1]);
@@ -578,6 +580,7 @@ const FOODS={
   puls:{name:"Porridge",icon:"🥣",heal:0,price:10,buff:"regenT",secs:15,what:"+3 HP every second for 15 s"},
   caseus:{name:"Cheese",icon:"🧀",heal:5,price:12,buff:"toughT",secs:45,what:"take 25% less damage 45 s"},
   piscis:{name:"Grilled fish",icon:"🐟",heal:10,price:12,buff:"strongT",secs:45,what:"your hits do 25% more 45 s"},
+  caro:{name:"Meat",icon:"🍖",heal:18,price:6,what:"+18 HP · foxes love it too",emoji:1},
   bacae:{name:"Wild berries",icon:"🫐",heal:6,price:2,what:"+6 HP · picked in the wilds",emoji:1},
   ovum:{name:"Egg",icon:"🥚",heal:8,price:3,what:"+8 HP · from the chickens",emoji:1},
   piscisR:{name:"Fresh fish",icon:"🐟",heal:12,price:6,what:"+12 HP · you caught it yourself",emoji:1},
@@ -942,7 +945,7 @@ const SPECIAL={"1,1,-1":{name:"Taberna — deep-dish pizza",awning:0xc8432f,eat:
 const ROOM_LIGHT=new THREE.PointLight(0xffe2b0,0,14,1.4);scene.add(ROOM_LIGHT);
 const inRoom=p=>INTERIORS.find(r=>(!r.lot||r.lot.built)&&p.x>r.x0&&p.x<r.x1&&p.z>r.z0&&p.z<r.z1&&p.y>=r.y0-.2&&p.y<r.y1);
 // what each shop sells: food from FOODS, plus the barber's haircut and the shoemaker's running sandals
-const SHOPS={Pistrinum:{keeper:"Faustina",items:["panis","mel","puls"]},Macellum:{keeper:"Gnaeus",items:["pomum","uvae","caseus","piscis"]},Taberna:{keeper:"Petronia",items:["panis","caseus","piscis"]},
+const SHOPS={Pistrinum:{keeper:"Faustina",items:["panis","mel","puls"]},Macellum:{keeper:"Gnaeus",items:["pomum","uvae","caseus","piscis","caro"]},Taberna:{keeper:"Petronia",items:["panis","caseus","piscis"]},
   Thermopolium:{keeper:"Servius",items:["puls","piscis","mel"]},Tonsor:{keeper:"Tullius",items:["haircut"]},Sutor:{keeper:"Crispina",items:["sandals"]}};
 const EXTRA={haircut:{name:"A new haircut",price:5,what:"A fresh look — a new hair color for your hero",pic:"hand_fist"},sandals:{name:"Running sandals",price:15,what:"Fast feet for two minutes",pic:"food_mel"}};
 let CUR_SHOP=null;
@@ -1458,7 +1461,7 @@ const nearPump=()=>P.inCar&&GAS.pumps.some(v=>Math.hypot(v.x-P.pos.x,v.z-P.pos.z
 const fillCost=()=>P.inCar?Math.ceil((P.inCar.max-P.inCar.fuel)/GAS.price):0;
 // shared cars: taking one hides it for everyone else in the room; getting out parks it where you left it (keys "car:<n>")
 const carKey=c=>"car:"+CARS.indexOf(c);
-function enterCar(c){if(!c||P.down)return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}if(c.ownerId&&c.locked){lawSay(`🔒 ${c.ownerName}'s car is locked.`);return;}carShareState(c,true);P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
+function enterCar(c){if(!c||P.down||(PETS&&PETS.riding))return;if(c.taken&&c.taken!==MP.id){lawSay("Someone else is driving that car.");return;}if(c.ownerId&&c.locked){lawSay(`🔒 ${c.ownerName}'s car is locked.`);return;}carShareState(c,true);P.inCar=c;c.speed=0;G.firing=false;body.visible=false;gunMount.visible=false;itemMount.visible=false;look.yaw=c.yaw+Math.PI;lawSay("W / S to drive, A / D to steer, Space to brake, T to get out.");}
 function exitCar(){const c=P.inCar;if(!c)return;P.inCar=null;carShareState(c,false);const side=new THREE.Vector3(Math.cos(c.yaw),0,-Math.sin(c.yaw));P.pos.copy(c.g.position).addScaledVector(side,1.8);if(c.boat)P.pos.copy(landNear(c.g.position));P.pos.y=0;P.vel.set(0,0,0);body.visible=true;select(SEL);}
 function carBlocked(p){for(const b of BLOCKS){if(b.pass||b.y>1.5||b.h<.3)continue;if(Math.abs(p.x-b.x)<b.w/2+1.1&&Math.abs(p.z-b.z)<b.d/2+1.1)return b;}return null;}
 function driveCar(dt,inp){if(P.down||LAW.jailT>0){exitCar();return;}const c=P.inCar;const thr=c.fuel>0?-inp.z:0,st=inp.x,brake=keys.Space;
@@ -1638,6 +1641,7 @@ function applyKey(key,val){noteKey(key,val);
     if(i<0&&val&&val.it){const left=val.t?300-(Date.now()/1000-val.t):300;if(left<=0){if(left<-30)WORLD.dead.push(key);return;}dropItem(new THREE.Vector3(val.x,+val.y||0,val.z),val.it,Math.min(300,left),id,true);}return;}
   if(key.startsWith("pl:")){placedKeyApply(key.slice(3),val);return;}
   if(key.startsWith("bush:")){bushKey(+key.slice(5),val);return;}
+  if(key.startsWith("nest:")){nestKey(+key.slice(5),val);return;}
   if(key.startsWith("hb:")||key.startsWith("hbp:")){if(val)WORLD_KEYS[key]=val;else delete WORLD_KEYS[key];return;}
   if(key.startsWith("bld:")){const bd=BUILDINGS[+key.slice(4)];if(!bd)return;if(val&&!bd.down)collapse(bd);else if(!val&&bd.down)rebuild(bd);return;}
   if(key.startsWith("mycar:")){carKeyApply(key.slice(6),val);return;}
@@ -1712,9 +1716,9 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
     {const rb=o.bo?Object.values(REMOTE_BOATS).find(b=>b.d===o.id):null,bk=o.bo?(rb?rb.k:"std"):"";if(bk!==(o.boatK||"")){o.boatK=bk;if(o.boatG)o.g.remove(o.boatG);o.boatG=null;if(bk){o.boatG=rb&&rb.parts?furnitureMesh(rb.parts):placedMesh({id:"boat"});o.boatG.rotation.y=Math.PI;o.g.add(o.boatG);}}}
     mpLook(o,dt);
     if(o.rig){if(o.hp<=0){if(o.rig.fullName!=="Death_A")o.rig.full("Death_A",{once:true});}else if(o.rig.fullName==="Death_A")o.rig.clearFull();
-      o.rig.base(o.po==="sit"&&o.rig.clips.Sit_Chair_Idle?"Sit_Chair_Idle":o.po==="climb"||o.po==="sleep"||o.bo?"Idle":o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
+      o.rig.root.position.y=o.po==="ride"?RIDE_Y:0;o.rig.base((o.po==="sit"||o.po==="ride")&&o.rig.clips.Sit_Chair_Idle?"Sit_Chair_Idle":o.po==="climb"||o.po==="sleep"||o.bo?"Idle":o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const sent=[];{let sz=0;while(WORLD.out.length&&sent.length<40&&sz<60000){const e=WORLD.out.shift();sz+=e.k==="key"&&e.val?JSON.stringify(e).length:200;sent.push(e);}}const it=held(),body={ev:sent,since:WORLD.seq,wid:WORLD.wid,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:P.sitting?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:(NEEDS&&NEEDS.bad.food?"F":"")+(NEEDS&&NEEDS.bad.water?"W":"")+(NEEDS&&NEEDS.bad.sleep?"Z":"")+(P.mightT>0?"S":"")+(P.shield>0?"B":"")+(P.invulnT>0?"H":""),held:itemInfo(it)?itemInfo(it).icon:"",hi:P.inCar?"":heldCode(it),hc:HAIR.c,fx:MP.fx};if(P.sleeping&&P.sleeping.spot)Object.assign(body,{x:P.sleeping.spot.x,y:P.sleeping.spot.y,z:P.sleeping.spot.z,yaw:P.sleeping.spot.r});
+  const sent=[];{let sz=0;while(WORLD.out.length&&sent.length<40&&sz<60000){const e=WORLD.out.shift();sz+=e.k==="key"&&e.val?JSON.stringify(e).length:200;sent.push(e);}}const it=held(),body={ev:sent,since:WORLD.seq,wid:WORLD.wid,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:PETS&&PETS.riding?"ride":P.sitting?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:(NEEDS&&NEEDS.bad.food?"F":"")+(NEEDS&&NEEDS.bad.water?"W":"")+(NEEDS&&NEEDS.bad.sleep?"Z":"")+(P.mightT>0?"S":"")+(P.shield>0?"B":"")+(P.invulnT>0?"H":""),held:itemInfo(it)?itemInfo(it).icon:"",hi:P.inCar?"":heldCode(it),hc:HAIR.c,fx:MP.fx};if(P.sleeping&&P.sleeping.spot)Object.assign(body,{x:P.sleeping.spot.x,y:P.sleeping.spot.y,z:P.sleeping.spot.z,yaw:P.sleeping.spot.r});
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       if(body.room!==MP.room)return;   // you changed rooms while this was on its way: it's about the old room
@@ -1943,7 +1947,7 @@ function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held()
 // ---------------- input ----------------
 const keys={};let look={yaw:0,pitch:.22},stick={x:0,y:0},jumpQ=false,runBtn=false,paused=false,started=false,camSide=1;
 addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(designOpen()){if(e.key==="Escape"){if(BUILD.ideasOpen())BUILD.closeIdeas();else if(BUILD.isOpen())BUILD.close();else DESIGN.close();}return;}keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
-  if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
+  if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyC")callPets();if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
 addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.deltaY>0?1:-1));},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
 const touch=matchMedia("(pointer:coarse)").matches||"ontouchstart" in window;if(touch)document.body.classList.add("touch");
@@ -1974,7 +1978,7 @@ function moveInput(){let x=0,z=0;if(keys.KeyW||keys.ArrowUp)z-=1;if(keys.KeyS||k
 function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:needsInput(moveInput());if(P.flipT>0)inp=Object.assign({},inp,{x:-inp.x,z:-inp.z});/* something bad you took: every key goes the other way (Barbara, 2026-11-25: "the keys backward for bad effects") */if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
   if(P.inCar)driveCar(dt,inp);else if(P.climbing)climbStep(dt,inp);else{   // driving replaces walking
   const s=Math.sin(look.yaw),c=Math.cos(look.yaw);const wx=inp.x*c+inp.z*s,wz=-inp.x*s+inp.z*c;   // forward = away from the camera
-  const target=(P.run?RUN:WALK)*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1)*needsSpeed()*(P.pos.y<.6&&isWater(P.pos.x,P.pos.z,false)?.45:1);/* wading through the moat or the river is slow */const ax=P.onGround?18:6;
+  const target=(PETS&&PETS.riding?(P.run?13:6.5):(P.run?RUN:WALK))*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1)*needsSpeed()*(P.pos.y<.6&&isWater(P.pos.x,P.pos.z,false)?.45:1);/* wading through the moat or the river is slow */const ax=P.onGround?18:6;
   if(P.dash>0)P.dash-=dt;   // a wind leap carries you before your own steering takes over again
   else{P.vel.x+=(wx*target-P.vel.x)*Math.min(1,ax*dt);P.vel.z+=(wz*target-P.vel.z)*Math.min(1,ax*dt);}
   {const want=look.yaw;let d=want-P.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));P.yaw+=d*Math.min(1,14*dt);}   // holding a gun, the body faces where the camera looks
@@ -1993,7 +1997,7 @@ function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:needsInput(moveIn
     P.fallTop=undefined;P.softLand=0;if(P.vel.y<0)P.vel.y=0;P.onGround=true;}else P.onGround=false;
   const lim=190;P.pos.x=clamp(P.pos.x,-lim,lim);P.pos.z=clamp(P.pos.z,-lim,lim);}
   P.speed=P.inCar?Math.abs(P.inCar.speed):Math.hypot(P.vel.x,P.vel.z);
-  body.position.copy(P.pos);body.rotation.y=P.yaw;
+  body.position.copy(P.pos);body.rotation.y=P.yaw;if(PETS&&PETS.riding)body.position.y+=RIDE_Y;
   // guns
   G.cool=Math.max(0,G.cool-dt);G.recoil=Math.max(0,G.recoil-dt*7);
   if(G.reloading>0){G.reloading-=dt;if(G.reloading<=0){G.reloading=0;G.ammo=WEAPONS[G.id].mag;if(G.item)G.item.ammo=G.ammo;const m=muzzleWorld();FX.stars(m,crystalEl(),2,.5);}hud();}
@@ -2021,7 +2025,7 @@ const _m4=new THREE.Matrix4(),_qa=new THREE.Quaternion(),_qb=new THREE.Quaternio
 function animRig(dt){const r=RIG;
   if(P.down)r.full("Death_A",{once:true});else if(r.fullName==="Death_A")r.clearFull();
   const fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw);const vf=P.vel.x*fx+P.vel.z*fz,vr=-P.vel.x*fz+P.vel.z*fx;
-  if(P.sitting)r.base("Sit_Chair_Idle");else if(!P.onGround)r.base("Jump_Idle");
+  if(P.sitting||(PETS&&PETS.riding))r.base("Sit_Chair_Idle");else if(!P.onGround)r.base("Jump_Idle");
   else if(P.speed<.4)r.base("Idle");
   else if(Math.abs(vf)>=Math.abs(vr)*.8){if(vf>0)r.base(P.run?"Running_A":"Walking_A",{speed:P.run?P.speed/6:P.speed/3.4});else r.base("Walking_Backwards",{speed:P.speed/3});}
   else r.base(vr>0?"Running_Strafe_Right":"Running_Strafe_Left",{speed:Math.max(.7,P.speed/5.5)});
@@ -2595,7 +2599,7 @@ const cool=(k,s)=>{if((INVCD[k]||0)>Date.now()){popNum(P.pos.clone().add(new THR
 const strHash=s=>{let h=7;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return h;};
 function tune(seed){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),R0=seedRnd(seed),S=[262,294,330,392,440,523,587,659];let t=A.currentTime+.05,i=3;for(let k=0;k<14;k++){i=Math.max(0,Math.min(7,i+Math.floor(R0()*5)-2));const len=R0()<.3?.4:.2,o=A.createOscillator(),g=A.createGain();o.type="triangle";o.frequency.value=S[i];g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+len+.02);t+=len;}}catch(e){}}
 // what everyone sees and hears
-function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"&&a.distanceTo(P.pos)>80)return;
+function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"&&ev.f!=="pets"&&ev.f!=="adopt"&&a.distanceTo(P.pos)>80)return;
   if(ev.f==="music"){tune(ev.s|0);for(let k=0;k<7;k++)setTimeout(()=>{const s=iconSprite(k%2?"🎵":"🎶");s.scale.setScalar(.4);s.position.copy(a).add(new THREE.Vector3(rnd(-.6,.6),1.2,rnd(-.6,.6)));scene.add(s);tween(1.4,t=>{s.position.y+=.012;s.material.opacity=1-t;},()=>scene.remove(s));},k*450);}
   else if(ev.f==="firework"){for(let k=0;k<5;k++)setTimeout(()=>{const top=a.clone().add(new THREE.Vector3(rnd(-5,5),rnd(11,17),rnd(-5,5))),col=[0xff5a7a,0xffd84a,0x5ad8ff,0x9aff6a,0xc07aff][(k+(ev.s|0))%5],m=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:col}));m.position.copy(a);scene.add(m);
       tween(.8,t=>{m.position.lerpVectors(a,top,t);SPARK.emit(m.position,rnd3(.4),C(col),.4);},()=>{scene.remove(m);flash(top,col,10,.4);for(let i=0;i<60;i++)SPARK.emit(top,rnd3(1).normalize().multiplyScalar(rnd(3,7)),C(i%3?col:0xffffff),rnd(.7,1.3),{grav:3,drag:1});});},k*420);}
@@ -2603,7 +2607,8 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"
   else if(ev.f==="yum"){for(let i=0;i<14;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});}
   else if(ev.f==="love"){for(let k=0;k<4;k++)setTimeout(()=>{const s=iconSprite("💗");s.scale.setScalar(.32);s.position.copy(a).add(new THREE.Vector3(rnd(-.4,.4),.6,rnd(-.4,.4)));scene.add(s);tween(1.1,t=>{s.position.y+=.014;s.material.opacity=1-t;},()=>scene.remove(s));},k*180);}
   else if(ev.f==="dig")holeAt(a,!!ev.big);
-  else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob")wildEv(ev,mine);
+  else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob"||ev.f==="adopt")wildEv(ev,mine);
+  else if(ev.f==="pets")petsEv(ev,mine);
   else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
     if(ev.u!==MP.id&&a.distanceTo(P.pos)<2.2)lawSay("💦 Splash! Someone poured water on you.");}
   else if(ev.f==="feel"){for(let k=0,n=Math.max(1,Math.min(20,ev.n|0));k<n;k++)setTimeout(()=>{const o=ev.u===MP.id?P:MP.others[ev.u]&&MP.others[ev.u].g.position?{pos:MP.others[ev.u].g.position}:null;if(!o||(k&&P.down&&ev.u===MP.id))return;const s=iconSprite(ev.b?(k%2?"💫":"🤢"):"✨");s.scale.setScalar(.34);s.position.copy(o.pos).add(new THREE.Vector3(rnd(-.35,.35),2.1,rnd(-.35,.35)));scene.add(s);tween(1.1,t=>{s.position.y+=.01;s.material.opacity=1-t;},()=>scene.remove(s));},k*1000);}
@@ -2684,7 +2689,14 @@ setInterval(()=>{if(!started)return;RIVER_ACT.on=!P.inCar&&P.pos.y<1.5&&nearWate
 var WILD=null,FISH={on:false};
 const ANI_KINDS={deer:{name:"deer",h:1.35,walk:1.1,run:7,shy:6,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},stag:{name:"stag",h:1.75,walk:1.1,run:7,shy:7,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},
   horse:{name:"wild horse",h:1.7,walk:1.3,run:8,shy:5,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},alpaca:{name:"alpaca",h:1.55,walk:1,run:5.5,shy:4,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},
-  fox:{name:"fox",h:.62,walk:1.4,run:7.5,shy:8,eat:"Eating",idle:"Idle",low:"Idle_2_HeadLow"},chicken:{name:"chicken",h:.5,walk:.8,run:3,shy:2.2,eat:"Bite_Front",idle:"Idle",low:"Idle",tame:true}};
+  fox:{name:"fox",h:.62,walk:1.4,run:7.5,shy:8,eat:"Eating",idle:"Idle",low:"Idle_2_HeadLow",diet:"meat"},chicken:{name:"chicken",h:.5,walk:.8,run:3,shy:2.2,eat:"Bite_Front",idle:"Idle",low:"Idle",tame:true,diet:"seeds",runA:"Walk"},
+  // hatched from stolen eggs (not in the wild herds): a forest dino and a cave frog — they fight and you can ride them
+  dino:{name:"forest dino",h:1.7,walk:1.4,run:8,eat:"Idle",idle:"Idle",low:"Idle",runA:"Run",atk:"Punch",url:"monsters/dino.glb",diet:"meat",ride:1,fight:26},
+  frog:{name:"cave frog",h:1.3,walk:1.2,run:7,eat:"Idle",idle:"Idle",low:"Idle",runA:"Run",atk:"Punch",url:"monsters/frog.glb",diet:"meat",ride:1,fight:20}};
+Object.assign(ANI_KINDS.horse,{ride:1,fight:12,atk:"Attack_Headbutt"});Object.assign(ANI_KINDS.stag,{fight:14,atk:"Attack_Headbutt"});Object.assign(ANI_KINDS.deer,{fight:8,atk:"Attack_Headbutt"});Object.assign(ANI_KINDS.alpaca,{fight:8,atk:"Attack_Headbutt"});Object.assign(ANI_KINDS.fox,{fight:10,atk:"Attack"});
+const animOf=(K,n)=>n==="walk"?"Walk":n==="run"?(K.runA||"Gallop"):n==="atk"?(K.atk||K.idle):K[n]||K.idle;
+const DIETS={plants:["bacae","pomum","uvae","panis"],meat:["caro","piscisR","piscis","ovum"],seeds:["panis","bacae","uvae"]},DIET_TXT={plants:"fruit, berries or bread",meat:"meat, fish or eggs",seeds:"bread, berries or grapes"};
+const dietOf=K=>K.diet||"plants";
 const HERDS0=[["deer",[-82,28],["stag","deer","deer","deer"]],["deer",[64,96],["stag","deer","deer"]],["horse",[108,74],["horse","horse","horse"]],["alpaca",[-78,-64],["alpaca","alpaca","alpaca"]],
   ["fox",[-18,-82],["fox","fox"]],["fox",[150,40],["fox"]],["chicken",[-21,-11],["chicken","chicken","chicken"]],["chicken",[2,20],["chicken","chicken"]]];
 function wildInit(){if(WILD)return;WILD={herds:[],bushes:[],t:0,net:0,egg:{}};
@@ -2702,11 +2714,11 @@ function bushKey(i,val){wildInit();const b=WILD.bushes[i];if(!b)return;b.at=val&
 const isDay=()=>!isNight();
 // who moves which herd: the nearest-numbered player close by (as with the monsters), so everyone sees the same animals
 function herdOwner(h){if(!MP.ok)return MP.id;let best=null;const see=(id,x,z)=>{if(Math.hypot(x-h.home.x,z-h.home.z)<120&&(best===null||id<best))best=id;};see(MP.id,P.pos.x,P.pos.z);(MP.list||[]).forEach(q=>see(q.id,q.x,q.z));return best===null?MP.id:best;}
-function aniAnim(an,name,o){an.base=name;if(an.rig&&!an.rig.fullName)an.rig.base(an.K[name]||an.K.idle,o);}
+function aniAnim(an,name,o){an.base=name;if(an.rig&&!an.rig.fullName)an.rig.base(animOf(an.K,name),o);}
 function stepWild(dt){wildInit();const day=isDay(),PL=mobPlayers();WILD.net-=dt;const send=WILD.net<=0&&MP.ok;if(send)WILD.net=.35;const out=[];
   for(const b of WILD.bushes){const ripe=Date.now()/1000-b.at>180&&!(SEASON&&SEASON.w.winter>.5);if(b.ber.visible!==ripe)b.ber.visible=ripe;}
   for(const h of WILD.herds){const mine=herdOwner(h)===MP.id,near=Math.hypot(P.pos.x-h.home.x,P.pos.z-h.home.z)<140;
-    for(const an of h.list){const g=an.g;g.visible=day;if(!day){an.lead=null;continue;}if(an.rig&&near&&g.position.distanceTo(P.pos)<90)an.rig.update(dt);
+    for(const an of h.list){const g=an.g;g.visible=day&&an.gone!==worldDay();if(!g.visible){an.lead=null;continue;}if(an.rig&&near&&g.position.distanceTo(P.pos)<90)an.rig.update(dt);
       if(!mine){if(an.net){const n=an.net,dx=n.x-g.position.x,dz=n.z-g.position.z;if(Math.hypot(dx,dz)>10){g.position.x=n.x;g.position.z=n.z;}else{const k=Math.min(1,dt*6);g.position.x+=dx*k;g.position.z+=dz*k;}
           let d=n.ry-g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));g.rotation.y+=d*Math.min(1,dt*8);if(an.base!==n.b)aniAnim(an,n.b,{speed:n.b==="run"?1.3:1});an.lead=n.lead||null;}continue;}
       // the owner decides: follow a friend, run from someone rushing at it, graze, look up, wander about
@@ -2731,19 +2743,21 @@ function stepWild(dt){wildInit();const day=isDay(),PL=mobPlayers();WILD.net-=dt;
     else if(FISH.bite&&t>FISH.until){FISH.bite=false;FISH.biteAt=t+rnd(3,9);lawSay("🎣 It got away… wait for the next bite.");}}}}
 function wildEv(ev,mine){wildInit();if(ev.f==="ani"){if(!Array.isArray(ev.H))return;ev.H.forEach(([hi,l])=>{const h=WILD.herds[hi|0];if(!h||herdOwner(h)===MP.id||!Array.isArray(l))return;l.forEach((a,j)=>{const an=h.list[j];if(an&&Array.isArray(a))an.net={x:+a[0]||0,z:+a[1]||0,ry:+a[2]||0,b:String(a[3]||"idle"),lead:a[4]||null};});});return;}
   if(ev.f==="tame"){const h=WILD.herds[ev.h|0],an=h&&h.list[ev.j|0];if(!an)return;an.lead=ev.u||null;return;}
+  if(ev.f==="adopt"){const h=WILD.herds[ev.h|0],an=h&&h.list[ev.j|0];if(!an)return;an.gone=ev.d|0;an.lead=null;an.g.visible=false;return;}
   if(ev.f==="bob"){if(mine)return;const k="bob:"+ev.u;if(WILD[k]){scene.remove(WILD[k]);WILD[k]=null;}if(ev.on){const m=fishFloat();m.position.copy(V3(ev.a));scene.add(m);WILD[k]=m;setTimeout(()=>{if(WILD[k]===m){scene.remove(m);WILD[k]=null;}},60000);}}}
 // T by an animal, a bush or a chicken
 const WILD_ACT={pos:new THREE.Vector3(),an:null,bush:null};
 ACTS.push({pos:WILD_ACT.pos,r:2.4,hidden:()=>(!WILD_ACT.an&&!WILD_ACT.bush)||P.inCar||P.down,label:()=>{const an=WILD_ACT.an,b=WILD_ACT.bush;if(b)return "🫐 Pick berries";if(!an)return "";const n=an.K.name;
-    if(an.lead===MP.id)return `👋 Let the ${n} go`;if(an.k==="chicken")return "🥚 Look for an egg";return hasFood()>=0?`🍎 Feed the ${n} — it will follow you`:`🤚 Pet the ${n}`;},
+    if(an.lead===MP.id)return `🐾 The ${n} follows you — what now?`;if(an.k==="chicken"&&hasFood(an.K)<0)return "🥚 Look for an egg";return hasFood(an.K)>=0?`${dietOf(an.K)==="meat"?"🍖":"🍎"} Feed the ${n} — it will follow you`:`🤚 Pet the ${n}`;},
   run:()=>{const an=WILD_ACT.an,b=WILD_ACT.bush;if(b){if(Date.now()/1000-b.at<=180)return;b.at=Math.floor(Date.now()/1000);setKey("bush:"+b.i,{t:b.at});addItem({t:"food",id:"bacae",n:3})?lawSay("🫐 You pick a handful of berries (3)."):lawSay("Your bag is full.");return;}
     const at=V3r(an.g.position.clone().add(new THREE.Vector3(0,an.K.h,0)));
-    if(an.lead===MP.id){an.lead=null;invShow({f:"tame",a:at,h:an.herd.i,j:an.j,u:0});lawSay(`👋 The ${an.K.name} trots back to its friends.`);return;}
-    if(an.k==="chicken"){const k=an.herd.i+":"+an.j;if((WILD.egg[k]||0)>Date.now()){lawSay("🐔 No egg right now — come back later.");return;}WILD.egg[k]=Date.now()+90000;if(Math.random()<.6){addItem({t:"food",id:"ovum",n:1});lawSay("🥚 You found an egg!");}else lawSay("🐔 Bawk! No egg this time.");invShow({f:"love",a:at});return;}
-    const fi=hasFood();if(fi<0){invShow({f:"love",a:at});lawSay(`🤚 The ${an.K.name} lets you pet it. (Give it something to eat and it will follow you.)`);return;}
+    if(an.lead===MP.id){const o=[];if(myPetHouse())o.push([`🏠 Make it your pet`,()=>adoptWild(an,false)]);else o.push(["🏠 Make it your pet (needs a pet house)",()=>lawSay("Build a pet house at the workbench and set it down first — then your pet has somewhere to live.")]);
+      if(an.k==="horse")o.push(["🐴 Ride it",()=>{const p=adoptWild(an,true);if(p)mount(p);}]);o.push([`👋 Let it go`,()=>{an.lead=null;invShow({f:"tame",a:at,h:an.herd.i,j:an.j,u:0});lawSay(`👋 The ${an.K.name} trots back to its friends.`);}],["Cancel",null]);ask(`The ${an.K.name}`,o);return;}
+    if(an.k==="chicken"&&hasFood(an.K)<0){const k=an.herd.i+":"+an.j;if((WILD.egg[k]||0)>Date.now()){lawSay("🐔 No egg right now — come back later.");return;}WILD.egg[k]=Date.now()+90000;if(Math.random()<.6){addItem({t:"food",id:"ovum",n:1});lawSay("🥚 You found an egg!");}else lawSay("🐔 Bawk! No egg this time.");invShow({f:"love",a:at});return;}
+    const fi=hasFood(an.K);if(fi<0){invShow({f:"love",a:at});lawSay(`🤚 The ${an.K.name} lets you pet it. (${(n=>n[0].toUpperCase()+n.slice(1))(an.K.name==='deer'?'deer':an.K.name==='fox'?'foxes':an.K.name+'s')} eat ${DIET_TXT[dietOf(an.K)]} — give it some and it will follow you.)`);return;}
     const it=INV[fi];it.n--;if(!it.n)INV[fi]=null;invHud();an.lead=MP.id;an.st="look";invShow({f:"love",a:at});invShow({f:"tame",a:at,h:an.herd.i,j:an.j,u:MP.id});
     lawSay(`💗 The ${an.K.name} eats your ${FOODS[it.id].name.toLowerCase()} and follows you now${an.k==="horse"?"":""} — until night, or until you let it go.`);}});
-function hasFood(){const pref=["bacae","pomum","panis","uvae","ovum"];for(const id of pref){const i=INV.findIndex(s=>s&&s.t==="food"&&s.id===id);if(i>=0)return i;}return INV.findIndex(s=>s&&s.t==="food");}
+function hasFood(K){const pref=K?DIETS[dietOf(K)]:["bacae","pomum","panis","uvae","ovum"];for(const id of pref){const i=INV.findIndex(s=>s&&s.t==="food"&&s.id===id);if(i>=0)return i;}return -1;}
 setInterval(()=>{if(!started||!WILD)return;let best=null,bd=2.4,bb=null,bbd=2;for(const h of WILD.herds)for(const an of h.list){if(!an.g.visible)continue;const d=Math.hypot(an.g.position.x-P.pos.x,an.g.position.z-P.pos.z);if(d<bd&&(an.base!=="run"||an.lead===MP.id)){bd=d;best=an;}}
   for(const b of WILD.bushes){const d=Math.hypot(b.pos.x-P.pos.x,b.pos.z-P.pos.z);if(d<bbd&&b.ber.visible){bbd=d;bb=b;}}
   WILD_ACT.an=bb?null:best;WILD_ACT.bush=bb;const o=bb?bb.pos:best?best.g.position:null;if(o)WILD_ACT.pos.set(o.x,0,o.z);},250);
@@ -2755,6 +2769,99 @@ function fishStop(msg){if(!FISH.on)return;FISH.on=false;FISH.bite=false;if(FISH.
 function fishPull(){if(!FISH.bite){fishStop("🎣 You reel in your line.");return;}const at=FISH.bob.position.clone();for(let i=0;i<20;i++)SPARK.emit(at,new THREE.Vector3(rnd(-1.5,1.5),rnd(1,3),rnd(-1.5,1.5)),C(0x6ab8ff),.6,{grav:8});
   const r=Math.random();fishStop();if(r<.12){lawSay("🥾 You caught… an old boot. Better luck next time!");return;}if(r<.17){const n=ri(2,5);addItem({t:"coin",n});lawSay(`💰 A little bag of ${n} denarii was on your hook!`);return;}
   addItem({t:"food",id:"piscisR",n:1})?lawSay("🐟 You caught a fish!"):lawSay("🐟 You caught a fish — but your bag is full, so you let it go.");}
+// ---------------- pets, orders and riding (2026-11-26, Barbara: "add horse riding and pets, so you make a pet house instead of a dog house, give meat
+// to animals too, and have a set of orders"). Feed a wild animal what it eats (deer, horses, alpacas: fruit, berries, bread; foxes: meat, fish, eggs —
+// meat is sold at the Macellum; chickens: bread, berries, grapes) and it follows you. Then, if you've set down a pet house (the doghouse is now the
+// pet house), T → "Make it your pet": it's yours for good (kept on this device, up to 4). Press T by your pet for its orders: follow me, stay, sit,
+// go to the pet house, ride (horses), eat, let it go. C calls all your pets to follow you. A horse can be ridden straight from the wild too (it's yours
+// until night). Riding is fast (Shift gallops); T to get off. Everyone in the room sees your pets and you riding.
+var PETS=null;const RIDE_Y=1.02,PET_MAX=4,PET_NAMES=["Biscuit","Comet","Hazel","Pip","Clover","Rusty","Maple","Juniper","Pepper","Willow","Acorn","Nutmeg","Thunder","Daisy","Ginger","Pebble"];
+function petsInit(){if(PETS)return;PETS={list:[],riding:null,net:0,remote:{}};let v=[];try{v=JSON.parse(localStorage.getItem("elementum.pets")||"[]");}catch(e){}
+  (Array.isArray(v)?v:[]).slice(0,PET_MAX).forEach(q=>{if(q&&ANI_KINDS[q.kind])petMake({id:String(q.id||Math.random()),kind:q.kind,name:String(q.name||"Pet").slice(0,16),mode:["follow","stay","sit","home","fight"].includes(q.mode)?q.mode:"home",x:+q.x||0,z:+q.z||0,born:+q.born||0});});}
+function petsSave(){try{localStorage.setItem("elementum.pets",JSON.stringify(PETS.list.filter(p=>!p.temp).map(p=>({id:p.id,kind:p.kind,name:p.name,mode:p.mode==="ride"?"follow":p.mode,x:R2(p.g.position.x),z:R2(p.g.position.z),born:p.born||0}))));}catch(e){}}
+const GROW_S=180,petSize=p=>p.born?Math.min(1,.4+.6*(Date.now()/1000-p.born)/GROW_S):1;
+function aniModel(kind,g,cb){const K=ANI_KINDS[kind];LOOK.loadRig("/play/elementum/models/"+(K.url||"animals/"+kind+".glb"),false,r=>{if(!r||!g.parent)return;const bb=new THREE.Box3().setFromObject(r.root,true),hh=bb.max.y-bb.min.y||1;r.root.scale.setScalar(K.h/hh);g.add(r.root);r.base(K.idle,{snap:true});cb&&cb(r);});}
+function petMake(q){const K=ANI_KINDS[q.kind],g=new THREE.Group();g.position.set(q.x,0,q.z);scene.add(g);const p=Object.assign({K,g,rig:null,base:"idle",t:0},q);aniModel(q.kind,g,r=>{p.rig=r;});
+  const lb=label(q.name,0xffe08a);lb.scale.set(1.4,.28,1);lb.position.y=K.h+.45;g.add(lb);p.label=lb;PETS.list.push(p);return p;}
+const myPetHouse=()=>PLACED.mine.find(q=>q.item&&q.item.id==="doghouse")||null;
+function adoptWild(an,temp){petsInit();if(!temp&&PETS.list.filter(p=>!p.temp).length>=PET_MAX){lawSay(`You have ${PET_MAX} pets already — let one go first.`);return null;}
+  const at=an.g.position.clone();invShow({f:"adopt",a:V3r(at),h:an.herd.i,j:an.j,d:worldDay()});
+  const name=PET_NAMES[Math.floor(Math.random()*PET_NAMES.length)];const p=petMake({id:"p"+Math.random().toString(36).slice(2,9),kind:an.k,name,mode:"follow",x:at.x,z:at.z,temp:!!temp});p.g.rotation.y=an.g.rotation.y;
+  if(!temp){petsSave();lawSay(`🐾 Meet ${name}, your ${an.K.name}! Press T by ${name} to give orders. C calls all your pets.`);}return p;}
+function mount(p){if(PETS.riding||P.inCar||P.down)return;PETS.riding=p;p.mode="ride";P.sitting=null;P.climbing=null;lawSay(`🐴 You climb onto ${p.temp?"the horse":p.name}. Shift to gallop, T to get off.`);}
+function dismount(){const p=PETS.riding;if(!p)return;PETS.riding=null;p.mode=p.temp?"follow":"stay";const s=new THREE.Vector3(Math.cos(P.yaw),0,-Math.sin(P.yaw));P.pos.addScaledVector(s,1.3);P.vel.set(0,0,0);petsSave();lawSay("You get off.");}
+function callPets(){petsInit();const L=PETS.list.filter(p=>p.mode!=="ride");if(!L.length)return;L.forEach(p=>p.mode="follow");petsSave();lawSay(`🐾 ${L.map(p=>p.name).join(", ")} — come!`);}
+function petOrders(p){const n=p.temp?`The ${p.K.name}`:p.name,o=[["👣 Follow me",()=>{p.mode="follow";petsSave();}],["✋ Stay here",()=>{p.mode="stay";petsSave();}],["🪑 Sit",()=>{p.mode="sit";petsSave();}]];
+  if(!p.temp&&myPetHouse())o.push(["🏠 Go to your pet house",()=>{p.mode="home";petsSave();}]);if(p.K.fight)o.splice(1,0,["⚔️ Fight monsters with me",()=>{p.mode="fight";petsSave();lawSay(`⚔️ ${n} will fight any monster that comes near you.`);}]);
+  if(p.K.ride)o.push([petSize(p)<1?`🐴 Ride (when it's grown up — ${Math.round(petSize(p)*100)}%)`:"🐴 Ride",()=>{if(petSize(p)<1){lawSay(`${n} is still too small to carry you. Give it a little time to grow.`);return;}mount(p);}]);
+  const fi=hasFood(p.K);o.push([fi>=0?`${dietOf(p.K)==="meat"?"🍖":"🍎"} Give it something to eat`:`🍽️ Feed (${DIET_TXT[dietOf(p.K)]})`,()=>{const i=hasFood(p.K);if(i<0){lawSay(`${n} eats ${DIET_TXT[dietOf(p.K)]}. You have none.`);return;}const it=INV[i];it.n--;if(!it.n)INV[i]=null;invHud();invShow({f:"love",a:V3r(p.g.position.clone().add(new THREE.Vector3(0,p.K.h,0)))});lawSay(`💗 ${n} gobbles up the ${FOODS[it.id].name.toLowerCase()}.`);}]);
+  o.push(["👋 Let it go",()=>{petFree(p);}],["Cancel",null]);ask(`🐾 ${n}${p.temp?"":" ("+p.K.name+")"} — what should it do?`,o);}
+function petFree(p){if(PETS.riding===p)dismount();scene.remove(p.g);PETS.list.splice(PETS.list.indexOf(p),1);petsSave();lawSay(`👋 ${p.temp?"The "+p.K.name:p.name} runs off into the wilds.`);}
+function petAnim(p,name,o){p.base=name;if(p.rig&&!p.rig.fullName)p.rig.base(animOf(p.K,name),o);}
+function stepPets(dt){petsInit();const day=isDay();PETS.net-=dt;
+  for(let i=PETS.list.length-1;i>=0;i--){const p=PETS.list[i],g=p.g,pos=g.position;if(p.rig&&pos.distanceTo(P.pos)<90)p.rig.update(dt);
+    if(p.temp&&!day&&PETS.riding!==p){scene.remove(g);PETS.list.splice(i,1);lawSay(`🌙 The ${p.K.name} goes back to the wild for the night.`);continue;}
+    {const k=petSize(p);if(p.rig&&p.k0===undefined)p.k0=p.rig.root.scale.x;if(p.rig&&p.k0)p.rig.root.scale.setScalar(p.k0*k);if(p.label)p.label.position.y=p.K.h*k+.45;}
+    if(p.mode==="ride"){if(PETS.riding!==p){p.mode="stay";continue;}pos.set(P.pos.x,0,P.pos.z);g.rotation.y=P.yaw+Math.PI;const sp=P.speed;petAnim(p,sp>7?"run":sp>.5?"walk":"idle",{speed:sp>7?sp/9:Math.max(.6,sp/2.5)});continue;}
+    let to=null,near=2.6,fast=false;
+    if(p.mode==="fight"){p.cool=(p.cool||0)-dt;const foe=ENEMIES.find(d=>!d.down&&!d.asleep&&d.g.position.distanceTo(P.pos)<16&&d.g.position.distanceTo(pos)<30);
+      if(foe){const v=new THREE.Vector3(foe.g.position.x-pos.x,0,foe.g.position.z-pos.z),d=v.length();let a=Math.atan2(v.x,v.z)-g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));g.rotation.y+=a*Math.min(1,dt*8);
+        if(d>1.9){pos.addScaledVector(v.normalize(),Math.min(d-1.8,p.K.run*.9*dt));petAnim(p,"run");}else if(p.cool<=0){p.cool=1.2;if(p.rig){p.rig.full(animOf(p.K,"atk"),{once:true,restart:true,dur:.6,then:()=>p.rig&&p.rig.clearFull()});}
+          setTimeout(()=>{if(!foe.down&&foe.g.position.distanceTo(pos)<3){const at=foe.g.position.clone().add(new THREE.Vector3(0,1.1,0));damage(foe,Math.round(p.K.fight*petSize(p)),at,false,{el:"plain",area:true});sparks(at,5,0xffffff);}},280);}continue;}}
+    if(p.mode==="follow"||p.mode==="fight"){const back=new THREE.Vector3(Math.sin(P.yaw),0,Math.cos(P.yaw));to=P.pos.clone().addScaledVector(back,1.6+i*1.1);fast=true;}
+    else if(p.mode==="home"){const h=myPetHouse();if(h){to=new THREE.Vector3(h.x+Math.sin(h.r||0)*1.6,0,h.z+Math.cos(h.r||0)*1.6);near=.6;}else p.mode="stay";}
+    if(to){const v=new THREE.Vector3(to.x-pos.x,0,to.z-pos.z),d=v.length();if(d>70){pos.set(to.x,0,to.z);continue;}
+      if(d>near){v.normalize();const sp=fast&&d>8?p.K.run*.9:p.K.walk*(fast?2.2:1.6),np=pos.clone().addScaledVector(v,Math.min(d,sp*dt));if(!isWater(np.x,np.z,false)||isWater(pos.x,pos.z,false))pos.copy(np);
+        let a=Math.atan2(v.x,v.z)-g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));g.rotation.y+=a*Math.min(1,dt*7);petAnim(p,sp>p.K.walk*3?"run":"walk");continue;}}
+    p.t-=dt;if(p.t<=0){p.t=rnd(3,7);petAnim(p,p.mode==="sit"?"low":Math.random()<.5?"eat":"idle");}}
+  // tell the room where my pets are
+  if(PETS.net<=0&&MP.ok&&PETS.list.length&&Object.keys(MP.others).length){PETS.net=.3;share({k:"inv",f:"pets",a:V3r(P.pos),u:MP.id,l:PETS.list.map(p=>[p.id,p.kind,R2(p.g.position.x),R2(p.g.position.z),Math.round(p.g.rotation.y*100)/100,p.base,p.temp?"":p.name,Math.round(petSize(p)*100)/100])});}
+  // other players' pets: follow what they say; gone after 6 s of silence
+  const now=performance.now();for(const u in PETS.remote){const R=PETS.remote[u];for(const id in R){const q=R[id];if(now-q.seen>6000){scene.remove(q.g);delete R[id];continue;}
+    const g=q.g,dx=q.x-g.position.x,dz=q.z-g.position.z;if(Math.hypot(dx,dz)>12){g.position.x=q.x;g.position.z=q.z;}else{const k=Math.min(1,dt*8);g.position.x+=dx*k;g.position.z+=dz*k;}
+    let a=q.ry-g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));g.rotation.y+=a*Math.min(1,dt*8);if(q.rig&&g.position.distanceTo(P.pos)<90){if(q.rb!==q.b){q.rb=q.b;q.rig.base(animOf(q.K,q.b));}q.rig.update(dt);}}}}
+function petsEv(ev,mine){if(mine||!Array.isArray(ev.l)||!ev.u)return;petsInit();const R=PETS.remote[ev.u]||(PETS.remote[ev.u]={}),seen=new Set(),now=performance.now();
+  ev.l.slice(0,PET_MAX+1).forEach(a=>{if(!Array.isArray(a)||!ANI_KINDS[a[1]])return;const id=String(a[0]);seen.add(id);let q=R[id];
+    if(!q||q.kind!==a[1]){if(q)scene.remove(q.g);const g=new THREE.Group();g.position.set(+a[2]||0,0,+a[3]||0);scene.add(g);q=R[id]={kind:a[1],K:ANI_KINDS[a[1]],g,rig:null};aniModel(a[1],g,r=>{q.rig=r;});
+      if(a[6]){const lb=label(String(a[6]).slice(0,16),0xffe08a);lb.scale.set(1.4,.28,1);lb.position.y=q.K.h+.45;g.add(lb);}}
+    Object.assign(q,{x:+a[2]||0,z:+a[3]||0,ry:+a[4]||0,b:String(a[5]||"idle"),seen:now,sz:Math.max(.3,Math.min(1,+a[7]||1))});if(q.rig){if(q.k0===undefined)q.k0=q.rig.root.scale.x;q.rig.root.scale.setScalar(q.k0*q.sz);}});
+  for(const id in R)if(!seen.has(id)){scene.remove(R[id].g);delete R[id];}}
+// T by your pet (or on the horse)
+const PET_ACT={pos:new THREE.Vector3(),p:null};
+ACTS.push({pos:PET_ACT.pos,r:2.6,hidden:()=>!PET_ACT.p||P.inCar||P.down,label:()=>PETS&&PETS.riding?"🐴 Get off":`🐾 ${PET_ACT.p.temp?"The "+PET_ACT.p.K.name:PET_ACT.p.name} — orders`,run:()=>{if(PETS.riding){dismount();return;}if(PET_ACT.p)petOrders(PET_ACT.p);}});
+setInterval(()=>{if(!started||!PETS)return;if(PETS.riding){PET_ACT.p=PETS.riding;PET_ACT.pos.copy(P.pos);return;}let best=null,bd=2.6;for(const p of PETS.list){const d=Math.hypot(p.g.position.x-P.pos.x,p.g.position.z-P.pos.z);if(d<bd){bd=d;best=p;}}PET_ACT.p=best;if(best)PET_ACT.pos.set(best.g.position.x,0,best.g.position.z);},250);
+// eggs to steal (2026-11-26, Barbara: "steal an egg in the forest and the mines for those types of animals"): nests in Silva Obscura hold forest
+// eggs, nests deep in the mine hold cave eggs. Take one (at night the monsters nearby hear you); a nest has a new egg the next day (shared with the
+// room). Hold the egg by your pet house and click: it hatches a minute later into a baby forest dino or cave frog — your pet. It grows up in three
+// minutes, then you can ride it; it can fight monsters with you.
+const EGGS={forest:{name:"Forest egg",baby:"baby forest dino",kind:"dino",col:0x9ad06a,spot:0x3f6a2a},cave:{name:"Cave egg",baby:"baby cave frog",kind:"frog",col:0x8aa0b8,spot:0x3a4a6a}};
+var NESTS=null,HATCH=null;
+function nestsInit(){if(NESTS)return;NESTS=[];const c=(col,row)=>[CAVE.x0+col*CAVE.cell+3,CAVE.z0+row*CAVE.cell+3];
+  [["forest",FOREST.x-16,FOREST.z+12],["forest",FOREST.x+18,FOREST.z+22],["forest",FOREST.x-6,FOREST.z-24],["cave",...c(6,1)],["cave",...c(8,5)]].forEach(([k,x,z],i)=>{
+    const E=EGGS[k],g=new THREE.Group();g.position.set(x,0,z);const twig=LOOK.toon(0x6b4a2c);const n=new THREE.Mesh(new THREE.TorusGeometry(.42,.14,6,14),twig);n.rotation.x=Math.PI/2;n.position.y=.12;g.add(n);
+    const egg=new THREE.Group();const e=LOOK.M(new THREE.SphereGeometry(.22,12,10),LOOK.toon(E.col),.015);e.scale.y=1.3;egg.add(e);for(let s=0;s<6;s++){const d=new THREE.Mesh(new THREE.SphereGeometry(.05,6,4),LOOK.toon(E.spot));const a=s*1.1;d.position.set(Math.cos(a)*.2,(s%3-1)*.12,Math.sin(a)*.2);egg.add(d);}
+    egg.position.y=.32;g.add(egg);scene.add(g);NESTS.push({i,k,g,egg,pos:new THREE.Vector3(x,0,z),day:-1});});}
+function nestKey(i,val){nestsInit();const n=NESTS[i];if(n)n.day=val&&val.d!==undefined?+val.d:-1;}
+const NEST_ACT={pos:new THREE.Vector3(),n:null};
+ACTS.push({pos:NEST_ACT.pos,r:1.6,hidden:()=>!NEST_ACT.n||P.inCar||P.down,label:()=>`🥚 Steal the ${EGGS[NEST_ACT.n.k].name.toLowerCase()}`,run:()=>{const n=NEST_ACT.n;if(!n||n.day===worldDay())return;
+  if(!addItem({t:"egg",id:n.k,n:1})){lawSay("Your bag is full.");return;}n.day=worldDay();setKey("nest:"+n.i,{d:n.day});
+  const foes=ENEMIES.filter(d=>!d.down&&!d.asleep&&d.g.position.distanceTo(P.pos)<30);foes.forEach(d=>{d.alert=8;});
+  lawSay(foes.length?`🥚 You grab the egg — the ${foes[0].name}s heard you! Run!`:`🥚 You took the ${EGGS[n.k].name.toLowerCase()}. Take it to your pet house to hatch it.`);}});
+setInterval(()=>{if(!started)return;nestsInit();let best=null,bd=1.6;for(const n of NESTS){n.egg.visible=n.day!==worldDay();if(!n.egg.visible)continue;const d=Math.hypot(n.pos.x-P.pos.x,n.pos.z-P.pos.z);if(d<bd&&Math.abs(P.pos.y-n.pos.y)<2){bd=d;best=n;}}NEST_ACT.n=best;if(best)NEST_ACT.pos.copy(best.pos);
+  stepHatch();},300);
+// hatching at your pet house
+function hatchLoad(){if(HATCH)return;try{HATCH=JSON.parse(localStorage.getItem("elementum.hatch")||"[]");}catch(e){HATCH=[];}if(!Array.isArray(HATCH))HATCH=[];HATCH.forEach(h=>h.g=null);}
+const hatchSave=()=>{try{localStorage.setItem("elementum.hatch",JSON.stringify(HATCH.map(h=>({k:h.k,at:h.at}))));}catch(e){}};
+function hatchEgg(i){const it=INV[i],h=myPetHouse();if(!it)return;if(!h||Math.hypot(h.x-P.pos.x,h.z-P.pos.z)>5){lawSay(`🥚 Take the egg to your pet house${h?"":" — build one at the workbench and set it down first"}, then click to put it inside.`);return;}
+  petsInit();hatchLoad();if(PETS.list.filter(p=>!p.temp).length+HATCH.length>=PET_MAX){lawSay(`You have ${PET_MAX} pets already — let one go first.`);return;}
+  INV[i]=null;select(SEL);invHud();HATCH.push({k:it.id,at:Date.now()+60000,g:null});hatchSave();lawSay("🥚 You tuck the egg into the pet house. It will hatch in about a minute…");}
+function stepHatch(){hatchLoad();const h=myPetHouse();for(let i=HATCH.length-1;i>=0;i--){const e=HATCH[i],E=EGGS[e.k]||EGGS.forest;
+  if(!e.g&&h){const g=new THREE.Group();const m=LOOK.M(new THREE.SphereGeometry(.22,12,10),LOOK.toon(E.col),.015);m.scale.y=1.3;g.add(m);g.position.set(h.x+Math.sin(h.r||0)*1.2,.3,h.z+Math.cos(h.r||0)*1.2);scene.add(g);e.g=g;}
+  if(e.g)e.g.rotation.z=Math.sin(performance.now()/120)*(e.at-Date.now()<15000?.25:.05);
+  if(Date.now()>=e.at&&h){const at=e.g?e.g.position.clone():new THREE.Vector3(h.x,0,h.z);if(e.g)scene.remove(e.g);HATCH.splice(i,1);hatchSave();petsInit();
+    const name=PET_NAMES[Math.floor(Math.random()*PET_NAMES.length)],p=petMake({id:"p"+Math.random().toString(36).slice(2,9),kind:E.kind,name,mode:"home",x:at.x,z:at.z,born:Math.floor(Date.now()/1000)});petsSave();
+    for(let k=0;k<16;k++)SPARK.emit(at.clone().add(new THREE.Vector3(0,.3,0)),rnd3(1.5),C(E.col),.7,{grav:5});invShow({f:"love",a:V3r(at.clone().add(new THREE.Vector3(0,.8,0)))});
+    lawSay(`🐣 Crack! Your egg hatched — a ${E.baby}! Meet ${name}. It grows up in about 3 minutes; press T by it for orders.`);}}}
 // ---------------- the year: four seasons, 365 days, holidays (2026-11-26, Barbara: "four seasons to pass, 365 days in a year, and winter landscape and stuff,
 // with songs like that theme; also there are holidays"). Every game day (8 minutes) is one day of the calendar, the same for everyone (it comes from
 // the shared clock), so a year is 365 game days. Winter (Dec–Feb): snow on the ground and the trees, snowflakes falling, icy water, no berries.
@@ -2903,7 +3010,7 @@ function stepPet(q,dt){const o=q.remote?MP.others[q.val&&q.val.u]:null,to=q.remo
   q.hop=moving?q.hop+dt*11:0;q.g.position.set(q.x,(q.y||0)+Math.abs(Math.sin(q.hop))*.22,q.z);q.g.rotation.y=q.r;q.g.rotation.z=moving?Math.sin(q.hop)*.08:0;
   if(!q.remote){q.sv=(q.sv||0)+(moving?dt:0);if(q.sv>6){q.sv=0;placedSave();placedShare(q);}}}
 // what's set down works by itself
-function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);P.portT=Math.max(0,(P.portT||0)-dt);
+function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);stepPets(dt);P.portT=Math.max(0,(P.portT||0)-dt);
   if(P.flyT>0){P.flyT-=dt;P.softLand=1;P.vel.y+=GRAV*dt+((P.flyT>2.5?2.6:-.6)-P.vel.y)*Math.min(1,dt*5);if(Math.random()<dt*20)PUFF.emit(P.pos.clone(),rnd3(1),C(0xdff1ff).multiplyScalar(.4),.5,{drag:2});if(P.down||P.inCar||P.climbing)P.flyT=0;}
   const lit=[];let all=null;
   for(const q of placedAll()){if(!q)continue;const f=fnOf(q.item);if(!f)continue;const dx=q.x-P.pos.x,dz=q.z-P.pos.z,d=Math.hypot(dx,dz);if(d>45&&f!=="zap"&&f!=="magnet"&&f!=="pet")continue;const bb=qBox(q),top=bb.max.y,mid=new THREE.Vector3(q.x,(bb.min.y+top)/2,q.z),dy=P.pos.y-(q.y||0);
@@ -2931,5 +3038,5 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);P
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS,season:()=>SEASON?SEASON.name:"summer",holiday:()=>SEASON&&SEASON.hol?SEASON.hol.id:""};   // what the music (music.js) listens to
-window.__el={SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

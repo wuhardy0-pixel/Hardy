@@ -22,7 +22,7 @@ const ITEMS={
   bed:{name:"bed",level:"medium",icon:"🛏️",wiki:"Bed",needs:[{k:"surface",what:"bed",hMin:25,hMax:65,w:180,d:85},{k:"soft"},{k:"holds",kg:160},{k:"stands"},{k:"onePiece"}],ask:"I've been sleeping on the floor. I need a bed — with something soft to lie on."},
   shelf:{name:"bookshelf",level:"medium",icon:"📚",wiki:"Bookcase",needs:[{k:"shelves",n:3,w:50},{k:"stands"},{k:"onePiece"}],ask:"My books are all over the floor! I need a bookshelf with at least three shelves."},
   ladder:{name:"ladder",level:"medium",icon:"🪜",wiki:"Ladder",needs:[{k:"ladder",h:180,rungs:5},{k:"onePiece"}],ask:"I need a ladder to pick the apples at the top of my tree."},
-  doghouse:{name:"doghouse",level:"medium",icon:"🐕",wiki:"Doghouse",needs:[{k:"room",area:3000,head:50,door:{w:30,h:40},roof:true},{k:"stands"},{k:"onePiece"}],ask:"My dog sleeps out in the rain. I need a doghouse with a door and a roof."},
+  doghouse:{name:"pet house",level:"medium",icon:"🐾",wiki:"Doghouse",needs:[{k:"room",area:3000,head:50,door:{w:30,h:40},roof:true},{k:"stands"},{k:"onePiece"}],ask:"My pets sleep out in the rain. I need a pet house with a door and a roof."},
   wheelbarrow:{name:"wheelbarrow",level:"medium",icon:"🛞",wiki:"Wheelbarrow",needs:[{k:"wheels",n:1},{k:"basin",min:40},{k:"handle",any:true},{k:"onePiece"}],ask:"I need a wheelbarrow to carry stones to the building site."},
   house:{name:"house",level:"hard",icon:"🏠",wiki:"House",needs:[{k:"room",area:40000,head:200,door:{w:70,h:180},roof:true},{k:"stands"},{k:"onePiece"}],ask:"Our family needs a house: room inside to stand up, a door to get in and a roof against the rain."},
   car:{name:"car",level:"hard",icon:"🚗",wiki:"Car",needs:[{k:"wheels",n:4,span:150},{k:"clear",min:10},{k:"carBody",len:250,wid:120},{k:"light",kg:2500},{k:"onePiece"}],ask:"I need a car to bring vegetables to the market — the cart is too slow."},
@@ -89,14 +89,15 @@ const GOOD=[[/^(medicine|pills?|antidote|bandages?|vitamins?|cure|tablets?)$/,{h
   [/^(coffee|tea|soda|cola|coke|lemonade|juice|milk|milkshake|smoothie)$/,{hp:8,speed:12,say:"That gives you a little energy."},"take"],[/^(armor|armour|helmet|shield|vest)$/,{tough:30,say:"It protects you: things hurt you less."},"take"],
   [/^(shoes?|boots?|sneakers|sandals|skates?)$/,{speed:25,say:"Your feet feel fast!"},"take"],[/^(campfire|fire|fireplace|bonfire|heater|oven|stove)$/,{hp:10,say:"It's warm and cosy here."},"aura"]];
 const WORDS={cup:"cup mug glass teacup",bowl:"bowl pot pan",plate:"plate dish tray",vase:"vase flowerpot",bucket:"bucket pail basket",door:"door",stool:"stool",chair:"chair armchair throne seat",table:"table desk",bench:"bench sofa couch",bed:"bed cot hammock crib",shelf:"shelf bookshelf bookcase cupboard closet",
-  ladder:"ladder",doghouse:"doghouse kennel birdhouse",wheelbarrow:"wheelbarrow barrow",house:"house home hut castle tent cottage cabin mansion",car:"car truck bus train tank van jeep taxi ferrari",cart:"cart wagon",boat:"boat ship raft canoe yacht submarine",chest:"chest safe trunk",book:"book notebook diary",
+  ladder:"ladder",doghouse:"doghouse kennel birdhouse pethouse stable hutch coop",wheelbarrow:"wheelbarrow barrow",house:"house home hut castle tent cottage cabin mansion",car:"car truck bus train tank van jeep taxi ferrari",cart:"cart wagon",boat:"boat ship raft canoe yacht submarine",chest:"chest safe trunk",book:"book notebook diary",
   lamp:"lamp lantern torch candle light lighthouse",magnet:"magnet vacuum",stairs:"stairs staircase steps slide",healstone:"crystal gem diamond heart",computer:"computer laptop tv television phone tablet ipad robot",gate:"gate portal arch teleporter",horn:"horn trumpet",bounce:"trampoline spring ball",zap:"tower antenna cannon turret",
   freeze:"snowman ice freezer fridge",speed:"fan windmill",fly:"plane airplane rocket jetpack helicopter balloon kite wings spaceship ufo",wand:"wand staff gun pistol rifle blaster",music:"drum guitar piano bell violin flute radio speaker",firework:"firework fireworks",maker:"machine engine factory",bubbles:"bubbles bubble cloud fish octopus",
   water:"fountain well tap pool sink",sword:"sword axe hammer club knife spear dagger pickaxe",shovel:"shovel spade trowel",food:"food cake pizza apple banana bread burger cookie candy sandwich fruit icecream donut pie cheese egg",fuel:"jerrycan gasoline petrol fuel diesel canister gascan",pet:"dog cat dragon dinosaur bird bear rabbit bunny horse cow pig monster doll person man girl boy animal pet unicorn snake turtle lion tiger penguin"};
 const HOLDS=["cup","bowl","plate","vase","bucket","chest","doghouse","house","book"];   // anything that could be full of it
 function nameOffline(nm,R){const W=String(nm).toLowerCase().replace(/[^a-z\s]/g," ").split(/\s+/).filter(Boolean);let N=null;
   // a gas holder is a gas can, not stinky gas (Barbara, 2026-11-25: "if the name is gas holder it should be that")
-  if(W.some(w=>/^(gasoline|petrol|fuel|diesel|jerrycans?|gascans?)$/.test(w))||(W.includes("gas")&&W.some(w=>/^(holders?|cans?|tanks?|containers?|jugs?|bottles?|canisters?|jars?|boxe?s?|barrels?|drums?|buckets?|cups?|carriers?|keepers?)$/.test(w))))N={as:"fuel",looks:"gas can"};
+  if(/\b(pet|dog|animal|horse|cat)\s*(house|home|hut)\b/.test(W.join(" ")))N={as:"doghouse",looks:"pet house"};
+  else if(W.some(w=>/^(gasoline|petrol|fuel|diesel|jerrycans?|gascans?)$/.test(w))||(W.includes("gas")&&W.some(w=>/^(holders?|cans?|tanks?|containers?|jugs?|bottles?|canisters?|jars?|boxe?s?|barrels?|drums?|buckets?|cups?|carriers?|keepers?)$/.test(w))))N={as:"fuel",looks:"gas can"};
   for(const w of W){if(N)break;const h=HARM.find(h=>h[0].test(w));if(h){N={as:h[2],ef:h[1],looks:w};break;}}
   for(let i=W.length-1;i>=0&&!N;i--){const w=W[i],g=GOOD.find(g=>g[0].test(w));if(g){N={as:g[2],ef:g[1],looks:w};break;}const one=w.replace(/s$/,""),k=Object.keys(WORDS).find(k=>{const l=WORDS[k].split(" ");return l.includes(w)||l.includes(one);});if(k)N={as:k,looks:w};}
   if(!N)return null;const t=R[0],other=t&&t.s>=70&&t.as!==N.as&&!(HOLDS.includes(t.as)&&!ITEMS[N.as]);N.fits=other?20:60;return N;}
@@ -164,9 +165,9 @@ const IDEA_TEXT={
   "Wooden ladder":"Two long side rails with round rungs between them, one step apart.",
   "Tall ladder":"A longer ladder with more rungs, for reaching high roofs and trees.",
   "Metal ladder":"Thin metal rails and flat metal steps — light to carry but strong.",
-  "Classic doghouse":"A hollow box with a door hole in the front and a pointed roof that sheds rain.",
-  "Flat-roof doghouse":"A hollow box with a closed top (a flat roof) and a door hole.",
-  "Big dog's house":"A bigger doghouse with a tall door and a pointed roof, for a big dog.",
+  "Classic pet house":"A hollow box with a door hole in the front and a pointed roof that sheds rain.",
+  "Flat-roof pet house":"A hollow box with a closed top (a flat roof) and a door hole.",
+  "Big pet house":"A bigger pet house with a tall door and a pointed roof, for a big animal like a horse.",
   "Garden barrow":"An open metal tray on one wheel at the front, two long handles and two legs at the back.",
   "Wooden barrow":"The same idea in wood, with a bigger wheel for bumpy ground.",
   "Cottage":"Stone walls around one room, a pointed (gable) roof that sheds rain, a door in the middle and a window on each side.",
@@ -251,9 +252,9 @@ const DESIGNS=(()=>{let k=0;const id=()=>"d"+(k++).toString(36);
   ladder:[{name:"Wooden ladder",parts:()=>[box(5,200,5,-20,100,0,"wood","#a8743f","rail"),box(5,200,5,20,100,0,"wood","#a8743f","rail"),...[30,60,90,120,150,180].map(y=>cyl(1.5,40,0,y,0,"wood","#a8743f","rung",90))]},
           {name:"Tall ladder",parts:()=>[box(6,300,6,-22,150,0,"wood","#8a5a32","rail"),box(6,300,6,22,150,0,"wood","#8a5a32","rail"),...[30,60,90,120,150,180,210,240,270].map(y=>cyl(1.8,44,0,y,0,"wood","#8a5a32","rung",90))]},
           {name:"Metal ladder",parts:()=>[box(3,220,6,-20,110,0,"metal","#9aa3ad","rail"),box(3,220,6,20,110,0,"metal","#9aa3ad","rail"),...[28,56,84,112,140,168,196].map(y=>box(40,2,5,0,y,0,"metal","#9aa3ad","rung"))]}],
-  doghouse:[{name:"Classic doghouse",parts:()=>[shell(80,70,100,3,1,0,35,0,"wood","#c8603a","house"),box(36,48,8,0,24,-50,"door","#3a2a1a","door"),wedge(90,35,110,0,87.5,0,"wood","#5a3a22","roof")]},
-            {name:"Flat-roof doghouse",parts:()=>[shell(90,75,90,3,1,0,37.5,0,"wood","#3f6fa8","house"),box(36,50,8,0,25,-45,"door","#2a2a2a","door")]},
-            {name:"Big dog's house",parts:()=>[shell(110,90,130,4,1,0,45,0,"wood","#d8c8a8","house"),box(45,60,10,0,30,-65,"door","#5a3a22","door"),wedge(125,45,140,0,112.5,0,"wood","#b5392b","roof")]}],
+  doghouse:[{name:"Classic pet house",parts:()=>[shell(80,70,100,3,1,0,35,0,"wood","#c8603a","house"),box(36,48,8,0,24,-50,"door","#3a2a1a","door"),wedge(90,35,110,0,87.5,0,"wood","#5a3a22","roof")]},
+            {name:"Flat-roof pet house",parts:()=>[shell(90,75,90,3,1,0,37.5,0,"wood","#3f6fa8","house"),box(36,50,8,0,25,-45,"door","#2a2a2a","door")]},
+            {name:"Big pet house",parts:()=>[shell(110,90,130,4,1,0,45,0,"wood","#d8c8a8","house"),box(45,60,10,0,30,-65,"door","#5a3a22","door"),wedge(125,45,140,0,112.5,0,"wood","#b5392b","roof")]}],
   wheelbarrow:[{name:"Garden barrow",parts:()=>[shell(60,30,80,1.5,0,0,45,0,"metal","#2f8a4f","tray"),cyl(20,8,0,20,45,"rubber","#222","wheel",90),box(4,4,70,-25,50,-70,"wood","#8a5a32","handle"),box(4,4,70,25,50,-70,"wood","#8a5a32","handle"),box(4,30,4,-25,15,-30,"metal","#333","leg"),box(4,30,4,25,15,-30,"metal","#333","leg")]},
                {name:"Wooden barrow",parts:()=>[shell(70,35,90,2,0,0,47.5,0,"wood","#a8743f","tray"),cyl(22,10,0,22,50,"wood","#5a3a22","wheel",90),box(5,5,80,-28,55,-80,"wood","#7a4a28","handle"),box(5,5,80,28,55,-80,"wood","#7a4a28","handle"),box(5,30,5,-28,15,-35,"wood","#7a4a28","leg"),box(5,30,5,28,15,-35,"wood","#7a4a28","leg")]}],
   house:[{name:"Cottage",parts:()=>[shell(500,260,400,20,1,0,130,0,"stone","#e8dcc0","walls"),box(95,215,30,0,107.5,-200,"door","#7a4a28","door"),box(80,80,30,-160,150,-200,"window","#a9d8ff","window"),box(80,80,30,160,150,-200,"window","#a9d8ff","window"),wedge(560,170,440,0,345,0,"wood","#b5482f","roof")]},
