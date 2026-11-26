@@ -2991,7 +2991,7 @@ function stepFun(dt){if(!SEASON)return;funInit();const F=FUN,sn=snowAmt(),w=SEAS
   for(const fp of F.prints){if(!fp.m.visible)continue;fp.t-=dt;fp.m.material.opacity=Math.max(0,Math.min(.55,fp.t/15*.55))*(sn>.3?1:0);if(fp.t<=0||sn<=.3)fp.m.visible=false;}
   const B=F.ball,near=Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<90;F.leaves.forEach(m=>m.visible=mode==="leaves");B.m.visible=mode!=="snow";
   for(const k of F.kids)k.o.g.visible=mode!=="home";
-  F.snowmen.forEach(s=>s.g.visible=sn>.3);
+  F.snowmen.forEach(s=>s.g.visible=sn>.3);if(F.kidMen&&mode!=="snow")F.kidMen.forEach(g=>g.visible=false);
   if(!near){stepCeleb(dt);return;}
   const swing=(i,on)=>{F.swings[i].rotation.z=on?Math.sin(t*2.2+i)*.6:F.swings[i].rotation.z*.95;};F.saw.rotation.z=mode==="play"?Math.sin(t*1.3)*.25:0;
   if(mode==="play"){swing(0,1);swing(1,1);stepSoccer(dt,t);
