@@ -1012,7 +1012,7 @@ function storyRoom(bd){const x0=bd.x-bd.w/2+WT,x1=bd.x+bd.w/2-WT,zF=bd.z-bd.d/2+
     for(let s=0;s<4;s++)for(let b=0;b<13;b++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.14,.44,.3),LOOK.toon([cols[i],0xe8dcc4,cols[i],0x6b4423,cols[(i+3)%8]][(b+s)%5]));bk.position.set(-1.04+b*.17,.45+s*.56,.12);g.add(bk);}
     const sg=signBoard(k,0xffe08a);sg.scale.setScalar(.7);sg.position.set(0,2.75,.27);g.add(sg);
     up(xx+(left?.0:0),Y,zz,.5,2.5,2.4,0x5a3a22).material.visible=false;
-    ACTS.push({pos:new THREE.Vector3(xx+(left?1.1:-1.1),Y,zz),r:1.5,label:`📚 ${k} — pick a story`,run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:k})))});});
+    ACTS.push({pos:new THREE.Vector3(xx+(left?1.1:-1.1),Y,zz),r:1.5,label:"📖 Your next book",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"next"})))});});
   const rug=add(new THREE.Mesh(new THREE.PlaneGeometry(6,8),new THREE.MeshLambertMaterial({color:0x8a2f2f})),bd.x,Y+.06,bd.z-1);rug.rotation.x=-Math.PI/2;
   const rug2=add(new THREE.Mesh(new THREE.PlaneGeometry(5.4,7.4),new THREE.MeshLambertMaterial({color:0xc9a25a})),bd.x,Y+.07,bd.z-1);rug2.rotation.x=-Math.PI/2;
   [[-1.8,-3.2,0],[1.8,-3.2,0],[-2,1.6,Math.PI],[2,1.6,Math.PI]].forEach(([dx,dz,r])=>{const g=new THREE.Group();g.position.set(bd.x+dx,Y,bd.z+dz);g.rotation.y=r;scene.add(g);bd.parts.push(g);const red=LOOK.toon(0x3f6a8a);
@@ -1021,8 +1021,8 @@ function storyRoom(bd){const x0=bd.x-bd.w/2+WT,x1=bd.x+bd.w/2-WT,zF=bd.z-bd.d/2+
   [[-2.8,-4.6],[2.8,-4.6]].forEach(([dx,dz])=>{const p=add(new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.6,6),LOOK.toon(0x333338)),bd.x+dx,Y+.8,bd.z+dz);const sh=add(new THREE.Mesh(new THREE.ConeGeometry(.35,.35,10,1,true),new THREE.MeshBasicMaterial({color:0xffe6a8,side:THREE.DoubleSide})),bd.x+dx,Y+1.7,bd.z+dz);});
   const lec=up(bd.x,Y,bd.z-1,.8,1.1,.6,0x6b4423);const book=add(new THREE.Mesh(new THREE.BoxGeometry(.7,.06,.5),LOOK.toon(0xe8dcc4)),bd.x,Y+1.13,bd.z-1);book.rotation.x=-.25;
   {const s=signBoard("Fabulae — the story room",0xffe08a);s.scale.setScalar(.75);add(s,bd.x,Y+2.6,zF+.05);}
-  ACTS.push({pos:new THREE.Vector3(bd.x,Y,bd.z-2),r:1.4,label:"📖 Every story — all kinds",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"all"})))});
-  ACTS.push({pos:new THREE.Vector3(bd.x,Y,bd.z),r:1.4,label:"📖 Every story — all kinds",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"all"})))});}
+  ACTS.push({pos:new THREE.Vector3(bd.x,Y,bd.z-2),r:1.4,label:"📖 Your next book",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"next"})))});
+  ACTS.push({pos:new THREE.Vector3(bd.x,Y,bd.z),r:1.4,label:"📖 Your next book",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"next"})))});}
 // the school: a blackboard, rows of desks, Magistra Cornelia at the front; sit at a desk to listen
 function schoolInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2;
   const bb=new THREE.Mesh(new THREE.BoxGeometry(6,2,.1),new THREE.MeshLambertMaterial({color:0x2a4a3a}));bb.position.set(bd.x,1.8,zb+f*.4);scene.add(bb);bd.parts.push(bb);

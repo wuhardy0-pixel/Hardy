@@ -118,7 +118,7 @@ const SHELVES={"Science":["Why is the sky blue?","How do magnets work?","What ma
   "Heat & cold":["How does insulation work?","Why are dark things hotter in the sun?","How did people keep food cold long ago?","What is temperature?"],"Designs":["How does a truss bridge work?","How does a beam bridge work?","How does an arch bridge work?","How does a suspension bridge work?","What is a cantilever bridge?","Why are A-frames so stable?","How does a roof truss work?","What are guy ropes and why do they hold things up?","What is companion planting?","How does a French drain work?","How do rain gardens work?","How does a straw-bale house stay warm?","How does a passive solar house work?"],
   "Inventions":["How does a lever work?","How does a pulley work?","Who invented the printing press?","How do clocks work?"]};
 function forYou(){const q=[];SC.list.forEach(sc=>{const s=S(sc.id);if(s.facts.length&&!s.solved)q.push(...sc.books);});return [...new Set(q)].slice(0,8);}
-function openLibrary(o){hooks=o||{};cur=null;mode="library";show();reading=false;if(hooks.stories)libStories(true,hooks.stories);else if(hooks.shelf)libShelf(hooks.shelf,true);else if(hooks.computer)libComputer(true);else libHome();}
+function openLibrary(o){hooks=o||{};cur=null;mode="library";show();reading=false;if(hooks.stories)nextBook(true);else if(hooks.shelf)libShelf(hooks.shelf,true);else if(hooks.computer)libComputer(true);else libHome();}
 function libHome(msg){const fy=forYou();let h=head("Bibliotheca — the library")+`<div class="dbody">${msg?`<p class="bad">${esc(msg)}</p>`:""}
   ${fy.length?`<h3>About your projects</h3><div class="shelf">${fy.map(q=>`<button data-libq="${esc(q)}">${esc(q)}</button>`).join("")}</div>`:""}
   <h3>Shelves</h3><div class="shelf">${Object.keys(SHELVES).map(k=>`<button data-shelf="${esc(k)}">${esc(k)}</button>`).join("")}<button data-computer="1">The computer</button></div>
@@ -149,6 +149,24 @@ function libStories(direct,only){try{speechSynthesis.cancel();}catch(e){}if(only
   $("#designBody").innerHTML=h;wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();
   document.querySelectorAll("[data-sf]").forEach(b=>b.onclick=()=>libStories(direct,b.dataset.sf));document.querySelectorAll("[data-story]").forEach(b=>b.onclick=()=>storyPage(b.dataset.story,direct,only));
   if($("#aiStory"))$("#aiStory").onclick=()=>aiStory(direct,only);}
+// no picking (Barbara, 2026-11-26: "there should be no picking books"): the library hands you your book. If you're in the middle of one you
+// go back to it; otherwise it chooses the next one for you — the kinds you read most and liked, ones you haven't read, shorter ones first while
+// you're new, longer ones once you've finished a few. "Something else" swaps it for another choice; ✨ asks the AI for a brand-new one.
+let skipped=[];
+function chooseNext(){const L=STORY(),fav=favKinds(),done=LIB.stories.length;const open=L.filter(s=>LIB.at[s.id]>0&&LIB.at[s.id]<pagesOf(s).length-1&&!LIB.stories.includes(s.id));if(open.length&&!skipped.includes(open[open.length-1].id))return {s:open[open.length-1],cont:true};
+  const want=Math.min(40,3+done*3),un=L.filter(s=>!LIB.stories.includes(s.id)&&!skipped.includes(s.id)&&!(LIB.rate[s.id]<=1)),pool=un.length?un:L.filter(s=>!skipped.includes(s.id));
+  const score=s=>(fav.includes(s.genre)?(3-fav.indexOf(s.genre))*10:0)-Math.abs(pagesOf(s).length-want)+(s.ai?6:0)+((s.id.charCodeAt(0)+done*7)%5);
+  const best=pool.slice().sort((a,b)=>score(b)-score(a))[0]||L[0];return {s:best,cont:false};}
+function nextBook(direct){try{speechSynthesis.cancel();}catch(e){}const {s,cont}=chooseNext();if(!s)return;const n=pagesOf(s).length,at=LIB.at[s.id]||0,fav=favKinds();
+  const peek=s.paras.filter(p=>!/^Chapter \d+/.test(p)).slice(0,2).join(" ").split(/\s+/).slice(0,45).join(" ")+"…";
+  $("#designBody").innerHTML=head("📖 Your next book",direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><div class="nextbook">
+    <p class="tip">${cont?"You're in the middle of this one:":fav.length?`Chosen for you — you like ${fav.map(esc).join(" and ")}.`:"Chosen for you."}</p>
+    <h2>${s.ai?"✨ ":""}${esc(s.t)}</h2><p class="tip">${esc(s.genre)} · ${n} pages${cont?` · you're on page ${at+1}`:""}</p><p class="peek">${esc(peek)}</p>
+    <p><button id="nbRead" class="go big">${cont?`📖 Keep reading (page ${at+1})`:"📖 Start reading"}</button></p>
+    <p><button id="nbOther">🔀 Something else</button> <button id="aiStory">✨ Write me a brand-new story</button></p><p class="bad" id="aiMsg"></p>
+    ${LIB.stories.length?`<p class="tip">You've finished ${LIB.stories.length} ${LIB.stories.length===1?"book":"books"}.</p>`:""}</div></div>`;
+  wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();$("#nbRead").onclick=()=>{skipped=[];storyPage(s.id,direct,"",cont?at:0);};
+  $("#nbOther").onclick=()=>{skipped.push(s.id);if(skipped.length>=STORY().length-1)skipped=[];nextBook(direct);};$("#aiStory").onclick=()=>aiStory(direct,"");}
 function favKinds(){const sc={};KINDS.forEach(k=>sc[k]=(LIB.time[k]||0));for(const id in LIB.rate){const s=STORY().find(x=>x.id===id);if(s)sc[s.genre]=(sc[s.genre]||0)+(LIB.rate[id]-2)*120;}return KINDS.filter(k=>sc[k]>30).sort((a,b)=>sc[b]-sc[a]).slice(0,3);}
 function forYou2(){const fav=favKinds(),L=STORY().filter(s=>!LIB.stories.includes(s.id)&&(!fav.length||fav.includes(s.genre))).slice(0,4),mins=k=>{const m=Math.round((LIB.time[k]||0)/60);return m<1?"under 1":m;};
   return `<div class="foryou"><h3>✨ For you</h3><p class="tip">${fav.length?`You read <b>${fav.map(k=>`${esc(k)}</b> (${mins(k)} min)`).join(", <b>")}</b> the most.`:"Read a few stories and the library will learn what you like."}</p>
@@ -164,12 +182,12 @@ let reading=false;
 let readT=null;function readTick(){if(readT){const sec=Math.min(180,(Date.now()-readT.t)/1000);if(sec>2){LIB.time[readT.g]=(LIB.time[readT.g]||0)+sec;libSave();}readT=null;}}
 function storyPage(id,direct,only,pg){readTick();const s=STORY().find(s=>s.id===id);if(!s)return libStories(direct,only);const P=pagesOf(s),N=P.length;readT={g:s.genre,t:Date.now()};const firstFinish=pg===N-1&&!LIB.stories.includes(id);
   if(pg===undefined){pg=LIB.at[id]||0;if(pg>=N-1)pg=0;}pg=Math.max(0,Math.min(N-1,pg));LIB.at[id]=pg;if(pg===N-1&&!LIB.stories.includes(id))LIB.stories.push(id);libSave();
-  const L=STORY(),nx=L[(L.indexOf(s)+1)%L.length],last=pg===N-1,nav=`<div class="pnav"><button id="pgPrev" ${pg?"":"disabled"}>← Page ${pg}</button><span>Page ${pg+1} of ${N}</span>${last?`<button id="stNext">Next story →</button>`:`<button id="pgNext" class="go">Page ${pg+2} →</button>`}</div>`;
-  $("#designBody").innerHTML=head(s.t,`<button id="stBack">← Stories</button>`)+`<div class="dbody book"><p class="tip">${esc(s.genre)} · ${N} pages <button id="stRead" class="go">${reading?"⏹ Stop reading":"🔊 Read it to me"}</button></p>
+  const L=STORY(),nx=L[(L.indexOf(s)+1)%L.length],last=pg===N-1,nav=`<div class="pnav"><button id="pgPrev" ${pg?"":"disabled"}>← Page ${pg}</button><span>Page ${pg+1} of ${N}</span>${last?`<button id="stNext">📖 My next book →</button>`:`<button id="pgNext" class="go">Page ${pg+2} →</button>`}</div>`;
+  $("#designBody").innerHTML=head(s.t,`<button id="stBack">← Your next book</button>`)+`<div class="dbody book"><p class="tip">${esc(s.genre)} · ${N} pages <button id="stRead" class="go">${reading?"⏹ Stop reading":"🔊 Read it to me"}</button></p>
     ${P[pg].map(p=>/^Chapter \d+/.test(p)&&p.length<80?`<h3>${esc(p)}</h3>`:`<p>${esc(p)}</p>`).join("")}${last?`<p class="tip">— The End —</p>${rateCard(s)}`:""}${nav}</div>`;
-  const go=k=>{storyPage(id,direct,only,k);};wireClose();$("#stBack").onclick=()=>{reading=false;readTick();libStories(direct,only);};
+  const go=k=>{storyPage(id,direct,only,k);};wireClose();$("#stBack").onclick=()=>{reading=false;readTick();nextBook(direct);};
   if($("#pgPrev"))$("#pgPrev").onclick=()=>{reading=false;try{speechSynthesis.cancel();}catch(e){}go(pg-1);};if($("#pgNext"))$("#pgNext").onclick=()=>{reading=false;try{speechSynthesis.cancel();}catch(e){}go(pg+1);};
-  if($("#stNext"))$("#stNext").onclick=()=>{reading=false;storyPage(nx.id,direct,only,0);};
+  if($("#stNext"))$("#stNext").onclick=()=>{reading=false;readTick();nextBook(direct);};
   dictify($("#designBody"));{let el=$("#designBody");while(el){el.scrollTop=0;el=el.parentElement;}}
   const speakPage=()=>{try{speechSynthesis.cancel();const parts=(pg===0?[s.t+"."]:[]).concat(P[pg]);let k=0;const next=()=>{if(!reading||!openFlag)return;if(k>=parts.length){if(!last)go(pg+1);else reading=false;if(last&&$("#stRead"))$("#stRead").textContent="🔊 Read it to me";return;}
       const u=new SpeechSynthesisUtterance(parts[k++]);u.rate=.95;u.onend=next;speechSynthesis.speak(u);};next();}catch(e){}};
