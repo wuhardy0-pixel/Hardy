@@ -4239,6 +4239,60 @@ def elementum_cad():
         return jsonify(parts=parts, note="I can't build the whole thing — that's your job! Tell me one part at a time.", refused=True)
     return jsonify(parts=new, note=note)
 
+# A new story for the reader (Barbara, 2026-11-26: "track how long she reads different genres and then the AI can generate things she will like"):
+# the game sends the kinds of story she reads most, and what she said about the ones she finished; Gemini writes a new story at an easy reading
+# level, with a real problem to solve. Five a day per person.
+ELEM_STORY_USE = {}
+ELEM_STORY_KINDS = ("Fantasy", "Historical fiction", "Realistic fiction", "Science fiction", "Mystery", "Adventure", "Funny", "Fables")
+@app.post("/api/elementum/story")
+def elementum_story():
+    j = request.get_json(silent=True) or {}
+    likes = [k for k in (j.get("likes") or []) if k in ELEM_STORY_KINDS][:3] or ["Adventure"]
+    loved = [re.sub(r"[^\w\s'!,.\-]", "", str(t))[:60] for t in (j.get("loved") or [])][:5]
+    notes = [re.sub(r"[^\w\s'!,.?\-]", "", str(t))[:160] for t in (j.get("notes") or [])][:4]
+    pages = max(3, min(10, int(j.get("pages") or 5)))
+    who, day = (str(session.get("v_name") or ""), str(request.remote_addr or "?")), time.strftime("%Y-%m-%d")
+    with _elem_lock:
+        for k in [k for k in ELEM_STORY_USE if k[1] != day]:
+            del ELEM_STORY_USE[k]
+        if ELEM_STORY_USE.get((who, day), 0) >= 5:
+            return jsonify(error="That's five new stories today — come back tomorrow for more!"), 429
+        ELEM_STORY_USE[(who, day)] = ELEM_STORY_USE.get((who, day), 0) + 1
+    rules = ("You write original stories for children aged 7 to 9 inside a kids' game library. Reading level: US grade 2-3. Short sentences (mostly 6-12 words), "
+             "everyday words, almost no metaphors or similes, lots of dialogue and action, short paragraphs. Every story has a clear problem on the first page, something "
+             "important at stake, the hero trying and failing at least once, rising tension, an exciting big moment near the end that the hero solves with their own idea "
+             "or courage, and a happy, satisfying ending. Mild peril only; nothing scary, violent, romantic or unkind. Fully original: no characters, places or plots from "
+             "existing books, films or games. Reply with JSON only: {\"t\": \"title\", \"genre\": one of " + ", ".join(ELEM_STORY_KINDS) +
+             ", \"paras\": [\"paragraph\", ...]}. Longer stories may use paragraphs like \"Chapter 1: Title\" as headings.")
+    prompt = (f"Write a story of at least {pages * 250} words (about {pages} pages; count them — short stories are not allowed), in {max(3, pages)} chapters. The reader likes: {', '.join(likes)}." +
+              (f" Stories she enjoyed: {'; '.join(loved)}." if loved else "") + (f" What she said about stories: {' | '.join(notes)}." if notes else "") +
+              " Pick one of the genres she likes.")
+    body = {"systemInstruction": {"parts": [{"text": rules}]}, "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.9, "maxOutputTokens": 8000, "responseMimeType": "application/json"},
+            "safetySettings": [{"category": c, "threshold": "BLOCK_LOW_AND_ABOVE"} for c in
+                               ("HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT")]}
+    import urllib.request
+    url = f"https://aiplatform.googleapis.com/v1/projects/hardywu-site-758a/locations/global/publishers/google/models/{ELEM_LIB_MODEL}:generateContent"
+    res, err = None, ""
+    for attempt in range(2):
+        try:
+            req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": "Bearer " + _gcloud_token(), "Content-Type": "application/json"})
+            d = json.load(urllib.request.urlopen(req, timeout=90))
+            c = (d.get("candidates") or [{}])[0]
+            txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", [])).strip()
+            res = json.loads(txt[txt.find("{"):txt.rfind("}") + 1])
+            break
+        except Exception as e:
+            err = repr(e)[:200]
+            if "401" in err:
+                _ELEM_GTOK["t"] = 0
+    paras = [re.sub(r"\s+", " ", str(p)).strip()[:1500] for p in ((res or {}).get("paras") or []) if str(p).strip()][:120]
+    if res is None or len(paras) < 4:
+        print("elementum story:", err, flush=True)
+        return jsonify(error="The library's story writer is busy — try again in a minute."), 502
+    genre = res.get("genre") if res.get("genre") in ELEM_STORY_KINDS else likes[0]
+    return jsonify(t=re.sub(r"\s+", " ", str(res.get("t") or "A New Story")).strip()[:80], genre=genre, paras=paras)
+
 # Experiment (Barbara, 2026-11-24: "you make anything you want and then the game turns it into something that does a thing"; 2026-11-25: "it should
 # be made into whatever the resemblance is; if they are similar resemblance, pick sticks"): the player builds anything; Gemini looks at a picture of it,
 # the parts and the game's own shape measurements, and says what it looks like, from this fixed list. Close calls go back as several (the player draws a stick).

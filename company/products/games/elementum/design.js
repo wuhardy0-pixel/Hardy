@@ -13,7 +13,7 @@ const save=()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(ST));}catch(e){
 const S=id=>ST.sc[id]||(ST.sc[id]={facts:[]});const lvOf=id=>Math.min(2,S(id).level||0),Lv=id=>SC.byId[id].levels[lvOf(id)];
 let hooks={},openFlag=false,cur=null,tab="ask",W=null,ui={},sim=null,result=null,report="",raf=0,lastT=0,mode="";
 function show(){openFlag=true;$("#design").classList.remove("hidden");}
-function close(){if(cur&&S(cur).next!==undefined){S(cur).level=S(cur).next;delete S(cur).next;}if(cur&&W)saveWork();save();openFlag=false;sim=null;cancelAnimationFrame(raf);try{speechSynthesis.cancel();}catch(e){}$("#design").classList.add("hidden");hideTip();if(hooks.onClose)hooks.onClose();}
+function close(){try{readTick();}catch(e){}if(cur&&S(cur).next!==undefined){S(cur).level=S(cur).next;delete S(cur).next;}if(cur&&W)saveWork();save();openFlag=false;sim=null;cancelAnimationFrame(raf);try{speechSynthesis.cancel();}catch(e){}$("#design").classList.add("hidden");hideTip();if(hooks.onClose)hooks.onClose();}
 function head(title,extra){return `<div class="dhead"><b>${esc(title)}</b>${extra||""}<button id="dClose">✕ Close</button></div>`;}
 function wireClose(){$("#dClose").onclick=close;}
 // ---------------- a problem: notebook (ask), the problem (frame), build & test ----------------
@@ -131,7 +131,11 @@ function libComputer(direct){$("#designBody").innerHTML=head("The library comput
 // Fabulae, the story room upstairs in the library (game.js storyRoom): a bookcase for each kind opens that kind; the lectern opens them all.
 // A story is shown a page at a time (about 250 words a page, like a printed book), the page you got to is remembered, 🔊 reads it aloud from
 // that page on, and every word can be pointed at for its meaning (the dictionary), like the other books.
-const STORY=()=>window.STORIES||[],words=s=>s.paras.reduce((a,p)=>a+p.split(/\s+/).length,0);LIB.stories=LIB.stories||[];LIB.at=LIB.at||{};
+// 2026-11-26 (Barbara: "track how long she reads different genres and then the AI can generate things she will like … a comment pop-up after she finishes a book"):
+// LIB.time counts seconds spent reading each kind of story; "✨ For you" suggests unread stories of her favourite kinds and asks the AI (server:
+// /api/elementum/story) to write a brand-new one for her, kept on this device (LIB.mine). After the last page: "What did you think?" with faces and
+// a comment box — the rating feeds the suggestions, and the words go to Hardy.
+const STORY=()=>(window.STORIES||[]).concat(LIB.mine||[]),words=s=>s.paras.reduce((a,p)=>a+p.split(/\s+/).length,0);LIB.stories=LIB.stories||[];LIB.at=LIB.at||{};LIB.time=LIB.time||{};LIB.rate=LIB.rate||{};LIB.notes=LIB.notes||[];LIB.mine=LIB.mine||[];
 const libSave=()=>{try{localStorage.setItem(LIB_KEY,JSON.stringify(LIB));}catch(e){}};
 function pagesOf(s){if(s._pages)return s._pages;const P=[];let cur=[],n=0;s.paras.forEach(p=>{const w=p.split(/\s+/).length,head=/^Chapter \d+/.test(p)&&p.length<80;
     if(cur.length&&(head||n+w>290)&&n>=140){P.push(cur);cur=[];n=0;}cur.push(p);n+=w;});if(cur.length)P.push(cur);return s._pages=P;}
@@ -139,24 +143,45 @@ const KINDS=["Fantasy","Historical fiction","Realistic fiction","Science fiction
 function libStories(direct,only){try{speechSynthesis.cancel();}catch(e){}if(only==="all")only="";const L=STORY(),G=KINDS.filter(k=>L.some(s=>s.genre===k));
   const list=L.filter(s=>!only||s.genre===only||(only==="short"&&pagesOf(s).length<=8)||(only==="long"&&pagesOf(s).length>8));
   let h=head(only&&KINDS.includes(only)?`📚 ${only}`:"📚 Fabulae — every story",direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><p class="tip">${list.length} ${list.length===1?"story":"stories"}, from 2 to 40 pages. Pick one to read, or have it read to you. Point at any word to see what it means.</p>
+  ${only?"":forYou2()}
   <div class="shelf"><button data-sf="" class="${only?"":"on"}">All</button><button data-sf="short" class="${only==="short"?"on":""}">Up to 8 pages</button><button data-sf="long" class="${only==="long"?"on":""}">Longer</button>${G.map(g=>`<button data-sf="${esc(g)}" class="${only===g?"on":""}">${esc(g)}</button>`).join("")}</div>
-  <div class="shelf books">${list.map(s=>{const n=pagesOf(s).length,at=LIB.at[s.id],rd=LIB.stories.includes(s.id);return `<button data-story="${esc(s.id)}" class="spine${rd?" read":""}">${esc(s.t)}<small>${esc(s.genre)} · ${n} pages${at&&at<n-1?` · on page ${at+1}`:rd?" · read ✓":""}</small></button>`;}).join("")}</div></div>`;
+  <div class="shelf books">${list.map(s=>{const n=pagesOf(s).length,at=LIB.at[s.id],rd=LIB.stories.includes(s.id);return `<button data-story="${esc(s.id)}" class="spine${rd?" read":""}">${s.ai?"✨ ":""}${esc(s.t)}<small>${esc(s.genre)} · ${n} pages${at&&at<n-1?` · on page ${at+1}`:rd?" · read ✓":""}</small></button>`;}).join("")}</div></div>`;
   $("#designBody").innerHTML=h;wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();
-  document.querySelectorAll("[data-sf]").forEach(b=>b.onclick=()=>libStories(direct,b.dataset.sf));document.querySelectorAll("[data-story]").forEach(b=>b.onclick=()=>storyPage(b.dataset.story,direct,only));}
+  document.querySelectorAll("[data-sf]").forEach(b=>b.onclick=()=>libStories(direct,b.dataset.sf));document.querySelectorAll("[data-story]").forEach(b=>b.onclick=()=>storyPage(b.dataset.story,direct,only));
+  if($("#aiStory"))$("#aiStory").onclick=()=>aiStory(direct,only);}
+function favKinds(){const sc={};KINDS.forEach(k=>sc[k]=(LIB.time[k]||0));for(const id in LIB.rate){const s=STORY().find(x=>x.id===id);if(s)sc[s.genre]=(sc[s.genre]||0)+(LIB.rate[id]-2)*120;}return KINDS.filter(k=>sc[k]>30).sort((a,b)=>sc[b]-sc[a]).slice(0,3);}
+function forYou2(){const fav=favKinds(),L=STORY().filter(s=>!LIB.stories.includes(s.id)&&(!fav.length||fav.includes(s.genre))).slice(0,4),mins=k=>{const m=Math.round((LIB.time[k]||0)/60);return m<1?"under 1":m;};
+  return `<div class="foryou"><h3>✨ For you</h3><p class="tip">${fav.length?`You read <b>${fav.map(k=>`${esc(k)}</b> (${mins(k)} min)`).join(", <b>")}</b> the most.`:"Read a few stories and the library will learn what you like."}</p>
+    ${L.length?`<div class="shelf books">${L.map(s=>`<button data-story="${esc(s.id)}" class="spine">${s.ai?"✨ ":""}${esc(s.t)}<small>${esc(s.genre)} · ${pagesOf(s).length} pages</small></button>`).join("")}</div>`:""}
+    <p><button id="aiStory" class="go">✨ Write me a brand-new story</button> <small class="tip">the library's story writer makes one just for you, in the kinds you like</small></p><p class="bad" id="aiMsg"></p></div>`;}
+function aiStory(direct,only){const b=$("#aiStory"),m=$("#aiMsg");b.disabled=true;b.textContent="✍️ Writing your story… (about half a minute)";
+  const loved=STORY().filter(s=>(LIB.rate[s.id]||0)>=3).slice(-5).map(s=>s.t),notes=LIB.notes.slice(-4).map(n=>n.c);
+  fetch("/api/elementum/story",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({likes:favKinds(),loved,notes,pages:5})}).then(r=>r.json()).then(j=>{
+    if(!j||j.error||!Array.isArray(j.paras)){b.disabled=false;b.textContent="✨ Write me a brand-new story";m.textContent=(j&&j.error)||"The story writer couldn't write one right now.";return;}
+    const s={id:"ai-"+Date.now().toString(36),t:String(j.t).slice(0,80),genre:KINDS.includes(j.genre)?j.genre:"Adventure",paras:j.paras.map(String),ai:true};LIB.mine.push(s);LIB.mine=LIB.mine.slice(-20);libSave();storyPage(s.id,direct,only,0);})
+  .catch(()=>{b.disabled=false;b.textContent="✨ Write me a brand-new story";m.textContent="Couldn't reach the library — are you on play.hardywu.com and signed in?";});}
 let reading=false;
-function storyPage(id,direct,only,pg){const s=STORY().find(s=>s.id===id);if(!s)return libStories(direct,only);const P=pagesOf(s),N=P.length;
+let readT=null;function readTick(){if(readT){const sec=Math.min(180,(Date.now()-readT.t)/1000);if(sec>2){LIB.time[readT.g]=(LIB.time[readT.g]||0)+sec;libSave();}readT=null;}}
+function storyPage(id,direct,only,pg){readTick();const s=STORY().find(s=>s.id===id);if(!s)return libStories(direct,only);const P=pagesOf(s),N=P.length;readT={g:s.genre,t:Date.now()};const firstFinish=pg===N-1&&!LIB.stories.includes(id);
   if(pg===undefined){pg=LIB.at[id]||0;if(pg>=N-1)pg=0;}pg=Math.max(0,Math.min(N-1,pg));LIB.at[id]=pg;if(pg===N-1&&!LIB.stories.includes(id))LIB.stories.push(id);libSave();
   const L=STORY(),nx=L[(L.indexOf(s)+1)%L.length],last=pg===N-1,nav=`<div class="pnav"><button id="pgPrev" ${pg?"":"disabled"}>← Page ${pg}</button><span>Page ${pg+1} of ${N}</span>${last?`<button id="stNext">Next story →</button>`:`<button id="pgNext" class="go">Page ${pg+2} →</button>`}</div>`;
   $("#designBody").innerHTML=head(s.t,`<button id="stBack">← Stories</button>`)+`<div class="dbody book"><p class="tip">${esc(s.genre)} · ${N} pages <button id="stRead" class="go">${reading?"⏹ Stop reading":"🔊 Read it to me"}</button></p>
-    ${P[pg].map(p=>/^Chapter \d+/.test(p)&&p.length<80?`<h3>${esc(p)}</h3>`:`<p>${esc(p)}</p>`).join("")}${last?`<p class="tip">— The End —</p>`:""}${nav}</div>`;
-  const go=k=>{storyPage(id,direct,only,k);};wireClose();$("#stBack").onclick=()=>{reading=false;libStories(direct,only);};
+    ${P[pg].map(p=>/^Chapter \d+/.test(p)&&p.length<80?`<h3>${esc(p)}</h3>`:`<p>${esc(p)}</p>`).join("")}${last?`<p class="tip">— The End —</p>${rateCard(s)}`:""}${nav}</div>`;
+  const go=k=>{storyPage(id,direct,only,k);};wireClose();$("#stBack").onclick=()=>{reading=false;readTick();libStories(direct,only);};
   if($("#pgPrev"))$("#pgPrev").onclick=()=>{reading=false;try{speechSynthesis.cancel();}catch(e){}go(pg-1);};if($("#pgNext"))$("#pgNext").onclick=()=>{reading=false;try{speechSynthesis.cancel();}catch(e){}go(pg+1);};
   if($("#stNext"))$("#stNext").onclick=()=>{reading=false;storyPage(nx.id,direct,only,0);};
   dictify($("#designBody"));{let el=$("#designBody");while(el){el.scrollTop=0;el=el.parentElement;}}
   const speakPage=()=>{try{speechSynthesis.cancel();const parts=(pg===0?[s.t+"."]:[]).concat(P[pg]);let k=0;const next=()=>{if(!reading||!openFlag)return;if(k>=parts.length){if(!last)go(pg+1);else reading=false;if(last&&$("#stRead"))$("#stRead").textContent="🔊 Read it to me";return;}
       const u=new SpeechSynthesisUtterance(parts[k++]);u.rate=.95;u.onend=next;speechSynthesis.speak(u);};next();}catch(e){}};
   $("#stRead").onclick=()=>{reading=!reading;$("#stRead").textContent=reading?"⏹ Stop reading":"🔊 Read it to me";if(reading)speakPage();else try{speechSynthesis.cancel();}catch(e){}};
-  if(reading)speakPage();}
+  if(reading)speakPage();if(last)wireRate(s,firstFinish);}
+function rateCard(s){const r=LIB.rate[s.id]||0;return `<div class="rate"><h3>💬 What did you think of “${esc(s.t)}”?</h3><div class="faces">${[["😍",4,"Loved it"],["🙂",3,"Liked it"],["😐",2,"It was OK"],["🙁",1,"Didn't like it"]].map(([e,v,t])=>`<button data-rate="${v}" class="${r===v?"on":""}" title="${t}">${e}<small>${t}</small></button>`).join("")}</div>
+  <textarea id="rateC" maxlength="600" placeholder="Was it exciting? Too easy, too hard? What should the next story be about? (optional)"></textarea><button id="rateSend" class="go">Send to Hardy</button> <span class="tip" id="rateMsg"></span></div>`;}
+function wireRate(s,first){let v=LIB.rate[s.id]||0;document.querySelectorAll("[data-rate]").forEach(b=>b.onclick=()=>{v=+b.dataset.rate;LIB.rate[s.id]=v;libSave();document.querySelectorAll("[data-rate]").forEach(x=>x.classList.toggle("on",x===b));});
+  const T=$("#rateC");if(T){T.onkeydown=e=>e.stopPropagation();T.onkeyup=e=>e.stopPropagation();}if(first&&$(".rate"))setTimeout(()=>{const r=$(".rate");if(r)r.scrollIntoView({behavior:"smooth",block:"center"});},400);
+  $("#rateSend").onclick=()=>{const c=(T.value||"").trim(),m=$("#rateMsg");if(!v&&c.length<2){m.textContent="Pick a face or write something first.";return;}if(c)LIB.notes.push({id:s.id,c:c.slice(0,300)});LIB.notes=LIB.notes.slice(-20);libSave();
+    const face={4:"😍 loved it",3:"🙂 liked it",2:"😐 it was OK",1:"🙁 didn't like it"}[v]||"";fetch("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({message:`Story “${s.t}” (${s.genre}${s.ai?", written by the AI":""}): ${face}${c?" — "+c:""}`,path:"/play/elementum/",playing:"Elementum — finished a story in the library"})})
+      .then(r=>{m.textContent=r.ok?"Sent — thank you!":"Saved here; couldn't send it to Hardy.";if(r.ok)T.value="";}).catch(()=>{m.textContent="Saved here; couldn't send it to Hardy.";});};}
 function wireLib(){document.querySelectorAll("[data-libq]").forEach(b=>b.onclick=()=>libAsk(b.dataset.libq));document.querySelectorAll("[data-shelf]").forEach(b=>b.onclick=()=>libShelf(b.dataset.shelf));document.querySelectorAll("[data-computer]").forEach(b=>b.onclick=()=>libComputer());}
 function libAsk(q){const proj=SC.list.find(sc=>sc.books.includes(q)&&S(sc.id).facts.length);
   $("#designBody").innerHTML=head("Bibliotheca — the library")+`<div class="dbody"><p class="tip">Finding a book about “${esc(q)}”…</p><div class="spin"></div></div>`;wireClose();

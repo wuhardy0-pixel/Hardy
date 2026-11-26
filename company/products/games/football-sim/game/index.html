@@ -379,6 +379,16 @@ window.hwMute={set,get off(){return off;}};})();</script>
 <script src="assets.js"></script>
 <script src="game.js"></script>
 <script>window.FEEDBACK_GAME="Football Sim";window.FEEDBACK_POS={right:"22px",top:"64px"};</script>
+<script>/* feedback pop-ups (Barbara, 2026-11-26: "add a comment pop-up after she does something … pop up the feedback for the other games too").
+   hwAsk(title, question, what) opens the 💬 box (from /track.js) with its own question; "what" is added to what Hardy sees she was playing.
+   The same question isn't asked again for 6 hours. And once, after 5 minutes of playing, when she stops for a few seconds: "How do you like it so far?" */
+(function(){var base=null;window.hwAsk=function(title,text,what,key,hours){try{var k="hw.ask."+(key||title),t=+localStorage.getItem(k)||0;if(Date.now()-t<(hours||6)*3600e3)return false;localStorage.setItem(k,String(Date.now()));}catch(e){}
+  var b=document.getElementById("hwfb"),box=document.getElementById("hwfbBox");if(!b||!box)return false;if(base===null)base=window.FEEDBACK_GAME||"";if(document.exitPointerLock)document.exitPointerLock();b.click();
+  var h=box.querySelector("h2"),p=box.querySelector("p"),H=h.textContent,PP=p.textContent;h.textContent=title;p.textContent=text;if(what)window.FEEDBACK_GAME=(base||document.title)+" — "+what;
+  var o=new MutationObserver(function(){if(box.className!=="on"){h.textContent=H;p.textContent=PP;window.FEEDBACK_GAME=base;o.disconnect();}});o.observe(box,{attributes:true});return true;};
+ var played=0,last=Date.now(),idle=0;["keydown","pointerdown","touchstart"].forEach(function(e){addEventListener(e,function(){last=Date.now();},true);});
+ setInterval(function(){if(document.hidden)return;var quiet=Date.now()-last;if(quiet<20000)played+=1;if(played>=300&&quiet>4000&&quiet<20000){played=-1e9;
+   window.hwAsk("💬 How do you like it so far?","What's fun? What's boring or hard? What should Hardy add next?","after 5 minutes of playing","sofar",72);}},1000);})();</script>
 <script src="/track.js" defer></script>
 </body>
 </html>
