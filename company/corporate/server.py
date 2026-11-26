@@ -3843,7 +3843,7 @@ def elementum_state():
                     continue
                 if ev.get("val") is None:
                     w["keys"].pop(key, None)
-                elif key in w["keys"] or len(w["keys"]) < 400:
+                elif key in w["keys"] or len(w["keys"]) < 4000:   # 2026-11-26: no limit on things you set down, so rooms may hold many more
                     w["keys"][key] = ev.get("val")
             w["seq"] += 1
             w["events"].append((w["seq"], pid, ev))
