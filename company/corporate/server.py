@@ -4256,7 +4256,8 @@ ELEM_INVENT_THINGS = {
     "bubbles": "a bubble blower, octopus, fish or cloud (it blows bubbles)", "water": "a fountain, well, tap or pool (you drink from it)", "sword": "a sword, axe, hammer, club or other hand weapon or tool (it hits)",
     "food": "food, fruit, a cake, pizza, sweet or plant to eat", "pet": "an animal, person, dinosaur, doll or creature (it comes alive and follows you)",
     "bomb": "a bomb, grenade, dynamite or mine (it blows up)",
-    "fuel": "a gas can, fuel can, jerrycan or anything that holds gasoline (it carries fuel for a car)"}
+    "fuel": "a gas can, fuel can, jerrycan or anything that holds gasoline (it carries fuel for a car)",
+    "shovel": "a shovel, spade or trowel (it digs holes)"}
 # Barbara, 2026-11-25: "make the name, and if resemblance then make it into that object; for example I made a container and named it drugs: it should be
 # made into drugs and then have bad effects". A name can also make these two, whose effects come with the answer ("ef").
 ELEM_INVENT_NAMED = {

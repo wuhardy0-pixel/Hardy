@@ -425,7 +425,7 @@ const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="
 const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
 const fnOf=it=>it&&it.t==="build"?it.fn||BUILD.ITEMFN[it.id]||null:null;
-function itemInfo(it){const f=itemInfo0(it);if(f)f.pic=picKey(it);return f;}
+function itemInfo(it){let f=itemInfo0(it);if(f){f.pic=picKey(it);if(it.water>0){f=Object.assign({},f,{name:`${f.name} — 💧 ×${it.water}`});}}return f;}
 function itemInfo0(it){if(!it)return null;if(it.t==="build"){const I=BUILD.ITEMS[it.id]||{icon:"🛠️",name:"thing"};const fk=fnOf(it);if(fk&&BUILD.FNS[fk])return {icon:it.id==="invention"?BUILD.FNS[fk].icon:I.icon,name:it.nm||`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:`${it.ef&&BUILD.badEf(it.ef)?"🤢":BUILD.FNS[fk].icon} ${BUILD.FNS[fk].what}`,count:1};if(it.id==="book")return {icon:I.icon,name:"Book you made",what:"Hold it and click to read how things are built — sizes and all",count:1};if(it.nm){const T=BUILD.thingOf(it.id);return {icon:I.icon,name:it.nm,what:T.what[0].toUpperCase()+T.what.slice(1),count:1};}return it.id==="house"?{icon:"🏠",name:"House plans",what:"Take them to your empty house plot to build your house",count:1}:{icon:I.icon,name:`${I.name[0].toUpperCase()+I.name.slice(1)} you built`,what:it.id==="house"?"Hold the plans and click to build your house right there — or take them to your house plot":it.id==="horn"?"Hold it and click to blow it: soldiers come and fight the monsters near you":it.id==="bed"||it.id==="chest"?"Put it in your house, hold it and click to set it down anywhere — or give it to whoever ordered one":"Hold it and click to set it down — or give it to whoever ordered one",count:1};}if(it.t==="coin")return {icon:"🪙",name:"Denarii",what:"coins",count:it.n};if(it.t==="weapon")return {icon:WICON[it.id]||"🔫",name:WEAPONS[it.id].name,what:WEAPONS[it.id].what||""};
   if(it.t==="spell"){const s=SPELLS[it.id];return {icon:s.icon,name:s.name,what:s.what,count:it.uses,el:s.el};}
   if(it.t==="potion")return it.id==="fortis"?{icon:"⚗️",name:"Potio Fortis",what:"you + players near you: +50% damage and fast feet, 40 s",count:it.n}:{icon:"🧪",name:"Potio Sanans",what:"drink: +50 HP",count:it.n};
@@ -451,6 +451,7 @@ function useHeld(first){const it=held();if(P.inCar&&!(it&&(it.t==="weapon"||it.t
   if(it.t==="build"&&it.id==="horn"){blowHorn();return;}
   if(it.t==="build"&&it.id==="book"){ask("Your book",[["📖 Read it",()=>readBook()],["Set it down",()=>placeThing(SEL)],["Cancel",null]]);return;}
   if(it.t==="build"&&fnOf(it)&&BUILD.FNS[fnOf(it)].hand){inventUse(it);return;}
+  if(it.t==="build"&&HOLDW[it.id]){waterUse(it);return;}
   if(it.t==="build"){placeThing(SEL);return;}
   if(it.t==="spell"){if(castSpell(it.id)){it.uses--;if(it.uses<=0)INV[SEL]=null;invHud();hud();}return;}
   if(it.t==="food"){if(eat(it)){it.n--;if(!it.n)INV[SEL]=null;invHud();hud();}return;}
@@ -485,7 +486,7 @@ function dropItem(at,it,life,sid,exact){if(it.t==="build"&&!it.thumb&&it.parts&&
   const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.44,30),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
   scene.add(g);PICKUPS.push({g,it,bob,ring,t:Math.random()*5,life:life||300,sid:sid||null});/* everything on the ground lasts 5 minutes (Barbara, 2026-11-22) */return PICKUPS[PICKUPS.length-1];}
 const DROP_FULL={},TAKING={};   // TAKING: things you picked up, waiting for the server to say they're yours
-function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);let it=d.it;if(it.t==="build"){DROP_FULL[d.sid]=it;it={t:"build",id:it.id,n:1};["wall","roof","fn","nm","ef","exp","sp","gas"].forEach(k=>{if(d.it[k]!==undefined)it[k]=d.it[k];});const p=compactParts(d.it.parts);if(p.length&&JSON.stringify(p).length<15000)it.parts=p;}
+function shareDrop(d){if(!MP.ok||!d)return;d.sid=MP.id.slice(0,6)+Math.random().toString(36).slice(2,8);let it=d.it;if(it.t==="build"){DROP_FULL[d.sid]=it;it={t:"build",id:it.id,n:1};["wall","roof","fn","nm","ef","exp","sp","gas","water"].forEach(k=>{if(d.it[k]!==undefined)it[k]=d.it[k];});const p=compactParts(d.it.parts);if(p.length&&JSON.stringify(p).length<15000)it.parts=p;}
   setKey("drop:"+d.sid,{it,x:R2(d.g.position.x),y:R2(d.g.position.y),z:R2(d.g.position.z),s:d.sid,t:Math.round(Date.now()/1000)});}
 // dropping your own things (G, or Drop in the bag): they land in front of you, stay 5 minutes, and only pull back to you once you have walked away
 function dropOwn(i){const it=INV[i];if(!it||P.down)return false;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.8,0,-Math.cos(P.yaw)*1.8));at.y=Math.max(0,floorUnder());at.drop=true;
@@ -530,7 +531,7 @@ let OFFERS=[];let offersT=0;let HAG=null;const HAGNO=new Set();   // HAG: the de
 const offerSlot=()=>Math.floor(Date.now()/120000);
 function refreshOffers(){HAGNO.clear();HAG=null;refreshOffers.slot=offerSlot();const R0=seedRnd(refreshOffers.slot*7919+5);const sp=DROP_SPELLS.map(id=>[R0(),id]).sort((a,b)=>a[0]-b[0]).slice(0,3).map(a=>a[1]);
   OFFERS=[{t:"weapon",id:"rifle",price:30},{t:"potion",id:"potion",n:1,price:20},{t:"potion",id:"fortis",n:1,price:30},{t:"mat",id:"ferrum",n:1,price:MAT.ferrum.buy},{t:"mat",id:"lignum",n:1,price:MAT.lignum.buy},
-    ...CRAFT.CORES.map(c=>({t:"mat",id:c,n:1,price:MAT[c].buy})),...sp.map(id=>({t:"spell",id,uses:SPELLS[id].uses,price:6*SPELLS[id].uses+8}))];}
+    ...CRAFT.CORES.map(c=>({t:"mat",id:c,n:1,price:MAT[c].buy})),...sp.map(id=>({t:"spell",id,uses:SPELLS[id].uses,price:6*SPELLS[id].uses+8})),{t:"build",id:"invention",fn:"shovel",nm:"Shovel",n:1,parts:[{shape:"cylinder",r:1.6,h:95,y:62,mat:"wood"},{shape:"box",w:22,h:26,d:2,y:13,mat:"metal"},{shape:"box",w:14,h:3,d:3,y:110,mat:"wood"}],price:15}];}
 refreshOffers();
 function coinHud(){$("#coins").textContent="🪙 "+COINS;}
 // the stall on the low platform north of the start, with KayKit's barbarian behind the counter
@@ -1845,7 +1846,7 @@ function enemyDown(d){const T=d.T;const at=d.g.position.clone();const loot=!d.pa
     if(d.rig&&d.anim.rise)d.rig.full(d.anim.rise,{once:true,restart:true,then:()=>{d.rig.clearFull();d.down=false;}});
     else{if(d.rig)d.rig.clearFull();d.g.scale.setScalar(.01);tween(.6,t=>d.g.scale.setScalar(Math.max(.01,t)),()=>{d.down=false;});}},25000);}
 
-function stepEnemies(dt){const PL=mobPlayers();PACKS.forEach(pk=>{pk.mine=packOwner(pk)===MP.id;});mobSend(dt);
+function stepEnemies(dt){stepNightMobs();const PL=mobPlayers();PACKS.forEach(pk=>{pk.mine=packOwner(pk)===MP.id;});mobSend(dt);
   for(const d of ENEMIES){const r=d.rig;if(!d.pack.mine){stepGhost(d,dt);continue;}
     let tg=null,td=1e9,near=1e9;for(const q of PL){const dd=Math.hypot(q.pos.x-d.g.position.x,q.pos.z-d.g.position.z);near=Math.min(near,dd);if(q.down||inTown(q.pos,.5))continue;if(dd<td){td=dd;tg=q;}}
     const far=near>80;if(r&&!far)r.update(dt);if(d.down||far)continue;const T=d.T,A=d.anim,g=d.g,TP=tg?tg.pos:P.pos;d.tg=tg;
@@ -2049,7 +2050,7 @@ function updateCam(dt){const d=P.inCar?8:4.2,eye=P.pos.clone().add(new THREE.Vec
 function resize(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}
 addEventListener("resize",resize);resize();
 // monster bars are hidden while you are in town, so they don't show through the walls
-function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos))&&!(d.enemy&&(CAVE.in||inCave(d.g.position))&&wallBetween(cam.position,d.g.position.clone().add(new THREE.Vector3(0,1.4,0))));d.bar.style.display=vis?"":"none";   // (no bars through the cave rock either)
+function placeBars(){DUMMIES.forEach(d=>{const p=d.g.position.clone().add(new THREE.Vector3(0,d.barY||2.45,0)).project(cam);const vis=!d.unbuilt&&!d.asleep&&p.z<1&&Math.abs(p.x)<1.1&&Math.abs(p.y)<1.1&&d.g.position.distanceTo(P.pos)<45&&!(d.enemy&&inTown(P.pos))&&!(d.enemy&&(CAVE.in||inCave(d.g.position))&&wallBetween(cam.position,d.g.position.clone().add(new THREE.Vector3(0,1.4,0))));d.bar.style.display=vis?"":"none";   // (no bars through the cave rock either)
   if(!vis)return;
   d.bar.style.left=(p.x+1)/2*innerWidth+"px";d.bar.style.top=(1-p.y)/2*innerHeight+"px";d.barI.style.width=(100*d.hp/d.max)+"%";d.barI.classList.toggle("low",d.hp<35);d.barS.textContent=d.down?d.name+" · down":d.name;});}
 
@@ -2487,7 +2488,7 @@ function placedMesh(it){const parts=it.parts&&it.parts.length?it.parts:((BUILD.D
 function placedSave(){try{localStorage.setItem("elementum.placed",JSON.stringify(PLACED.mine.map(q=>({pid:q.pid,item:q.item,x:q.x,y:q.y||0,z:q.z,r:q.r,open:!!q.open,fl:!!q.flowers}))));}catch(e){}}
 // (a "function", not a "const": a saved car is put back while this file is still loading, before this line — 2026-11-25 everyone with a car got a frozen game)
 function compactParts(parts){return (Array.isArray(parts)?parts:[]).slice(0,120).map(p=>{const o={};for(const k in p){if(k==="id"||k==="name")continue;const v=p[k];o[k]=typeof v==="number"?Math.round(v*10)/10:v;}return o;});}
-function placedVal(q){const v={i:q.item.id,u:MP.id,x:R2(q.x),y:R2(q.y||0),z:R2(q.z),r:+q.r.toFixed(2),o:q.open?1:0,f:q.flowers?1:0,e:q.useT||0,w:MYCAR.id};["fn","nm","ef","sp","gas"].forEach(k=>{if(q.item[k])v[k]=q.item[k];});const p=compactParts(q.item.parts);if(p.length&&JSON.stringify(p).length<15000)v.p=p;return v;}
+function placedVal(q){const v={i:q.item.id,u:MP.id,x:R2(q.x),y:R2(q.y||0),z:R2(q.z),r:+q.r.toFixed(2),o:q.open?1:0,f:q.flowers?1:0,e:q.useT||0,w:MYCAR.id};["fn","nm","ef","sp","gas","water"].forEach(k=>{if(q.item[k])v[k]=q.item[k];});const p=compactParts(q.item.parts);if(p.length&&JSON.stringify(p).length<15000)v.p=p;return v;}
 const placedGone=()=>{try{return JSON.parse(localStorage.getItem("elementum.placedGone")||"[]");}catch(e){return [];}};
 function placedShare(q,gone,force){if(gone){try{localStorage.setItem("elementum.placedGone",JSON.stringify(placedGone().concat(q.pid).slice(-200)));}catch(e){}}if(!MP.ok&&!force)return;setKey("pl:"+q.pid,gone?null:placedVal(q));}
 // walls and roofs of what you set down are solid (Barbara: "make the walls solid and roof"): each big part becomes a box you bump into and
@@ -2523,7 +2524,7 @@ function placeThing(i){const it=INV[i];if(!it||it.t!=="build")return;
 function placedKeyApply(pid,val){const mine=PLACED.mine.find(q=>q.pid===pid);if(mine){if(val){const ns=val.sp||null;if(JSON.stringify(ns)!==JSON.stringify(mine.item.sp||null)){mine.item.sp=ns||undefined;placedSave();}}if(val&&val.e)mine.useT=+val.e||0;if(val&&(!!val.o!==!!mine.open||!!val.f!==!!mine.flowers)){mine.open=!!val.o;mine.g.rotation.y=mine.r+(mine.open?Math.PI/2:0);if(val.f)addFlowers(mine);placedSave();}return;}
   const old=PLACED.remote[pid];const wasQ=old&&old.userData.q;if(old){if(wasQ)unsolidify(wasQ);scene.remove(old);if(wasQ&&wasQ.flowers)scene.remove(wasQ.flowers);delete PLACED.remote[pid];}
   if(!val||!BUILD.ITEMS[val.i]){if(wasQ&&P.sitting&&P.sitting.q===wasQ)standUp();if(wasQ&&P.climbing&&P.climbing.q===wasQ)P.climbing=null;return;}
-  const item={id:val.i,t:"build",fn:BUILD.FNS[val.fn]?val.fn:undefined,ef:BUILD.cleanEf(val.ef)||undefined,nm:typeof val.nm==="string"?val.nm.slice(0,28):undefined,sp:val.sp||undefined,gas:+val.gas||undefined,parts:Array.isArray(val.p)?val.p.filter(p=>p&&typeof p==="object"):null};const g=placedMesh(item);g.position.set(+val.x||0,+val.y||0,+val.z||0);g.rotation.y=(+val.r||0)+(val.o?Math.PI/2:0);scene.add(g);PLACED.remote[pid]=g;
+  const item={id:val.i,t:"build",fn:BUILD.FNS[val.fn]?val.fn:undefined,ef:BUILD.cleanEf(val.ef)||undefined,nm:typeof val.nm==="string"?val.nm.slice(0,28):undefined,sp:val.sp||undefined,gas:+val.gas||undefined,water:Math.max(0,Math.min(9,val.water|0))||undefined,parts:Array.isArray(val.p)?val.p.filter(p=>p&&typeof p==="object"):null};const g=placedMesh(item);g.position.set(+val.x||0,+val.y||0,+val.z||0);g.rotation.y=(+val.r||0)+(val.o?Math.PI/2:0);scene.add(g);PLACED.remote[pid]=g;
   const q={pid,item,x:+val.x||0,y:+val.y||0,z:+val.z||0,r:+val.r||0,g,remote:true,val,open:!!val.o,useT:+val.e||0};g.userData.q=q;solidify(q);if(val.f)addFlowers(q);
   if(wasQ&&P.sitting&&P.sitting.q===wasQ)P.sitting.q=q;if(wasQ&&P.climbing&&P.climbing.q===wasQ)P.climbing.q=q;}
 const PLACE_ACT={pos:new THREE.Vector3(),q:null};
@@ -2555,7 +2556,7 @@ function useThing(q){const k=useKind(q);if(!k)return;const at=new THREE.Vector3(
     const sz=bb.getSize(new THREE.Vector3()),c=bb.getCenter(new THREE.Vector3()),hc=hi.getCenter(new THREE.Vector3()),alongX=sz.x>sz.z;const head=alongX?(hc.x<c.x?-Math.PI/2:Math.PI/2):(hc.z<c.z-1?Math.PI:0);   // the head goes where the tall end of the bed is
     return startSleep(bedSpot(q.x,q.y||0,q.z,q.r+head,pts));}if(k==="chest"){toggleBag(true,"chest");return;}if(k==="read"){uiOpen(o=>DESIGN.openLibrary(o));return;}
   const tell=()=>{if(q.remote){if(MP.ok)setKey("pl:"+q.pid,Object.assign({},q.val,{o:q.open?1:0,f:q.flowers?1:0,e:q.useT||0}));}else{placedShare(q);placedSave();}};
-  if(k==="drink"||k==="eat"){if((q.useT||0)>Date.now()){popNum(at,"empty — it fills up again soon","burn");return;}q.useT=Date.now()+20000;const sp=q.item.sp;if(sp){q.item.sp=undefined;if(q.val)q.val=Object.assign({},q.val,{sp:undefined});spikedEat({sp});}tell();P.hp=Math.min(P.maxHp,P.hp+10);hud();popNum(at,k==="drink"?"+10 HP — fresh water!":"+10 HP — yum!","spell");return;}
+  if(k==="drink"||k==="eat"){if((q.useT||0)>Date.now()){popNum(at,"empty — it fills up again soon","burn");return;}if(q.item.water>0){q.item.water--;if(!q.item.water)q.item.water=undefined;if(q.val)q.val=Object.assign({},q.val,{water:q.item.water});}q.useT=Date.now()+20000;const sp=q.item.sp;if(sp){q.item.sp=undefined;if(q.val)q.val=Object.assign({},q.val,{sp:undefined});spikedEat({sp});}tell();P.hp=Math.min(P.maxHp,P.hp+10);hud();popNum(at,k==="drink"?"+10 HP — fresh water!":"+10 HP — yum!","spell");return;}
   if(k==="door"){q.open=!q.open;const r0=q.r;tween(.4,t=>{q.g.rotation.y=r0+(q.open?t:1-t)*Math.PI/2;});tell();return;}
   if(k==="vase"){if(!q.flowers){addFlowers(q);tell();}
     else popNum(at,"mmm — they smell lovely","spell");}}
@@ -2595,6 +2596,9 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(a.distanceTo(P.pos)>80)retu
   else if(ev.f==="zap"){const b=V3(ev.b);boltLine(a,b,FX.HEX.lightning);FX.stars(b,"lightning",2,.9);}
   else if(ev.f==="yum"){for(let i=0;i<14;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});}
   else if(ev.f==="love"){for(let k=0;k<4;k++)setTimeout(()=>{const s=iconSprite("💗");s.scale.setScalar(.32);s.position.copy(a).add(new THREE.Vector3(rnd(-.4,.4),.6,rnd(-.4,.4)));scene.add(s);tween(1.1,t=>{s.position.y+=.014;s.material.opacity=1-t;},()=>scene.remove(s));},k*180);}
+  else if(ev.f==="dig")holeAt(a,!!ev.big);
+  else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
+    if(ev.u!==MP.id&&a.distanceTo(P.pos)<2.2)lawSay("💦 Splash! Someone poured water on you.");}
   else if(ev.f==="feel"){for(let k=0,n=Math.max(1,Math.min(20,ev.n|0));k<n;k++)setTimeout(()=>{const o=ev.u===MP.id?P:MP.others[ev.u]&&MP.others[ev.u].g.position?{pos:MP.others[ev.u].g.position}:null;if(!o||(k&&P.down&&ev.u===MP.id))return;const s=iconSprite(ev.b?(k%2?"💫":"🤢"):"✨");s.scale.setScalar(.34);s.position.copy(o.pos).add(new THREE.Vector3(rnd(-.35,.35),2.1,rnd(-.35,.35)));scene.add(s);tween(1.1,t=>{s.position.y+=.01;s.material.opacity=1-t;},()=>scene.remove(s));},k*1000);}
   else if(ev.f==="boom")bombFly(ev,a,mine);
   else if(ev.f==="port"){shadowPuff(a);if(ev.b)shadowPuff(V3(ev.b));}}
@@ -2630,11 +2634,47 @@ function spikeChoices(it){const sp={ef:BUILD.cleanEf(it.ef)||{hp:5},nm:it.nm||"s
   let best=null,bd=3.5;for(const q of placedAll()){if(!q)continue;const k=useKind(q),f=fnOf(q.item);if(!(k==="eat"||k==="drink"||f==="water"))continue;const d=Math.hypot(q.x-P.pos.x,q.z-P.pos.z);if(d<bd){bd=d;best=q;}}
   if(best){const q=best,n=(BUILD.ITEMS[q.item.id]||{name:"cup"}).name;o.push([`🍽️ Put some in the ${q.item.nm||n} here`,()=>{q.item.sp=sp;if(q.remote){q.val=Object.assign({},q.val,{sp});if(MP.ok)setKey("pl:"+q.pid,q.val);}else{placedShare(q);placedSave();}lawSay(`You put ${sp.nm} in the ${q.item.nm||n}. Whoever eats or drinks from it next will feel it.`);}]);}
   return o;}
+// ---------------- the shovel, water and monsters at night (2026-11-26, Barbara: "you can use a shovel to make a hole and escape from prison, and also
+// you can carry water from the river, and monsters only come out at night").
+// Shovel (Mercator sells one, or make one at the workbench and name it): click to dig a hole. In the Carcer you dig a tunnel (8 s) and come up
+// outside the wall — but the guards find the hole 15 s later and come after you. Everyone in the room sees the holes.
+const HOLES=[];
+function holeAt(p,big){const m=new THREE.Mesh(new THREE.CircleGeometry(big?.75:.5,18),new THREE.MeshBasicMaterial({color:0x2a1c10}));m.rotation.x=-Math.PI/2;m.position.set(p.x,(p.y||0)+.035,p.z);scene.add(m);
+  const rim=new THREE.Mesh(new THREE.RingGeometry(big?.75:.5,big?1:.7,18),LOOK.toon(0x6b4a2a));rim.rotation.x=-Math.PI/2;rim.position.set(p.x,(p.y||0)+.03,p.z);scene.add(rim);
+  for(let i=0;i<12;i++)PUFF.emit(new THREE.Vector3(p.x+rnd(-.4,.4),(p.y||0)+.3,p.z+rnd(-.4,.4)),new THREE.Vector3(rnd(-1,1),rnd(1,2.5),rnd(-1,1)),C(0x8a6a44),.8,{grav:4});
+  HOLES.push([m,rim]);setTimeout(()=>{scene.remove(m);scene.remove(rim);},120000);}
+const JAIL_HOLE=()=>new THREE.Vector3(JAIL.x+JAIL.w/2+2.2,0,JAIL.z);
+function dig(){if(DIG.on||P.down||P.inCar)return;const at=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*.8,0,-Math.cos(P.yaw)*.8));at.y=P.pos.y;
+  if(isWater(at.x,at.z,false)){lawSay("You can't dig in water.");return;}
+  if(LAW.jailT>0){DIG.on=true;lawSay("🪏 You start digging a tunnel under the wall…");let n=0;const t=setInterval(()=>{if(!started||P.down||LAW.jailT<=0){clearInterval(t);DIG.on=false;return;}n++;
+      for(let i=0;i<6;i++)PUFF.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.5,.5),.3,rnd(-.5,.5))),new THREE.Vector3(rnd(-1,1),rnd(1,2),rnd(-1,1)),C(0x8a6a44),.7,{grav:4});
+      if(n<8){lawSay(`🪏 Digging… ${8-n} s`);return;}clearInterval(t);DIG.on=false;
+      const a=P.pos.clone(),b=JAIL_HOLE();invShow({f:"dig",a:V3r(a),big:1});invShow({f:"dig",a:V3r(b),big:1});LAW.jailT=0;P.pos.copy(b).add(new THREE.Vector3(1.2,0,0));P.vel.set(0,0,0);hud();
+      lawSay("🕳️ You dug your way out of the Carcer! Run — the guards will find the hole soon.");
+      setTimeout(()=>{if(!LAW.wanted&&LAW.jailT<=0)crime("You escaped from the Carcer!");},15000);},1000);return;}
+  if(!cool("dig",3))return;invShow({f:"dig",a:V3r(at)});
+  const r=Math.random();if(r<.15){const n=ri(1,3);addItem({t:"coin",n});lawSay(`🪏 You dig a hole… and find ${n} ${n>1?"denarii":"denarius"}!`);}else if(r<.3){addItem({t:"mat",id:"lignum",n:1})?lawSay("🪏 You dig up an old root (wood)."):0;}else lawSay("🪏 You dig a hole. Nothing but dirt.");}
+const DIG={on:false};
+// water: hold a bucket, cup, bowl or vase and click by the river, the lake or the moat to fill it; drink from it anywhere, pour it out, or set it down full
+const HOLDW={bucket:5,cup:1,bowl:2,vase:2};
+const nearWater=()=>{for(let r=0;r<=3;r+=1)for(let a=0;a<6.3;a+=.8){const x=P.pos.x+Math.cos(a)*r,z=P.pos.z+Math.sin(a)*r;if(isWater(x,z,false))return true;}return false;};
+function waterUse(it){const cap=HOLDW[it.id],w=it.water|0,o=[],nm=itemInfo(it).name.split(" — ")[0],at=P.pos.clone().add(new THREE.Vector3(0,2.2,0));
+  if(nearWater()&&w<cap)o.push([`💧 Fill it with water`,()=>{it.water=cap;invHud();hud();popNum(at,"full of water","spell");for(let i=0;i<10;i++)SPARK.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.4,.4),.6,rnd(-.4,.4))),new THREE.Vector3(0,rnd(.5,1.5),0),C(0x6ab8ff),.6,{grav:3});}]);
+  if(w>0){o.push(["🥤 Drink some (+15 HP)",()=>{if(P.hp>=P.maxHp){lawSay("You're not thirsty right now.");return;}it.water--;if(!it.water)it.water=undefined;P.hp=Math.min(P.maxHp,P.hp+15);hud();invHud();popNum(at,"+15 HP — fresh water!","spell");}]);
+    o.push(["💦 Pour it out",()=>{const p=P.pos.clone().add(new THREE.Vector3(-Math.sin(P.yaw)*1.2,0,-Math.cos(P.yaw)*1.2));it.water=undefined;invHud();hud();invShow({f:"splash",a:V3r(p),u:MP.id});}]);}
+  ask(`${nm}: ${w?`💧 ${w} of ${cap} full`:"empty"}${o.length?"":" — take it to the river, the lake or the moat to fill it with water"}`,[...o,["Set it down",()=>placeThing(SEL)],["Cancel",null]]);}
+// monsters sleep in their dens by day and come out when night falls (7 pm – 7 am game time); the clock is the same for everyone, so every player
+// sees the same thing. A sleeping monster is out of the world (hidden, can't fight or be hit); at nightfall it rises where it lives, at full health.
+const MOBNIGHT={was:null};
+function stepNightMobs(){const night=isNight();if(MOBNIGHT.was!==null&&MOBNIGHT.was!==night&&started&&!inTown(P.pos))lawSay(night?"🌙 Night falls — the monsters are coming out!":"☀️ Morning — the monsters go back to their dens.");MOBNIGHT.was=night;
+  for(const d of ENEMIES){if(!night){if(!d.asleep&&!d.down){d.asleep=true;d.down=true;d.hunting=false;const p=d.g.position.clone();for(let i=0;i<8;i++)PUFF.emit(p.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.4),rnd(-.5,.5))),rnd3(.8),C(0x55504a).multiplyScalar(.5),.8,{drag:2});d.g.visible=false;}}
+    else if(d.asleep){d.asleep=false;d.down=false;d.hp=d.max;d.g.position.copy(d.home);d.g.visible=true;d.g.scale.setScalar(.01);tween(.8,t=>d.g.scale.setScalar(Math.max(.01,t)));}}}
 // used from the hand
 function inventUse(it){const f=fnOf(it),at=P.pos.clone().add(new THREE.Vector3(0,1,0));if(P.inCar&&f!=="wand")return;
   if(f==="wand"){if(!cool("wand",2.5))return;const ids=Object.keys(SPELLS).filter(k=>SPELLS[k].kind==="bolt"),id=ids[strHash(it.nm||"")%ids.length];G.spellCool=0;castSpell(id);return;}
   if(f==="sword"){punch(5);return;}
   if(f==="take"||f==="bomb"){ask(itemInfo(it).name,[f==="take"?[`${BUILD.badEf(it.ef)?"🤢":"✨"} Take some`,()=>takeSome(it)]:["💣 Throw it",()=>{if(cool("bomb",10))throwBomb(it);}],...(f==="take"?spikeChoices(it):[]),["Set it down",()=>placeThing(SEL)],["Cancel",null]]);return;}
+  if(f==="shovel"){dig();return;}
   if(f==="fuel"){const g=Math.round(it.gas||0),pump=GAS.pumps.some(v=>Math.hypot(v.x-P.pos.x,v.z-P.pos.z)<5),c=CARS.find(c=>!c.boat&&c.max<Infinity&&!(c.taken&&c.taken!==MP.id)&&c.g.position.distanceTo(P.pos)<4.5),cost=Math.ceil((GASCAN-g)/GAS.price),o=[];
     if(pump&&g<GASCAN)o.push([`⛽ Fill it up (${cost} denarii)`,()=>{if(COINS<cost)return lawSay(`Filling it costs ${cost} — you have ${COINS}.`);COINS-=cost;coinHud();it.gas=GASCAN;invHud();lawSay("⛽ Your gas can is full.");}]);
     if(c&&g>0)o.push(["🚗 Pour it into the car",()=>{const n=Math.min(g,c.max-c.fuel);if(n<=0)return lawSay("That car's tank is already full.");c.fuel+=n;it.gas=g-n;c.outT=0;invHud();carShareState(c,false);lawSay(`⛽ You poured ${Math.round(n)} into the tank. ${it.gas>0?`${Math.round(it.gas)} left in the can.`:"The can is empty."}`);}]);
@@ -2690,5 +2730,5 @@ function stepInvent(dt){stepFeel(dt);P.portT=Math.max(0,(P.portT||0)-dt);
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS};   // what the music (music.js) listens to
-window.__el={stepFeel,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
