@@ -155,7 +155,7 @@ function libStories(direct,only){try{speechSynthesis.cancel();}catch(e){}if(only
 let skipped=[];
 function chooseNext(){const L=STORY(),fav=favKinds(),done=LIB.stories.length;const open=L.filter(s=>LIB.at[s.id]>0&&LIB.at[s.id]<pagesOf(s).length-1&&!LIB.stories.includes(s.id));if(open.length&&!skipped.includes(open[open.length-1].id))return {s:open[open.length-1],cont:true};
   const want=Math.min(40,3+done*3),un=L.filter(s=>!LIB.stories.includes(s.id)&&!skipped.includes(s.id)&&!(LIB.rate[s.id]<=1)),pool=un.length?un:L.filter(s=>!skipped.includes(s.id));
-  const score=s=>(fav.includes(s.genre)?(3-fav.indexOf(s.genre))*10:0)-Math.abs(pagesOf(s).length-want)+(s.ai?6:0)+((s.id.charCodeAt(0)+done*7)%5);
+  const score=s=>(s.feat?100:0)+(fav.includes(s.genre)?(3-fav.indexOf(s.genre))*10:0)-Math.abs(pagesOf(s).length-want)+(s.ai?6:0)+((s.id.charCodeAt(0)+done*7)%5);
   const best=pool.slice().sort((a,b)=>score(b)-score(a))[0]||L[0];return {s:best,cont:false};}
 function nextBook(direct){try{speechSynthesis.cancel();}catch(e){}const {s,cont}=chooseNext();if(!s)return;const n=pagesOf(s).length,at=LIB.at[s.id]||0,fav=favKinds();
   const peek=s.paras.filter(p=>!/^Chapter \d+/.test(p)).slice(0,2).join(" ").split(/\s+/).slice(0,45).join(" ")+"…";
