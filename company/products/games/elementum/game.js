@@ -905,7 +905,8 @@ function building(x,z,w,d,floors,face,o){o=o||{};const h=floors*3.3,[brick,trim]
     wall(x,z-face*(d/2-WT/2),w,WT);wall(x-w/2+WT/2,z,WT,d);wall(x+w/2-WT/2,z,WT,d);
     const lw=(dx-DW/2)-(x-w/2),rw=(x+w/2)-(dx+DW/2);if(lw>.05)wall(x-w/2+lw/2,fz-face*WT/2,lw,WT);if(rw>.05)wall(x+w/2-rw/2,fz-face*WT/2,rw,WT);wall(dx,fz-face*WT/2,DW,WT,2.5,GF-2.5);
     if(o.homeFloor){const yH=o.homeFloor*3.3;wall(x,z,w,d,GF,yH-GF);const fzH=z+face*(d/2-WT/2),BW=1.4;wall(x,z-face*(d/2-WT/2),w,WT,yH,GF);
-      wall(x-w/4-BW/4,fzH,w/2-BW/2,WT,yH,GF);wall(x+w/4+BW/4,fzH,w/2-BW/2,WT,yH,GF);wall(x,fzH,BW,WT,yH+2.4,GF-2.4);   // a balcony door in the middlewall(x-w/2+WT/2,z,WT,d-WT*2,yH,GF);wall(x+w/2-WT/2,z,WT,d-WT*2,yH,GF);wall(x,z,w,d,yH+GF,h-yH-GF);
+      wall(x-w/4-BW/4,fzH,w/2-BW/2,WT,yH,GF);wall(x+w/4+BW/4,fzH,w/2-BW/2,WT,yH,GF);wall(x,fzH,BW,WT,yH+2.4,GF-2.4);   // a balcony door in the middle
+      wall(x-w/2+WT/2,z,WT,d-WT*2,yH,GF);wall(x+w/2-WT/2,z,WT,d-WT*2,yH,GF);wall(x,z,w,d,yH+GF,h-yH-GF);   // the side walls and everything above (2026-11-26: they had slipped into the comment above, so the roof floated)
       INTERIORS.push({x0:x-w/2+WT,x1:x+w/2-WT,z0:z-d/2+WT,z1:z+d/2-WT,y0:yH,y1:yH+GF,c:new THREE.Vector3(x,yH+2.4,z),name:"home"});}
     else if(h>GF+.1&&!o.upstairs)wall(x,z,w,d,GF,h-GF);
     const fl=new THREE.Mesh(new THREE.PlaneGeometry(w-WT*2,d-WT*2),new THREE.MeshLambertMaterial({color:o.floor||0x9a7a55}));fl.rotation.x=-Math.PI/2;fl.position.set(x,.025,z);fl.receiveShadow=true;scene.add(fl);parts.push(fl);
