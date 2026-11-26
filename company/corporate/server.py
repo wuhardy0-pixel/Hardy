@@ -3791,8 +3791,18 @@ def elementum_state():
                 del hs[slot]
         hs = ELEM_HOUSES.setdefault(room, {})
         mine = next((sl for sl, h in hs.items() if h["id"] == pid), None)
+        # Barbara, 2026-11-26: "the house shouldn't move places when I reload". A reload is a new player id while the old one is still
+        # listed for a few seconds, so: take back the house that has your name on it, else the one you had last time (the game remembers it), else any free one.
+        if mine is None and name:
+            mine = next((sl for sl, h in hs.items() if h["name"] == name and h["id"] != pid), None)
+            if mine is not None:
+                hs[mine]["id"] = pid
         if mine is None:
-            mine = next((sl for sl in range(ELEM_HOUSE_SLOTS) if sl not in hs), None)
+            want = j.get("slot")
+            if isinstance(want, int) and 0 <= want < ELEM_HOUSE_SLOTS and want not in hs:
+                mine = want
+            else:
+                mine = next((sl for sl in range(ELEM_HOUSE_SLOTS) if sl not in hs), None)
             if mine is not None:
                 hs[mine] = dict(id=pid, name=name, locked=False)
         if mine is not None:
