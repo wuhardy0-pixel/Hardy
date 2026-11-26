@@ -1643,6 +1643,7 @@ function applyKey(key,val){noteKey(key,val);
     if(i<0&&val&&val.it){const left=val.t?300-(Date.now()/1000-val.t):300;if(left<=0){if(left<-30)WORLD.dead.push(key);return;}dropItem(new THREE.Vector3(val.x,+val.y||0,val.z),val.it,Math.min(300,left),id,true);}return;}
   if(key.startsWith("pl:")){placedKeyApply(key.slice(3),val);return;}
   if(key.startsWith("bush:")){bushKey(+key.slice(5),val);return;}
+  if(key==="cal:off"){CAL_OFF=val&&Number.isFinite(+val.d)?Math.max(0,Math.round(+val.d)):0;return;}
   if(key.startsWith("nest:")){nestKey(+key.slice(5),val);return;}
   if(key.startsWith("snowman:")){snowmanKey(+key.slice(8),val);return;}
   if(key.startsWith("hb:")||key.startsWith("hbp:")){if(val)WORLD_KEYS[key]=val;else delete WORLD_KEYS[key];return;}
@@ -2898,7 +2899,16 @@ const HOLIDAYS=[{id:"newyear",name:"New Year's Day",icon:"🎆",from:[1,1],to:[1
   {id:"saturnalia",name:"Saturnalia",icon:"🎁",from:[12,17],to:[12,23],say:"Saturnalia! The Roman winter festival — lights, presents and feasting.",gift:[{t:"coin",n:25},{t:"food",id:"mel",n:1},{t:"food",id:"caseus",n:1}]},
   {id:"midwinter",name:"Midwinter Day",icon:"🎄",from:[12,25],to:[12,25],say:"Midwinter Day! A big decorated tree stands in town.",gift:[{t:"coin",n:25},{t:"potion",id:"potion",n:1}]}];
 var SEASON=null;
-function yearDay(){return ((worldDay()+YEAR0)%365+365)%365;}
+// skip ahead (Barbara, 2026-11-26: "speed up seasons — something like skip season to go to the next season"): ⏭ jumps the calendar of your room to
+// the first day of the next season. It's a room key (cal:off, days added), so everyone in the room moves together; the time of day and the nights
+// stay as they are.
+var CAL_OFF=0;
+function yearDay(){return ((worldDay()+YEAR0+CAL_OFF)%365+365)%365;}
+const SEASON_STARTS=[[59,"spring","🌱 Spring"],[151,"summer","☀️ Summer"],[243,"autumn","🍂 Autumn"],[334,"winter","❄️ Winter"]];
+function nextSeason(){const yd=yearDay();const n=SEASON_STARTS.find(([d])=>d-5>yd)||SEASON_STARTS[0];return {days:((n[0]+5-yd)%365+365)%365||365,name:n[2]};}   // lands 5 days in, when the new season has fully arrived
+function skipSeason(){const n=nextSeason();ask(`Skip ahead to ${n.name}? (${n.days} days.) Everyone in this room goes with you.`,[[`⏭ Yes — ${n.name}!`,()=>{CAL_OFF+=n.days;setKey("cal:off",{d:CAL_OFF});lawSay(`⏭ Whoosh — it's ${n.name.split(" ")[1]} now!`);}],["Cancel",null]]);}
+{const b=document.createElement("button");b.id="seasonBtn";b.type="button";b.textContent="⏭";b.title="Skip to the next season";b.style.cssText="position:fixed;left:10px;top:calc(46% + 144px);z-index:90;width:40px;height:40px;padding:0;margin:0;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.62);color:#fff;font-size:17px;line-height:1;cursor:pointer";
+  b.addEventListener("click",e=>{e.stopPropagation();if(started)skipSeason();b.blur();});["pointerdown","mousedown","touchstart"].forEach(k=>b.addEventListener(k,e=>e.stopPropagation()));document.body.appendChild(b);}
 function mdOf(yd){let d=yd;for(let m=0;m<12;m++){if(d<MONTHS[m][1])return [m+1,d+1];d-=MONTHS[m][1];}return [12,31];}
 const ydOf=(m,d)=>MONTHS.slice(0,m-1).reduce((a,x)=>a+x[1],0)+d-1;
 function seasonWeights(yd){const B=[[59,"winter","spring"],[151,"spring","summer"],[243,"summer","autumn"],[334,"autumn","winter"]],w={winter:0,spring:0,summer:0,autumn:0};
@@ -2942,9 +2952,9 @@ function stepSeason(dt){if(!SEASON)seasonInit();const S=SEASON,yd=yearDay();
 const GIFT_ACT={pos:new THREE.Vector3(0,0,6),hol:null};
 ACTS.push({pos:GIFT_ACT.pos,r:1.8,hidden:()=>!GIFT_ACT.hol||P.inCar,label:()=>giftOpened()?`${GIFT_ACT.hol.icon} You opened your ${GIFT_ACT.hol.name.replace(/^the /,"")} present`:`🎁 Open your ${GIFT_ACT.hol.name.replace(/^the /,"")} present`,
   run:()=>{const h=GIFT_ACT.hol;if(!h)return;if(giftOpened()){lawSay("You already opened this one — see you next holiday!");return;}h.gift.forEach(g=>addItem(Object.assign({},g)));
-    try{localStorage.setItem("elementum.gift."+h.id,String(Math.floor((worldDay()+YEAR0)/365)));}catch(e){}FX.stars(GIFT_ACT.pos.clone().add(new THREE.Vector3(0,1,0)),"gold",8,1.6);
+    try{localStorage.setItem("elementum.gift."+h.id,String(Math.floor((worldDay()+YEAR0+CAL_OFF)/365)));}catch(e){}FX.stars(GIFT_ACT.pos.clone().add(new THREE.Vector3(0,1,0)),"gold",8,1.6);
     lawSay(`${h.icon} Inside: ${h.gift.map(g=>g.t==="coin"?g.n+" denarii":(g.n>1?g.n+" × ":"")+(itemInfo(g)||{name:"something"}).name).join(", ")}!`);invShow({f:"love",a:V3r(GIFT_ACT.pos.clone().add(new THREE.Vector3(0,1,0)))});}});
-function giftOpened(){const h=GIFT_ACT.hol;if(!h)return true;try{return localStorage.getItem("elementum.gift."+h.id)===String(Math.floor((worldDay()+YEAR0)/365));}catch(e){return false;}}
+function giftOpened(){const h=GIFT_ACT.hol;if(!h)return true;try{return localStorage.getItem("elementum.gift."+h.id)===String(Math.floor((worldDay()+YEAR0+CAL_OFF)/365));}catch(e){return false;}}
 function holidayDeco(h){const S=SEASON;if(S.deco){scene.remove(S.deco);S.deco=null;}GIFT_ACT.hol=h;if(!h)return;const g=new THREE.Group();S.deco=g;scene.add(g);
   const box=(c,r)=>{const b=new THREE.Group();const m=LOOK.M(new THREE.BoxGeometry(.9,.7,.9),LOOK.toon(c),.02);m.position.y=.35;b.add(m);const rb=LOOK.toon(r);const a=new THREE.Mesh(new THREE.BoxGeometry(.95,.72,.14),rb);a.position.y=.36;b.add(a);const c2=new THREE.Mesh(new THREE.BoxGeometry(.14,.72,.95),rb);c2.position.y=.36;b.add(c2);const bow=new THREE.Mesh(new THREE.TorusGeometry(.14,.05,6,12),rb);bow.position.y=.78;b.add(bow);return b;};
   const gift=box(h.id==="pumpkin"?0x3a2a5a:0xc0302a,0xffd24a);gift.position.copy(GIFT_ACT.pos);g.add(gift);
@@ -3072,7 +3082,7 @@ function stepCeleb(dt){const F=FUN,h=SEASON&&SEASON.hol&&isDay()?SEASON.hol:null
     tween(1,k=>{s.position.lerpVectors(p0,p1,k);s.position.y+=Math.sin(k*Math.PI)*.8;},()=>{scene.remove(s);[a,b].forEach(c=>{if(c.o.rig)c.o.rig.full("Cheer",{once:true,restart:true,dur:1.2,then:()=>c.o.rig.clearFull()});});popNum(p1.clone().add(new THREE.Vector3(0,.6,0)),`Happy ${h.name.replace(/^the /,"").split(",")[0]}!`,"spell");});}}
 const CELEB_ACT={pos:new THREE.Vector3(),c:null};
 ACTS.push({pos:CELEB_ACT.pos,r:1.8,hidden:()=>!CELEB_ACT.c||P.inCar,label:()=>`🎉 Wish them a happy ${SEASON.hol.name.replace(/^the /,"").split(",")[0]}`,run:()=>{const h=SEASON&&SEASON.hol,c=CELEB_ACT.c;if(!h||!c)return;if(c.o.rig)c.o.rig.full("Cheer",{once:true,restart:true,dur:1.2,then:()=>c.o.rig.clearFull()});
-  const k="elementum.celeb."+h.id,yr=String(Math.floor((worldDay()+YEAR0)/365));let got=false;try{got=localStorage.getItem(k)===yr;}catch(e){}
+  const k="elementum.celeb."+h.id,yr=String(Math.floor((worldDay()+YEAR0+CAL_OFF)/365));let got=false;try{got=localStorage.getItem(k)===yr;}catch(e){}
   if(got){lawSay(`🎉 "Happy ${h.name.replace(/^the /,"").split(",")[0]} to you too!"`);return;}try{localStorage.setItem(k,yr);}catch(e){}const n=ri(5,10),f=pick(["mel","pomum","uvae","caseus"]);addItem({t:"coin",n});addItem({t:"food",id:f,n:1});
   lawSay(`🎁 "Happy ${h.name.replace(/^the /,"").split(",")[0]}! Here — a little present for you." (${n} denarii and ${FOODS[f].name.toLowerCase()})`);}});
 setInterval(()=>{if(!FUN)return;let best=null,bd=1.8;for(const c of FUN.celeb){const d=c.o.g.position.distanceTo(P.pos);if(d<bd){bd=d;best=c;}}CELEB_ACT.c=best;if(best)CELEB_ACT.pos.copy(best.o.g.position);},300);
