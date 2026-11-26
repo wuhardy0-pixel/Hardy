@@ -906,7 +906,7 @@ function building(x,z,w,d,floors,face,o){o=o||{};const h=floors*3.3,[brick,trim]
     if(o.homeFloor){const yH=o.homeFloor*3.3;wall(x,z,w,d,GF,yH-GF);const fzH=z+face*(d/2-WT/2),BW=1.4;wall(x,z-face*(d/2-WT/2),w,WT,yH,GF);
       wall(x-w/4-BW/4,fzH,w/2-BW/2,WT,yH,GF);wall(x+w/4+BW/4,fzH,w/2-BW/2,WT,yH,GF);wall(x,fzH,BW,WT,yH+2.4,GF-2.4);   // a balcony door in the middlewall(x-w/2+WT/2,z,WT,d-WT*2,yH,GF);wall(x+w/2-WT/2,z,WT,d-WT*2,yH,GF);wall(x,z,w,d,yH+GF,h-yH-GF);
       INTERIORS.push({x0:x-w/2+WT,x1:x+w/2-WT,z0:z-d/2+WT,z1:z+d/2-WT,y0:yH,y1:yH+GF,c:new THREE.Vector3(x,yH+2.4,z),name:"home"});}
-    else if(h>GF+.1)wall(x,z,w,d,GF,h-GF);
+    else if(h>GF+.1&&!o.upstairs)wall(x,z,w,d,GF,h-GF);
     const fl=new THREE.Mesh(new THREE.PlaneGeometry(w-WT*2,d-WT*2),new THREE.MeshLambertMaterial({color:o.floor||0x9a7a55}));fl.rotation.x=-Math.PI/2;fl.position.set(x,.025,z);fl.receiveShadow=true;scene.add(fl);parts.push(fl);
     INTERIORS.push({x0:x-w/2+WT,x1:x+w/2-WT,z0:z-d/2+WT,z1:z+d/2-WT,y0:0,y1:GF,c:new THREE.Vector3(x,2.4,z),name:o.name||""});}
   const m=parts[0],b=blks[0];
@@ -959,13 +959,13 @@ function shopBuy(i){const sh=CUR_SHOP;if(!sh)return;const id=sh.S.items[i],f=FOO
   else if(id==="sandals"){P.buffT=Math.max(P.buffT||0,120);hud();}
   COINS-=f.price;coinHud();forgeOk=true;forgeMsg=id in FOODS?`${f.name} is in your bag.`:id==="haircut"?"Snip snip — what a new look!":"Off you go — fast feet!";}
 // the library: shelves along the walls, each with a sign for its subject; a computer on a desk; Varro behind the desk
-function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Designs","Building","Science","Space","Animals","Ancient Rome","Math","Gardens","Water & weather","Heat & cold","Inventions","Stories"];
-  const spots=[];for(let i=0;i<6;i++)spots.push([bd.x-bd.w/2+.6,bd.z-4.5+i*1.8,Math.PI/2]);for(let i=0;i<6;i++)spots.push([bd.x+bd.w/2-.6,bd.z-4.5+i*1.8,-Math.PI/2]);
+function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Designs","Building","Science","Space","Animals","Ancient Rome","Math","Gardens","Water & weather","Heat & cold","Inventions"];
+  const spots=[];for(let i=0;i<6;i++)spots.push([bd.x-bd.w/2+.6,bd.z-4.5+i*1.8,Math.PI/2]);for(let i=0;i<5;i++)spots.push([bd.x+bd.w/2-.6,bd.z-4.5+i*1.8,-Math.PI/2]);
   spots.forEach(([x,z,r],i)=>{const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=r;scene.add(g);bd.parts.push(g);const sh=LOOK.M(new THREE.BoxGeometry(1.6,2.4,.5),wood,.02);sh.position.y=1.2;g.add(sh);
     for(let k=0;k<4;k++)for(let b=0;b<9;b++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.13,.42,.3),LOOK.toon([0xb5482f,0x3f6fa8,0x4f8f3a,0xc98a2b,0x8a4fb0,0xe8dcc4][(b+k+i)%6]));bk.position.set(-.65+b*.16,.5+k*.55,.12);g.add(bk);}
     const sign=signBoard(cats[i],0xbfe0ff);sign.scale.setScalar(.75);sign.position.set(0,2.65,.27);g.add(sign);
     {const m=block(x,z,Math.abs(Math.sin(r))>.5?.6:1.7,2.4,Math.abs(Math.sin(r))>.5?1.7:.6,0x6b4423);m.material.visible=false;m.castShadow=false;}
-    const sp=new THREE.Vector3(x+Math.sin(r)*1.1,0,z+Math.cos(r)*1.1);ACTS.push({pos:sp,r:1.3,label:cats[i]==="Designs"?"📐 Design ideas — houses, chairs, cars, boats…":cats[i]==="Stories"?"📚 Stories — short ones and long ones":`Browse the shelf: ${cats[i]}`,run:cats[i]==="Designs"?openIdeas:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{shelf:cats[i]})))});});
+    const sp=new THREE.Vector3(x+Math.sin(r)*1.1,0,z+Math.cos(r)*1.1);ACTS.push({pos:sp,r:1.3,label:cats[i]==="Designs"?"📐 Design ideas — houses, chairs, cars, boats…":`Browse the shelf: ${cats[i]}`,run:cats[i]==="Designs"?openIdeas:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{shelf:cats[i]})))});});
   const desk=block(bd.x,zb+f*3,3,1,1,0x6b4423);desk.material=LOOK.toon(0x6b4423);
   const mon=new THREE.Mesh(new THREE.BoxGeometry(.7,.5,.08),new THREE.MeshBasicMaterial({color:0x2a6ab0}));mon.position.set(bd.x+.6,1.35,zb+f*3);mon.rotation.y=f>0?0:Math.PI;scene.add(mon);bd.parts.push(mon);
   const base=new THREE.Mesh(new THREE.BoxGeometry(.5,.08,.3),LOOK.toon(0x333338));base.position.set(bd.x+.6,1.04,zb+f*3);scene.add(base);bd.parts.push(base);
@@ -977,7 +977,44 @@ function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4
     ACTS.push({pos:new THREE.Vector3(wx,0,wz+f*1.2),r:1.6,label:"Workbench — build and test",run:openBench});
     ACTS.push({pos:new THREE.Vector3(wx,0,wz-f*1.2),r:1.6,label:"Workbench — build and test",run:openBench});}
   ACTS.push({pos:new THREE.Vector3(bd.x+.6,0,zb+f*4.1),r:1.6,label:"Use the computer",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{computer:true})))});
-  ACTS.push({pos:new THREE.Vector3(bd.x-.6,0,zb+f*4.1),r:1.4,label:"Talk to Varro",hidden:()=>LIBRARIAN.pp.down,run:()=>uiOpen(o=>DESIGN.openLibrary(o))});}
+  ACTS.push({pos:new THREE.Vector3(bd.x-.6,0,zb+f*4.1),r:1.4,label:"Talk to Varro",hidden:()=>LIBRARIAN.pp.down,run:()=>uiOpen(o=>DESIGN.openLibrary(o))});
+  storyRoom(bd);}
+// ---------------- Fabulae, the story room upstairs in the library (2026-11-26, Barbara: "make another room, not another bookshelf"; "2-40 pages, all fantasy and
+// fiction … all types of fiction like historical and realistic"). Stairs along the back wall go up to a second floor: a bookcase for each kind of story,
+// a rug, armchairs and a lectern with every story. Built for the library only (its building has no solid top: walls, a floor and a roof instead).
+function storyRoom(bd){const x0=bd.x-bd.w/2+WT,x1=bd.x+bd.w/2-WT,zF=bd.z-bd.d/2+WT,zB=bd.z+bd.d/2-WT,Y=3.3,top=6.6,brick=0xd8cfbf,trim=0xffffff,hole0=36.9-30+bd.z;   // the stairs' strip: hole0..zB
+  const up=(x,y,z,w,h,d,col)=>{const m=block(x,z,w,h,d,col);BLOCKS[BLOCKS.length-1].y=y;m.position.y=y+h/2;m.material=LOOK.toon(col);bd.parts.push(m);return m;};
+  const sx=x0+7.05;   // the landing at the top of the stairs ends here; the floor of the back strip runs from the left wall to it
+  up((x0+x1)/2,GF,(zF+hole0)/2,x1-x0,Y-GF,hole0-zF,0x7a5a3a);up((x0+sx)/2,GF,(hole0+zB)/2,sx-x0,Y-GF,zB-hole0,0x7a5a3a);
+  for(let k=0;k<11;k++){const a=x1-.5*(k+1),b=x1-.5*k;up((a+b)/2,0,(hole0+zB)/2,.5,.3*(k+1),zB-hole0,k%2?0x8a6440:0x7a5634);}   // 11 steps of 30 cm, from the right-hand corner up to the left
+  up((sx+x1-5.5)/2,0,(hole0+zB)/2,x1-5.5-sx,Y,zB-hole0,0x7a5634);   // the landing
+  up((x1-5.5+1+x1)/2,Y,hole0-.05,x1-(x1-5.5+1),.95,.1,0x5a3a22);   // a rail along the stair hole, with the gap at the top of the stairs
+  // walls of the upper floor (outside they look like the rest of the building) and the roof
+  [[bd.x,bd.z-bd.d/2+WT/2,bd.w,WT],[bd.x,bd.z+bd.d/2-WT/2,bd.w,WT],[bd.x-bd.w/2+WT/2,bd.z,WT,bd.d],[bd.x+bd.w/2-WT/2,bd.z,WT,bd.d]].forEach(([cx,cz,w,d])=>{const f=fblock(cx,GF,cz,w,top-GF,d,brick,trim);bd.parts.push(f.m);});
+  {const f=fblock(bd.x,top,bd.z,bd.w,bd.h-top,bd.d,brick,trim);bd.parts.push(f.m);}
+  const add=(m,px,py,pz)=>{m.position.set(px,py,pz);scene.add(m);bd.parts.push(m);return m;};
+  for(let i=0;i<4;i++){const w=add(new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4),new THREE.MeshBasicMaterial({color:0xbfe6ff})),bd.x-4.5+i*3,Y+1.7,zF+.02);}   // windows over the street
+  INTERIORS.push({x0,x1,z0:zF,z1:zB,y0:Y,y1:top,c:new THREE.Vector3(bd.x,Y+2.4,bd.z),name:"Fabulae — the story room"});
+  // downstairs: a sign at the foot of the stairs
+  {const s=signBoard("Upstairs: Fabulae — the story room",0xffe08a);s.scale.setScalar(.5);add(s,x1-1.2,2.4,zB-.05);s.rotation.y=Math.PI;}
+  // the room: a bookcase for each kind of story along the side walls, a rug, armchairs, lamps and the lectern with all of them
+  const kinds=["Fantasy","Historical fiction","Realistic fiction","Science fiction","Mystery","Adventure","Funny","Fables"],cols=[0x7a3fa0,0xa0602a,0x3f7fb0,0x2a8a8a,0x444a6a,0x3f8a3a,0xd08a20,0x8a5a32];
+  kinds.forEach((k,i)=>{const left=i<4,zz=zF+2.6+(i%4)*3.1,xx=left?x0+.3:x1-.3,r=left?Math.PI/2:-Math.PI/2,g=new THREE.Group();g.position.set(xx,Y,zz);g.rotation.y=r;scene.add(g);bd.parts.push(g);
+    const sh=LOOK.M(new THREE.BoxGeometry(2.4,2.5,.5),LOOK.toon(0x5a3a22),.02);sh.position.y=1.25;g.add(sh);
+    for(let s=0;s<4;s++)for(let b=0;b<13;b++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.14,.44,.3),LOOK.toon([cols[i],0xe8dcc4,cols[i],0x6b4423,cols[(i+3)%8]][(b+s)%5]));bk.position.set(-1.04+b*.17,.45+s*.56,.12);g.add(bk);}
+    const sg=signBoard(k,0xffe08a);sg.scale.setScalar(.7);sg.position.set(0,2.75,.27);g.add(sg);
+    up(xx+(left?.0:0),Y,zz,.5,2.5,2.4,0x5a3a22).material.visible=false;
+    ACTS.push({pos:new THREE.Vector3(xx+(left?1.1:-1.1),Y,zz),r:1.5,label:`📚 ${k} — pick a story`,run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:k})))});});
+  const rug=add(new THREE.Mesh(new THREE.PlaneGeometry(6,8),new THREE.MeshLambertMaterial({color:0x8a2f2f})),bd.x,Y+.06,bd.z-1);rug.rotation.x=-Math.PI/2;
+  const rug2=add(new THREE.Mesh(new THREE.PlaneGeometry(5.4,7.4),new THREE.MeshLambertMaterial({color:0xc9a25a})),bd.x,Y+.07,bd.z-1);rug2.rotation.x=-Math.PI/2;
+  [[-1.8,-3.2,0],[1.8,-3.2,0],[-2,1.6,Math.PI],[2,1.6,Math.PI]].forEach(([dx,dz,r])=>{const g=new THREE.Group();g.position.set(bd.x+dx,Y,bd.z+dz);g.rotation.y=r;scene.add(g);bd.parts.push(g);const red=LOOK.toon(0x3f6a8a);
+    const seat=new THREE.Mesh(new THREE.BoxGeometry(1,.45,.9),red);seat.position.y=.25;g.add(seat);const back=new THREE.Mesh(new THREE.BoxGeometry(1,.8,.2),red);back.position.set(0,.8,-.4);g.add(back);
+    [-.5,.5].forEach(a=>{const arm=new THREE.Mesh(new THREE.BoxGeometry(.15,.35,.9),red);arm.position.set(a,.55,0);g.add(arm);});});
+  [[-2.8,-4.6],[2.8,-4.6]].forEach(([dx,dz])=>{const p=add(new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.6,6),LOOK.toon(0x333338)),bd.x+dx,Y+.8,bd.z+dz);const sh=add(new THREE.Mesh(new THREE.ConeGeometry(.35,.35,10,1,true),new THREE.MeshBasicMaterial({color:0xffe6a8,side:THREE.DoubleSide})),bd.x+dx,Y+1.7,bd.z+dz);});
+  const lec=up(bd.x,Y,bd.z-1,.8,1.1,.6,0x6b4423);const book=add(new THREE.Mesh(new THREE.BoxGeometry(.7,.06,.5),LOOK.toon(0xe8dcc4)),bd.x,Y+1.13,bd.z-1);book.rotation.x=-.25;
+  {const s=signBoard("Fabulae — the story room",0xffe08a);s.scale.setScalar(.75);add(s,bd.x,Y+2.6,zF+.05);}
+  ACTS.push({pos:new THREE.Vector3(bd.x,Y,bd.z-2),r:1.4,label:"📖 Every story — all kinds",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"all"})))});
+  ACTS.push({pos:new THREE.Vector3(bd.x,Y,bd.z),r:1.4,label:"📖 Every story — all kinds",run:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{stories:"all"})))});}
 // the school: a blackboard, rows of desks, Magistra Cornelia at the front; sit at a desk to listen
 function schoolInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2;
   const bb=new THREE.Mesh(new THREE.BoxGeometry(6,2,.1),new THREE.MeshLambertMaterial({color:0x2a4a3a}));bb.position.set(bd.x,1.8,zb+f*.4);scene.add(bb);bd.parts.push(bb);
@@ -1094,7 +1131,7 @@ BLOCK_X.forEach(([x0,x1],ci)=>BLOCK_Z.forEach(([z0,z1],ri)=>{
   else if(ri===2)row(ci,ri,-1,x0,x1,z0,11);
   else{row(ci,ri,-1,x0,x1,z0,6.8);row(ci,ri,1,x0,x1,z1,6.8);}}));
 // the library and the school: big buildings with columns at the front (inside comes next)
-const LIBRARY=building(83,30,13.5,17,3,-1,{enter:true,floor:0x7a5a3a,name:"Bibliotheca — the library",colors:[0xd8cfbf,0xffffff],signHex:0xbfe0ff,signY:7.55,signOut:2.66,door:0x5a3a22});
+const LIBRARY=building(83,30,13.5,17,3,-1,{enter:true,floor:0x7a5a3a,name:"Bibliotheca — the library",upstairs:true,colors:[0xd8cfbf,0xffffff],signHex:0xbfe0ff,signY:7.55,signOut:2.66,door:0x5a3a22});
 const SCHOOL=building(105,30,13.5,17,3,-1,{enter:true,floor:0xa08060,name:"Schola — the school",colors:[0xb2603e,0xf0e6d0],signHex:0xffe08a,signY:7.55,signOut:2.66,door:0x2e3e5a,tank:true});
 [LIBRARY,SCHOOL].forEach(bd=>{for(let i=0;i<6;i++){const c=LOOK.column(6.6);c.scale.set(.7,1,.7);c.position.set(bd.x-5.5+i*2.2,0,bd.z-bd.d/2-1.4);scene.add(c);bd.parts.push(c);c.userData.y0=0;}
   const pd=LOOK.M(new THREE.BoxGeometry(14,.5,2.6),LOOK.toon(0xe6dccb),.02);pd.position.set(bd.x,6.85,bd.z-bd.d/2-1.3);scene.add(pd);bd.parts.push(pd);pd.userData.y0=6.85;});
@@ -2652,6 +2689,6 @@ function stepInvent(dt){stepFeel(dt);P.portT=Math.max(0,(P.portT||0)-dt);
         if(dp.sid&&MP.ok){TAKING[dp.sid]=dp.it;share({k:"take",id:dp.sid});scene.remove(dp.g);PICKUPS.splice(i,1);}else if(addItem(dp.it)){const fi=itemInfo(dp.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`your magnet collected ${fi.name}`,"spell",fi.pic);scene.remove(dp.g);PICKUPS.splice(i,1);}}}}
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
-window.__world={P,ENEMIES,inArena,isNight,inTown};   // what the music (music.js) listens to
+window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS};   // what the music (music.js) listens to
 window.__el={stepFeel,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

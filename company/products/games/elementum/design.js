@@ -118,31 +118,45 @@ const SHELVES={"Science":["Why is the sky blue?","How do magnets work?","What ma
   "Heat & cold":["How does insulation work?","Why are dark things hotter in the sun?","How did people keep food cold long ago?","What is temperature?"],"Designs":["How does a truss bridge work?","How does a beam bridge work?","How does an arch bridge work?","How does a suspension bridge work?","What is a cantilever bridge?","Why are A-frames so stable?","How does a roof truss work?","What are guy ropes and why do they hold things up?","What is companion planting?","How does a French drain work?","How do rain gardens work?","How does a straw-bale house stay warm?","How does a passive solar house work?"],
   "Inventions":["How does a lever work?","How does a pulley work?","Who invented the printing press?","How do clocks work?"]};
 function forYou(){const q=[];SC.list.forEach(sc=>{const s=S(sc.id);if(s.facts.length&&!s.solved)q.push(...sc.books);});return [...new Set(q)].slice(0,8);}
-function openLibrary(o){hooks=o||{};cur=null;mode="library";show();if(hooks.shelf)libShelf(hooks.shelf,true);else if(hooks.computer)libComputer(true);else libHome();}
+function openLibrary(o){hooks=o||{};cur=null;mode="library";show();reading=false;if(hooks.stories)libStories(true,hooks.stories);else if(hooks.shelf)libShelf(hooks.shelf,true);else if(hooks.computer)libComputer(true);else libHome();}
 function libHome(msg){const fy=forYou();let h=head("Bibliotheca — the library")+`<div class="dbody">${msg?`<p class="bad">${esc(msg)}</p>`:""}
   ${fy.length?`<h3>About your projects</h3><div class="shelf">${fy.map(q=>`<button data-libq="${esc(q)}">${esc(q)}</button>`).join("")}</div>`:""}
-  <h3>Shelves</h3><div class="shelf">${Object.keys(SHELVES).map(k=>`<button data-shelf="${esc(k)}">${esc(k)}</button>`).join("")}<button data-shelf="Stories">📚 Stories</button><button data-computer="1">The computer</button></div>
+  <h3>Shelves</h3><div class="shelf">${Object.keys(SHELVES).map(k=>`<button data-shelf="${esc(k)}">${esc(k)}</button>`).join("")}<button data-computer="1">The computer</button></div>
   ${LIB.pages.length?`<h3>Books you've read</h3><div class="shelf">${LIB.pages.slice(-10).reverse().map(p=>`<button data-libq="${esc(p.q)}" class="read">${esc(p.title)}</button>`).join("")}</div>`:""}</div>`;
   $("#designBody").innerHTML=h;wireClose();wireLib();}
-function libShelf(k,direct){if(k==="Stories")return libStories(direct);const qs=SHELVES[k]||[];$("#designBody").innerHTML=head(`Shelf: ${k}`,direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><p class="tip">Pick a book off the shelf.</p><div class="shelf books">${qs.map(q=>`<button data-libq="${esc(q)}" class="spine">${esc(q)}</button>`).join("")}</div></div>`;wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();wireLib();}
+function libShelf(k,direct){const qs=SHELVES[k]||[];$("#designBody").innerHTML=head(`Shelf: ${k}`,direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><p class="tip">Pick a book off the shelf.</p><div class="shelf books">${qs.map(q=>`<button data-libq="${esc(q)}" class="spine">${esc(q)}</button>`).join("")}</div></div>`;wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();wireLib();}
 function libComputer(direct){$("#designBody").innerHTML=head("The library computer",direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><p class="tip">Can't find it on the shelves? Type what you want to know and the computer finds a book for you.</p><div class="libask"><input id="libQ" maxlength="140" placeholder="What do you want to know?" autocomplete="off"><button id="libGo" class="go">Find a book</button></div></div>`;
   wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();const go=()=>{const q=$("#libQ").value.trim();if(q.length>2)libAsk(q);};$("#libGo").onclick=go;$("#libQ").onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")go();};setTimeout(()=>{try{$("#libQ").focus();}catch(e){}},50);}
-// ---------------- Stories (2026-11-26, Barbara: "another section of the library with stories"): stories.js; short and long ones, read here or read aloud
-const STORY=()=>window.STORIES||[],words=s=>s.paras.reduce((a,p)=>a+p.split(/\s+/).length,0);LIB.stories=LIB.stories||[];
-function libStories(direct,only){try{speechSynthesis.cancel();}catch(e){}const L=STORY(),G=[...new Set(L.map(s=>s.genre))];
-  let h=head("📚 Stories",direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><p class="tip">${L.length} stories — some short, some long. Pick one to read, or have it read to you.</p>
-  <div class="shelf"><button data-sf="" class="${only?"":"on"}">All</button><button data-sf="short" class="${only==="short"?"on":""}">Short</button><button data-sf="long" class="${only==="long"?"on":""}">Long</button>${G.map(g=>`<button data-sf="${esc(g)}" class="${only===g?"on":""}">${esc(g)}</button>`).join("")}</div>
-  <div class="shelf books">${L.filter(s=>!only||s.kind===only||s.genre===only).map(s=>{const m=Math.max(1,Math.round(words(s)/160));return `<button data-story="${esc(s.id)}" class="spine${LIB.stories.includes(s.id)?" read":""}">${esc(s.t)}<small>${s.kind==="long"?"Long":"Short"} · ${esc(s.genre)} · ${m} min${LIB.stories.includes(s.id)?" · read ✓":""}</small></button>`;}).join("")}</div></div>`;
+// ---------------- Stories (2026-11-26, Barbara: "another room … 2-40 pages, all fantasy and fiction … historical and realistic"): stories.js. They live in
+// Fabulae, the story room upstairs in the library (game.js storyRoom): a bookcase for each kind opens that kind; the lectern opens them all.
+// A story is shown a page at a time (about 250 words a page, like a printed book), the page you got to is remembered, 🔊 reads it aloud from
+// that page on, and every word can be pointed at for its meaning (the dictionary), like the other books.
+const STORY=()=>window.STORIES||[],words=s=>s.paras.reduce((a,p)=>a+p.split(/\s+/).length,0);LIB.stories=LIB.stories||[];LIB.at=LIB.at||{};
+const libSave=()=>{try{localStorage.setItem(LIB_KEY,JSON.stringify(LIB));}catch(e){}};
+function pagesOf(s){if(s._pages)return s._pages;const P=[];let cur=[],n=0;s.paras.forEach(p=>{const w=p.split(/\s+/).length,head=/^Chapter \d+/.test(p)&&p.length<80;
+    if(cur.length&&(head||n+w>290)&&n>=140){P.push(cur);cur=[];n=0;}cur.push(p);n+=w;});if(cur.length)P.push(cur);return s._pages=P;}
+const KINDS=["Fantasy","Historical fiction","Realistic fiction","Science fiction","Mystery","Adventure","Funny","Fables"];
+function libStories(direct,only){try{speechSynthesis.cancel();}catch(e){}if(only==="all")only="";const L=STORY(),G=KINDS.filter(k=>L.some(s=>s.genre===k));
+  const list=L.filter(s=>!only||s.genre===only||(only==="short"&&pagesOf(s).length<=8)||(only==="long"&&pagesOf(s).length>8));
+  let h=head(only&&KINDS.includes(only)?`📚 ${only}`:"📚 Fabulae — every story",direct?"":`<button id="libBack">← Library</button>`)+`<div class="dbody"><p class="tip">${list.length} ${list.length===1?"story":"stories"}, from 2 to 40 pages. Pick one to read, or have it read to you. Point at any word to see what it means.</p>
+  <div class="shelf"><button data-sf="" class="${only?"":"on"}">All</button><button data-sf="short" class="${only==="short"?"on":""}">Up to 8 pages</button><button data-sf="long" class="${only==="long"?"on":""}">Longer</button>${G.map(g=>`<button data-sf="${esc(g)}" class="${only===g?"on":""}">${esc(g)}</button>`).join("")}</div>
+  <div class="shelf books">${list.map(s=>{const n=pagesOf(s).length,at=LIB.at[s.id],rd=LIB.stories.includes(s.id);return `<button data-story="${esc(s.id)}" class="spine${rd?" read":""}">${esc(s.t)}<small>${esc(s.genre)} · ${n} pages${at&&at<n-1?` · on page ${at+1}`:rd?" · read ✓":""}</small></button>`;}).join("")}</div></div>`;
   $("#designBody").innerHTML=h;wireClose();if($("#libBack"))$("#libBack").onclick=()=>libHome();
   document.querySelectorAll("[data-sf]").forEach(b=>b.onclick=()=>libStories(direct,b.dataset.sf));document.querySelectorAll("[data-story]").forEach(b=>b.onclick=()=>storyPage(b.dataset.story,direct,only));}
-function storyPage(id,direct,only){const s=STORY().find(s=>s.id===id);if(!s)return libStories(direct,only);
-  if(!LIB.stories.includes(id)){LIB.stories.push(id);try{localStorage.setItem(LIB_KEY,JSON.stringify(LIB));}catch(e){}}
-  const i=STORY().indexOf(s),nx=STORY()[(i+1)%STORY().length];
-  $("#designBody").innerHTML=head(s.t,`<button id="stBack">← Stories</button>`)+`<div class="dbody book"><p class="tip">${s.kind==="long"?"A long story":"A short story"} · ${esc(s.genre)} · ${words(s)} words <button id="stRead" class="go">🔊 Read it to me</button></p>
-    ${s.paras.map(p=>/^Chapter \d+/.test(p)&&p.length<80?`<h3>${esc(p)}</h3>`:`<p>${esc(p)}</p>`).join("")}<p class="tip">— The End —</p><p><button id="stNext">Next story: ${esc(nx.t)} →</button></p></div>`;
-  wireClose();$("#stBack").onclick=()=>libStories(direct,only);$("#stNext").onclick=()=>storyPage(nx.id,direct,only);dictify($("#designBody"));{let el=$("#designBody");while(el){el.scrollTop=0;el=el.parentElement;}}
-  let on=false;$("#stRead").onclick=()=>{try{speechSynthesis.cancel();if(on){on=false;$("#stRead").textContent="🔊 Read it to me";return;}on=true;$("#stRead").textContent="⏹ Stop reading";
-    const parts=[s.t+".",...s.paras];let k=0;const next=()=>{if(!on||k>=parts.length){on=false;if($("#stRead"))$("#stRead").textContent="🔊 Read it to me";return;}const u=new SpeechSynthesisUtterance(parts[k++]);u.rate=.95;u.onend=next;speechSynthesis.speak(u);};next();}catch(e){}};}
+let reading=false;
+function storyPage(id,direct,only,pg){const s=STORY().find(s=>s.id===id);if(!s)return libStories(direct,only);const P=pagesOf(s),N=P.length;
+  if(pg===undefined){pg=LIB.at[id]||0;if(pg>=N-1)pg=0;}pg=Math.max(0,Math.min(N-1,pg));LIB.at[id]=pg;if(pg===N-1&&!LIB.stories.includes(id))LIB.stories.push(id);libSave();
+  const L=STORY(),nx=L[(L.indexOf(s)+1)%L.length],last=pg===N-1,nav=`<div class="pnav"><button id="pgPrev" ${pg?"":"disabled"}>← Page ${pg}</button><span>Page ${pg+1} of ${N}</span>${last?`<button id="stNext">Next story →</button>`:`<button id="pgNext" class="go">Page ${pg+2} →</button>`}</div>`;
+  $("#designBody").innerHTML=head(s.t,`<button id="stBack">← Stories</button>`)+`<div class="dbody book"><p class="tip">${esc(s.genre)} · ${N} pages <button id="stRead" class="go">${reading?"⏹ Stop reading":"🔊 Read it to me"}</button></p>
+    ${P[pg].map(p=>/^Chapter \d+/.test(p)&&p.length<80?`<h3>${esc(p)}</h3>`:`<p>${esc(p)}</p>`).join("")}${last?`<p class="tip">— The End —</p>`:""}${nav}</div>`;
+  const go=k=>{storyPage(id,direct,only,k);};wireClose();$("#stBack").onclick=()=>{reading=false;libStories(direct,only);};
+  if($("#pgPrev"))$("#pgPrev").onclick=()=>{reading=false;try{speechSynthesis.cancel();}catch(e){}go(pg-1);};if($("#pgNext"))$("#pgNext").onclick=()=>{reading=false;try{speechSynthesis.cancel();}catch(e){}go(pg+1);};
+  if($("#stNext"))$("#stNext").onclick=()=>{reading=false;storyPage(nx.id,direct,only,0);};
+  dictify($("#designBody"));{let el=$("#designBody");while(el){el.scrollTop=0;el=el.parentElement;}}
+  const speakPage=()=>{try{speechSynthesis.cancel();const parts=(pg===0?[s.t+"."]:[]).concat(P[pg]);let k=0;const next=()=>{if(!reading||!openFlag)return;if(k>=parts.length){if(!last)go(pg+1);else reading=false;if(last&&$("#stRead"))$("#stRead").textContent="🔊 Read it to me";return;}
+      const u=new SpeechSynthesisUtterance(parts[k++]);u.rate=.95;u.onend=next;speechSynthesis.speak(u);};next();}catch(e){}};
+  $("#stRead").onclick=()=>{reading=!reading;$("#stRead").textContent=reading?"⏹ Stop reading":"🔊 Read it to me";if(reading)speakPage();else try{speechSynthesis.cancel();}catch(e){}};
+  if(reading)speakPage();}
 function wireLib(){document.querySelectorAll("[data-libq]").forEach(b=>b.onclick=()=>libAsk(b.dataset.libq));document.querySelectorAll("[data-shelf]").forEach(b=>b.onclick=()=>libShelf(b.dataset.shelf));document.querySelectorAll("[data-computer]").forEach(b=>b.onclick=()=>libComputer());}
 function libAsk(q){const proj=SC.list.find(sc=>sc.books.includes(q)&&S(sc.id).facts.length);
   $("#designBody").innerHTML=head("Bibliotheca — the library")+`<div class="dbody"><p class="tip">Finding a book about “${esc(q)}”…</p><div class="spin"></div></div>`;wireClose();
