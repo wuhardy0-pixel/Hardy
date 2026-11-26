@@ -3036,9 +3036,12 @@ function funEv(ev,mine){funInit();if(ev.f==="snowball"){if(mine)return;snowballF
   if(ev.f==="kick"&&Array.isArray(ev.v)&&fieldOwner()===MP.id){B.vx=+ev.v[0]||0;B.vz=+ev.v[1]||0;B.vy=+ev.v[2]||0;}}
 // your own snowmen on the field (shared; they melt when the snow goes)
 const SNOWMAN_ACT={pos:new THREE.Vector3()};
-ACTS.push({pos:SNOWMAN_ACT.pos,r:3,hidden:()=>snowAmt()<=.3||!FUN||Math.abs(P.pos.x-LUD.x)>LUD.w/2+3||Math.abs(P.pos.z-LUD.z)>LUD.l/2+3||P.inCar||FUN.snowmen.some(s=>s.g.position.distanceTo(P.pos)<2),label:"⛄ Build a snowman here",
-  run:()=>{const i=(FUN.snowmen.length+Math.floor(Math.random()*1000))%12;const v={x:R2(P.pos.x+(-Math.sin(P.yaw))*1.2),z:R2(P.pos.z+(-Math.cos(P.yaw))*1.2),r:R2(P.yaw),by:(MP.you||"").slice(0,16)};snowmanKey(i,v);setKey("snowman:"+i,v);lawSay("⛄ You roll three big snowballs and stack them up. Hello, snowman!");}});
-setInterval(()=>{SNOWMAN_ACT.pos.copy(P.pos);},250);
+// 2026-11-26 (Barbara: "you can create a snowman anywhere"): anywhere there is snow, outdoors, when nothing else is there to press T for
+const SNOW_ACT_OBJ={pos:SNOWMAN_ACT.pos,r:3,hidden:()=>!SNOWMAN_ACT.ok,label:"⛄ Build a snowman here",
+  run:()=>{const i=Math.floor(Math.random()*40);const v={x:R2(P.pos.x+(-Math.sin(P.yaw))*1.2),z:R2(P.pos.z+(-Math.cos(P.yaw))*1.2),r:R2(P.yaw),by:(MP.you||"").slice(0,16)};snowmanKey(i,v);setKey("snowman:"+i,v);lawSay("⛄ You roll three big snowballs and stack them up. Hello, snowman!");}};
+ACTS.push(SNOW_ACT_OBJ);
+setInterval(()=>{SNOWMAN_ACT.pos.copy(P.pos);SNOWMAN_ACT.ok=!!FUN&&started&&snowAmt()>.3&&!P.inCar&&!P.down&&!(PETS&&PETS.riding)&&P.pos.y<.5&&!inRoom(P.pos)&&!isWater(P.pos.x,P.pos.z,false)&&!FUN.snowmen.some(s=>s.g.position.distanceTo(P.pos)<2.5)
+  &&!ACTS.some(a=>a!==SNOW_ACT_OBJ&&!(a.hidden&&a.hidden())&&Math.abs(P.pos.y-(a.pos.y||0))<=1.6&&Math.hypot(P.pos.x-a.pos.x,P.pos.z-a.pos.z)<a.r);},250);
 function snowmanKey(i,val){funInit();const F=FUN;const old=F.snowmen.find(s=>s.i===i);if(old){scene.remove(old.g);F.snowmen.splice(F.snowmen.indexOf(old),1);}if(!val)return;
   const g=snowmanMesh();g.position.set(+val.x||0,0,+val.z||0);g.rotation.y=(+val.r||0)+Math.PI;scene.add(g);if(val.by){const lb=label(`${String(val.by).slice(0,16)}'s snowman`,0xffffff);lb.scale.set(2.2,.4,1);lb.position.y=2.5;g.add(lb);}F.snowmen.push({i,g});}
 // holidays: villagers gather by the decorations with presents, swap them and cheer; wish them a happy holiday and they give you one too
