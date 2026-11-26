@@ -959,13 +959,13 @@ function shopBuy(i){const sh=CUR_SHOP;if(!sh)return;const id=sh.S.items[i],f=FOO
   else if(id==="sandals"){P.buffT=Math.max(P.buffT||0,120);hud();}
   COINS-=f.price;coinHud();forgeOk=true;forgeMsg=id in FOODS?`${f.name} is in your bag.`:id==="haircut"?"Snip snip — what a new look!":"Off you go — fast feet!";}
 // the library: shelves along the walls, each with a sign for its subject; a computer on a desk; Varro behind the desk
-function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Designs","Building","Science","Space","Animals","Ancient Rome","Math","Gardens","Water & weather","Heat & cold","Inventions"];
-  const spots=[];for(let i=0;i<6;i++)spots.push([bd.x-bd.w/2+.6,bd.z-4.5+i*1.8,Math.PI/2]);for(let i=0;i<5;i++)spots.push([bd.x+bd.w/2-.6,bd.z-4.5+i*1.8,-Math.PI/2]);
+function libraryInside(bd){const f=bd.face,zb=bd.z-f*bd.d/2,wood=LOOK.toon(0x6b4423),cats=["Designs","Building","Science","Space","Animals","Ancient Rome","Math","Gardens","Water & weather","Heat & cold","Inventions","Stories"];
+  const spots=[];for(let i=0;i<6;i++)spots.push([bd.x-bd.w/2+.6,bd.z-4.5+i*1.8,Math.PI/2]);for(let i=0;i<6;i++)spots.push([bd.x+bd.w/2-.6,bd.z-4.5+i*1.8,-Math.PI/2]);
   spots.forEach(([x,z,r],i)=>{const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=r;scene.add(g);bd.parts.push(g);const sh=LOOK.M(new THREE.BoxGeometry(1.6,2.4,.5),wood,.02);sh.position.y=1.2;g.add(sh);
     for(let k=0;k<4;k++)for(let b=0;b<9;b++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.13,.42,.3),LOOK.toon([0xb5482f,0x3f6fa8,0x4f8f3a,0xc98a2b,0x8a4fb0,0xe8dcc4][(b+k+i)%6]));bk.position.set(-.65+b*.16,.5+k*.55,.12);g.add(bk);}
     const sign=signBoard(cats[i],0xbfe0ff);sign.scale.setScalar(.75);sign.position.set(0,2.65,.27);g.add(sign);
     {const m=block(x,z,Math.abs(Math.sin(r))>.5?.6:1.7,2.4,Math.abs(Math.sin(r))>.5?1.7:.6,0x6b4423);m.material.visible=false;m.castShadow=false;}
-    const sp=new THREE.Vector3(x+Math.sin(r)*1.1,0,z+Math.cos(r)*1.1);ACTS.push({pos:sp,r:1.3,label:cats[i]==="Designs"?"📐 Design ideas — houses, chairs, cars, boats…":`Browse the shelf: ${cats[i]}`,run:cats[i]==="Designs"?openIdeas:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{shelf:cats[i]})))});});
+    const sp=new THREE.Vector3(x+Math.sin(r)*1.1,0,z+Math.cos(r)*1.1);ACTS.push({pos:sp,r:1.3,label:cats[i]==="Designs"?"📐 Design ideas — houses, chairs, cars, boats…":cats[i]==="Stories"?"📚 Stories — short ones and long ones":`Browse the shelf: ${cats[i]}`,run:cats[i]==="Designs"?openIdeas:()=>uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{shelf:cats[i]})))});});
   const desk=block(bd.x,zb+f*3,3,1,1,0x6b4423);desk.material=LOOK.toon(0x6b4423);
   const mon=new THREE.Mesh(new THREE.BoxGeometry(.7,.5,.08),new THREE.MeshBasicMaterial({color:0x2a6ab0}));mon.position.set(bd.x+.6,1.35,zb+f*3);mon.rotation.y=f>0?0:Math.PI;scene.add(mon);bd.parts.push(mon);
   const base=new THREE.Mesh(new THREE.BoxGeometry(.5,.08,.3),LOOK.toon(0x333338));base.position.set(bd.x+.6,1.04,zb+f*3);scene.add(base);bd.parts.push(base);
