@@ -1546,7 +1546,7 @@ function stepDay(dt){const sNow=(Date.now()-CLOCK.epoch)/1000/DAY.len+CLOCK.offs
   HEMI.intensity=.28+.72*Math.min(1,day*1.5);HEMI.color.set(day>.15?0xcfe8ff:0x6070a0);
   STARS.material.opacity=night*.9;STARS.position.copy(cam.position);
   const glowK=Math.max(night,dusk*.5);NIGHT_MATS.forEach(m=>m.emissiveIntensity=glowK*.85);LAMPS.forEach(l=>l.material.color.setScalar(.85+.6*glowK));
-  const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${townDay()} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
+  const h=Math.floor(((t<DAYLEN?6+12*t/DAYLEN:18+12*(t-DAYLEN)/(1-DAYLEN))%24));$("#clock").textContent=`Day ${townDay()} · ${dateLabel()} · ${h%12||12} ${h<12?"am":"pm"}${night>.5?" · night":""}`;
 }
 scene.add(sun.target);
 function stepLife(dt){stepDay(dt);stepAreas();stepCars();stepArena(dt);stepVillagers();stepCity(dt);stepOrders(dt);stepTown(dt);stepHomes();stepBoats();stepSoldiers(dt);stepPlaced();stepCastleGuard(dt);stepInvent(dt);stepRooms();stepJobs();stepBiz(dt);stepLaw(dt);stepMarks(dt);stepHouses(dt);TOWNFOLK.forEach(o=>{if(o.rig&&o.g.position.distanceTo(P.pos)<70)o.rig.update(dt);});HOME.restT=Math.max(0,HOME.restT-dt);
@@ -2704,7 +2704,7 @@ const isDay=()=>!isNight();
 function herdOwner(h){if(!MP.ok)return MP.id;let best=null;const see=(id,x,z)=>{if(Math.hypot(x-h.home.x,z-h.home.z)<120&&(best===null||id<best))best=id;};see(MP.id,P.pos.x,P.pos.z);(MP.list||[]).forEach(q=>see(q.id,q.x,q.z));return best===null?MP.id:best;}
 function aniAnim(an,name,o){an.base=name;if(an.rig&&!an.rig.fullName)an.rig.base(an.K[name]||an.K.idle,o);}
 function stepWild(dt){wildInit();const day=isDay(),PL=mobPlayers();WILD.net-=dt;const send=WILD.net<=0&&MP.ok;if(send)WILD.net=.35;const out=[];
-  for(const b of WILD.bushes){const ripe=Date.now()/1000-b.at>180;if(b.ber.visible!==ripe)b.ber.visible=ripe;}
+  for(const b of WILD.bushes){const ripe=Date.now()/1000-b.at>180&&!(SEASON&&SEASON.w.winter>.5);if(b.ber.visible!==ripe)b.ber.visible=ripe;}
   for(const h of WILD.herds){const mine=herdOwner(h)===MP.id,near=Math.hypot(P.pos.x-h.home.x,P.pos.z-h.home.z)<140;
     for(const an of h.list){const g=an.g;g.visible=day;if(!day){an.lead=null;continue;}if(an.rig&&near&&g.position.distanceTo(P.pos)<90)an.rig.update(dt);
       if(!mine){if(an.net){const n=an.net,dx=n.x-g.position.x,dz=n.z-g.position.z;if(Math.hypot(dx,dz)>10){g.position.x=n.x;g.position.z=n.z;}else{const k=Math.min(1,dt*6);g.position.x+=dx*k;g.position.z+=dz*k;}
@@ -2755,6 +2755,86 @@ function fishStop(msg){if(!FISH.on)return;FISH.on=false;FISH.bite=false;if(FISH.
 function fishPull(){if(!FISH.bite){fishStop("🎣 You reel in your line.");return;}const at=FISH.bob.position.clone();for(let i=0;i<20;i++)SPARK.emit(at,new THREE.Vector3(rnd(-1.5,1.5),rnd(1,3),rnd(-1.5,1.5)),C(0x6ab8ff),.6,{grav:8});
   const r=Math.random();fishStop();if(r<.12){lawSay("🥾 You caught… an old boot. Better luck next time!");return;}if(r<.17){const n=ri(2,5);addItem({t:"coin",n});lawSay(`💰 A little bag of ${n} denarii was on your hook!`);return;}
   addItem({t:"food",id:"piscisR",n:1})?lawSay("🐟 You caught a fish!"):lawSay("🐟 You caught a fish — but your bag is full, so you let it go.");}
+// ---------------- the year: four seasons, 365 days, holidays (2026-11-26, Barbara: "four seasons to pass, 365 days in a year, and winter landscape and stuff,
+// with songs like that theme; also there are holidays"). Every game day (8 minutes) is one day of the calendar, the same for everyone (it comes from
+// the shared clock), so a year is 365 game days. Winter (Dec–Feb): snow on the ground and the trees, snowflakes falling, icy water, no berries.
+// Spring (Mar–May): fresh green, pink blossom, petals. Summer (Jun–Aug): deep green. Autumn (Sep–Nov): red, orange and yellow leaves falling.
+// The seasons fade into each other over a few days. The music changes with them (music.js). Holidays: decorations round the start, a banner,
+// a present to open once each (T at the gift box), and their own music.
+const MONTHS=[["January",31],["February",28],["March",31],["April",30],["May",31],["June",30],["July",31],["August",31],["September",30],["October",31],["November",30],["December",31]];
+const YEAR0=210;   // chosen so that the calendar showed 15 December when it started (26 Nov 2026): the first thing everyone sees is winter
+const HOLIDAYS=[{id:"newyear",name:"New Year's Day",icon:"🎆",from:[1,1],to:[1,1],say:"Happy New Year! Fireworks over the town tonight.",gift:[{t:"coin",n:20},{t:"food",id:"mel",n:1}]},
+  {id:"floralia",name:"Floralia, the flower festival",icon:"🌸",from:[4,28],to:[5,3],say:"Floralia! Flowers everywhere — spring is here.",gift:[{t:"coin",n:15},{t:"food",id:"uvae",n:2}]},
+  {id:"midsummer",name:"Midsummer",icon:"☀️",from:[6,21],to:[6,21],say:"Midsummer — the longest day! A bonfire burns in town.",gift:[{t:"coin",n:15},{t:"food",id:"piscis",n:1}]},
+  {id:"harvest",name:"the Harvest Festival",icon:"🍎",from:[9,22],to:[9,24],say:"The Harvest Festival! Baskets of apples in town — help yourself.",gift:[{t:"food",id:"pomum",n:5},{t:"food",id:"panis",n:2}]},
+  {id:"pumpkin",name:"Pumpkin Night",icon:"🎃",from:[10,31],to:[10,31],say:"Pumpkin Night! Glowing pumpkins all over town.",gift:[{t:"coin",n:10},{t:"food",id:"mel",n:2}]},
+  {id:"saturnalia",name:"Saturnalia",icon:"🎁",from:[12,17],to:[12,23],say:"Saturnalia! The Roman winter festival — lights, presents and feasting.",gift:[{t:"coin",n:25},{t:"food",id:"mel",n:1},{t:"food",id:"caseus",n:1}]},
+  {id:"midwinter",name:"Midwinter Day",icon:"🎄",from:[12,25],to:[12,25],say:"Midwinter Day! A big decorated tree stands in town.",gift:[{t:"coin",n:25},{t:"potion",id:"potion",n:1}]}];
+var SEASON=null;
+function yearDay(){return ((worldDay()+YEAR0)%365+365)%365;}
+function mdOf(yd){let d=yd;for(let m=0;m<12;m++){if(d<MONTHS[m][1])return [m+1,d+1];d-=MONTHS[m][1];}return [12,31];}
+const ydOf=(m,d)=>MONTHS.slice(0,m-1).reduce((a,x)=>a+x[1],0)+d-1;
+function seasonWeights(yd){const B=[[59,"winter","spring"],[151,"spring","summer"],[243,"summer","autumn"],[334,"autumn","winter"]],w={winter:0,spring:0,summer:0,autumn:0};
+  const cur=yd<59||yd>=334?"winter":yd<151?"spring":yd<243?"summer":"autumn";w[cur]=1;
+  for(const [b,from,to] of B){const d=yd-b;if(d>=-4&&d<4){const k=(d+4.5)/9;w[from]=1-k;w[to]=k;for(const s in w)if(s!==from&&s!==to)w[s]=0;}}return w;}
+function holidayOn(yd){return HOLIDAYS.find(h=>{const a=ydOf(...h.from),b=ydOf(...h.to);return yd>=a&&yd<=b;})||null;}
+function dateLabel(){if(!SEASON)return "";const [m,d]=mdOf(SEASON.yd);return `${MONTHS[m-1][0].slice(0,3)} ${d} ${{winter:"❄️",spring:"🌱",summer:"☀️",autumn:"🍂"}[SEASON.name]}${SEASON.hol?" · "+SEASON.hol.icon+" "+SEASON.hol.name.replace(/^the /,""):""}`;}
+// what each season paints: leaves, bushes and the ground
+const LEAF_K={0x3f8f3a:{spring:0x5bb046,autumn:0xc0482a,winter:0xeef3f6},0x4fa346:{spring:0x7cc85a,autumn:0xe39a2c,winter:0xf4f7f9},0x4f8f3a:{spring:0x66ad48,autumn:0xc98a2b,winter:0xe8eef2},
+  0x2f6b34:{spring:0x3a7a3c,autumn:0x2f6b34,winter:0xb9cfc4},0x245a2b:{spring:0x2e6a33,autumn:0x245a2b,winter:0xa9c2b6},0x3f7a34:{spring:0x5a9a40,autumn:0xb5652a,winter:0xdfe8ec},
+  0x24552c:{spring:0x2c6233,autumn:0x24552c,winter:0xb3c9bd},0x3a7a34:{spring:0x58a442,autumn:0xd2782a,winter:0xe6edf1}};   // the dark forest: pines stay green (snowy in winter), the round trees turn
+const BLOSSOM=0xf3b3cf;
+function seasonInit(){const mats=[];scene.traverse(o=>{if(!o.isMesh||!o.material||Array.isArray(o.material)||!o.material.isMeshToonMaterial)return;const m=o.material;if(m.userData.sz)return;const h=m.color.getHex();if(LEAF_K[h]){m.userData.sz={base:h};mats.push(m);}});
+  // a third of the town's leafy trees blossom pink in spring (each leaf has its own material)
+  TREES.forEach((t,i)=>{if(i%3)return;t.g.traverse(o=>{if(o.isMesh&&o.material&&o.material.userData.sz)o.material.userData.sz.bloom=1;});});
+  const snow=new THREE.Mesh(new THREE.PlaneGeometry(480,480),new THREE.MeshLambertMaterial({color:0xf4f8fb,transparent:true,opacity:0,depthWrite:false}));snow.rotation.x=-Math.PI/2;snow.position.y=.016;snow.receiveShadow=true;scene.add(snow);
+  const N=1600,pos=new Float32Array(N*3);for(let i=0;i<N;i++){pos[i*3]=rnd(-40,40);pos[i*3+1]=rnd(0,26);pos[i*3+2]=rnd(-40,40);}const geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  const flakes=new THREE.Points(geo,new THREE.PointsMaterial({color:0xffffff,size:.16,transparent:true,opacity:0,depthWrite:false}));flakes.frustumCulled=false;scene.add(flakes);
+  SEASON={mats,snow,flakes,N,yd:-1,name:"",w:null,hol:null,deco:null,t:0,gk:null,water:null,ground:ground.material};
+  scene.traverse(o=>{if(!SEASON.water&&o.isMesh&&o.material&&o.material.isMeshLambertMaterial&&o.material.color.getHex()===0x3a8fd0)SEASON.water=o.material;});}
+const _sc=new THREE.Color(),_sd=new THREE.Color();
+function seasonPaint(){const S=SEASON,w=S.w;for(const m of S.mats){const z=m.userData.sz,K=LEAF_K[z.base];_sc.setHex(z.base).multiplyScalar(w.summer);
+    for(const s of ["spring","autumn","winter"]){if(!w[s])continue;_sd.setHex(s==="spring"&&z.bloom?BLOSSOM:K[s]);if(s==="autumn"&&z.bloom)_sd.setHex(0xd9662a);_sc.add(_sd.multiplyScalar(w[s]));}m.color.copy(_sc);}
+  S.ground.color.setRGB(1*w.summer+1.04*w.spring+1.2*w.autumn+.9*w.winter,1*w.summer+1.08*w.spring+.92*w.autumn+.95*w.winter,1*w.summer+.95*w.spring+.5*w.autumn+1*w.winter);
+  S.snow.material.opacity=.9*w.winter;S.snow.visible=w.winter>.01;if(S.water){S.water.color.setHex(0x3a8fd0).lerp(_sd.setHex(0xa9d4ee),w.winter*.8);}}
+function stepSeason(dt){if(!SEASON)seasonInit();const S=SEASON,yd=yearDay();
+  if(yd!==S.yd){const first=S.yd<0;S.yd=yd;S.w=seasonWeights(yd);S.name=Object.keys(S.w).reduce((a,b)=>S.w[a]>=S.w[b]?a:b);seasonPaint();
+    const h=holidayOn(yd);if((h&&h.id)!==(S.hol&&S.hol.id)){S.hol=h;holidayDeco(h);if(h&&started)lawSay(`${h.icon} ${h.say} (Open your present by the start.)`);}
+    if(!first){const [m,d]=mdOf(yd);if(d===1&&[3,6,9,12].includes(m))lawSay({3:"🌱 Spring has come!",6:"☀️ It's summer!",9:"🍂 Autumn is here — the leaves are turning.",12:"❄️ Winter has come — snow!"}[m]);}}
+  // snowflakes in winter, leaves in autumn, petals in spring: around the camera, falling, not indoors
+  const w=S.w,indoor=!!inRoom(P.pos),kind=w.winter>.3?"snow":w.autumn>.5?"leaf":w.spring>.5?"petal":"",amt=indoor?0:kind==="snow"?w.winter:kind?.35:0;
+  const F=S.flakes,M=F.material;M.opacity+=((amt>0?.9:0)-M.opacity)*Math.min(1,dt*2);F.visible=M.opacity>.02;
+  if(F.visible){if(S.fk!==kind){S.fk=kind;M.color.setHex(kind==="leaf"?0xd9772a:kind==="petal"?0xf5b8d0:0xffffff);M.size=kind==="snow"?.16:.24;}
+    const p=F.geometry.attributes.position.array,n=Math.floor(S.N*(kind==="snow"?Math.max(.2,amt):.12)),c=cam.position,fall=kind==="snow"?2.2:1.1,t=performance.now()/1000;F.geometry.setDrawRange(0,n);
+    for(let i=0;i<n;i++){let y=p[i*3+1]-fall*dt;let x=p[i*3]+Math.sin(t*.7+i)*dt*(kind==="snow"?.4:1.2),z=p[i*3+2]+Math.cos(t*.5+i*1.3)*dt*.4;
+      if(y<0)y+=26;if(x-c.x>40)x-=80;else if(x-c.x<-40)x+=80;if(z-c.z>40)z-=80;else if(z-c.z<-40)z+=80;p[i*3]=x;p[i*3+1]=y;p[i*3+2]=z;}
+    F.geometry.attributes.position.needsUpdate=true;F.position.y=c.y-12;}
+  // fireworks over the town on New Year's night
+  if(S.hol&&S.hol.id==="newyear"&&isNight()){S.t-=dt;if(S.t<=0){S.t=rnd(2,5);invFx({f:"firework",a:[rnd(-20,20),0,rnd(-20,20)],s:ri(0,99)},false);}}}
+// holiday decorations round the start (0,0), and a present for everyone
+const GIFT_ACT={pos:new THREE.Vector3(0,0,6),hol:null};
+ACTS.push({pos:GIFT_ACT.pos,r:1.8,hidden:()=>!GIFT_ACT.hol||P.inCar,label:()=>giftOpened()?`${GIFT_ACT.hol.icon} You opened your ${GIFT_ACT.hol.name.replace(/^the /,"")} present`:`🎁 Open your ${GIFT_ACT.hol.name.replace(/^the /,"")} present`,
+  run:()=>{const h=GIFT_ACT.hol;if(!h)return;if(giftOpened()){lawSay("You already opened this one — see you next holiday!");return;}h.gift.forEach(g=>addItem(Object.assign({},g)));
+    try{localStorage.setItem("elementum.gift."+h.id,String(Math.floor((worldDay()+YEAR0)/365)));}catch(e){}FX.stars(GIFT_ACT.pos.clone().add(new THREE.Vector3(0,1,0)),"gold",8,1.6);
+    lawSay(`${h.icon} Inside: ${h.gift.map(g=>g.t==="coin"?g.n+" denarii":(g.n>1?g.n+" × ":"")+(itemInfo(g)||{name:"something"}).name).join(", ")}!`);invShow({f:"love",a:V3r(GIFT_ACT.pos.clone().add(new THREE.Vector3(0,1,0)))});}});
+function giftOpened(){const h=GIFT_ACT.hol;if(!h)return true;try{return localStorage.getItem("elementum.gift."+h.id)===String(Math.floor((worldDay()+YEAR0)/365));}catch(e){return false;}}
+function holidayDeco(h){const S=SEASON;if(S.deco){scene.remove(S.deco);S.deco=null;}GIFT_ACT.hol=h;if(!h)return;const g=new THREE.Group();S.deco=g;scene.add(g);
+  const box=(c,r)=>{const b=new THREE.Group();const m=LOOK.M(new THREE.BoxGeometry(.9,.7,.9),LOOK.toon(c),.02);m.position.y=.35;b.add(m);const rb=LOOK.toon(r);const a=new THREE.Mesh(new THREE.BoxGeometry(.95,.72,.14),rb);a.position.y=.36;b.add(a);const c2=new THREE.Mesh(new THREE.BoxGeometry(.14,.72,.95),rb);c2.position.y=.36;b.add(c2);const bow=new THREE.Mesh(new THREE.TorusGeometry(.14,.05,6,12),rb);bow.position.y=.78;b.add(bow);return b;};
+  const gift=box(h.id==="pumpkin"?0x3a2a5a:0xc0302a,0xffd24a);gift.position.copy(GIFT_ACT.pos);g.add(gift);
+  const ring=(n,r,f)=>{for(let i=0;i<n;i++){const a=i/n*Math.PI*2;f(Math.cos(a)*r,Math.sin(a)*r,i);}};
+  const glow=c=>new THREE.MeshBasicMaterial({color:c});
+  if(h.id==="saturnalia"||h.id==="midwinter"){const tree=new THREE.Group();tree.position.set(0,0,9.5);[[2.2,2.2,1.6],[1.7,1.9,3.1],[1.1,1.6,4.4]].forEach(([r,hh,y])=>{const c=LOOK.M(new THREE.ConeGeometry(r,hh,9),LOOK.toon(0x245a2b),.02);c.position.y=y;tree.add(c);});
+      const tr=LOOK.M(new THREE.CylinderGeometry(.25,.3,1,8),LOOK.toon(0x6b4a2c),.01);tr.position.y=.5;tree.add(tr);const star=new THREE.Mesh(new THREE.OctahedronGeometry(.35),glow(0xffe24a));star.position.y=5.4;tree.add(star);
+      for(let i=0;i<26;i++){const y=1.2+i*.15,r=2-(y-1)*.38,a=i*2.4;const b=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),glow([0xff4040,0xffd24a,0x5ab4ff,0x7dff9a][i%4]));b.position.set(Math.cos(a)*r*.9,y,Math.sin(a)*r*.9);tree.add(b);}g.add(tree);
+      ring(5,2.6,(x,z,i)=>{const b=box([0x2a6ac8,0x3f9a3a,0xc0302a,0x8a3fc0,0xffffff][i],0xffd24a);b.scale.setScalar(.6);b.position.set(x,0,9.5+z);g.add(b);});}
+  if(h.id==="pumpkin")ring(14,9,(x,z)=>{const p=new THREE.Group();const b=LOOK.M(new THREE.SphereGeometry(.45,10,8),LOOK.toon(0xe0731c),.02);b.scale.y=.8;b.position.y=.36;p.add(b);const st=new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,.18,6),LOOK.toon(0x3f6a2a));st.position.y=.75;p.add(st);
+      [[-.15,.45],[.15,.45]].forEach(([a,y])=>{const e=new THREE.Mesh(new THREE.ConeGeometry(.07,.12,3),glow(0xffd24a));e.rotation.x=-Math.PI/2;e.position.set(a,y,.42);p.add(e);});const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.06,.05),glow(0xffd24a));m.position.set(0,.28,.42);p.add(m);
+      p.position.set(x,0,z);p.lookAt(0,0,0);g.add(p);});
+  if(h.id==="floralia")for(let i=0;i<260;i++){const a=Math.random()*6.3,r=3+Math.random()*16,f=new THREE.Mesh(new THREE.CircleGeometry(.12,5),glow([0xff8fb1,0xffd34d,0xffffff,0xc07aff,0xff5a5a][i%5]));f.rotation.x=-Math.PI/2;f.position.set(Math.cos(a)*r,.03,Math.sin(a)*r);g.add(f);}
+  if(h.id==="midsummer"){const fire=new THREE.Group();fire.position.set(0,0,10);for(let i=0;i<6;i++){const l=LOOK.M(new THREE.CylinderGeometry(.12,.14,1.6,6),LOOK.toon(0x6b4a2c),.01);l.rotation.z=1.1;l.rotation.y=i;l.position.y=.4;fire.add(l);}
+      const fl=new THREE.Mesh(new THREE.ConeGeometry(.7,1.8,8),new THREE.MeshBasicMaterial({color:0xffa030,transparent:true,opacity:.85}));fl.position.y=1.2;fire.add(fl);g.add(fire);g.userData.fire=fl;}
+  if(h.id==="harvest")ring(6,7,(x,z)=>{const c=LOOK.M(new THREE.BoxGeometry(.9,.5,.9),LOOK.toon(0x8a5a2e),.02);c.position.set(x,.25,z);g.add(c);for(let k=0;k<7;k++){const ap=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),LOOK.toon(k%3?0xc8302a:0x8ac83a));ap.position.set(x+rnd(-.3,.3),.58,z+rnd(-.3,.3));g.add(ap);}});
+  if(h.id==="newyear"||h.id==="saturnalia")ring(16,12,(x,z,i)=>{const l=new THREE.Mesh(new THREE.SphereGeometry(.18,8,6),glow([0xff4040,0xffd24a,0x5ab4ff,0x7dff9a][i%4]));l.position.set(x,2.6,z);g.add(l);const p=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,2.6,5),LOOK.toon(0x333338));p.position.set(x,1.3,z);g.add(p);});}
 // ---------------- the shovel, water and monsters at night (2026-11-26, Barbara: "you can use a shovel to make a hole and escape from prison, and also
 // you can carry water from the river, and monsters only come out at night").
 // Shovel (Mercator sells one, or make one at the workbench and name it): click to dig a hole. In the Carcer you dig a tunnel (8 s) and come up
@@ -2823,7 +2903,7 @@ function stepPet(q,dt){const o=q.remote?MP.others[q.val&&q.val.u]:null,to=q.remo
   q.hop=moving?q.hop+dt*11:0;q.g.position.set(q.x,(q.y||0)+Math.abs(Math.sin(q.hop))*.22,q.z);q.g.rotation.y=q.r;q.g.rotation.z=moving?Math.sin(q.hop)*.08:0;
   if(!q.remote){q.sv=(q.sv||0)+(moving?dt:0);if(q.sv>6){q.sv=0;placedSave();placedShare(q);}}}
 // what's set down works by itself
-function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);P.portT=Math.max(0,(P.portT||0)-dt);
+function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);P.portT=Math.max(0,(P.portT||0)-dt);
   if(P.flyT>0){P.flyT-=dt;P.softLand=1;P.vel.y+=GRAV*dt+((P.flyT>2.5?2.6:-.6)-P.vel.y)*Math.min(1,dt*5);if(Math.random()<dt*20)PUFF.emit(P.pos.clone(),rnd3(1),C(0xdff1ff).multiplyScalar(.4),.5,{drag:2});if(P.down||P.inCar||P.climbing)P.flyT=0;}
   const lit=[];let all=null;
   for(const q of placedAll()){if(!q)continue;const f=fnOf(q.item);if(!f)continue;const dx=q.x-P.pos.x,dz=q.z-P.pos.z,d=Math.hypot(dx,dz);if(d>45&&f!=="zap"&&f!=="magnet"&&f!=="pet")continue;const bb=qBox(q),top=bb.max.y,mid=new THREE.Vector3(q.x,(bb.min.y+top)/2,q.z),dy=P.pos.y-(q.y||0);
@@ -2850,6 +2930,6 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);P.portT=Math.max
         if(dp.sid&&MP.ok){TAKING[dp.sid]=dp.it;share({k:"take",id:dp.sid});scene.remove(dp.g);PICKUPS.splice(i,1);}else if(addItem(dp.it)){const fi=itemInfo(dp.it);popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),`your magnet collected ${fi.name}`,"spell",fi.pic);scene.remove(dp.g);PICKUPS.splice(i,1);}}}}
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
-window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS};   // what the music (music.js) listens to
-window.__el={WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS,season:()=>SEASON?SEASON.name:"summer",holiday:()=>SEASON&&SEASON.hol?SEASON.hol.id:""};   // what the music (music.js) listens to
+window.__el={SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
