@@ -2606,7 +2606,7 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"
   else if(ev.f==="zap"){const b=V3(ev.b);boltLine(a,b,FX.HEX.lightning);FX.stars(b,"lightning",2,.9);}
   else if(ev.f==="yum"){for(let i=0;i<14;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});}
   else if(ev.f==="love"){for(let k=0;k<4;k++)setTimeout(()=>{const s=iconSprite("💗");s.scale.setScalar(.32);s.position.copy(a).add(new THREE.Vector3(rnd(-.4,.4),.6,rnd(-.4,.4)));scene.add(s);tween(1.1,t=>{s.position.y+=.014;s.material.opacity=1-t;},()=>scene.remove(s));},k*180);}
-  else if(ev.f==="dig")holeAt(a,!!ev.big);
+  else if(ev.f==="dig")digHole(a,!!ev.big);
   else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob"||ev.f==="adopt")wildEv(ev,mine);
   else if(ev.f==="pets")petsEv(ev,mine);
   else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
@@ -2947,7 +2947,7 @@ function holidayDeco(h){const S=SEASON;if(S.deco){scene.remove(S.deco);S.deco=nu
 // Shovel (Mercator sells one, or make one at the workbench and name it): click to dig a hole. In the Carcer you dig a tunnel (8 s) and come up
 // outside the wall — but the guards find the hole 15 s later and come after you. Everyone in the room sees the holes.
 const HOLES=[];
-function holeAt(p,big){const m=new THREE.Mesh(new THREE.CircleGeometry(big?.75:.5,18),new THREE.MeshBasicMaterial({color:0x2a1c10}));m.rotation.x=-Math.PI/2;m.position.set(p.x,(p.y||0)+.035,p.z);scene.add(m);
+function digHole(p,big){const m=new THREE.Mesh(new THREE.CircleGeometry(big?.75:.5,18),new THREE.MeshBasicMaterial({color:0x2a1c10}));m.rotation.x=-Math.PI/2;m.position.set(p.x,(p.y||0)+.035,p.z);scene.add(m);
   const rim=new THREE.Mesh(new THREE.RingGeometry(big?.75:.5,big?1:.7,18),LOOK.toon(0x6b4a2a));rim.rotation.x=-Math.PI/2;rim.position.set(p.x,(p.y||0)+.03,p.z);scene.add(rim);
   for(let i=0;i<12;i++)PUFF.emit(new THREE.Vector3(p.x+rnd(-.4,.4),(p.y||0)+.3,p.z+rnd(-.4,.4)),new THREE.Vector3(rnd(-1,1),rnd(1,2.5),rnd(-1,1)),C(0x8a6a44),.8,{grav:4});
   HOLES.push([m,rim]);setTimeout(()=>{scene.remove(m);scene.remove(rim);},120000);}
