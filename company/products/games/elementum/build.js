@@ -63,6 +63,7 @@ const FNS={
   sword:{icon:"⚔️",name:"sword",what:"hold it and click: it hits hard",hand:1},
   food:{icon:"🍽️",name:"snack",what:"hold it and click: eat it to feel better (+30 HP)",hand:1},
   pet:{icon:"🐾",name:"pet",what:"set it down: it comes alive and follows you around; press T to stroke it"},
+  fuel:{icon:"⛽",name:"gas can",what:"hold it and click: fill it at the gas station, then pour it into a car's tank",hand:1},
   bomb:{icon:"💣",name:"bomb",what:"hold it and click: throw it and it blows up — or set it down and press T",hand:1},
   take:{icon:"✨",name:"special thing",what:"hold it and click: take some and feel what it does",hand:1},   // what take and aura do is on the thing itself (ef)
   aura:{icon:"🌫️",name:"strange thing",what:"set it down: everyone near it feels what it does"},
@@ -70,7 +71,7 @@ const FNS={
 // what a brought-to-life thing can become: a real thing (it works like one), or a power — whichever it looks most like (Barbara, 2026-11-25:
 // "it should be made into whatever the resemblance is; if they are similar resemblance, pick sticks")
 const ITEMDO={cup:"set it down and drink from it",bowl:"set it down and eat from it",plate:"set it down and eat from it",vase:"set it down and put flowers in it",bucket:"set it down and drink from it",door:"set it down, then open and close it",stool:"set it down and sit on it",chair:"set it down and sit on it",table:"set it down at home",bench:"set it down and sit on it",bed:"set it down and sleep in it",shelf:"set it down and read a book",ladder:"set it down and climb it",doghouse:"set it down anywhere",wheelbarrow:"set it down anywhere",house:"hold it and click to build it, then walk in",car:"it's parked outside the library — get in and drive",cart:"set it down anywhere",boat:"it's at the boat dock — climb in and sail",chest:"set it down and open it",book:"hold it and click to read it",stairs:"set it down and walk up",horn:"hold it and click: soldiers come running"};
-const ONLYFN=["bounce","zap","freeze","speed","fly","wand","music","firework","maker","bubbles","water","sword","food","pet","bomb"];   // the other powers belong to a thing (a lamp lights up, a gate is a portal…)
+const ONLYFN=["bounce","zap","freeze","speed","fly","wand","music","firework","maker","bubbles","water","sword","food","pet","bomb","fuel"];   // the other powers belong to a thing (a lamp lights up, a gate is a portal…)
 const THINGS=ORDER.concat(ONLYFN),isThing=k=>THINGS.includes(k);
 const thingOf=k=>ITEMS[k]?{icon:ITEMS[k].icon,name:ITEMS[k].name,what:ITEMDO[k]||(FNS[ITEMFN[k]]||{}).what||"set it down anywhere"}:FNS[k];
 // what a named thing does to you (Barbara, 2026-11-25: "I made a container and named it drugs: it should be made into drugs and then have bad effects"):
@@ -90,10 +91,12 @@ const WORDS={cup:"cup mug glass teacup",bowl:"bowl pot pan",plate:"plate dish tr
   ladder:"ladder",doghouse:"doghouse kennel birdhouse",wheelbarrow:"wheelbarrow barrow",house:"house home hut castle tent cottage cabin mansion",car:"car truck bus train tank van jeep taxi ferrari",cart:"cart wagon",boat:"boat ship raft canoe yacht submarine",chest:"chest safe trunk",book:"book notebook diary",
   lamp:"lamp lantern torch candle light lighthouse",magnet:"magnet vacuum",stairs:"stairs staircase steps slide",healstone:"crystal gem diamond heart",computer:"computer laptop tv television phone tablet ipad robot",gate:"gate portal arch teleporter",horn:"horn trumpet",bounce:"trampoline spring ball",zap:"tower antenna cannon turret",
   freeze:"snowman ice freezer fridge",speed:"fan windmill",fly:"plane airplane rocket jetpack helicopter balloon kite wings spaceship ufo",wand:"wand staff gun pistol rifle blaster",music:"drum guitar piano bell violin flute radio speaker",firework:"firework fireworks",maker:"machine engine factory",bubbles:"bubbles bubble cloud fish octopus",
-  water:"fountain well tap pool sink",sword:"sword axe hammer club knife spear dagger pickaxe shovel",food:"food cake pizza apple banana bread burger cookie candy sandwich fruit icecream donut pie cheese egg",pet:"dog cat dragon dinosaur bird bear rabbit bunny horse cow pig monster doll person man girl boy animal pet unicorn snake turtle lion tiger penguin"};
+  water:"fountain well tap pool sink",sword:"sword axe hammer club knife spear dagger pickaxe shovel",food:"food cake pizza apple banana bread burger cookie candy sandwich fruit icecream donut pie cheese egg",fuel:"jerrycan gasoline petrol fuel diesel canister gascan",pet:"dog cat dragon dinosaur bird bear rabbit bunny horse cow pig monster doll person man girl boy animal pet unicorn snake turtle lion tiger penguin"};
 const HOLDS=["cup","bowl","plate","vase","bucket","chest","doghouse","house","book"];   // anything that could be full of it
 function nameOffline(nm,R){const W=String(nm).toLowerCase().replace(/[^a-z\s]/g," ").split(/\s+/).filter(Boolean);let N=null;
-  for(const w of W){const h=HARM.find(h=>h[0].test(w));if(h){N={as:h[2],ef:h[1],looks:w};break;}}
+  // a gas holder is a gas can, not stinky gas (Barbara, 2026-11-25: "if the name is gas holder it should be that")
+  if(W.some(w=>/^(gasoline|petrol|fuel|diesel|jerrycans?|gascans?)$/.test(w))||(W.includes("gas")&&W.some(w=>/^(holders?|cans?|tanks?|containers?|jugs?|bottles?|canisters?|jars?|boxe?s?|barrels?|drums?|buckets?|cups?|carriers?|keepers?)$/.test(w))))N={as:"fuel",looks:"gas can"};
+  for(const w of W){if(N)break;const h=HARM.find(h=>h[0].test(w));if(h){N={as:h[2],ef:h[1],looks:w};break;}}
   for(let i=W.length-1;i>=0&&!N;i--){const w=W[i],g=GOOD.find(g=>g[0].test(w));if(g){N={as:g[2],ef:g[1],looks:w};break;}const one=w.replace(/s$/,""),k=Object.keys(WORDS).find(k=>{const l=WORDS[k].split(" ");return l.includes(w)||l.includes(one);});if(k)N={as:k,looks:w};}
   if(!N)return null;const t=R[0],other=t&&t.s>=70&&t.as!==N.as&&!(HOLDS.includes(t.as)&&!ITEMS[N.as]);N.fits=other?20:60;return N;}
 // how alike two designs are: both are blown up to the same size, cut into little cubes, turned every way round, and laid over each other
