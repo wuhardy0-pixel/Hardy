@@ -2706,7 +2706,7 @@ function wildInit(){if(WILD)return;WILD={herds:[],bushes:[],t:0,net:0,egg:{}};
     const herd={i:hi,home,kind,list:[]};WILD.herds.push(herd);
     list.forEach((k,j)=>{const K=ANI_KINDS[k],g=new THREE.Group(),a=j*2.4+hi;g.position.set(home.x+Math.cos(a)*3,0,home.z+Math.sin(a)*3);g.rotation.y=Math.random()*6.3;scene.add(g);
       const an={k,K,g,herd,j,rig:null,st:"graze",t:rnd(1,5),to:null,lead:null,net:null,base:"idle"};herd.list.push(an);
-      LOOK.loadRig("/play/elementum/models/animals/"+k+".glb",false,r=>{if(!r)return;const bb=new THREE.Box3().setFromObject(r.root,true),hh=bb.max.y-bb.min.y||1;r.root.scale.setScalar(K.h/hh);g.add(r.root);an.rig=r;r.base(K.idle,{snap:true});});});});
+      LOOK.loadRig("/play/elementum/models/animals/"+k+".glb",false,r=>{if(!r)return;r.root.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(r.root,true),hh=bb.max.y-bb.min.y||1;/* bones first, or skinned animals measure wrong (2026-11-26: pets were invisible) */r.root.scale.setScalar(K.h/hh);g.add(r.root);an.rig=r;r.base(K.idle,{snap:true});});});});
   // berry bushes: the same 34 places for everyone
   const R=seedRnd(424242);for(let n=0;n<400&&WILD.bushes.length<34;n++){const x=R()*320-160,z=R()*320-160,p=new THREE.Vector3(x,0,z);if(isWater(x,z,false)||inTown(p,6)||inArena(p)||(typeof inCave==="function"&&inCave(p)))continue;
     const g=new THREE.Group();g.position.copy(p);const leaf=LOOK.toon(0x3f7a34);[[0,.45,0,.6],[.35,.35,.1,.42],[-.3,.35,-.15,.45],[.05,.4,.35,.4]].forEach(([a,b,c,r])=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),leaf);m.position.set(a,b,c);m.castShadow=true;g.add(m);});
@@ -2782,7 +2782,7 @@ function petsInit(){if(PETS)return;PETS={list:[],riding:null,net:0,remote:{}};le
   (Array.isArray(v)?v:[]).slice(0,PET_MAX).forEach(q=>{if(q&&ANI_KINDS[q.kind])petMake({id:String(q.id||Math.random()),kind:q.kind,name:String(q.name||"Pet").slice(0,16),mode:["follow","stay","sit","home","fight"].includes(q.mode)?q.mode:"home",x:+q.x||0,z:+q.z||0,born:+q.born||0});});}
 function petsSave(){try{localStorage.setItem("elementum.pets",JSON.stringify(PETS.list.filter(p=>!p.temp).map(p=>({id:p.id,kind:p.kind,name:p.name,mode:p.mode==="ride"?"follow":p.mode,x:R2(p.g.position.x),z:R2(p.g.position.z),born:p.born||0}))));}catch(e){}}
 const GROW_S=180,petSize=p=>p.born?Math.min(1,.4+.6*(Date.now()/1000-p.born)/GROW_S):1;
-function aniModel(kind,g,cb){const K=ANI_KINDS[kind];LOOK.loadRig("/play/elementum/models/"+(K.url||"animals/"+kind+".glb"),false,r=>{if(!r||!g.parent)return;const bb=new THREE.Box3().setFromObject(r.root,true),hh=bb.max.y-bb.min.y||1;r.root.scale.setScalar(K.h/hh);g.add(r.root);r.base(K.idle,{snap:true});cb&&cb(r);});}
+function aniModel(kind,g,cb){const K=ANI_KINDS[kind];LOOK.loadRig("/play/elementum/models/"+(K.url||"animals/"+kind+".glb"),false,r=>{if(!r||!g.parent)return;r.root.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(r.root,true),hh=bb.max.y-bb.min.y||1;/* bones first, or skinned animals measure wrong (2026-11-26: pets were invisible) */r.root.scale.setScalar(K.h/hh);g.add(r.root);r.base(K.idle,{snap:true});cb&&cb(r);});}
 function petMake(q){const K=ANI_KINDS[q.kind],g=new THREE.Group();g.position.set(q.x,0,q.z);scene.add(g);const p=Object.assign({K,g,rig:null,base:"idle",t:0},q);aniModel(q.kind,g,r=>{p.rig=r;});
   const lb=label(q.name,0xffe08a);lb.scale.set(1.4,.28,1);lb.position.y=K.h+.45;g.add(lb);p.label=lb;PETS.list.push(p);return p;}
 const myPetHouse=()=>PLACED.mine.find(q=>q.item&&q.item.id==="doghouse")||null;
