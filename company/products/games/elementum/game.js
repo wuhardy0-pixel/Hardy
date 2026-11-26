@@ -1642,6 +1642,7 @@ function applyKey(key,val){noteKey(key,val);
   if(key.startsWith("pl:")){placedKeyApply(key.slice(3),val);return;}
   if(key.startsWith("bush:")){bushKey(+key.slice(5),val);return;}
   if(key.startsWith("nest:")){nestKey(+key.slice(5),val);return;}
+  if(key.startsWith("snowman:")){snowmanKey(+key.slice(8),val);return;}
   if(key.startsWith("hb:")||key.startsWith("hbp:")){if(val)WORLD_KEYS[key]=val;else delete WORLD_KEYS[key];return;}
   if(key.startsWith("bld:")){const bd=BUILDINGS[+key.slice(4)];if(!bd)return;if(val&&!bd.down)collapse(bd);else if(!val&&bd.down)rebuild(bd);return;}
   if(key.startsWith("mycar:")){carKeyApply(key.slice(6),val);return;}
@@ -1947,7 +1948,7 @@ function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held()
 // ---------------- input ----------------
 const keys={};let look={yaw:0,pitch:.22},stick={x:0,y:0},jumpQ=false,runBtn=false,paused=false,started=false,camSide=1;
 addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(designOpen()){if(e.key==="Escape"){if(BUILD.ideasOpen())BUILD.closeIdeas();else if(BUILD.isOpen())BUILD.close();else DESIGN.close();}return;}keys[e.code]=true;if(e.code==="KeyM"){toggleRoom();return;}if(roomOpen&&e.key==="Escape"){toggleRoom(false);return;}if(e.code==="Space"){e.preventDefault();jumpQ=true;}if(e.code==="KeyE"||e.code==="KeyI"||e.code==="Tab"){e.preventDefault();toggleBag();return;}if(e.code==="KeyT"&&!bagOpen){useAct();return;}if(bagOpen){if(e.key==="Escape")toggleBag(false);return;}
-  if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyC")callPets();if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
+  if(e.code==="KeyR")reload();const dg=/^Digit([1-9])$/.exec(e.code);if(dg)select(+dg[1]-1);if(e.code==="KeyQ")cycleCrystal();if(e.code==="KeyG")dropOwn(SEL);if(e.code==="KeyC")callPets();if(e.code==="KeyX")throwSnowball();if(e.code==="KeyF"){useHeld(true);}if(e.key==="p"||e.key==="P"||(e.key==="Escape"&&!document.pointerLockElement))togglePause();});
 addEventListener("wheel",e=>{if(!started||bagOpen||paused)return;select(SEL+(e.deltaY>0?1:-1));},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
 const touch=matchMedia("(pointer:coarse)").matches||"ontouchstart" in window;if(touch)document.body.classList.add("touch");
@@ -2599,7 +2600,7 @@ const cool=(k,s)=>{if((INVCD[k]||0)>Date.now()){popNum(P.pos.clone().add(new THR
 const strHash=s=>{let h=7;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return h;};
 function tune(seed){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),R0=seedRnd(seed),S=[262,294,330,392,440,523,587,659];let t=A.currentTime+.05,i=3;for(let k=0;k<14;k++){i=Math.max(0,Math.min(7,i+Math.floor(R0()*5)-2));const len=R0()<.3?.4:.2,o=A.createOscillator(),g=A.createGain();o.type="triangle";o.frequency.value=S[i];g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+len+.02);t+=len;}}catch(e){}}
 // what everyone sees and hears
-function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"&&ev.f!=="pets"&&ev.f!=="adopt"&&a.distanceTo(P.pos)>80)return;
+function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"&&ev.f!=="pets"&&ev.f!=="adopt"&&ev.f!=="ball"&&ev.f!=="kick"&&a.distanceTo(P.pos)>80)return;
   if(ev.f==="music"){tune(ev.s|0);for(let k=0;k<7;k++)setTimeout(()=>{const s=iconSprite(k%2?"🎵":"🎶");s.scale.setScalar(.4);s.position.copy(a).add(new THREE.Vector3(rnd(-.6,.6),1.2,rnd(-.6,.6)));scene.add(s);tween(1.4,t=>{s.position.y+=.012;s.material.opacity=1-t;},()=>scene.remove(s));},k*450);}
   else if(ev.f==="firework"){for(let k=0;k<5;k++)setTimeout(()=>{const top=a.clone().add(new THREE.Vector3(rnd(-5,5),rnd(11,17),rnd(-5,5))),col=[0xff5a7a,0xffd84a,0x5ad8ff,0x9aff6a,0xc07aff][(k+(ev.s|0))%5],m=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:col}));m.position.copy(a);scene.add(m);
       tween(.8,t=>{m.position.lerpVectors(a,top,t);SPARK.emit(m.position,rnd3(.4),C(col),.4);},()=>{scene.remove(m);flash(top,col,10,.4);for(let i=0;i<60;i++)SPARK.emit(top,rnd3(1).normalize().multiplyScalar(rnd(3,7)),C(i%3?col:0xffffff),rnd(.7,1.3),{grav:3,drag:1});});},k*420);}
@@ -2609,6 +2610,7 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"
   else if(ev.f==="dig")digHole(a,!!ev.big);
   else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob"||ev.f==="adopt")wildEv(ev,mine);
   else if(ev.f==="pets")petsEv(ev,mine);
+  else if(ev.f==="ball"||ev.f==="kick"||ev.f==="snowball")funEv(ev,mine);
   else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
     if(ev.u!==MP.id&&a.distanceTo(P.pos)<2.2)lawSay("💦 Splash! Someone poured water on you.");}
   else if(ev.f==="feel"){for(let k=0,n=Math.max(1,Math.min(20,ev.n|0));k<n;k++)setTimeout(()=>{const o=ev.u===MP.id?P:MP.others[ev.u]&&MP.others[ev.u].g.position?{pos:MP.others[ev.u].g.position}:null;if(!o||(k&&P.down&&ev.u===MP.id))return;const s=iconSprite(ev.b?(k%2?"💫":"🤢"):"✨");s.scale.setScalar(.34);s.position.copy(o.pos).add(new THREE.Vector3(rnd(-.35,.35),2.1,rnd(-.35,.35)));scene.add(s);tween(1.1,t=>{s.position.y+=.01;s.material.opacity=1-t;},()=>scene.remove(s));},k*1000);}
@@ -2903,13 +2905,13 @@ const _sc=new THREE.Color(),_sd=new THREE.Color();
 function seasonPaint(){const S=SEASON,w=S.w;for(const m of S.mats){const z=m.userData.sz,K=LEAF_K[z.base];_sc.setHex(z.base).multiplyScalar(w.summer);
     for(const s of ["spring","autumn","winter"]){if(!w[s])continue;_sd.setHex(s==="spring"&&z.bloom?BLOSSOM:K[s]);if(s==="autumn"&&z.bloom)_sd.setHex(0xd9662a);_sc.add(_sd.multiplyScalar(w[s]));}m.color.copy(_sc);}
   S.ground.color.setRGB(1*w.summer+1.04*w.spring+1.2*w.autumn+.9*w.winter,1*w.summer+1.08*w.spring+.92*w.autumn+.95*w.winter,1*w.summer+.95*w.spring+.5*w.autumn+1*w.winter);
-  S.snow.material.opacity=.9*w.winter;S.snow.visible=w.winter>.01;if(S.water){S.water.color.setHex(0x3a8fd0).lerp(_sd.setHex(0xa9d4ee),w.winter*.8);}}
+  const sn=snowAmt();S.snow.material.opacity=.9*sn;S.snow.visible=sn>.01;if(S.water){S.water.color.setHex(0x3a8fd0).lerp(_sd.setHex(0xa9d4ee),w.winter*.8);}}
 function stepSeason(dt){if(!SEASON)seasonInit();const S=SEASON,yd=yearDay();
   if(yd!==S.yd){const first=S.yd<0;S.yd=yd;S.w=seasonWeights(yd);S.name=Object.keys(S.w).reduce((a,b)=>S.w[a]>=S.w[b]?a:b);seasonPaint();
     const h=holidayOn(yd);if((h&&h.id)!==(S.hol&&S.hol.id)){S.hol=h;holidayDeco(h);if(h&&started)lawSay(`${h.icon} ${h.say} (Open your present by the start.)`);}
     if(!first){const [m,d]=mdOf(yd);if(d===1&&[3,6,9,12].includes(m))lawSay({3:"🌱 Spring has come!",6:"☀️ It's summer!",9:"🍂 Autumn is here — the leaves are turning.",12:"❄️ Winter has come — snow!"}[m]);}}
   // snowflakes in winter, leaves in autumn, petals in spring: around the camera, falling, not indoors
-  const w=S.w,indoor=!!inRoom(P.pos),kind=w.winter>.3?"snow":w.autumn>.5?"leaf":w.spring>.5?"petal":"",amt=indoor?0:kind==="snow"?w.winter:kind?.35:0;
+  const w=S.w,sn=snowAmt(),indoor=!!inRoom(P.pos),kind=sn>.3?"snow":w.autumn>.5?"leaf":w.spring>.5?"petal":"",amt=indoor?0:kind==="snow"?sn:kind?.35:0;
   const F=S.flakes,M=F.material;M.opacity+=((amt>0?.9:0)-M.opacity)*Math.min(1,dt*2);F.visible=M.opacity>.02;
   if(F.visible){if(S.fk!==kind){S.fk=kind;M.color.setHex(kind==="leaf"?0xd9772a:kind==="petal"?0xf5b8d0:0xffffff);M.size=kind==="snow"?.16:.24;}
     const p=F.geometry.attributes.position.array,n=Math.floor(S.N*(kind==="snow"?Math.max(.2,amt):.12)),c=cam.position,fall=kind==="snow"?2.2:1.1,t=performance.now()/1000;F.geometry.setDrawRange(0,n);
@@ -2942,6 +2944,117 @@ function holidayDeco(h){const S=SEASON;if(S.deco){scene.remove(S.deco);S.deco=nu
       const fl=new THREE.Mesh(new THREE.ConeGeometry(.7,1.8,8),new THREE.MeshBasicMaterial({color:0xffa030,transparent:true,opacity:.85}));fl.position.y=1.2;fire.add(fl);g.add(fire);g.userData.fire=fl;}
   if(h.id==="harvest")ring(6,7,(x,z)=>{const c=LOOK.M(new THREE.BoxGeometry(.9,.5,.9),LOOK.toon(0x8a5a2e),.02);c.position.set(x,.25,z);g.add(c);for(let k=0;k<7;k++){const ap=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),LOOK.toon(k%3?0xc8302a:0x8ac83a));ap.position.set(x+rnd(-.3,.3),.58,z+rnd(-.3,.3));g.add(ap);}});
   if(h.id==="newyear"||h.id==="saturnalia")ring(16,12,(x,z,i)=>{const l=new THREE.Mesh(new THREE.SphereGeometry(.18,8,6),glow([0xff4040,0xffd24a,0x5ab4ff,0x7dff9a][i%4]));l.position.set(x,2.6,z);g.add(l);const p=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,2.6,5),LOOK.toon(0x333338));p.position.set(x,1.3,z);g.add(p);});}
+// ---------------- seasonal fun (2026-11-26, Barbara: "snow footprints, people celebrating with gifts, seasonal-only stuff: summer soccer games, a
+// playground, spring the same as summer; fall and winter have snow activities instead — the field is still there, just nobody uses it").
+// Snow lies from 10 November to the end of February. Footprints: you, other players and the villagers leave tracks in the snow that fade.
+// Ludus, the field east of the city (inside the moat): a soccer pitch with goals and a playground (swings, slide, see-saw). Spring and summer days:
+// kids play two-a-side soccer — kick the ball yourself (walk or run into it), goals are counted for everyone — and two swing. Autumn before the snow:
+// the kids jump in leaf piles. Snow: a snowball fight (they throw at you too if you come close), and they build snowmen; press X to throw snowballs
+// yourself (anywhere there's snow), T on the field to build your own snowman (shared). At night everyone goes home. Holidays: villagers gather by the
+// decorations with presents, swap them and cheer — wish them a happy holiday (T) and they give you a little present too.
+function snowAmt(){if(!SEASON||!SEASON.w)return 0;const yd=SEASON.yd;return Math.max(SEASON.w.winter,yd>=313&&yd<334?Math.min(.75,(yd-312)/4):0);}
+var FUN=null;const LUD={x:148,z:29,w:15,l:22};
+function funInit(){if(FUN)return;FUN={prints:[],pi:0,last:new Map(),kids:[],ball:null,score:[0,0],net:0,t:0,snowmen:[],celeb:[],celebHol:null,leaves:[]};
+  // footprints: a pool of little dents
+  const fm=new THREE.MeshBasicMaterial({color:0x9fb0c0,transparent:true,opacity:0,depthWrite:false});for(let i=0;i<260;i++){const m=new THREE.Mesh(new THREE.CircleGeometry(.09,8),fm.clone());m.scale.set(1,1.7,1);m.rotation.x=-Math.PI/2;m.position.y=.022;m.visible=false;scene.add(m);FUN.prints.push({m,t:0});}
+  // the field and the playground
+  const {x,z,w,l}=LUD,add=(m,px,py,pz)=>{m.position.set(px,py,pz);scene.add(m);return m;},flat=(ww,ll,c,y)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(ww,ll),new THREE.MeshLambertMaterial({color:c}));m.rotation.x=-Math.PI/2;m.receiveShadow=true;return m;};
+  add(flat(w,l,0x5aa84a),x,.011,z);for(let i=0;i<6;i++)add(flat(w,l/12,0x66b656),x,.0115,z-l/2+l/12*(2*i+.5));
+  const line=(ww,ll,px,pz)=>add(flat(ww,ll,0xf4f4f0),px,.0125,pz);line(w,.1,x,z);line(.1,l,x-w/2,z);line(.1,l,x+w/2,z);line(w,.1,x,z-l/2);line(w,.1,x,z+l/2);
+  {const c=new THREE.Mesh(new THREE.RingGeometry(1.9,2,32),new THREE.MeshBasicMaterial({color:0xf4f4f0}));c.rotation.x=-Math.PI/2;add(c,x,.0125,z);}
+  const white=LOOK.toon(0xf4f4f0);[-1,1].forEach(s=>{const gz=z+s*l/2;[-2.5,2.5].forEach(dx=>{const p=LOOK.M(new THREE.CylinderGeometry(.07,.07,2,8),white,.01);add(p,x+dx,1,gz);block(x+dx,gz,.15,2,.15,0xf4f4f0).material.visible=false;});
+    add(LOOK.M(new THREE.CylinderGeometry(.07,.07,5.14,8),white,.01),x,2,gz).rotation.z=Math.PI/2;const net=new THREE.Mesh(new THREE.PlaneGeometry(5,2),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.35,side:THREE.DoubleSide}));add(net,x,1,gz+s*.8);});
+  {const sg=signBoard("Ludus — sports field and playground",0xffe08a);sg.scale.setScalar(.6);add(sg,x-w/2-1.2,2.6,z-l/2+1);sg.rotation.y=Math.PI/2;}
+  FUN.board=label("Soccer: 0 – 0",0xffffff);FUN.board.scale.set(3.4,.62,1);add(FUN.board,x,3.2,z-l/2-1.5);
+  const wood=LOOK.toon(0x8a5a2e),red=LOOK.toon(0xc8402a),blue=LOOK.toon(0x3a6ac8),pz=z-l/2-5;
+  // swings: a frame, two seats on ropes (they swing)
+  [[x-5.2,pz-1.2],[x-5.2,pz+1.2]].forEach(([px,qz])=>{const p=LOOK.M(new THREE.CylinderGeometry(.08,.1,2.6,6),wood,.01);add(p,px,1.3,qz);});add(LOOK.M(new THREE.CylinderGeometry(.08,.08,2.5,6),wood,.01),x-5.2,2.6,pz).rotation.x=Math.PI/2;
+  FUN.swings=[-.6,.6].map(dz=>{const g=new THREE.Group();g.position.set(x-5.2,2.6,pz+dz);scene.add(g);[-.22,.22].forEach(a=>{const r=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,1.9,4),LOOK.toon(0x333338));r.position.set(a,-.95,0);g.add(r);});const seat=LOOK.M(new THREE.BoxGeometry(.55,.06,.3),red,.01);seat.position.y=-1.9;g.add(seat);return g;});
+  // slide: a ladder tower and a ramp
+  {const t=LOOK.M(new THREE.BoxGeometry(1,.1,1),blue,.01);add(t,x,1.6,pz);[[-.45,-.45],[.45,-.45],[-.45,.45],[.45,.45]].forEach(([a,b])=>add(LOOK.M(new THREE.CylinderGeometry(.05,.05,1.6,6),wood,0),x+a,.8,pz+b));
+    const r=LOOK.M(new THREE.BoxGeometry(.7,.06,2.6),LOOK.toon(0xffc83a),.01);add(r,x,.85,pz+1.6).rotation.x=-.6;}
+  // see-saw
+  FUN.saw=LOOK.M(new THREE.BoxGeometry(3,.1,.3),red,.01);add(FUN.saw,x+5,.55,pz);add(LOOK.M(new THREE.ConeGeometry(.25,.5,4),wood,0),x+5,.25,pz);
+  // the ball
+  const ball=LOOK.M(new THREE.SphereGeometry(.22,14,10),LOOK.toon(0xffffff),.02);add(ball,x,.22,z);FUN.ball={m:ball,x,z,vx:0,vz:0,y:.22,vy:0};
+  // leaf piles (autumn)
+  [[x-3,z-4],[x+3,z+3],[x-2,z+6]].forEach(([px,qz])=>{const m=LOOK.M(new THREE.SphereGeometry(1,10,6,0,6.3,0,1.5),LOOK.toon(0xd2782a),.01);m.scale.set(1.2,.45,1.2);add(m,px,0,qz);m.visible=false;FUN.leaves.push(m);});
+  // six kids (villagers, small)
+  for(let i=0;i<6;i++){const o=npc("villager.glb",x+(i-2.5)*1.5,z,0);o.g.scale.setScalar(.72);FUN.kids.push({o,i,team:i%2,x:x+(i-2.5)*1.5,z,cool:0,act:""});}}
+function kidAnim(k,a,o){if(k.act===a&&!(o&&o.restart))return;k.act=a;const r=k.o.rig;if(!r)return;if(a==="Cheer"||a==="Interact"||a==="PickUp")r.full(a,{once:true,restart:true,dur:o&&o.dur||1,then:()=>{r.clearFull();k.act="";}});else r.base(a,o);}
+const fieldOwner=()=>{if(!MP.ok)return MP.id;let best=null;const see=(id,x,z)=>{if(Math.hypot(x-LUD.x,z-LUD.z)<120&&(best===null||id<best))best=id;};see(MP.id,P.pos.x,P.pos.z);(MP.list||[]).forEach(q=>see(q.id,q.x,q.z));return best===null?MP.id:best;};
+function stepFun(dt){if(!SEASON)return;funInit();const F=FUN,sn=snowAmt(),w=SEASON.w,day=isDay(),warm=w.spring+w.summer>.5,mode=!day?"home":sn>.3?"snow":warm?"play":"leaves",t=Date.now()/1000;F.t+=dt;
+  // footprints for me, other players and the villagers, when there's snow
+  if(sn>.3){const walkers=[[ "me",P.pos,P.onGround&&!P.inCar&&!(PETS&&PETS.riding)&&!inRoom(P.pos)]];for(const id in MP.others)walkers.push([id,MP.others[id].g.position,true]);TOWNFOLK.forEach((o,i)=>{if(o.g.visible&&o.g.position.distanceTo(P.pos)<35)walkers.push(["t"+i,o.g.position,true]);});
+    for(const [id,p,ok] of walkers){if(!ok||p.y>.3)continue;const l=F.last.get(id);if(!l){F.last.set(id,{x:p.x,z:p.z,s:0});continue;}const dx=p.x-l.x,dz=p.z-l.z,d=Math.hypot(dx,dz);if(d<.55)continue;if(d>3){l.x=p.x;l.z=p.z;continue;}
+      const fp=F.prints[F.pi++%F.prints.length],side=(l.s^=1)?1:-1,nx=-dz/d,nz=dx/d;fp.m.position.set(p.x+nx*.12*side,.022,p.z+nz*.12*side);fp.m.rotation.z=-Math.atan2(dx,dz);fp.m.visible=true;fp.t=40;fp.m.material.opacity=.55;l.x=p.x;l.z=p.z;}}
+  for(const fp of F.prints){if(!fp.m.visible)continue;fp.t-=dt;fp.m.material.opacity=Math.max(0,Math.min(.55,fp.t/15*.55))*(sn>.3?1:0);if(fp.t<=0||sn<=.3)fp.m.visible=false;}
+  const B=F.ball,near=Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<90;F.leaves.forEach(m=>m.visible=mode==="leaves");B.m.visible=mode!=="snow";
+  for(const k of F.kids)k.o.g.visible=mode!=="home";
+  F.snowmen.forEach(s=>s.g.visible=sn>.3);
+  if(!near){stepCeleb(dt);return;}
+  const swing=(i,on)=>{F.swings[i].rotation.z=on?Math.sin(t*2.2+i)*.6:F.swings[i].rotation.z*.95;};F.saw.rotation.z=mode==="play"?Math.sin(t*1.3)*.25:0;
+  if(mode==="play"){swing(0,1);swing(1,1);stepSoccer(dt,t);
+    [4,5].forEach((ki,j)=>{const k=F.kids[ki],sw=F.swings[j];k.o.g.position.set(sw.position.x+Math.sin(sw.rotation.z)*1.9,.5-Math.cos(sw.rotation.z)*1.9+1.85,sw.position.z);k.o.g.rotation.y=Math.PI/2;kidAnim(k,"Sit_Chair_Idle");});}
+  else{swing(0,0);swing(1,0);}
+  if(mode==="snow")stepSnowFight(dt,t);
+  if(mode==="leaves")F.kids.forEach((k,i)=>{const L=F.leaves[i%3].position,a=t*.6+i*1.7,r=1.6+Math.sin(t*.9+i)*.8;const nx=L.x+Math.cos(a)*r,nz=L.z+Math.sin(a)*r,g=k.o.g;g.rotation.y=Math.atan2(nx-g.position.x,nz-g.position.z);g.position.set(nx,Math.max(0,Math.sin(t*3+i))*.5,nz);kidAnim(k,"Walking_A",{speed:1.4});});
+  stepCeleb(dt);}
+// soccer: the player nearest-numbered by the field moves the ball for everyone; the kids chase it the same way on every screen
+function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()===MP.id;
+  for(const k of F.kids.slice(0,4)){const g=k.o.g,att=k.i<2,goalZ=k.team?z-l/2:z+l/2,ownZ=k.team?z+l/2:z-l/2;let tx=B.x,tz=B.z;if(!att){tx=x+(B.x-x)*.5;tz=ownZ+(B.z-ownZ)*.35;}
+    const v=new THREE.Vector3(tx-g.position.x,0,tz-g.position.z),d=v.length();g.position.y=0;if(d>.6){v.normalize();const sp=att?3.4:2.4;g.position.addScaledVector(v,Math.min(d-.5,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);kidAnim(k,"Walking_A",{speed:1.6});}else kidAnim(k,"Idle");
+    k.cool-=dt;if(mine&&k.cool<=0&&Math.hypot(B.x-g.position.x,B.z-g.position.z)<.8){k.cool=1;const a=Math.atan2((x+rnd(-2,2))-B.x,goalZ-B.z),sp=rnd(5,8);B.vx=Math.sin(a)*sp;B.vz=Math.cos(a)*sp;B.vy=rnd(0,2);}}
+  // me: walk or run into the ball to kick it
+  const dx=B.x-P.pos.x,dz=B.z-P.pos.z,d=Math.hypot(dx,dz);if(d<.75&&P.pos.y<.5&&(F.kickT||0)<t){F.kickT=t+.35;const sp=P.run?11:6;const vx=dx/d*sp+P.vel.x*.3,vz=dz/d*sp+P.vel.z*.3,vy=P.run?2.5:1;
+    if(mine){B.vx=vx;B.vz=vz;B.vy=vy;}else{B.vx=vx;B.vz=vz;share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),R2(vy)],b:[R2(B.x),R2(B.z)]});}}
+  if(mine){B.x+=B.vx*dt;B.z+=B.vz*dt;B.vy-=14*dt;B.y+=B.vy*dt;if(B.y<.22){B.y=.22;B.vy=Math.abs(B.vy)>1?-B.vy*.45:0;}const fr=Math.pow(B.y>.25?.9:.55,dt);B.vx*=fr;B.vz*=fr;
+    if(B.x<x-w/2+.2||B.x>x+w/2-.2){B.vx=-B.vx*.7;B.x=Math.max(x-w/2+.2,Math.min(x+w/2-.2,B.x));}
+    const inMouth=Math.abs(B.x-x)<2.4&&B.y<2;if(B.z<z-l/2||B.z>z+l/2){if(inMouth){const team=B.z<z?1:0;F.score[team]++;goal(team);B.x=x;B.z=z;B.vx=B.vz=B.vy=0;}else{B.vz=-B.vz*.7;B.z=Math.max(z-l/2+.2,Math.min(z+l/2-.2,B.z));}}
+    F.net-=dt;if(F.net<=0&&MP.ok&&Object.keys(MP.others).length){F.net=.25;share({k:"inv",f:"ball",a:[x,0,z],b:[R2(B.x),R2(B.y),R2(B.z),R2(B.vx),R2(B.vz)],s:F.score});}}
+  else if(B.net){const n=B.net;B.x+=(n[0]-B.x)*Math.min(1,dt*8);B.z+=(n[2]-B.z)*Math.min(1,dt*8);B.y=n[1];}
+  B.m.position.set(B.x,B.y,B.z);B.m.rotation.x+=B.vz*dt*3;B.m.rotation.z-=B.vx*dt*3;}
+function goal(team){const F=FUN;F.board.material.map.dispose&&0;scene.remove(F.board);F.board=label(`Soccer: ${F.score[0]} – ${F.score[1]}`,0xffffff);F.board.scale.set(3.4,.62,1);F.board.position.set(LUD.x,3.2,LUD.z-LUD.l/2-1.5);scene.add(F.board);
+  if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){popNum(new THREE.Vector3(LUD.x,3,LUD.z),"⚽ GOAL!","spell");F.kids.forEach(k=>{if(k.team===team)kidAnim(k,"Cheer",{restart:true});});}}
+// the snowball fight: the same throws on every screen (they come from the clock); when you're close, some come at you
+function stepSnowFight(dt,t){const F=FUN,{x,z}=LUD;F.kids.forEach((k,i)=>{const side=i%2,g=k.o.g,row=Math.floor(i/2);g.position.set(x-4+row*4+Math.sin(t*1.3+i)*.6,0,z+(side?5:-5));g.rotation.y=side?Math.PI:0;
+    const per=2.6+i*.37,n=Math.floor((t+i*1.1)/per);if(k.n===undefined)k.n=n;if(n!==k.n){k.n=n;kidAnim(k,"PickUp",{restart:true,dur:.5});const me=Math.hypot(P.pos.x-x,P.pos.z-z)<14&&((n*7+i)%3===0);
+      const tgt=me?P.pos.clone():F.kids[(i+1+2*(n%2))%6].o.g.position.clone();snowballFly(g.position.clone().add(new THREE.Vector3(0,1,0)),tgt.add(new THREE.Vector3(rnd(-.6,.6),.9,rnd(-.6,.6))),me?"me":"kid");}});
+  // the snowmen the kids are building grow during the day
+  if(!F.kidMen){F.kidMen=[[x-5,z],[x+5,z+1]].map(([px,pz])=>{const g=snowmanMesh();g.position.set(px,0,pz);scene.add(g);return g;});}F.kidMen.forEach(g=>{g.visible=true;g.scale.setScalar(.35+.65*Math.min(1,(DAY.t||0)/.4));});}
+function snowmanMesh(){const g=new THREE.Group(),s=LOOK.toon(0xf6f8fa);[[.55,.5],[.4,1.25],[.28,1.82]].forEach(([r,y])=>{const b=LOOK.M(new THREE.SphereGeometry(r,14,10),s,.015);b.position.y=y;g.add(b);});
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.06,.3,8),LOOK.toon(0xf08a24));nose.rotation.x=Math.PI/2;nose.position.set(0,1.82,.38);g.add(nose);[-.1,.1].forEach(a=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.035,6,4),LOOK.toon(0x222222));e.position.set(a,1.92,.25);g.add(e);});
+  [-1,1].forEach(sd=>{const a=new THREE.Mesh(new THREE.CylinderGeometry(.02,.025,.7,5),LOOK.toon(0x6b4a2c));a.rotation.z=sd*1.1;a.position.set(sd*.6,1.35,0);g.add(a);});g.traverse(o=>{if(o.isMesh)o.castShadow=true;});return g;}
+function snowballFly(a,b,who,from){const m=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),LOOK.toon(0xffffff));scene.add(m);const d=a.distanceTo(b);
+  tween(Math.max(.35,d/16),k=>{m.position.lerpVectors(a,b,k);m.position.y+=Math.sin(k*Math.PI)*d*.18;},()=>{scene.remove(m);for(let i=0;i<10;i++)SPARK.emit(b,rnd3(1.2),C(0xffffff),.5,{grav:6});
+    if(who==="me"&&P.pos.distanceTo(new THREE.Vector3(b.x,P.pos.y,b.z))<1.3){lawSay(`❄️ Splat! ${from?from+" got you with a snowball!":"The kids got you with a snowball!"}`);}
+    if(who==="mine"){for(const d2 of ENEMIES)if(!d2.down&&!d2.asleep&&d2.g.position.distanceTo(b)<1.2){damage(d2,2,b.clone(),false,{el:"ice",area:true});break;}FUN.kids.forEach(k=>{if(k.o.g.visible&&k.o.g.position.distanceTo(b)<1.4)kidAnim(k,"Cheer",{restart:true});});}});}
+function throwSnowball(){if(!started||P.down||P.inCar||snowAmt()<=.3||inRoom(P.pos))return;if(!cool("snowball",.6))return;const r=aimRay(0),h=firstHit(r),to=h&&h.distance<22?h.point.clone():r.ray.at(16,new THREE.Vector3());
+  const a=P.pos.clone().add(new THREE.Vector3(0,1.5,0));snowballFly(a,to,"mine");share({k:"inv",f:"snowball",a:V3r(a),b:V3r(to),by:MP.you||"Someone"});}
+function funEv(ev,mine){funInit();if(ev.f==="snowball"){if(mine)return;snowballFly(V3(ev.a),V3(ev.b),"me",String(ev.by||"Someone").slice(0,16));return;}
+  const B=FUN.ball;if(ev.f==="ball"&&Array.isArray(ev.b)){if(fieldOwner()===MP.id)return;B.net=ev.b;if(Array.isArray(ev.s)&&(ev.s[0]!==FUN.score[0]||ev.s[1]!==FUN.score[1])){const team=ev.s[0]>FUN.score[0]?0:1;FUN.score=[ev.s[0]|0,ev.s[1]|0];goal(team);}return;}
+  if(ev.f==="kick"&&Array.isArray(ev.v)&&fieldOwner()===MP.id){B.vx=+ev.v[0]||0;B.vz=+ev.v[1]||0;B.vy=+ev.v[2]||0;}}
+// your own snowmen on the field (shared; they melt when the snow goes)
+const SNOWMAN_ACT={pos:new THREE.Vector3()};
+ACTS.push({pos:SNOWMAN_ACT.pos,r:3,hidden:()=>snowAmt()<=.3||!FUN||Math.abs(P.pos.x-LUD.x)>LUD.w/2+3||Math.abs(P.pos.z-LUD.z)>LUD.l/2+3||P.inCar||FUN.snowmen.some(s=>s.g.position.distanceTo(P.pos)<2),label:"⛄ Build a snowman here",
+  run:()=>{const i=(FUN.snowmen.length+Math.floor(Math.random()*1000))%12;const v={x:R2(P.pos.x+(-Math.sin(P.yaw))*1.2),z:R2(P.pos.z+(-Math.cos(P.yaw))*1.2),r:R2(P.yaw),by:(MP.you||"").slice(0,16)};snowmanKey(i,v);setKey("snowman:"+i,v);lawSay("⛄ You roll three big snowballs and stack them up. Hello, snowman!");}});
+setInterval(()=>{SNOWMAN_ACT.pos.copy(P.pos);},250);
+function snowmanKey(i,val){funInit();const F=FUN;const old=F.snowmen.find(s=>s.i===i);if(old){scene.remove(old.g);F.snowmen.splice(F.snowmen.indexOf(old),1);}if(!val)return;
+  const g=snowmanMesh();g.position.set(+val.x||0,0,+val.z||0);g.rotation.y=(+val.r||0)+Math.PI;scene.add(g);if(val.by){const lb=label(`${String(val.by).slice(0,16)}'s snowman`,0xffffff);lb.scale.set(2.2,.4,1);lb.position.y=2.5;g.add(lb);}F.snowmen.push({i,g});}
+// holidays: villagers gather by the decorations with presents, swap them and cheer; wish them a happy holiday and they give you one too
+function stepCeleb(dt){const F=FUN,h=SEASON&&SEASON.hol&&isDay()?SEASON.hol:null;
+  if((h&&h.id)!==F.celebHol){F.celebHol=h&&h.id;F.celeb.forEach(c=>{scene.remove(c.o.g);const j=TOWNFOLK.indexOf(c.o);if(j>=0)TOWNFOLK.splice(j,1);});F.celeb=[];
+    if(h)["villager.glb","merchant.glb","cook.glb","villager.glb","merchant.glb","villager.glb"].forEach((u,i)=>{const a=i/6*Math.PI*2+.3,x=Math.cos(a)*4.6,z=9.5+Math.sin(a)*4.6;const o=npc(u,x,z,Math.atan2(-x,9.5-z));
+      const gift=new THREE.Group();const bx=LOOK.M(new THREE.BoxGeometry(.32,.26,.32),LOOK.toon([0xc0302a,0x2a6ac8,0x3f9a3a,0x8a3fc0][i%4]),.01);gift.add(bx);const rb=new THREE.Mesh(new THREE.BoxGeometry(.34,.06,.06),LOOK.toon(0xffd24a));rb.position.y=.13;gift.add(rb);gift.position.set(.25,1.05,.3);o.g.add(gift);F.celeb.push({o,i,gift});});}
+  if(!h||!F.celeb.length)return;F.ct=(F.ct||0)-dt;if(F.ct<=0&&F.celeb[0].o.g.position.distanceTo(P.pos)<60){F.ct=rnd(3,5);const a=F.celeb[Math.floor(Math.random()*6)],b=F.celeb[(a.i+1+Math.floor(Math.random()*5))%6];
+    const s=iconSprite("🎁");s.scale.setScalar(.5);scene.add(s);const p0=a.o.g.position.clone().add(new THREE.Vector3(0,1.3,0)),p1=b.o.g.position.clone().add(new THREE.Vector3(0,1.3,0));
+    tween(1,k=>{s.position.lerpVectors(p0,p1,k);s.position.y+=Math.sin(k*Math.PI)*.8;},()=>{scene.remove(s);[a,b].forEach(c=>{if(c.o.rig)c.o.rig.full("Cheer",{once:true,restart:true,dur:1.2,then:()=>c.o.rig.clearFull()});});popNum(p1.clone().add(new THREE.Vector3(0,.6,0)),`Happy ${h.name.replace(/^the /,"").split(",")[0]}!`,"spell");});}}
+const CELEB_ACT={pos:new THREE.Vector3(),c:null};
+ACTS.push({pos:CELEB_ACT.pos,r:1.8,hidden:()=>!CELEB_ACT.c||P.inCar,label:()=>`🎉 Wish them a happy ${SEASON.hol.name.replace(/^the /,"").split(",")[0]}`,run:()=>{const h=SEASON&&SEASON.hol,c=CELEB_ACT.c;if(!h||!c)return;if(c.o.rig)c.o.rig.full("Cheer",{once:true,restart:true,dur:1.2,then:()=>c.o.rig.clearFull()});
+  const k="elementum.celeb."+h.id,yr=String(Math.floor((worldDay()+YEAR0)/365));let got=false;try{got=localStorage.getItem(k)===yr;}catch(e){}
+  if(got){lawSay(`🎉 "Happy ${h.name.replace(/^the /,"").split(",")[0]} to you too!"`);return;}try{localStorage.setItem(k,yr);}catch(e){}const n=ri(5,10),f=pick(["mel","pomum","uvae","caseus"]);addItem({t:"coin",n});addItem({t:"food",id:f,n:1});
+  lawSay(`🎁 "Happy ${h.name.replace(/^the /,"").split(",")[0]}! Here — a little present for you." (${n} denarii and ${FOODS[f].name.toLowerCase()})`);}});
+setInterval(()=>{if(!FUN)return;let best=null,bd=1.8;for(const c of FUN.celeb){const d=c.o.g.position.distanceTo(P.pos);if(d<bd){bd=d;best=c;}}CELEB_ACT.c=best;if(best)CELEB_ACT.pos.copy(best.o.g.position);},300);
 // ---------------- the shovel, water and monsters at night (2026-11-26, Barbara: "you can use a shovel to make a hole and escape from prison, and also
 // you can carry water from the river, and monsters only come out at night").
 // Shovel (Mercator sells one, or make one at the workbench and name it): click to dig a hole. In the Carcer you dig a tunnel (8 s) and come up
@@ -3010,7 +3123,7 @@ function stepPet(q,dt){const o=q.remote?MP.others[q.val&&q.val.u]:null,to=q.remo
   q.hop=moving?q.hop+dt*11:0;q.g.position.set(q.x,(q.y||0)+Math.abs(Math.sin(q.hop))*.22,q.z);q.g.rotation.y=q.r;q.g.rotation.z=moving?Math.sin(q.hop)*.08:0;
   if(!q.remote){q.sv=(q.sv||0)+(moving?dt:0);if(q.sv>6){q.sv=0;placedSave();placedShare(q);}}}
 // what's set down works by itself
-function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);stepPets(dt);P.portT=Math.max(0,(P.portT||0)-dt);
+function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);stepPets(dt);stepFun(dt);P.portT=Math.max(0,(P.portT||0)-dt);
   if(P.flyT>0){P.flyT-=dt;P.softLand=1;P.vel.y+=GRAV*dt+((P.flyT>2.5?2.6:-.6)-P.vel.y)*Math.min(1,dt*5);if(Math.random()<dt*20)PUFF.emit(P.pos.clone(),rnd3(1),C(0xdff1ff).multiplyScalar(.4),.5,{drag:2});if(P.down||P.inCar||P.climbing)P.flyT=0;}
   const lit=[];let all=null;
   for(const q of placedAll()){if(!q)continue;const f=fnOf(q.item);if(!f)continue;const dx=q.x-P.pos.x,dz=q.z-P.pos.z,d=Math.hypot(dx,dz);if(d>45&&f!=="zap"&&f!=="magnet"&&f!=="pet")continue;const bb=qBox(q),top=bb.max.y,mid=new THREE.Vector3(q.x,(bb.min.y+top)/2,q.z),dy=P.pos.y-(q.y||0);
@@ -3038,5 +3151,5 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);s
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS,season:()=>SEASON?SEASON.name:"summer",holiday:()=>SEASON&&SEASON.hol?SEASON.hol.id:""};   // what the music (music.js) listens to
-window.__el={NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
