@@ -420,7 +420,7 @@ function howToGet(it){if(!it)return "";const make=id=>CRAFT.RECIPES.some(r=>r.gi
 // every thing you can hold has a real picture (product-photo style, made with Gemini 2026-11-20, in items/): bag, shop, forge, the ground, your hand
 const PIC=k=>String(k).startsWith("data:")?k:"/play/elementum/items/"+k+".webp";
 const EMOJI_PIC={};const emojiPic=e=>{if(!EMOJI_PIC[e]){const c=document.createElement("canvas");c.width=c.height=96;const x=c.getContext("2d");x.font='72px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';x.textAlign="center";x.textBaseline="middle";x.fillText(e,48,54);EMOJI_PIC[e]=c.toDataURL();}return EMOJI_PIC[e];};
-const picKey=it=>it.t==="build"?(it.thumb||emojiPic((BUILD.ITEMS[it.id]||{icon:"🛠️"}).icon)):it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
+const picKey=it=>it.t==="food"&&FOODS[it.id]&&FOODS[it.id].emoji?emojiPic(FOODS[it.id].icon):it.t==="build"?(it.thumb||emojiPic((BUILD.ITEMS[it.id]||{icon:"🛠️"}).icon)):it.t==="coin"?"coin":it.t==="weapon"?"weapon_"+it.id:it.t==="spell"?"scroll_"+SPELLS[it.id].el:it.t+"_"+it.id;
 const img=(k,cls)=>`<img class="${cls||"ii"}" src="${PIC(k)}" alt="" draggable="false">`;
 const ico=f=>f.pic?img(f.pic):f.icon,matIco=id=>img("mat_"+id,"in"),foodIco=id=>img("food_"+id,"in");
 const recPic=r=>r.give?(r.give.t==="food"?"food_"+r.give.id:r.id):r.id==="potion"?"potion_sanans":r.id==="fortis"?"potion_fortis":"weapon_"+r.id;
@@ -578,6 +578,9 @@ const FOODS={
   puls:{name:"Porridge",icon:"🥣",heal:0,price:10,buff:"regenT",secs:15,what:"+3 HP every second for 15 s"},
   caseus:{name:"Cheese",icon:"🧀",heal:5,price:12,buff:"toughT",secs:45,what:"take 25% less damage 45 s"},
   piscis:{name:"Grilled fish",icon:"🐟",heal:10,price:12,buff:"strongT",secs:45,what:"your hits do 25% more 45 s"},
+  bacae:{name:"Wild berries",icon:"🫐",heal:6,price:2,what:"+6 HP · picked in the wilds",emoji:1},
+  ovum:{name:"Egg",icon:"🥚",heal:8,price:3,what:"+8 HP · from the chickens",emoji:1},
+  piscisR:{name:"Fresh fish",icon:"🐟",heal:12,price:6,what:"+12 HP · you caught it yourself",emoji:1},
 };
 // Potio Fortis: +50% damage and fast feet for 40 s — and every player within 12 m of you gets the same (multiplayer)
 const MIGHT_S=40;
@@ -1634,6 +1637,7 @@ function applyKey(key,val){noteKey(key,val);
     if(val===null){if(i>=0){scene.remove(PICKUPS[i].g);PICKUPS.splice(i,1);}return;}
     if(i<0&&val&&val.it){const left=val.t?300-(Date.now()/1000-val.t):300;if(left<=0){if(left<-30)WORLD.dead.push(key);return;}dropItem(new THREE.Vector3(val.x,+val.y||0,val.z),val.it,Math.min(300,left),id,true);}return;}
   if(key.startsWith("pl:")){placedKeyApply(key.slice(3),val);return;}
+  if(key.startsWith("bush:")){bushKey(+key.slice(5),val);return;}
   if(key.startsWith("hb:")||key.startsWith("hbp:")){if(val)WORLD_KEYS[key]=val;else delete WORLD_KEYS[key];return;}
   if(key.startsWith("bld:")){const bd=BUILDINGS[+key.slice(4)];if(!bd)return;if(val&&!bd.down)collapse(bd);else if(!val&&bd.down)rebuild(bd);return;}
   if(key.startsWith("mycar:")){carKeyApply(key.slice(6),val);return;}
@@ -2591,7 +2595,7 @@ const cool=(k,s)=>{if((INVCD[k]||0)>Date.now()){popNum(P.pos.clone().add(new THR
 const strHash=s=>{let h=7;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return h;};
 function tune(seed){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),R0=seedRnd(seed),S=[262,294,330,392,440,523,587,659];let t=A.currentTime+.05,i=3;for(let k=0;k<14;k++){i=Math.max(0,Math.min(7,i+Math.floor(R0()*5)-2));const len=R0()<.3?.4:.2,o=A.createOscillator(),g=A.createGain();o.type="triangle";o.frequency.value=S[i];g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+len+.02);t+=len;}}catch(e){}}
 // what everyone sees and hears
-function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(a.distanceTo(P.pos)>80)return;
+function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"&&a.distanceTo(P.pos)>80)return;
   if(ev.f==="music"){tune(ev.s|0);for(let k=0;k<7;k++)setTimeout(()=>{const s=iconSprite(k%2?"🎵":"🎶");s.scale.setScalar(.4);s.position.copy(a).add(new THREE.Vector3(rnd(-.6,.6),1.2,rnd(-.6,.6)));scene.add(s);tween(1.4,t=>{s.position.y+=.012;s.material.opacity=1-t;},()=>scene.remove(s));},k*450);}
   else if(ev.f==="firework"){for(let k=0;k<5;k++)setTimeout(()=>{const top=a.clone().add(new THREE.Vector3(rnd(-5,5),rnd(11,17),rnd(-5,5))),col=[0xff5a7a,0xffd84a,0x5ad8ff,0x9aff6a,0xc07aff][(k+(ev.s|0))%5],m=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:col}));m.position.copy(a);scene.add(m);
       tween(.8,t=>{m.position.lerpVectors(a,top,t);SPARK.emit(m.position,rnd3(.4),C(col),.4);},()=>{scene.remove(m);flash(top,col,10,.4);for(let i=0;i<60;i++)SPARK.emit(top,rnd3(1).normalize().multiplyScalar(rnd(3,7)),C(i%3?col:0xffffff),rnd(.7,1.3),{grav:3,drag:1});});},k*420);}
@@ -2599,6 +2603,7 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(a.distanceTo(P.pos)>80)retu
   else if(ev.f==="yum"){for(let i=0;i<14;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.4,.4),rnd(.8,1.6),rnd(-.4,.4))),new THREE.Vector3(0,rnd(.8,2),0),C(0xffd27a),.6,{grav:-1});}
   else if(ev.f==="love"){for(let k=0;k<4;k++)setTimeout(()=>{const s=iconSprite("💗");s.scale.setScalar(.32);s.position.copy(a).add(new THREE.Vector3(rnd(-.4,.4),.6,rnd(-.4,.4)));scene.add(s);tween(1.1,t=>{s.position.y+=.014;s.material.opacity=1-t;},()=>scene.remove(s));},k*180);}
   else if(ev.f==="dig")holeAt(a,!!ev.big);
+  else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob")wildEv(ev,mine);
   else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
     if(ev.u!==MP.id&&a.distanceTo(P.pos)<2.2)lawSay("💦 Splash! Someone poured water on you.");}
   else if(ev.f==="feel"){for(let k=0,n=Math.max(1,Math.min(20,ev.n|0));k<n;k++)setTimeout(()=>{const o=ev.u===MP.id?P:MP.others[ev.u]&&MP.others[ev.u].g.position?{pos:MP.others[ev.u].g.position}:null;if(!o||(k&&P.down&&ev.u===MP.id))return;const s=iconSprite(ev.b?(k%2?"💫":"🤢"):"✨");s.scale.setScalar(.34);s.position.copy(o.pos).add(new THREE.Vector3(rnd(-.35,.35),2.1,rnd(-.35,.35)));scene.add(s);tween(1.1,t=>{s.position.y+=.01;s.material.opacity=1-t;},()=>scene.remove(s));},k*1000);}
@@ -2664,10 +2669,92 @@ function needsInput(inp){if(!NEEDS||!NEEDS.bad.sleep){if(NEEDS)NEEDS.lag.length=
 function floatIcon(pos,em){const s=iconSprite(em);s.scale.setScalar(.45);s.position.copy(pos).add(new THREE.Vector3(rnd(-.3,.3),2.3,rnd(-.3,.3)));s.material.transparent=true;scene.add(s);tween(1.4,t=>{s.position.y+=.01;s.material.opacity=1-t;},()=>scene.remove(s));}
 // drink straight from the river, the lake or the moat (T by the water)
 const RIVER_ACT={pos:new THREE.Vector3(),on:false};
-ACTS.push({pos:RIVER_ACT.pos,r:1.5,hidden:()=>!RIVER_ACT.on||P.inCar||P.down,label:"💧 Drink from the water",run:()=>{needUp("water",40);P.hp=Math.min(P.maxHp,P.hp+5);hud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"gulp gulp — fresh water!","spell");
-  for(let i=0;i<10;i++)SPARK.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.4,.4),.4,rnd(-.4,.4))),new THREE.Vector3(0,rnd(.5,1.5),0),C(0x6ab8ff),.6,{grav:3});}});
+ACTS.push({pos:RIVER_ACT.pos,r:1.5,hidden:()=>!RIVER_ACT.on||P.inCar||P.down,label:()=>FISH.on?(FISH.bite?"❗ Pull it in!":"🎣 Fishing… (T to stop)"):"💧 Drink or 🎣 fish",run:()=>{if(FISH.on){fishPull();return;}ask("By the water",[["💧 Drink",()=>riverDrink()],["🎣 Go fishing",()=>fishStart()],["Cancel",null]]);}});
+function riverDrink(){needUp("water",40);P.hp=Math.min(P.maxHp,P.hp+5);hud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"gulp gulp — fresh water!","spell");
+  for(let i=0;i<10;i++)SPARK.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.4,.4),.4,rnd(-.4,.4))),new THREE.Vector3(0,rnd(.5,1.5),0),C(0x6ab8ff),.6,{grav:3});}
 needsHud();
 setInterval(()=>{if(!started)return;RIVER_ACT.on=!P.inCar&&P.pos.y<1.5&&nearWater();RIVER_ACT.pos.copy(P.pos);},300);
+// ---------------- the wilds by day (2026-11-26, Barbara: "add animals in the wild, or something to do outside in the day when there are no monsters").
+// While the monsters sleep: herds of deer (with a stag), wild horses, alpacas and foxes graze in the meadows, and chickens scratch about near the
+// cottages. Walk up slowly — run at them and they gallop away. Press T by one to pet it; give it something to eat (an apple, berries…) and it
+// follows you until night or until you let it go. Chickens sometimes have an egg for you. Berry bushes grow all over the wilds (pick them; they grow
+// back in 3 minutes), and you can fish where you can drink: cast, wait for the bite, press T in time. At night the animals go to sleep and the
+// monsters come out. Shared with the room: one player (nearest, like the monsters) moves each herd and tells the others; bushes are room keys;
+// everyone sees a tamed animal follow its friend, the hearts, and the fishing float. Animals: Quaternius, public domain (models/animals).
+var WILD=null,FISH={on:false};
+const ANI_KINDS={deer:{name:"deer",h:1.35,walk:1.1,run:7,shy:6,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},stag:{name:"stag",h:1.75,walk:1.1,run:7,shy:7,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},
+  horse:{name:"wild horse",h:1.7,walk:1.3,run:8,shy:5,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},alpaca:{name:"alpaca",h:1.55,walk:1,run:5.5,shy:4,eat:"Eating",idle:"Idle",low:"Idle_Headlow"},
+  fox:{name:"fox",h:.62,walk:1.4,run:7.5,shy:8,eat:"Eating",idle:"Idle",low:"Idle_2_HeadLow"},chicken:{name:"chicken",h:.5,walk:.8,run:3,shy:2.2,eat:"Bite_Front",idle:"Idle",low:"Idle",tame:true}};
+const HERDS0=[["deer",[-82,28],["stag","deer","deer","deer"]],["deer",[64,96],["stag","deer","deer"]],["horse",[108,74],["horse","horse","horse"]],["alpaca",[-78,-64],["alpaca","alpaca","alpaca"]],
+  ["fox",[-18,-82],["fox","fox"]],["fox",[150,40],["fox"]],["chicken",[-21,-11],["chicken","chicken","chicken"]],["chicken",[2,20],["chicken","chicken"]]];
+function wildInit(){if(WILD)return;WILD={herds:[],bushes:[],t:0,net:0,egg:{}};
+  HERDS0.forEach(([kind,[hx,hz],list],hi)=>{let home=new THREE.Vector3(hx,0,hz);for(let k=0;k<20&&(isWater(home.x,home.z,false)||(kind!=="chicken"&&inTown(home,4))||inArena(home));k++)home.add(new THREE.Vector3(6,0,3));
+    const herd={i:hi,home,kind,list:[]};WILD.herds.push(herd);
+    list.forEach((k,j)=>{const K=ANI_KINDS[k],g=new THREE.Group(),a=j*2.4+hi;g.position.set(home.x+Math.cos(a)*3,0,home.z+Math.sin(a)*3);g.rotation.y=Math.random()*6.3;scene.add(g);
+      const an={k,K,g,herd,j,rig:null,st:"graze",t:rnd(1,5),to:null,lead:null,net:null,base:"idle"};herd.list.push(an);
+      LOOK.loadRig("/play/elementum/models/animals/"+k+".glb",false,r=>{if(!r)return;const bb=new THREE.Box3().setFromObject(r.root,true),hh=bb.max.y-bb.min.y||1;r.root.scale.setScalar(K.h/hh);g.add(r.root);an.rig=r;r.base(K.idle,{snap:true});});});});
+  // berry bushes: the same 34 places for everyone
+  const R=seedRnd(424242);for(let n=0;n<400&&WILD.bushes.length<34;n++){const x=R()*320-160,z=R()*320-160,p=new THREE.Vector3(x,0,z);if(isWater(x,z,false)||inTown(p,6)||inArena(p)||(typeof inCave==="function"&&inCave(p)))continue;
+    const g=new THREE.Group();g.position.copy(p);const leaf=LOOK.toon(0x3f7a34);[[0,.45,0,.6],[.35,.35,.1,.42],[-.3,.35,-.15,.45],[.05,.4,.35,.4]].forEach(([a,b,c,r])=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),leaf);m.position.set(a,b,c);m.castShadow=true;g.add(m);});
+    const ber=new THREE.Group();const bm=new THREE.MeshBasicMaterial({color:R()<.5?0x3a4cc8:0xd2283a});for(let k=0;k<14;k++){const m=new THREE.Mesh(new THREE.SphereGeometry(.06,6,4),bm);const a=k*2.4,h=.25+((k*37)%10)/16;m.position.set(Math.cos(a)*.55,h,Math.sin(a)*.55);ber.add(m);}g.add(ber);scene.add(g);
+    WILD.bushes.push({i:WILD.bushes.length,g,ber,pos:p,at:0});}}
+function bushKey(i,val){wildInit();const b=WILD.bushes[i];if(!b)return;b.at=val&&val.t?+val.t:0;}
+const isDay=()=>!isNight();
+// who moves which herd: the nearest-numbered player close by (as with the monsters), so everyone sees the same animals
+function herdOwner(h){if(!MP.ok)return MP.id;let best=null;const see=(id,x,z)=>{if(Math.hypot(x-h.home.x,z-h.home.z)<120&&(best===null||id<best))best=id;};see(MP.id,P.pos.x,P.pos.z);(MP.list||[]).forEach(q=>see(q.id,q.x,q.z));return best===null?MP.id:best;}
+function aniAnim(an,name,o){an.base=name;if(an.rig&&!an.rig.fullName)an.rig.base(an.K[name]||an.K.idle,o);}
+function stepWild(dt){wildInit();const day=isDay(),PL=mobPlayers();WILD.net-=dt;const send=WILD.net<=0&&MP.ok;if(send)WILD.net=.35;const out=[];
+  for(const b of WILD.bushes){const ripe=Date.now()/1000-b.at>180;if(b.ber.visible!==ripe)b.ber.visible=ripe;}
+  for(const h of WILD.herds){const mine=herdOwner(h)===MP.id,near=Math.hypot(P.pos.x-h.home.x,P.pos.z-h.home.z)<140;
+    for(const an of h.list){const g=an.g;g.visible=day;if(!day){an.lead=null;continue;}if(an.rig&&near&&g.position.distanceTo(P.pos)<90)an.rig.update(dt);
+      if(!mine){if(an.net){const n=an.net,dx=n.x-g.position.x,dz=n.z-g.position.z;if(Math.hypot(dx,dz)>10){g.position.x=n.x;g.position.z=n.z;}else{const k=Math.min(1,dt*6);g.position.x+=dx*k;g.position.z+=dz*k;}
+          let d=n.ry-g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));g.rotation.y+=d*Math.min(1,dt*8);if(an.base!==n.b)aniAnim(an,n.b,{speed:n.b==="run"?1.3:1});an.lead=n.lead||null;}continue;}
+      // the owner decides: follow a friend, run from someone rushing at it, graze, look up, wander about
+      an.t-=dt;const pos=g.position;let dir=null,sp=0;const ld=an.lead&&PL.find(q=>q.id===an.lead&&!q.down);if(an.lead&&!ld)an.lead=null;
+      let threat=null,td=1e9;for(const q of PL){if(q.down||(ld&&q.id===an.lead))continue;const d=Math.hypot(q.pos.x-pos.x,q.pos.z-pos.z),fast=q.me?(P.run&&P.speed>4.5)||!!P.inCar:((MP.others[q.id]||{}).sp||0)>5;
+        if((fast&&d<an.K.shy+4)||d<(an.K.tame?.35:1.2)){if(d<td){td=d;threat=q;}}}
+      if(ld){const d=Math.hypot(ld.pos.x-pos.x,ld.pos.z-pos.z);if(d>3){dir=new THREE.Vector3(ld.pos.x-pos.x,0,ld.pos.z-pos.z).normalize();sp=d>8?an.K.run*.8:an.K.walk*2.2;aniAnim(an,d>8?"run":"walk");}else if(an.base==="run"||an.base==="walk")aniAnim(an,"idle");}
+      else if(threat){an.st="flee";an.t=2.5;dir=new THREE.Vector3(pos.x-threat.pos.x,0,pos.z-threat.pos.z).normalize();sp=an.K.run;aniAnim(an,"run");}
+      else{if(an.st==="flee"&&an.t>0){dir=g.getWorldDirection(new THREE.Vector3()).setY(0).normalize();sp=an.K.run*.8;}
+        else if(an.t<=0){const r=Math.random();an.st=r<.4?"graze":r<.6?"look":"walk";an.t=an.st==="walk"?rnd(3,6):rnd(3,8);if(an.st==="walk"){const a=Math.random()*6.3,rr=rnd(2,an.K.tame?5:11);an.to=h.home.clone().add(new THREE.Vector3(Math.cos(a)*rr,0,Math.sin(a)*rr));}
+          aniAnim(an,an.st==="graze"?"eat":an.st==="look"?"low":"walk");}
+        if(an.st==="walk"&&an.to){const v=new THREE.Vector3(an.to.x-pos.x,0,an.to.z-pos.z);if(v.length()<.4){an.t=0;}else{dir=v.normalize();sp=an.K.walk;}}
+        if(an.st==="flee"&&an.t<=0)aniAnim(an,"idle");}
+      if(dir&&sp>0){const np=pos.clone().addScaledVector(dir,sp*dt);const ok=!isWater(np.x,np.z,false)&&(an.K.tame||!inTown(np,1.5)||ld)&&!inArena(np)&&np.distanceTo(h.home)<(ld?400:45);
+        if(ok)pos.copy(np);else{an.t=0;an.st="look";}let d=Math.atan2(dir.x,dir.z)-g.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));g.rotation.y+=d*Math.min(1,dt*7);}}
+    if(send&&mine&&h.list.some(an=>an.g.visible)&&(MP.list||[]).some(q=>q.id!==MP.id&&Math.hypot(q.x-h.home.x,q.z-h.home.z)<140))
+      out.push([h.i,h.list.map(an=>[R2(an.g.position.x),R2(an.g.position.z),Math.round(an.g.rotation.y*100)/100,an.base,an.lead||0])]);}
+  if(out.length)share({k:"inv",f:"ani",a:V3r(P.pos),H:out});   // every herd I move, in one message (so it doesn't crowd out the rest)
+  // fishing: the float bobs; a bite comes 3–9 s after casting and lasts 1.2 s
+  if(FISH.on){if(!RIVER_ACT.on||P.down||P.inCar){fishStop("You stopped fishing.");}else{const t=performance.now()/1000;if(FISH.bob)FISH.bob.position.y=.05+Math.sin(t*3)*.03-(FISH.bite?.12:0);
+    if(!FISH.bite&&t>=FISH.biteAt){FISH.bite=true;FISH.until=t+1.2;lawSay("❗ A bite! Press T now!");for(let i=0;i<12;i++)SPARK.emit(FISH.bob.position.clone(),new THREE.Vector3(rnd(-1,1),rnd(1,2),rnd(-1,1)),C(0xdff1ff),.5,{grav:6});}
+    else if(FISH.bite&&t>FISH.until){FISH.bite=false;FISH.biteAt=t+rnd(3,9);lawSay("🎣 It got away… wait for the next bite.");}}}}
+function wildEv(ev,mine){wildInit();if(ev.f==="ani"){if(!Array.isArray(ev.H))return;ev.H.forEach(([hi,l])=>{const h=WILD.herds[hi|0];if(!h||herdOwner(h)===MP.id||!Array.isArray(l))return;l.forEach((a,j)=>{const an=h.list[j];if(an&&Array.isArray(a))an.net={x:+a[0]||0,z:+a[1]||0,ry:+a[2]||0,b:String(a[3]||"idle"),lead:a[4]||null};});});return;}
+  if(ev.f==="tame"){const h=WILD.herds[ev.h|0],an=h&&h.list[ev.j|0];if(!an)return;an.lead=ev.u||null;return;}
+  if(ev.f==="bob"){if(mine)return;const k="bob:"+ev.u;if(WILD[k]){scene.remove(WILD[k]);WILD[k]=null;}if(ev.on){const m=fishFloat();m.position.copy(V3(ev.a));scene.add(m);WILD[k]=m;setTimeout(()=>{if(WILD[k]===m){scene.remove(m);WILD[k]=null;}},60000);}}}
+// T by an animal, a bush or a chicken
+const WILD_ACT={pos:new THREE.Vector3(),an:null,bush:null};
+ACTS.push({pos:WILD_ACT.pos,r:2.4,hidden:()=>(!WILD_ACT.an&&!WILD_ACT.bush)||P.inCar||P.down,label:()=>{const an=WILD_ACT.an,b=WILD_ACT.bush;if(b)return "🫐 Pick berries";if(!an)return "";const n=an.K.name;
+    if(an.lead===MP.id)return `👋 Let the ${n} go`;if(an.k==="chicken")return "🥚 Look for an egg";return hasFood()>=0?`🍎 Feed the ${n} — it will follow you`:`🤚 Pet the ${n}`;},
+  run:()=>{const an=WILD_ACT.an,b=WILD_ACT.bush;if(b){if(Date.now()/1000-b.at<=180)return;b.at=Math.floor(Date.now()/1000);setKey("bush:"+b.i,{t:b.at});addItem({t:"food",id:"bacae",n:3})?lawSay("🫐 You pick a handful of berries (3)."):lawSay("Your bag is full.");return;}
+    const at=V3r(an.g.position.clone().add(new THREE.Vector3(0,an.K.h,0)));
+    if(an.lead===MP.id){an.lead=null;invShow({f:"tame",a:at,h:an.herd.i,j:an.j,u:0});lawSay(`👋 The ${an.K.name} trots back to its friends.`);return;}
+    if(an.k==="chicken"){const k=an.herd.i+":"+an.j;if((WILD.egg[k]||0)>Date.now()){lawSay("🐔 No egg right now — come back later.");return;}WILD.egg[k]=Date.now()+90000;if(Math.random()<.6){addItem({t:"food",id:"ovum",n:1});lawSay("🥚 You found an egg!");}else lawSay("🐔 Bawk! No egg this time.");invShow({f:"love",a:at});return;}
+    const fi=hasFood();if(fi<0){invShow({f:"love",a:at});lawSay(`🤚 The ${an.K.name} lets you pet it. (Give it something to eat and it will follow you.)`);return;}
+    const it=INV[fi];it.n--;if(!it.n)INV[fi]=null;invHud();an.lead=MP.id;an.st="look";invShow({f:"love",a:at});invShow({f:"tame",a:at,h:an.herd.i,j:an.j,u:MP.id});
+    lawSay(`💗 The ${an.K.name} eats your ${FOODS[it.id].name.toLowerCase()} and follows you now${an.k==="horse"?"":""} — until night, or until you let it go.`);}});
+function hasFood(){const pref=["bacae","pomum","panis","uvae","ovum"];for(const id of pref){const i=INV.findIndex(s=>s&&s.t==="food"&&s.id===id);if(i>=0)return i;}return INV.findIndex(s=>s&&s.t==="food");}
+setInterval(()=>{if(!started||!WILD)return;let best=null,bd=2.4,bb=null,bbd=2;for(const h of WILD.herds)for(const an of h.list){if(!an.g.visible)continue;const d=Math.hypot(an.g.position.x-P.pos.x,an.g.position.z-P.pos.z);if(d<bd&&(an.base!=="run"||an.lead===MP.id)){bd=d;best=an;}}
+  for(const b of WILD.bushes){const d=Math.hypot(b.pos.x-P.pos.x,b.pos.z-P.pos.z);if(d<bbd&&b.ber.visible){bbd=d;bb=b;}}
+  WILD_ACT.an=bb?null:best;WILD_ACT.bush=bb;const o=bb?bb.pos:best?best.g.position:null;if(o)WILD_ACT.pos.set(o.x,0,o.z);},250);
+// fishing
+function fishFloat(){const g=new THREE.Group();const r=new THREE.Mesh(new THREE.SphereGeometry(.09,10,8),new THREE.MeshBasicMaterial({color:0xe8302a}));const w=new THREE.Mesh(new THREE.SphereGeometry(.09,10,8,0,6.3,0,1.6),new THREE.MeshBasicMaterial({color:0xffffff}));w.position.y=.01;g.add(r);g.add(w);return g;}
+function fishStart(){if(FISH.on)return;let w=null;for(let r=1;r<=4&&!w;r+=.5)for(let a=0;a<6.3&&!w;a+=.4){const x=P.pos.x+Math.cos(a)*r,z=P.pos.z+Math.sin(a)*r;if(isWater(x,z,false))w=new THREE.Vector3(x+Math.cos(a)*.8,0,z+Math.sin(a)*.8);}if(!w)return;
+  FISH.on=true;FISH.bite=false;FISH.biteAt=performance.now()/1000+rnd(3,9);FISH.bob=fishFloat();FISH.bob.position.copy(w);scene.add(FISH.bob);share({k:"inv",f:"bob",a:V3r(w),u:MP.id,on:1});lawSay("🎣 You cast your line. Wait for a bite, then press T!");}
+function fishStop(msg){if(!FISH.on)return;FISH.on=false;FISH.bite=false;if(FISH.bob){scene.remove(FISH.bob);share({k:"inv",f:"bob",a:V3r(FISH.bob.position),u:MP.id,on:0});FISH.bob=null;}if(msg)lawSay(msg);}
+function fishPull(){if(!FISH.bite){fishStop("🎣 You reel in your line.");return;}const at=FISH.bob.position.clone();for(let i=0;i<20;i++)SPARK.emit(at,new THREE.Vector3(rnd(-1.5,1.5),rnd(1,3),rnd(-1.5,1.5)),C(0x6ab8ff),.6,{grav:8});
+  const r=Math.random();fishStop();if(r<.12){lawSay("🥾 You caught… an old boot. Better luck next time!");return;}if(r<.17){const n=ri(2,5);addItem({t:"coin",n});lawSay(`💰 A little bag of ${n} denarii was on your hook!`);return;}
+  addItem({t:"food",id:"piscisR",n:1})?lawSay("🐟 You caught a fish!"):lawSay("🐟 You caught a fish — but your bag is full, so you let it go.");}
 // ---------------- the shovel, water and monsters at night (2026-11-26, Barbara: "you can use a shovel to make a hole and escape from prison, and also
 // you can carry water from the river, and monsters only come out at night").
 // Shovel (Mercator sells one, or make one at the workbench and name it): click to dig a hole. In the Carcer you dig a tunnel (8 s) and come up
@@ -2736,7 +2823,7 @@ function stepPet(q,dt){const o=q.remote?MP.others[q.val&&q.val.u]:null,to=q.remo
   q.hop=moving?q.hop+dt*11:0;q.g.position.set(q.x,(q.y||0)+Math.abs(Math.sin(q.hop))*.22,q.z);q.g.rotation.y=q.r;q.g.rotation.z=moving?Math.sin(q.hop)*.08:0;
   if(!q.remote){q.sv=(q.sv||0)+(moving?dt:0);if(q.sv>6){q.sv=0;placedSave();placedShare(q);}}}
 // what's set down works by itself
-function stepInvent(dt){stepFeel(dt);stepNeeds(dt);P.portT=Math.max(0,(P.portT||0)-dt);
+function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);P.portT=Math.max(0,(P.portT||0)-dt);
   if(P.flyT>0){P.flyT-=dt;P.softLand=1;P.vel.y+=GRAV*dt+((P.flyT>2.5?2.6:-.6)-P.vel.y)*Math.min(1,dt*5);if(Math.random()<dt*20)PUFF.emit(P.pos.clone(),rnd3(1),C(0xdff1ff).multiplyScalar(.4),.5,{drag:2});if(P.down||P.inCar||P.climbing)P.flyT=0;}
   const lit=[];let all=null;
   for(const q of placedAll()){if(!q)continue;const f=fnOf(q.item);if(!f)continue;const dx=q.x-P.pos.x,dz=q.z-P.pos.z,d=Math.hypot(dx,dz);if(d>45&&f!=="zap"&&f!=="magnet"&&f!=="pet")continue;const bb=qBox(q),top=bb.max.y,mid=new THREE.Vector3(q.x,(bb.min.y+top)/2,q.z),dy=P.pos.y-(q.y||0);
@@ -2764,5 +2851,5 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);P.portT=Math.max(0,(P.portT||
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS};   // what the music (music.js) listens to
-window.__el={stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();

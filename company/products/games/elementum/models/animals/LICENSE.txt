@@ -1,0 +1,3 @@
+Animal models by Quaternius (quaternius.com), released into the public domain (CC0), downloaded from poly.pizza:
+deer.glb (Deer), stag.glb (Stag), fox.glb (Fox), horse.glb (Horse), alpaca.glb (Alpaca), chicken.glb (Chicken).
+Trimmed for the game (only the animations it uses; quantized) on 2026-11-26.
