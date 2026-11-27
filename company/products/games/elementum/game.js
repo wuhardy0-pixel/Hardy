@@ -385,7 +385,7 @@ const KINDS={
 };
 function removeBlock(b){const i=BLOCKS.indexOf(b);if(i>=0)BLOCKS.splice(i,1);const j=SOLIDS.indexOf(b.mesh);if(j>=0)SOLIDS.splice(j,1);scene.remove(b.mesh);(b.fx||[]).forEach(o=>scene.remove(o));}
 // the player casts the spell in hand; true when it went off
-function castSpell(id){const s=SPELLS[id];if(!s||P.down||!started||paused||bagOpen||G.spellCool>0)return false;
+function castSpell(id,mul){const s0=SPELLS[id],s=s0&&mul>1&&s0.dmg?Object.assign({},s0,{dmg:Math.round(s0.dmg*mul)}):s0;if(!s||P.down||!started||paused||bagOpen||G.spellCool>0)return false;
   const c0=casterOf(null);if(KINDS[s.kind](c0,s)===false){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"no room","burn");return false;}
   share({k:"cast",s:id,p:V3r(c0.pos),f:V3r(c0.from),m:V3r(c0.aim),w:V3r(c0.fwd)});G.spellCool=.6;mpFx(id);if(RIG&&s.kind!=="leap")RIG.up(SPELL_ANIM[s.kind]||"Spellcast_Shoot",{once:true,dur:.6,restart:true,then:()=>RIG.up("2H_Ranged_Aiming")});
   FX.stars(muzzleWorld(),s.el,2,.8);return true;}
@@ -2418,8 +2418,9 @@ function openBench(){if(!started||P.down)return;G.firing=false;if(document.exitP
   BUILD.open({orders:myOrders().map(o=>Object.assign({},o)),onClose:()=>{hud();setTimeout(()=>{if(window.hwAsk)hwAsk("🛠️ How was building?","What did you build today? Was anything hard, confusing or annoying? Tell Hardy!","just left the workbench","bench",2);},500);},owns:k=>k==="car"?!!MYCAR.car:k==="boat"?!!MYBOAT.boat:false,made:res=>{const I=BUILD.ITEMS[res.item];
     if(res.item==="boat"&&!res.order){const had=!!MYBOAT.boat;makeBoat(res.parts);lawSay(had?"Your new boat replaced your old one — it's at the boat dock by the north gate.":"Your boat is waiting at the boat dock by the north gate. Walk up to it and press T to sail!");return true;}
     if(res.item==="car"&&!res.order){const had=!!MYCAR.car;makeOwnCar(carColor(res.parts),null,res.parts);myCarShare();lawSay(had?"Your new car replaced your old one — it's parked outside the library, locked.":"Your car is parked outside the library, locked — only you can get in. Walk up to it and press T.");return true;}
-    const it={t:"build",id:res.item,n:1,thumb:res.thumb};it.parts=res.parts;if(res.fn)it.fn=res.fn;if(res.nm)it.nm=res.nm;if(res.ef)it.ef=res.ef;if(res.exp)it.exp=1;if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
-    if(!addItem(it)){lawSay("Your bag is full — make some room first.");return false;}return true;}});}
+    const cost=BUILD.atkCost(res.st);if(cost>COINS){lawSay(`That costs ${cost} denarii — you have ${COINS}.`);return false;}
+    const it={t:"build",id:res.item,n:1,thumb:res.thumb};it.parts=res.parts;if(res.fn)it.fn=res.fn;if(res.nm)it.nm=res.nm;if(res.ef)it.ef=res.ef;if(res.st)it.st=res.st;if(res.exp)it.exp=1;if(res.item==="house"){const c=houseColors(res.parts);it.wall=c.wall;it.roof=c.roof;}
+    if(!addItem(it)){lawSay("Your bag is full — make some room first.");return false;}if(cost){COINS-=cost;coinHud();}return true;},coins:()=>COINS});}
 function hexOf(p){return p.color?parseInt(p.color.slice(1),16):({wood:0xa8743f,clay:0xe9dcc8,metal:0x9aa3ad,plastic:0x4f8fd8,glass:0xbfe6ff,fabric:0xd85a6a,stone:0x9a958c,rubber:0x2a2a2e,door:0x7a4a28,window:0xa9d8ff}[p.mat]||0xa8743f);}
 function carColor(parts){const body=parts.filter(p=>p.shape==="box"||p.shape==="shell").sort((a,b)=>(b.w*b.h*b.d)-(a.w*a.h*a.d))[0];return (body?hexOf(body):0xc8432f)||1;}
 function houseColors(parts){const big=parts.filter(p=>p.mat!=="door"&&p.mat!=="window").map(p=>({p,v:BUILD.meshOf(p)})).map(o=>({p:o.p,b:new THREE.Box3().setFromObject(o.v)}));
@@ -2641,10 +2642,10 @@ function stepFeel(dt){P.dizzyT=Math.max(0,(P.dizzyT||0)-dt);P.sickT=Math.max(0,(
   if(P.dizzyT>0){const k=Math.min(1,P.dizzyT/2);if(!P.sitting&&!P.sleeping&&!CALM)look.yaw+=Math.sin(tAcc*1.9)*.55*k*dt;canvas.style.filter=`blur(${(1.6*k).toFixed(2)}px) saturate(.6)${CALM?"":` hue-rotate(${Math.round(Math.sin(tAcc*1.1)*45*k)}deg)`}`;P.dizzyOn=true;}
   else if(P.dizzyOn){P.dizzyOn=false;canvas.style.filter="";}}
 // a bomb: thrown where you aim (or set off where it stands, after two seconds); everyone sees it fly and blow up, only the one who set it off does the harm
-function throwBomb(it){const r=aimRay(0),h=firstHit(r),to=h&&h.distance<16?h.point.clone():r.ray.at(13,new THREE.Vector3());to.y=Math.max(.3,h&&h.distance<16?to.y:P.pos.y+.3);const p=compactParts(it.parts),ev={f:"boom",a:[R2(P.pos.x),R2(P.pos.y+1.4),R2(P.pos.z)],b:V3r(to)};if(p.length&&JSON.stringify(p).length<6000)ev.p=p;invShow(ev);}
+function throwBomb(it){const r=aimRay(0),h=firstHit(r),to=h&&h.distance<16?h.point.clone():r.ray.at(13,new THREE.Vector3());to.y=Math.max(.3,h&&h.distance<16?to.y:P.pos.y+.3);const p=compactParts(it.parts),ev={f:"boom",a:[R2(P.pos.x),R2(P.pos.y+1.4),R2(P.pos.z)],b:V3r(to),pw:BUILD.atkMul(it.st).d};if(p.length&&JSON.stringify(p).length<6000)ev.p=p;invShow(ev);}
 function bombFly(ev,a,mine){const to=V3(ev.b||ev.a),flies=a.distanceTo(to)>.5;let g=null;
   if(flies){const parts=Array.isArray(ev.p)?ev.p.filter(p=>p&&typeof p==="object").slice(0,120):null;try{g=placedMesh({id:"invention",fn:"bomb",parts});}catch(e){g=iconSprite("💣");}const bb=new THREE.Box3().setFromObject(g),L=Math.max(...bb.getSize(new THREE.Vector3()).toArray())||1;g.scale.multiplyScalar(Math.min(1,.7/L));scene.add(g);}
-  const blow=()=>{if(g)scene.remove(g);explode(to,"fire",{r:4.5,dmg:70,c:mine?PLAYER_C():{ghost:true}});if(mine&&!P.down&&P.pos.distanceTo(to)<3.5)hurt(20);};
+  const blow=()=>{if(g)scene.remove(g);explode(to,"fire",{r:4.5*Math.min(1.5,Math.sqrt(clamp(+ev.pw||1,1,4))),dmg:Math.round(70*(mine?clamp(+ev.pw||1,1,4):1)),c:mine?PLAYER_C():{ghost:true}});if(mine&&!P.down&&P.pos.distanceTo(to)<3.5)hurt(20);};
   tween(flies?1:2,t=>{if(g){g.position.lerpVectors(a,to,t);g.position.y+=Math.sin(t*Math.PI)*2;g.rotation.x+=.15;}if(Math.random()<.5)SPARK.emit(g?g.position.clone():to,rnd3(1),C(0xffb04a),.4);},blow);}
 // putting something into food (Barbara, 2026-11-25: "you can put poison and drugs into someone's food and then if they eat it they get the same effects").
 // Hold a thing you take (drugs, poison, medicine…) and choose a food in your bag, or a cup, bowl, plate, fountain set down near you (yours or
@@ -3456,9 +3457,10 @@ function stepNightMobs(){const night=isNight();if(MOBNIGHT.was!==null&&MOBNIGHT.
     else if(d.asleep){d.asleep=false;d.down=false;d.hp=d.max;d.g.position.copy(d.home);d.g.visible=true;d.g.scale.setScalar(.01);tween(.8,t=>d.g.scale.setScalar(Math.max(.01,t)));}}}
 // used from the hand
 function inventUse(it){const f=fnOf(it),at=P.pos.clone().add(new THREE.Vector3(0,1,0));if(P.inCar&&f!=="wand")return;
-  if(f==="wand"){if(!cool("wand",2.5))return;const ids=Object.keys(SPELLS).filter(k=>SPELLS[k].kind==="bolt"),id=ids[strHash(it.nm||"")%ids.length];G.spellCool=0;castSpell(id);return;}
-  if(f==="sword"){punch(5);return;}
-  if(f==="take"||f==="bomb"){ask(itemInfo(it).name,[f==="take"?[`${BUILD.badEf(it.ef)?"🤢":"✨"} Take some`,()=>takeSome(it)]:["💣 Throw it",()=>{if(cool("bomb",10))throwBomb(it);}],...(f==="take"?spikeChoices(it):[]),["Set it down",()=>placeThing(SEL)],["Cancel",null]]);return;}
+  const am=BUILD.atkMul(it.st);
+  if(f==="wand"){if(!cool("wand",2.5/am.s))return;const ids=Object.keys(SPELLS).filter(k=>SPELLS[k].kind==="bolt"),id=ids[strHash(it.nm||"")%ids.length];G.spellCool=0;castSpell(id,am.d);return;}
+  if(f==="sword"){if(G.cool>0)return;punch(5*am.d);G.cool=.45/am.s;return;}
+  if(f==="take"||f==="bomb"){ask(itemInfo(it).name,[f==="take"?[`${BUILD.badEf(it.ef)?"🤢":"✨"} Take some`,()=>takeSome(it)]:["💣 Throw it",()=>{if(cool("bomb",10/am.s))throwBomb(it);}],...(f==="take"?spikeChoices(it):[]),["Set it down",()=>placeThing(SEL)],["Cancel",null]]);return;}
   if(f==="shovel"){dig();return;}
   if(f==="fuel"){const g=Math.round(it.gas||0),pump=GAS.pumps.some(v=>Math.hypot(v.x-P.pos.x,v.z-P.pos.z)<5),c=CARS.find(c=>!c.boat&&c.max<Infinity&&!(c.taken&&c.taken!==MP.id)&&c.g.position.distanceTo(P.pos)<4.5),cost=Math.ceil((GASCAN-g)/GAS.price),o=[];
     if(pump&&g<GASCAN)o.push([`⛽ Fill it up (${cost} denarii)`,()=>{if(COINS<cost)return lawSay(`Filling it costs ${cost} — you have ${COINS}.`);COINS-=cost;coinHud();it.gas=GASCAN;invHud();lawSay("⛽ Your gas can is full.");}]);
@@ -3471,7 +3473,7 @@ function inventUse(it){const f=fnOf(it),at=P.pos.clone().add(new THREE.Vector3(0
 // used where it stands (T)
 function fnUse(q){const f=fnOf(q.item),p=[R2(q.x),R2((q.y||0)+.6),R2(q.z)];const tell=()=>{if(q.remote){if(MP.ok)setKey("pl:"+q.pid,Object.assign({},q.val,{e:q.useT||0}));}else{placedShare(q);placedSave();}};
   if(f==="take")return takeSome(q.item);
-  if(f==="bomb"){if(cool("bomb",10))invShow({f:"boom",a:p,b:p});return;}
+  if(f==="bomb"){if(cool("bomb",10/BUILD.atkMul(q.item.st).s))invShow({f:"boom",a:p,b:p,pw:BUILD.atkMul(q.item.st).d});return;}
   if(f==="pet"){if(cool("pet",1.5))invShow({f:"love",a:p});return;}
   if(f==="music"){if(cool("music",8))invShow({f:"music",a:p,s:strHash(q.item.nm||q.pid)%9999});return;}if(f==="firework"){if(cool("firework",8))invShow({f:"firework",a:p,s:ri(0,99)});return;}if(f==="guard")return blowHorn();
   if(f==="computer")return uiOpen(o=>DESIGN.openLibrary(Object.assign(o,{computer:true})));if(f==="storage"){toggleBag(true,"chest");return;}

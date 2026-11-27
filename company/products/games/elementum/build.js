@@ -609,6 +609,9 @@ function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)retu
   if(t.dataset.stick!==undefined){drawStick(+t.dataset.stick);return;}
   if(t.id==="bSure"){const q=S.sure;if(q)become(q.c,q.parts,q.nm,true);return;}
   if(t.id==="bKeep"){S.sure=null;S.rep="";side();return;}
+  if(S.atk&&t.dataset.atkd!==undefined){S.atk.d=+t.dataset.atkd;S.rep=atkHtml();side();return;}
+  if(S.atk&&t.dataset.atks!==undefined){S.atk.s=+t.dataset.atks;S.rep=atkHtml();side();return;}
+  if(t.id==="bAtk"&&S.atk){const A=S.atk;S.atk=null;become(Object.assign({},A.c,{st:{d:A.d,s:A.s}}),A.parts,A.nm,A.sure);return;}
   if(t.id==="bNew"){S.parts=[];S.sel=-1;S.nm="";changed();return;}
   if(t.id==="bTest"){runTest();return;}
   if(t.id==="bMake"){make();return;}
@@ -646,10 +649,23 @@ function alive(){if(!S.parts.length||S.busy)return;S.busy=true;S.rep="";S.sticks
 function sticksHtml(){const K=S.sticks;if(!K)return "";const nms=K.shown.map(c=>{const T=thingOf(c.as);return `${T.icon} <b>${esc(c.looks||T.name)}</b>`;});
   return `<div class="sticks"><p>${K.miss?`It doesn't look like a ${esc(K.miss)}. `:""}It looks like ${nms.slice(0,-1).join(", ")} <b>and</b> ${nms[nms.length-1]}! ${K.got<0?"Pick a stick — it decides.":""}</p><div class="sr">${K.deck.map((c,i)=>{const T=thingOf(c.as);return `<button class="stick ${K.got>=0?"up":""} ${K.got===i?"on":""}" data-stick="${i}" ${K.got>=0?"disabled":""} aria-label="Stick ${i+1}"><i>${K.got>=0?T.icon:""}</i></button>`;}).join("")}</div></div>`;}
 function drawStick(i){const K=S.sticks;if(!K||K.got>=0||!K.deck[i])return;K.got=i;side();const me=S;setTimeout(()=>{if(S!==me||S.sticks!==K)return;become(K.deck[i],K.parts,K.nm);},1100);}
-function become(c,parts,nm,sure){const bad=badEf(c.ef),T=c.ef?Object.assign({},FNS[c.as],{icon:bad?"🤢":FNS[c.as].icon,name:c.looks||nm}):thingOf(c.as),isItem=!!ITEMS[c.as],hooks=S.hooks;
+// attacks you can tune (Barbara, 2026-11-27: "if it's an attack you can set the stats, like damage, but then it costs more"): a wand, a sword or a bomb
+// comes to life with a choice of damage and speed; normal is free, stronger and faster cost denarii, paid when it's made
+const ATK_D=[{n:"Normal",m:1,c:0},{n:"Strong",m:1.5,c:10},{n:"Very strong",m:2,c:25},{n:"Mighty",m:3,c:60},{n:"Legendary",m:4,c:120}];
+const ATK_S=[{n:"Normal",m:1,c:0},{n:"Fast",m:1.5,c:15},{n:"Very fast",m:2,c:40}];
+const ATK_BASE={wand:{d:85,w:2.5,how:"magic bolt"},sword:{d:20,w:.45,how:"hit"},bomb:{d:70,w:10,how:"blast"}};
+const atkCost=st=>st?((ATK_D[st.d]||ATK_D[0]).c+(ATK_S[st.s]||ATK_S[0]).c):0;
+const atkMul=st=>({d:st?(ATK_D[st.d]||ATK_D[0]).m:1,s:st?(ATK_S[st.s]||ATK_S[0]).m:1});
+function atkHtml(){const A=S.atk,B=ATK_BASE[A.c.as],T=FNS[A.c.as],cost=atkCost(A),have=S.hooks.coins?S.hooks.coins():Infinity,f=v=>v>=10?Math.round(v):Math.round(v*100)/100;
+  const row=(L,key,show)=>`<div class="sr" style="flex-wrap:wrap;gap:6px;margin:4px 0 10px">${L.map((o,i)=>`<button data-atk${key}="${i}" style="${A[key]===i?"border-color:#ffd36a;background:#4a3a1a":""}">${o.n}<br><small>${show(o)} · ${o.c?o.c+" 🪙":"free"}</small></button>`).join("")}</div>`;
+  return `<p>${A.c.named?"It's":"It looks like"} a <b>${T.icon} ${esc(A.c.looks||A.nm||T.name)}</b> — an attack! Choose how strong and how fast it is. Stronger costs more.</p>
+    <p style="margin:6px 0 2px"><b>💥 Damage</b> (each ${B.how})</p>${row(ATK_D,"d",o=>f(B.d*o.m))}
+    <p style="margin:6px 0 2px"><b>⏱️ Speed</b> (wait between uses)</p>${row(ATK_S,"s",o=>f(B.w/o.m)+" s")}
+    <p>Total: <b>${cost?cost+" 🪙":"free"}</b> · you have ${have===Infinity?"?":have} 🪙</p><div class="row"><button class="go" id="bAtk" ${cost>have?"disabled":""}>✨ Make it${cost?` (${cost} 🪙)`:""}</button></div>${cost>have?`<p class="tip">You need ${cost-have} more denarii for that — pick something cheaper.</p>`:""}`;}
+function become(c,parts,nm,sure){if(ATK_BASE[c.as]&&!c.st){S.busy=false;S.sticks=null;S.atk={c,parts,nm,sure,d:0,s:0};S.rep=atkHtml();side();return;}const bad=badEf(c.ef),T=c.ef?Object.assign({},FNS[c.as],{icon:bad?"🤢":FNS[c.as].icon,name:c.looks||nm}):thingOf(c.as),isItem=!!ITEMS[c.as],hooks=S.hooks;
   if(isItem&&!sure&&hooks.owns&&hooks.owns(c.as)){S.busy=false;S.sure={c,parts,nm};S.rep=`<p>${c.named?"It's":"It looks like"} a <b>${T.icon} ${esc(c.looks||T.name)}</b>! You already have a ${esc(T.name)} — this one would take its place.</p><div class="row"><button class="go" id="bSure">Yes, replace my old ${esc(T.name)}</button><button id="bKeep">No, keep my old one</button></div>`;side();return;}
-  const name=nm||c.looks||T.name,res={item:isItem?c.as:"invention",name,nm:name,fn:isItem?undefined:c.as,ef:c.ef||undefined,exp:1,parts,thumb:snap(parts,96),order:null};S.busy=false;S.sure=null;S.sticks=null;
-  if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! ${c.named?`You named it ${esc(nm)}, and it could be that, so it`:`${c.miss?`It doesn't look like a ${esc(c.miss)}. `:""}${c.looks?`It looks like a ${esc(c.looks)}, so it`:"Your "+esc(name)}`} became ${c.ef?"":"a "}<b>${T.icon} ${esc(T.name)}</b>: ${esc(T.what)}.${c.as==="car"||c.as==="boat"?"":" It's in your bag."}</p>`;side();}
+  const name=nm||c.looks||T.name,res={item:isItem?c.as:"invention",name,nm:name,fn:isItem?undefined:c.as,ef:c.ef||undefined,st:c.st&&(c.st.d||c.st.s)?{d:c.st.d,s:c.st.s}:undefined,exp:1,parts,thumb:snap(parts,96),order:null};S.busy=false;S.sure=null;S.sticks=null;S.atk=null;
+  if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! ${c.named?`You named it ${esc(nm)}, and it could be that, so it`:`${c.miss?`It doesn't look like a ${esc(c.miss)}. `:""}${c.looks?`It looks like a ${esc(c.looks)}, so it`:"Your "+esc(name)}`} became ${c.ef?"":"a "}<b>${T.icon} ${esc(T.name)}</b>: ${esc(T.what)}.${c.st&&(c.st.d||c.st.s)?` ${ATK_D[c.st.d].n} damage, ${ATK_S[c.st.s].n.toLowerCase()} speed${atkCost(c.st)?` — paid ${atkCost(c.st)} 🪙`:""}.`:""}${c.as==="car"||c.as==="boat"?"":" It's in your bag."}</p>`;side();}
 function snapshot(){return snap(S.parts,96);}
 function snap(parts,px){try{const c=document.createElement("canvas");c.width=c.height=px||96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
     const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
@@ -679,5 +695,5 @@ function drawIdeas(){const it=ITEMS[IDEAS.item],L=LV[it.level];let h=`<div class
   (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p>${IDEAS.hooks&&IDEAS.hooks.recipe?`<p style="font:12px system-ui;margin-top:6px;border-top:1px solid #cbb98f;padding-top:6px">${d.parts().map(q=>`<b>${esc(q.name||SNAME[q.shape])}</b> — ${MNAME[q.mat]||q.mat} ${SNAME[q.shape].toLowerCase()}, ${FIELDS[q.shape].filter(f=>n(q[f],0)>0).map(f=>`${(FNAME[f]||f).replace(/ \(.*/,"")} ${n(q[f],0)}`).join(", ")}; at ${n(q.x,0)}, ${n(q.y,0)}, ${n(q.z,0)}`).join("<br>")}</p>`:""}</div>`;});
   $("#ideas").innerHTML=h+`</div></div>`;}
 function closeIdeas(){const e=$("#ideas");if(!e||e.classList.contains("hidden"))return;e.classList.add("hidden");if(IDEAS.hooks&&IDEAS.hooks.onClose)IDEAS.hooks.onClose();}
-return {cleanEf,badEf,nameOffline,FNS,ITEMFN,THINGS,thingOf,resembles,lookOffline,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+return {atkCost,atkMul,ATK_D,ATK_S,cleanEf,badEf,nameOffline,FNS,ITEMFN,THINGS,thingOf,resembles,lookOffline,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();
