@@ -2491,11 +2491,7 @@ def require_passcode():
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
-        # Elementum is Hardy's alone for now (2026-11-27): signed in as wuhardy0@gmail.com with the name Hardy (the email needs its code)
-        if (p.startswith("/play/elementum") or p.startswith("/api/elementum/")) and not elementum_allowed():
-            if p.startswith("/api/"):
-                return jsonify(error="Elementum is private: only Hardy can play it."), 403
-            return ELEM_PRIVATE_HTML, 403
+        # (2026-11-27: Elementum was Hardy's alone for a while; open to everyone again the same day — elementum_allowed() is kept for if it's wanted again)
         if visitor() and "." not in p.rsplit("/", 1)[-1] and not p.startswith("/api/elementum/"):   # not the game's 7-a-second updates
             track("view", friendly_label(p), p)  # note that they opened this page (a game's picture/script files are not pages)
         return None
