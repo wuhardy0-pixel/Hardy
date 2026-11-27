@@ -2491,6 +2491,11 @@ def require_passcode():
         if needs_login and not visitor():
             k = play_key(p)
             return redirect(login_url_for(k) + ("" if k else "?next=" + p)) if on_real_site() else VISITOR_HTML
+        # Elementum is Hardy's alone for now (2026-11-27): signed in as wuhardy0@gmail.com with the name Hardy (the email needs its code)
+        if (p.startswith("/play/elementum") or p.startswith("/api/elementum/")) and not elementum_allowed():
+            if p.startswith("/api/"):
+                return jsonify(error="Elementum is private: only Hardy can play it."), 403
+            return ELEM_PRIVATE_HTML, 403
         if visitor() and "." not in p.rsplit("/", 1)[-1] and not p.startswith("/api/elementum/"):   # not the game's 7-a-second updates
             track("view", friendly_label(p), p)  # note that they opened this page (a game's picture/script files are not pages)
         return None
@@ -2499,6 +2504,17 @@ def require_passcode():
     if request.path.startswith("/api/"):
         return jsonify(error="Please log in."), 401
     return redirect("/login")
+
+def elementum_allowed():
+    """Only Hardy plays Elementum: the email wuhardy0@gmail.com (proved with its emailed code) and the name Hardy."""
+    first = (session.get("v_name") or "").strip().split(" ")[0].lower()
+    return (visitor() or "") == HARDY_EMAIL and first == "hardy"
+
+ELEM_PRIVATE_HTML = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elementum</title><body style="font-family:system-ui,sans-serif;background:#10131a;color:#eef;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center">
+<div><div style="font-size:56px">🔒</div><h1>Elementum is private</h1><p>Only Hardy can play Elementum right now.</p>
+<p>Are you Hardy? <a style="color:#8cf" href="/signout">Sign out</a> and sign in again with your own email and the name Hardy.</p>
+<p><a style="color:#8cf" href="/games">See the other games</a></p></div></body>"""
 
 @app.get("/go/<key>")
 def go_to(key):

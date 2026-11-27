@@ -2617,7 +2617,7 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"
   else if(ev.f==="dig")digHole(a,!!ev.big);
   else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob"||ev.f==="adopt")wildEv(ev,mine);
   else if(ev.f==="pets")petsEv(ev,mine);
-  else if(ev.f==="ball"||ev.f==="kick"||ev.f==="snowball")funEv(ev,mine);
+  else if(ev.f==="ball"||ev.f==="kick"||ev.f==="snowball"||ev.f==="kpass"||ev.f==="call")funEv(ev,mine);
   else if(ev.f==="mg"||ev.f==="mgp"||ev.f==="saw")pgEv(ev);
   else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
     if(ev.u!==MP.id&&a.distanceTo(P.pos)<2.2)lawSay("💦 Splash! Someone poured water on you.");}
@@ -3063,43 +3063,72 @@ function soccerMarks(L){const F=FUN;if(!F)return;
     if(SOC.myTeam!==me.team){SOC.myTeam=me.team;lawSay(`⚽ You're on the ${TEAM[me.team].e} ${TEAM[me.team].n} team! Shoot at the goal with your colour's sign. Walk into the ball to dribble, run to kick, T to shoot.`);}}
   else SOC.myTeam=undefined;
   for(const id in MP.others){const o=MP.others[id];if(!o.ring)continue;const q=L&&L.find(q=>q.id===id);o.ring.material.color.setHex(q?TEAM[q.team].c:0x7fd3ff);}}
-function kickBall(vx,vz,vy){const B=FUN.ball;if(SOC.rest||B.hold)return;B.vx=vx;B.vz=vz;B.vy=vy;socSound("kick");
+function kickBall(vx,vz,vy){const B=FUN.ball;if(SOC.rest||B.hold)return;if(Math.hypot(vx,vz)>4)B.free=FUN.t+.4;B.vx=vx;B.vz=vz;B.vy=vy;socSound("kick");
   if(fieldOwner()===MP.id){SOC.lastBy=meName();SOC.lastTm=SOC.myTeam;SOC.lastT=performance.now();}else share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),R2(vy)],b:[R2(B.x),R2(B.z)],tm:SOC.myTeam===undefined?-1:SOC.myTeam});}
-// a kid kicks (or a keeper throws): pass to someone on their team, or go for goal
-function kidKick(k,L,goalZ,thr){const B=FUN.ball,{x,z}=LUD,g=k.o.g,dist=q=>Math.hypot(q.pos.x-g.position.x,q.pos.z-g.position.z);
-  const mates=L.filter(q=>q.team===k.team&&dist(q)>2&&dist(q)<(thr?24:16));let tx,tz,sp,vy;
-  if(thr&&!mates.length){const st=FUN.kids[k.team];if(st&&st!==k)mates.push({pos:st.o.g.position});}   // after a save the keeper throws it straight to a teammate
-  if(mates.length&&(thr||Math.random()<.55)){const q=thr?mates.sort((a,b)=>dist(a)-dist(b))[0]:pick(mates);tx=q.pos.x;tz=q.pos.z;sp=clamp(Math.hypot(tx-B.x,tz-B.z)*1.1+2,5,12);vy=thr?2.5:.4;}
-  else if(thr){tx=x+rnd(-3,3);tz=z;sp=9;vy=3;}
-  else{tx=x+rnd(-2.2,2.2);tz=goalZ;sp=rnd(6,10);vy=rnd(0,2);}
-  const a=Math.atan2(tx-B.x,tz-B.z);B.vx=Math.sin(a)*sp;B.vz=Math.cos(a)*sp;B.vy=vy;SOC.lastBy="";SOC.lastTm=undefined;SOC.lastT=performance.now();}
+// a keeper throws after a save: to whoever on the team called for it, else the nearest friend on the pitch, else the team's striker
+function kidKick(k,L,goalZ,thr){const B=FUN.ball,g=k.o.g,dist=q=>Math.hypot(q.pos.x-g.position.x,q.pos.z-g.position.z);
+  const mates=L.filter(q=>q.team===k.team&&dist(q)>2&&dist(q)<26),call=socCall(L,k.team);
+  if(call&&dist(call)>2&&dist(call)<26){SOC.call=null;return kidPass(k,call,true);}
+  if(mates.length)return kidPass(k,mates.sort((a,b)=>dist(a)-dist(b))[0],true);
+  const st=FUN.kids[k.team];if(st&&st!==k)return kidPass(k,{pos:st.o.g.position},true);
+  const a=Math.atan2(LUD.x-B.x,LUD.z-B.z);B.vx=Math.sin(a)*9;B.vz=Math.cos(a)*9;B.vy=3;}
+// who called for the ball (V with no ball), if they are on this team and still on the pitch
+function socCall(L,team){const c=SOC.call;if(!c||performance.now()-c.t>5000)return null;return L.find(q=>q.name===c.n&&q.team===team)||null;}
+// a kid passes to a person: aimed a little ahead of where they're running, weighted to reach them rolling slowly (throws go in the air)
+function kidPass(k,q,thr){const B=FUN.ball;B.dk=-1;let tx=q.pos.x,tz=q.pos.z;
+  if(q.me){tx+=clamp(P.vel.x*.45,-2.5,2.5);tz+=clamp(P.vel.z*.45,-2.5,2.5);}
+  const l=Math.max(.5,Math.hypot(tx-B.x,tz-B.z)),sp=thr?clamp(l*.75+1.5,5,13):clamp(l*.62+2.2,4,14);
+  B.vx=(tx-B.x)/l*sp;B.vz=(tz-B.z)/l*sp;B.vy=thr?2.5:.3;B.free=FUN.t+.45;k.cool=.9;k.carry=0;SOC.lastBy="";SOC.lastTm=undefined;SOC.lastT=performance.now();
+  if(q.name){if(q.me)passedToMe(k);else share({k:"inv",f:"kpass",a:[LUD.x,0,LUD.z],to:q.name});}}
+function passedToMe(k){if(!FUN||!SOC.on)return;popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),"⚽ Pass to you!","spell");if(k)kidAnim(k,"Interact",{restart:true,dur:.4});}
+// a kid shoots: at the side of the goal away from the keeper
+function kidShoot(k,goalZ){const B=FUN.ball,kp=FUN.kids[2+(1-k.team)].o.g.position,tx=LUD.x+(kp.x>LUD.x?-1:1)*rnd(.9,2.1);
+  const l=Math.max(.5,Math.hypot(tx-B.x,goalZ-B.z)),sp=rnd(10,14);B.dk=-1;B.vx=(tx-B.x)/l*sp;B.vz=(goalZ-B.z)/l*sp;B.vy=rnd(.3,2.4);B.free=FUN.t+.45;k.cool=1;k.carry=0;
+  SOC.lastBy="";SOC.lastTm=undefined;SOC.lastT=performance.now();}
 var SHOOT_ACT={pos:new THREE.Vector3(),r:1.8,hidden:()=>!SOC.on||!!P.inCar||!!P.swing||!!P.play||!!P.sitting||P.down||!FUN||!!FUN.ball.hold||SOC.rest>0||P.pos.y>.6,label:"⚽ Shoot!",
   run:()=>{SOC.drib=false;SOC.noDrib=FUN.t+.6;const B=FUN.ball,f=cam.getWorldDirection(new THREE.Vector3());f.y=0;if(f.lengthSq()<1e-4)f.set(-Math.sin(look.yaw),0,-Math.cos(look.yaw));f.normalize();const ux=f.x,uz=f.z;kickBall(ux*17,uz*17,3.2);for(let i=0;i<8;i++)SPARK.emit(new THREE.Vector3(B.x,B.y,B.z),rnd3(2),C(0xffffff),.4,{grav:4});}};
 ACTS.push(SHOOT_ACT);
 function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()===MP.id,L=pitchPeople();soccerMarks(L);SOC.on=true;SHOOT_ACT.pos.set(B.x,0,B.z);
   SOC.rest=Math.max(0,SOC.rest-dt);
-  for(const k of F.kids.slice(0,4)){const g=k.o.g,keeper=k.i>=2,goalZ=k.team?z-l/2:z+l/2,ownZ=k.team?z+l/2:z-l/2,inw=Math.sign(z-ownZ);
-    let tx=B.x,tz=B.z,sp=3.6;
-    if(keeper){tx=clamp(B.x,x-2.1,x+2.1);tz=ownZ+inw*.8;sp=Math.abs(B.z-ownZ)<7?4.4:2.4;}
-    else if(L.some(q=>q.team===k.team&&Math.hypot(q.pos.x-B.x,q.pos.z-B.z)<1.6)){tx=clamp(x+(B.x>x?-3:3),x-w/2+1,x+w/2-1);tz=clamp(B.z+inw*5,z-l/2+2,z+l/2-2);}   // a teammate has the ball: get open for a pass
+  const K4=F.kids.slice(0,4),human=SOC.lastBy&&performance.now()-SOC.lastT<700;
+  for(const k of K4){const g=k.o.g,keeper=k.i>=2,goalZ=k.team?z-l/2:z+l/2,ownZ=k.team?z+l/2:z-l/2,inw=Math.sign(z-ownZ),has=B.dk===k.i;
+    let tx=B.x,tz=B.z,sp=3.8;
+    const mateHas=(B.dk>=0&&B.dk!==k.i&&F.kids[B.dk].team===k.team)||(human&&SOC.lastTm===k.team)||L.some(q=>q.team===k.team&&Math.hypot(q.pos.x-B.x,q.pos.z-B.z)<1.4&&B.dk<0);
+    if(keeper){tx=clamp(B.x,x-2.1,x+2.1);tz=ownZ+inw*.8;sp=Math.abs(B.z-ownZ)<7?4.4:2.4;
+      if(!B.hold&&B.dk<0&&!mateHas&&Math.abs(B.z-ownZ)<4.5&&Math.abs(B.x-x)<4.5&&Math.hypot(B.vx,B.vz)<3.5){tx=B.x;tz=B.z;sp=4.2;}}   // a loose ball near the goal: the keeper comes out for it
+    else if(has){tx=clamp(g.position.x+(x-g.position.x)*.35+Math.sin(t*1.4+k.i*2)*1.6,x-w/2+1,x+w/2-1);tz=g.position.z+inw*3;sp=3.3;}   // dribbling up the pitch, weaving a little
+    else if(mateHas){const side=L.some(q=>q.team===k.team&&q.pos.x>x)?-1:1;tx=clamp(x+side*3.2,x-w/2+1,x+w/2-1);tz=clamp(B.z+inw*6,z-l/2+2.5,z+l/2-2.5);}   // a teammate has it: get open ahead, on the other side
     if(SOC.rest){tx=x+(keeper?0:(k.team?1.5:-1.5));tz=keeper?ownZ+inw*.8:z-inw*2;sp=3;}   // after a goal everyone walks back to their places
     if(B.hold===k){tx=g.position.x;tz=g.position.z;}
     const v=new THREE.Vector3(tx-g.position.x,0,tz-g.position.z),d=v.length();g.position.y=0;
     if(d>.3){v.normalize();g.position.addScaledVector(v,Math.min(d-.2,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);kidAnim(k,"Walking_A",{speed:sp>3?1.8:1.3});}
     else{g.rotation.y=Math.atan2(B.x-g.position.x,B.z-g.position.z);if(k.act!=="Cheer"&&k.act!=="Interact")kidAnim(k,"Idle");}
     k.cool-=dt;const bd=Math.hypot(B.x-g.position.x,B.z-g.position.z);
-    const human=SOC.lastBy&&performance.now()-SOC.lastT<700,mate=human&&SOC.lastTm===k.team;
-    if(mine&&!keeper&&human&&!mate&&k.cool<=0&&bd<.8&&Math.random()>.35){k.cool=.8;}   // someone is dribbling: a tackle only works sometimes
-    else if(mine&&!SOC.rest&&!B.hold&&k.cool<=0&&!(mate&&!keeper)&&bd<(keeper?1.15:.8)&&B.y<(keeper?1.9:.6)){k.cool=1;
-      if(keeper){const hard=Math.hypot(B.vx,B.vz)>9;if(!hard||Math.random()<.5){B.hold=k;B.holdT=.35;k.cool=1.6;B.vx=B.vz=B.vy=0;SOC.sv++;saved(k);}else k.cool=.8;}   // hard shots get past them half the time
-      else kidKick(k,L,goalZ,false);}}
+    if(!mine||SOC.rest||B.hold)continue;
+    if(has){   // the ball at its feet; every 0.3 s it decides: shoot, pass to you, or keep going
+      const fx=Math.sin(g.rotation.y),fz=Math.cos(g.rotation.y);B.vx=clamp((g.position.x+fx*.55-B.x)/.12,-16,16);B.vz=clamp((g.position.z+fz*.55-B.z)/.12,-16,16);B.vy=0;
+      k.carry=(k.carry||0)+dt;k.dec=(k.dec||0)-dt;if(k.dec>0)continue;k.dec=.3;
+      const dist=q=>Math.hypot(q.pos.x-g.position.x,q.pos.z-g.position.z),mates=L.filter(q=>q.team===k.team&&dist(q)>2.5&&dist(q)<24),call=socCall(L,k.team);
+      const press=K4.some(o=>o.team!==k.team&&o.o.g.position.distanceTo(g.position)<1.4)||L.some(q=>q.team!==k.team&&dist(q)<1.4);
+      const open=mates.filter(q=>!K4.some(o=>o.team!==k.team&&Math.hypot(o.o.g.position.x-q.pos.x,o.o.g.position.z-q.pos.z)<2)).sort((a,b)=>Math.abs(a.pos.z-goalZ)-Math.abs(b.pos.z-goalZ));
+      if(call&&dist(call)>1.5&&dist(call)<26){SOC.call=null;kidPass(k,call);}
+      else if(Math.abs(goalZ-g.position.z)<9.5&&Math.abs(g.position.x-x)<6)kidShoot(k,goalZ);
+      else if(open.length&&k.carry>.6&&(press||Math.random()<.45))kidPass(k,open[0]);
+      else if(k.carry>3.5)mates.length?kidPass(k,mates[0]):kidShoot(k,goalZ);}
+    else if(!keeper&&k.cool<=0&&bd<.8&&B.y<.6){
+      if(B.dk>=0){const o=F.kids[B.dk];k.cool=.9;if(o.team!==k.team&&Math.random()<.4){o.cool=.9;B.dk=k.i;k.carry=0;}}   // a tackle on another kid
+      else if(human){k.cool=.8;if(SOC.lastTm!==k.team&&Math.random()<.35){B.dk=k.i;k.carry=0;k.dec=.4;}}   // someone is dribbling: a tackle only works sometimes; never from a teammate
+      else if(FUN.t>(B.free||0)){const bs=Math.hypot(B.vx,B.vz);if(bs>3.5&&Math.random()<(bs>7?.8:.6)){k.cool=.5;continue;}B.dk=k.i;k.carry=0;k.dec=.25;k.cool=.3;}}   // a loose ball: it's mine (not one just kicked past me, and a fast one only sometimes)
+    else if(keeper&&k.cool<=0&&!mateHas&&bd<1.15&&B.y<1.9){k.cool=1;const hard=Math.hypot(B.vx,B.vz)>9;
+      if(!hard||Math.random()<.5){if(B.dk>=0)F.kids[B.dk].cool=1.2;B.dk=-1;B.hold=k;B.holdT=.35;k.cool=1.6;B.vx=B.vz=B.vy=0;SOC.sv++;saved(k);}else k.cool=.8;}}   // hard shots get past them half the time
   // me: walk into the ball to dribble it along, run into it to kick it
   const dx=B.x-P.pos.x,dz=B.z-P.pos.z,d=Math.hypot(dx,dz);
   // dribbling (2026-11-27): close to the ball and moving, it stays at your feet, just in front of you; T shoots, V passes
   {const spd=Math.hypot(P.vel.x,P.vel.z),can=!SOC.rest&&!B.hold&&P.pos.y<.5&&!P.swing&&!P.play&&!P.inCar&&!P.down&&onPitch(P.pos)&&B.y<.7&&(SOC.noDrib||0)<FUN.t;
-    SOC.drib=can&&d<(SOC.drib?1.3:.85);
+    const was=SOC.drib;SOC.drib=can&&d<(SOC.drib?1.3:.85)&&!(B.dk>=0&&spd<=.4);
+    if(SOC.drib&&!was&&spd<=.4&&Math.hypot(B.vx,B.vz)>1.5){if(mine){B.dk=-1;B.vx*=.1;B.vz*=.1;}else share({k:"inv",f:"kick",a:V3r(P.pos),v:[0,0,0],b:[R2(B.x),R2(B.z)],tm:SOC.myTeam===undefined?-1:SOC.myTeam});}   // trap a pass
     if(SOC.drib&&spd>.4){const ux=P.vel.x/spd,uz=P.vel.z/spd,tx=P.pos.x+ux*.62,tz=P.pos.z+uz*.62,vx=clamp((tx-B.x)/.12,-16,16),vz=clamp((tz-B.z)/.12,-16,16);
-      if(mine){B.vx=vx;B.vz=vz;B.vy=0;SOC.lastBy=meName();SOC.lastTm=SOC.myTeam;SOC.lastT=performance.now();}
+      if(mine){B.dk=-1;B.vx=vx;B.vz=vz;B.vy=0;SOC.lastBy=meName();SOC.lastTm=SOC.myTeam;SOC.lastT=performance.now();}
       else{B.x+=(tx-B.x)*Math.min(1,dt*10);B.z+=(tz-B.z)*Math.min(1,dt*10);if((SOC.dribT=(SOC.dribT||0)-dt)<=0){SOC.dribT=.12;share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),0],b:[R2(B.x),R2(B.z)],tm:SOC.myTeam===undefined?-1:SOC.myTeam});}}
       if(!SOC.dribSaid){SOC.dribSaid=1;popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"⚽ Dribbling! T shoot · V pass","spell");}}}
   if(mine){const now=performance.now();
@@ -3111,10 +3140,10 @@ function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()==
       if(SOC.rest||SOC.pend){if(Math.abs(B.z-z)>l/2+.8){B.z=z+Math.sign(B.z-z)*(l/2+.8);B.vz=0;B.vx*=.5;}}   // the ball sits in the net
       else if(B.z<z-l/2||B.z>z+l/2){if(inMouth){const team=B.z<z?1:0;let sc="",og="";
           if(SOC.lastBy&&now-SOC.lastT<6000){const who=L.find(q=>q.name===SOC.lastBy),tm=SOC.lastTm!==undefined&&SOC.lastTm>=0?SOC.lastTm:who?who.team:team;if(tm!==team)og=SOC.lastBy;else sc=SOC.lastBy;}
-          F.score[team]++;SOC.gn++;SOC.pend=true;SOC.lastBy="";goal(team,sc,og);F.net=0;}
+          B.dk=-1;F.score[team]++;SOC.gn++;SOC.pend=true;SOC.lastBy="";goal(team,sc,og);F.net=0;}
         else{B.vz=-B.vz*.7;B.z=clamp(B.z,z-l/2+.2,z+l/2-.2);}}}
-    if(SOC.pend&&!SOC.rest){SOC.pend=false;B.x=x;B.z=z;B.y=.22;B.vx=B.vz=B.vy=0;if(SOC.win){SOC.win=false;F.score=[0,0];scoreBoard();}kickoff();F.net=0;}
-    F.net-=dt;if(F.net<=0&&MP.ok&&Object.keys(MP.others).length){F.net=.25;share({k:"inv",f:"ball",a:[x,0,z],b:[R2(B.x),R2(B.y),R2(B.z),R2(B.vx),R2(B.vz)],s:F.score,gn:SOC.gn,gt:SOC.gt|0,sc:SOC.sc||"",og:SOC.og||"",sv:SOC.sv});}}
+    if(SOC.pend&&!SOC.rest){SOC.pend=false;B.dk=-1;B.x=x;B.z=z;B.y=.22;B.vx=B.vz=B.vy=0;if(SOC.win){SOC.win=false;F.score=[0,0];scoreBoard();}kickoff();F.net=0;}
+    F.net-=dt;if(F.net<=0&&MP.ok&&Object.keys(MP.others).length){F.net=.25;share({k:"inv",f:"ball",a:[x,0,z],b:[R2(B.x),R2(B.y),R2(B.z),R2(B.vx),R2(B.vz)],s:F.score,gn:SOC.gn,gt:SOC.gt|0,sc:SOC.sc||"",og:SOC.og||"",sv:SOC.sv,dk:B.dk>=0?B.dk:-1});}}
   else if(B.net&&!(SOC.drib&&Math.hypot(P.vel.x,P.vel.z)>.4)){const n=B.net;B.x+=(n[0]-B.x)*Math.min(1,dt*8);B.z+=(n[2]-B.z)*Math.min(1,dt*8);B.y=n[1];}
   B.m.position.set(B.x,B.y,B.z);B.m.rotation.x+=B.vz*dt*3;B.m.rotation.z-=B.vx*dt*3;}
 function kickoff(){if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){socSound("whistle");popNum(new THREE.Vector3(LUD.x,1.5,LUD.z),"Kick-off!","spell");}}
@@ -3131,15 +3160,18 @@ function goal(team,sc,og){const F=FUN;scoreBoard();SOC.gt=team;SOC.sc=sc||"";SOC
   if(won){const mine=SOC.myTeam===team;setTimeout(()=>{lawSay(`🏆 ${T.e} ${T.n} wins the match, ${line}!${mine?" You won — +15 🪙":""} A new match starts in a moment.`);socSound("win");
     for(let i=0;i<5;i++)setTimeout(()=>confetti(new THREE.Vector3(LUD.x+rnd(-6,6),7+rnd(0,3),LUD.z+rnd(-8,8)),T.c,60),i*400);if(mine){COINS+=15;coinHud();}},1300);}}
 // passing (V): to whoever on your team is most in the direction you're looking (a friend on the pitch, or your team's kids)
-function passBall(){if(!FUN||!SOC.on||SOC.myTeam===undefined)return;const B=FUN.ball,d=Math.hypot(B.x-P.pos.x,B.z-P.pos.z);if(d>1.8||SOC.rest||B.hold){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"Get to the ball first, then V to pass","spell");return;}
+function passBall(){if(!FUN||!SOC.on||SOC.myTeam===undefined)return;const B=FUN.ball,d=Math.hypot(B.x-P.pos.x,B.z-P.pos.z);if(SOC.rest)return;if(d>1.8||B.hold){callForBall();return;}
   const f=cam.getWorldDirection(new THREE.Vector3());f.y=0;f.normalize();const cands=pitchPeople().filter(q=>!q.me&&q.team===SOC.myTeam).map(q=>q.pos).concat(FUN.kids.slice(0,4).filter(k=>k.team===SOC.myTeam).map(k=>Object.assign(k.o.g.position.clone(),{keeper:k.i>=2})));
   let best=null,bs=-9;for(const p of cands){const vx=p.x-B.x,vz=p.z-B.z,l=Math.hypot(vx,vz);if(l<1.5||l>26)continue;const sc=(vx*f.x+vz*f.z)/l-l/60-(p.keeper?.8:0);if(sc>bs){bs=sc;best=p;}}
   if(!best){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"Nobody to pass to","spell");return;}
-  const vx=best.x-B.x,vz=best.z-B.z,l=Math.hypot(vx,vz),sp=clamp(l*1.15+2,5,14);SOC.drib=false;SOC.noDrib=FUN.t+.6;kickBall(vx/l*sp,vz/l*sp,.4);popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"➡️ Pass!","spell");}
+  const vx=best.x-B.x,vz=best.z-B.z,l=Math.hypot(vx,vz),sp=clamp(l*.62+2.5,5,15);SOC.drib=false;SOC.noDrib=FUN.t+.6;kickBall(vx/l*sp,vz/l*sp,.4);popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"➡️ Pass!","spell");}
+// V away from the ball: shout for it; a kid on your team with the ball (or a keeper about to throw) passes it to you
+function callForBall(){if(!onPitch(P.pos))return;popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"🙋 Pass to me!","spell");
+  if(fieldOwner()===MP.id)SOC.call={n:meName(),t:performance.now()};else share({k:"inv",f:"call",a:[LUD.x,0,LUD.z]});}
 // the keys (2026-11-27, Barbara: "add a menu to tell users what keys do what"): ⌨️ button or H; on the pitch a small soccer box shows its keys
 var KEYS_HTML=`<h3>⌨️ Keys</h3><div class="kc"><div><b>Moving</b><p><kbd>W A S D</kbd> walk<br><kbd>Shift</kbd> run<br><kbd>Space</kbd> jump<br>Mouse: look around</p>
 <b>Doing things</b><p><kbd>T</kbd> talk, use, sit, pick up — whatever the yellow button says<br><kbd>Click</kbd> or <kbd>F</kbd> punch / use what you hold<br><kbd>1</kbd>–<kbd>9</kbd> pick from your hotbar<br><kbd>R</kbd> reload · <kbd>Q</kbd> change crystal<br><kbd>G</kbd> drop what you hold<br><kbd>X</kbd> throw a snowball (snow only)</p></div>
-<div><b>⚽ Soccer</b><p>Walk to the ball: it stays at your feet (dribbling)<br><kbd>T</kbd> shoot where you look<br><kbd>V</kbd> pass to your team<br><kbd>Shift</kbd> sprint with the ball</p>
+<div><b>⚽ Soccer</b><p>Walk to the ball: it stays at your feet (dribbling)<br><kbd>T</kbd> shoot where you look<br><kbd>V</kbd> pass to your team<br><kbd>V</kbd> without the ball: call for a pass<br><kbd>Shift</kbd> sprint with the ball</p>
 <b>🛝 Playground</b><p><kbd>T</kbd> get on / off<br><kbd>W</kbd> swing, spin, rock harder · <kbd>S</kbd> slow down<br><kbd>Space</kbd> jump off / push the see-saw</p>
 <b>Menus</b><p><kbd>E</kbd> bag & forge · <kbd>P</kbd> orders · <kbd>M</kbd> rooms<br><kbd>C</kbd> call your pets · <kbd>H</kbd> this list · <kbd>Esc</kbd> pause</p></div></div><p class="kx">Press H or tap anywhere to close</p>`;
 function toggleKeys(on){let k=document.getElementById("keysBox");if(!k){k=document.createElement("div");k.id="keysBox";k.className="hidden";k.innerHTML=KEYS_HTML;k.addEventListener("click",()=>toggleKeys(false));["pointerdown","mousedown","touchstart"].forEach(t=>k.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(k);}
@@ -3150,7 +3182,7 @@ addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("
   if(e.code==="KeyH")toggleKeys();else if(e.key==="Escape"){const k=document.getElementById("keysBox");if(k&&!k.classList.contains("hidden")){toggleKeys(false);}}
   else if(e.code==="KeyV"&&started&&!bagOpen)passBall();});
 setInterval(()=>{let h=document.getElementById("socHint");const on=started&&SOC.myTeam!==undefined;if(!h){if(!on)return;h=document.createElement("div");h.id="socHint";document.body.appendChild(h);}
-  if(on){const T=TEAM[SOC.myTeam];h.innerHTML=`<b style="color:#${T.c.toString(16).padStart(6,"0")}">${T.e} ${T.n} team</b> — shoot at the goal with the ${T.n} sign<br>Walk into the ball: <b>dribble</b> · <kbd>T</kbd> shoot · <kbd>V</kbd> pass · <kbd>Shift</kbd> sprint · <kbd>H</kbd> all keys`;}h.classList.toggle("hidden",!on);},400);
+  if(on){const T=TEAM[SOC.myTeam];h.innerHTML=`<b style="color:#${T.c.toString(16).padStart(6,"0")}">${T.e} ${T.n} team</b> — shoot at the goal with the ${T.n} sign<br>Walk into the ball: <b>dribble</b> · <kbd>T</kbd> shoot · <kbd>V</kbd> pass (no ball: call for it) · <kbd>Shift</kbd> sprint · <kbd>H</kbd> all keys`;}h.classList.toggle("hidden",!on);},400);
 // the field's sounds: a referee's whistle, a kick, and the crowd cheering
 function socSound(k){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),t=A.currentTime;
   if(k==="kick"){const o=A.createOscillator(),g=A.createGain();o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(60,t+.12);g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+.15);return;}
@@ -3326,13 +3358,15 @@ function snowballFly(a,b,who,from){const m=new THREE.Mesh(new THREE.SphereGeomet
     if(who==="mine"){for(const d2 of ENEMIES)if(!d2.down&&!d2.asleep&&d2.g.position.distanceTo(b)<1.2){damage(d2,2,b.clone(),false,{el:"ice",area:true});break;}FUN.kids.forEach(k=>{if(k.o.g.visible&&k.o.g.position.distanceTo(b)<1.4)kidAnim(k,"Cheer",{restart:true});});}});}
 function throwSnowball(){if(!started||P.down||P.inCar||snowAmt()<=.3||inRoom(P.pos))return;if(!cool("snowball",.6))return;const r=aimRay(0),h=firstHit(r),to=h&&h.distance<22?h.point.clone():r.ray.at(16,new THREE.Vector3());
   const a=P.pos.clone().add(new THREE.Vector3(0,1.5,0));snowballFly(a,to,"mine");share({k:"inv",f:"snowball",a:V3r(a),b:V3r(to),by:MP.you||"Someone"});}
-function funEv(ev,mine){funInit();if(ev.f==="snowball"){if(mine)return;snowballFly(V3(ev.a),V3(ev.b),"me",String(ev.by||"Someone").slice(0,16));return;}
-  const B=FUN.ball;if(ev.f==="ball"&&Array.isArray(ev.b)){if(fieldOwner()===MP.id)return;B.net=ev.b;B.hold=null;
+function funEv(ev,mine){funInit();
+  if(ev.f==="kpass"){if(!mine&&ev.to===meName())passedToMe(null);return;}
+  if(ev.f==="call"){if(!mine&&fieldOwner()===MP.id)SOC.call={n:String(ev.by||"").slice(0,16),t:performance.now()};return;}if(ev.f==="snowball"){if(mine)return;snowballFly(V3(ev.a),V3(ev.b),"me",String(ev.by||"Someone").slice(0,16));return;}
+  const B=FUN.ball;if(ev.f==="ball"&&Array.isArray(ev.b)){if(fieldOwner()===MP.id)return;B.net=ev.b;B.hold=null;B.dk=ev.dk>=0&&ev.dk<4?ev.dk|0:-1;
     const gn=ev.gn|0,sv=ev.sv|0;if(!SOC.seen){SOC.seen=true;SOC.gn=gn;SOC.sv=sv;}   // joining mid-match: no cheering for old goals
     if(gn>SOC.gn&&Array.isArray(ev.s)){SOC.gn=gn;FUN.score=[ev.s[0]|0,ev.s[1]|0];goal(ev.gt?1:0,String(ev.sc||"").slice(0,16),String(ev.og||"").slice(0,16));SOC.win=false;}
     else if(Array.isArray(ev.s)&&(ev.s[0]!==FUN.score[0]||ev.s[1]!==FUN.score[1])){FUN.score=[ev.s[0]|0,ev.s[1]|0];scoreBoard();}
     if(sv>SOC.sv){SOC.sv=sv;const bp=new THREE.Vector3(+ev.b[0]||0,0,+ev.b[2]||0);saved(FUN.kids.slice(2,4).sort((a,b)=>a.o.g.position.distanceTo(bp)-b.o.g.position.distanceTo(bp))[0]);}return;}
-  if(ev.f==="kick"&&Array.isArray(ev.v)&&fieldOwner()===MP.id&&!SOC.rest){B.hold=null;B.vx=clamp(+ev.v[0]||0,-20,20);B.vz=clamp(+ev.v[1]||0,-20,20);B.vy=clamp(+ev.v[2]||0,-2,6);SOC.lastBy=String(ev.by||"").slice(0,16);SOC.lastTm=ev.tm===0||ev.tm===1?ev.tm:undefined;SOC.lastT=performance.now();}}
+  if(ev.f==="kick"&&Array.isArray(ev.v)&&fieldOwner()===MP.id&&!SOC.rest){B.hold=null;if(Math.hypot(+ev.v[0]||0,+ev.v[1]||0)>4)B.free=FUN.t+.4;B.vx=clamp(+ev.v[0]||0,-20,20);B.vz=clamp(+ev.v[1]||0,-20,20);B.vy=clamp(+ev.v[2]||0,-2,6);B.dk=-1;SOC.lastBy=String(ev.by||"").slice(0,16);SOC.lastTm=ev.tm===0||ev.tm===1?ev.tm:undefined;SOC.lastT=performance.now();}}
 // your own snowmen on the field (shared; they melt when the snow goes)
 const SNOWMAN_ACT={pos:new THREE.Vector3()};
 // 2026-11-26 (Barbara: "you can create a snowman anywhere"): anywhere there is snow, outdoors, when nothing else is there to press T for
