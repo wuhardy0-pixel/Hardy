@@ -1609,7 +1609,7 @@ function nameTag(text){const c=document.createElement("canvas");c.width=512;c.he
   const w=Math.min(500,x.measureText(text).width+48);x.fillStyle="rgba(20,20,24,.62)";x.beginPath();x.roundRect(256-w/2,22,w,84,40);x.fill();x.fillStyle="#fff";x.fillText(text,256,66);
   const t=new THREE.CanvasTexture(c);if("colorSpace" in t)t.colorSpace=THREE.SRGBColorSpace;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,depthTest:false,transparent:true}));s.scale.set(1.9,.48,1);s.renderOrder=10;return s;}
 function mpAvatar(p){const g=new THREE.Group();g.position.set(p.x,p.y,p.z);scene.add(g);const o={g,rig:null,tag:null,name:"",hp:-1,to:new THREE.Vector3(p.x,p.y,p.z),yaw:p.yaw,lastFx:p.fx};
-  const ring=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:0x7fd3ff,transparent:true,opacity:.7,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:0x7fd3ff,transparent:true,opacity:.7,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.03;g.add(ring);o.ring=ring;
   o.id=p.id;o.hb=new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,1.9,8),new THREE.MeshBasicMaterial({visible:false}));o.hb.position.y=.95;o.hb.userData.player=o;g.add(o.hb);
   LOOK.loadRig("/play/elementum/models/hero.glb",false,r=>{if(!r||!o.g.parent)return;o.rig=r;LOOK.heroHair(r);r.root.scale.setScalar(1.05);r.root.rotation.y=Math.PI;g.add(r.root);r.base("Idle",{snap:true});});return o;}
 function mpApply(list){const seen=new Set();
@@ -1722,7 +1722,7 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
     if(o.rig){if(o.hp<=0){if(o.rig.fullName!=="Death_A")o.rig.full("Death_A",{once:true});}else if(o.rig.fullName==="Death_A")o.rig.clearFull();
       o.rig.root.position.y=o.po==="ride"?RIDE_Y:0;o.rig.base((o.po==="sit"||o.po==="ride")&&o.rig.clips.Sit_Chair_Idle?"Sit_Chair_Idle":o.po==="climb"||o.po==="sleep"||o.bo?"Idle":o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const sent=[];{let sz=0;while(WORLD.out.length&&sent.length<40&&sz<60000){const e=WORLD.out.shift();sz+=e.k==="key"&&e.val?JSON.stringify(e).length:200;sent.push(e);}}const it=held(),body={slot:(()=>{try{const v=localStorage.getItem("elementum.houseSlot."+MP.room);return v===null?undefined:+v;}catch(e){return undefined;}})(),ev:sent,since:WORLD.seq,wid:WORLD.wid,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:PETS&&PETS.riding?"ride":P.sitting?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:(NEEDS&&NEEDS.bad.food?"F":"")+(NEEDS&&NEEDS.bad.water?"W":"")+(NEEDS&&NEEDS.bad.sleep?"Z":"")+(P.mightT>0?"S":"")+(P.shield>0?"B":"")+(P.invulnT>0?"H":""),held:itemInfo(it)?itemInfo(it).icon:"",hi:P.inCar?"":heldCode(it),hc:HAIR.c,fx:MP.fx};if(P.sleeping&&P.sleeping.spot)Object.assign(body,{x:P.sleeping.spot.x,y:P.sleeping.spot.y,z:P.sleeping.spot.z,yaw:P.sleeping.spot.r});
+  const sent=[];{let sz=0;while(WORLD.out.length&&sent.length<40&&sz<60000){const e=WORLD.out.shift();sz+=e.k==="key"&&e.val?JSON.stringify(e).length:200;sent.push(e);}}const it=held(),body={slot:(()=>{try{const v=localStorage.getItem("elementum.houseSlot."+MP.room);return v===null?undefined:+v;}catch(e){return undefined;}})(),ev:sent,since:WORLD.seq,wid:WORLD.wid,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:PETS&&PETS.riding?"ride":P.sitting||P.swing?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:(NEEDS&&NEEDS.bad.food?"F":"")+(NEEDS&&NEEDS.bad.water?"W":"")+(NEEDS&&NEEDS.bad.sleep?"Z":"")+(P.mightT>0?"S":"")+(P.shield>0?"B":"")+(P.invulnT>0?"H":""),held:itemInfo(it)?itemInfo(it).icon:"",hi:P.inCar?"":heldCode(it),hc:HAIR.c,fx:MP.fx};if(P.sleeping&&P.sleeping.spot)Object.assign(body,{x:P.sleeping.spot.x,y:P.sleeping.spot.y,z:P.sleeping.spot.z,yaw:P.sleeping.spot.r});
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       if(body.room!==MP.room)return;   // you changed rooms while this was on its way: it's about the old room
@@ -1939,7 +1939,7 @@ function hurt(n){if(P.down||n<=0)return;if(P.sleeping)endSleep(false,"something 
   if(P.hp<=0&&LAW.wanted){P.hp=1;return;}
   if(P.hp<=0)fallDown();}
 function fallDown(why){if(P.down)return;if(P.sleeping)endSleep(false,"");P.hp=0;hud();P.down=true;toggleBag(false);const n=dropAll();$("#downMsg").textContent=(why?why+" ":"")+(n?`Everything you carried (${n} ${n===1?"stack":"stacks"}) is lying where you fell — go back for it within 5 minutes. Your coins and your chest are safe.`:"Health is back to full when you come back.");$("#down").classList.remove("hidden");if(document.exitPointerLock)document.exitPointerLock();}
-function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=P.flipT=0;["food","water","sleep"].forEach(k=>NEEDS[k]=Math.max(NEEDS[k],60));$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
+function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.swing=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=P.flipT=0;["food","water","sleep"].forEach(k=>NEEDS[k]=Math.max(NEEDS[k],60));$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
   $("#wep").classList.toggle("noweap",!(it&&it.t==="weapon"));
   if(it&&it.t==="weapon"){$("#wname").textContent=w.name;$("#ammo").textContent=`${G.ammo} / ${w.mag}`;$("#crys").textContent=`${c.name} crystal · ${c.el}`;$("#crys").style.color="#"+FX.HEX[c.el].toString(16).padStart(6,"0");}
@@ -1979,7 +1979,7 @@ $("#camBtn").onclick=()=>{camSide=-camSide;};
 // ---------------- movement + collision ----------------
 function moveInput(){let x=0,z=0;if(keys.KeyW||keys.ArrowUp)z-=1;if(keys.KeyS||keys.ArrowDown)z+=1;if(keys.KeyA||keys.ArrowLeft)x-=1;if(keys.KeyD||keys.ArrowRight)x+=1;
   if(stick.x||stick.y){x=stick.x;z=stick.y;}const l=Math.hypot(x,z);if(l>1){x/=l;z/=l;}return{x,z,l:Math.min(1,l)};}
-function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:needsInput(moveInput());if(P.flipT>0)inp=Object.assign({},inp,{x:-inp.x,z:-inp.z});/* something bad you took: every key goes the other way (Barbara, 2026-11-25: "the keys backward for bad effects") */if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
+function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:needsInput(moveInput());if(P.flipT>0)inp=Object.assign({},inp,{x:-inp.x,z:-inp.z});/* something bad you took: every key goes the other way (Barbara, 2026-11-25: "the keys backward for bad effects") */if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}if(P.swing){P.swing.pump=-inp.z;if(jumpQ){P.swing.jump=true;jumpQ=false;}inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
   if(P.inCar)driveCar(dt,inp);else if(P.climbing)climbStep(dt,inp);else{   // driving replaces walking
   const s=Math.sin(look.yaw),c=Math.cos(look.yaw);const wx=inp.x*c+inp.z*s,wz=-inp.x*s+inp.z*c;   // forward = away from the camera
   const target=(PETS&&PETS.riding?(P.run?13:6.5):(P.run?RUN:WALK))*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1)*needsSpeed()*(P.pos.y<.6&&isWater(P.pos.x,P.pos.z,false)?.45:1);/* wading through the moat or the river is slow */const ax=P.onGround?18:6;
@@ -2029,7 +2029,7 @@ const _m4=new THREE.Matrix4(),_qa=new THREE.Quaternion(),_qb=new THREE.Quaternio
 function animRig(dt){const r=RIG;
   if(P.down)r.full("Death_A",{once:true});else if(r.fullName==="Death_A")r.clearFull();
   const fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw);const vf=P.vel.x*fx+P.vel.z*fz,vr=-P.vel.x*fz+P.vel.z*fx;
-  if(P.sitting||(PETS&&PETS.riding))r.base("Sit_Chair_Idle");else if(!P.onGround)r.base("Jump_Idle");
+  if(P.sitting||P.swing||(PETS&&PETS.riding))r.base("Sit_Chair_Idle");else if(!P.onGround)r.base("Jump_Idle");
   else if(P.speed<.4)r.base("Idle");
   else if(Math.abs(vf)>=Math.abs(vr)*.8){if(vf>0)r.base(P.run?"Running_A":"Walking_A",{speed:P.run?P.speed/6:P.speed/3.4});else r.base("Walking_Backwards",{speed:P.speed/3});}
   else r.base(vr>0?"Running_Strafe_Right":"Running_Strafe_Left",{speed:Math.max(.7,P.speed/5.5)});
@@ -2805,7 +2805,7 @@ function adoptWild(an,temp){petsInit();if(!temp&&PETS.list.filter(p=>!p.temp).le
   const at=an.g.position.clone();invShow({f:"adopt",a:V3r(at),h:an.herd.i,j:an.j,d:worldDay()});
   const name=PET_NAMES[Math.floor(Math.random()*PET_NAMES.length)];const p=petMake({id:"p"+Math.random().toString(36).slice(2,9),kind:an.k,name,mode:"follow",x:at.x,z:at.z,temp:!!temp});p.g.rotation.y=an.g.rotation.y;
   if(!temp){petsSave();lawSay(`🐾 Meet ${name}, your ${an.K.name}! Press T by ${name} to give orders. C calls all your pets.`);}return p;}
-function mount(p){if(PETS.riding||P.inCar||P.down)return;PETS.riding=p;p.mode="ride";P.sitting=null;P.climbing=null;lawSay(`🐴 You climb onto ${p.temp?"the horse":p.name}. Shift to gallop, T to get off.`);}
+function mount(p){if(PETS.riding||P.inCar||P.down)return;PETS.riding=p;p.mode="ride";P.sitting=null;P.swing=null;P.climbing=null;lawSay(`🐴 You climb onto ${p.temp?"the horse":p.name}. Shift to gallop, T to get off.`);}
 function dismount(){const p=PETS.riding;if(!p)return;PETS.riding=null;p.mode=p.temp?"follow":"stay";const s=new THREE.Vector3(Math.cos(P.yaw),0,-Math.sin(P.yaw));P.pos.addScaledVector(s,1.3);P.vel.set(0,0,0);petsSave();lawSay("You get off.");}
 function callPets(){petsInit();const L=PETS.list.filter(p=>p.mode!=="ride");if(!L.length)return;L.forEach(p=>p.mode="follow");petsSave();lawSay(`🐾 ${L.map(p=>p.name).join(", ")} — come!`);}
 function petOrders(p){const n=p.temp?`The ${p.K.name}`:p.name,o=[["👣 Follow me",()=>{p.mode="follow";petsSave();}],["✋ Stay here",()=>{p.mode="stay";petsSave();}],["🪑 Sit",()=>{p.mode="sit";petsSave();}]];
@@ -3020,30 +3020,131 @@ function stepFun(dt){if(!SEASON)return;funInit();const F=FUN,sn=snowAmt(),w=SEAS
   const B=F.ball,near=Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<90;F.leaves.forEach(m=>m.visible=mode==="leaves");B.m.visible=mode!=="snow";
   for(const k of F.kids)k.o.g.visible=mode!=="home";
   F.snowmen.forEach(s=>s.g.visible=sn>.3);if(F.kidMen&&mode!=="snow")F.kidMen.forEach(g=>g.visible=false);
-  if(!near){stepCeleb(dt);return;}
-  const swing=(i,on)=>{F.swings[i].rotation.z=on?Math.sin(t*2.2+i)*.6:F.swings[i].rotation.z*.95;};F.saw.rotation.z=mode==="play"?Math.sin(t*1.3)*.25:0;
-  if(mode==="play"){swing(0,1);swing(1,1);stepSoccer(dt,t);
-    [4,5].forEach((ki,j)=>{const k=F.kids[ki],sw=F.swings[j];k.o.g.position.set(sw.position.x+Math.sin(sw.rotation.z)*1.9,.5-Math.cos(sw.rotation.z)*1.9+1.85,sw.position.z);k.o.g.rotation.y=Math.PI/2;kidAnim(k,"Sit_Chair_Idle");});}
+  stepMySwing(dt);SOC.on=false;
+  if(!near){stepCeleb(dt);SWING_ACT.j=-1;if(SOC.kr)soccerMarks(null);return;}
+  // the swings: you (or another player) riding one moves it; otherwise a kid swings on it on play days, or it slows to a stop
+  SWING_ACT.j=-1;{let bd=1.4;F.swings.forEach((sw,j)=>{const d=Math.hypot(P.pos.x-sw.position.x,P.pos.z-sw.position.z);if(d<bd&&!(P.swing&&P.swing.j===j)&&!swingRider(j)){bd=d;SWING_ACT.j=j;SWING_ACT.pos.set(sw.position.x,0,sw.position.z);}});}
+  const swing=(i,on)=>{const sw=F.swings[i];if(P.swing&&P.swing.j===i)return;const o=swingRider(i);if(o){sw.rotation.z=Math.asin(clamp((o.g.position.x-sw.position.x)/SWING_L,-1,1));return;}sw.rotation.z=on?Math.sin(t*2.2+i)*.6:sw.rotation.z*.95;};F.saw.rotation.z=mode==="play"?Math.sin(t*1.3)*.25:0;
+  const busy=j=>(P.swing&&P.swing.j===j)||!!swingRider(j);
+  if(mode==="play"){swing(0,!busy(0));swing(1,!busy(1));stepSoccer(dt,t);
+    [4,5].forEach((ki,j)=>{const k=F.kids[ki],sw=F.swings[j];if(busy(j)){k.o.g.position.set(sw.position.x-.4,0,sw.position.z+(j?2:-2));k.o.g.rotation.y=j?Math.PI:0;kidAnim(k,"Idle");return;}k.o.g.position.set(sw.position.x+Math.sin(sw.rotation.z)*SWING_L,.5-Math.cos(sw.rotation.z)*SWING_L+1.85,sw.position.z);k.o.g.rotation.y=Math.PI/2;kidAnim(k,"Sit_Chair_Idle");});}
   else{swing(0,0);swing(1,0);}
+  if(mode!=="play")soccerMarks(null);
   if(mode==="snow")stepSnowFight(dt,t);
   if(mode==="leaves")F.kids.forEach((k,i)=>{const L=F.leaves[i%3].position,a=t*.6+i*1.7,r=1.6+Math.sin(t*.9+i)*.8;const nx=L.x+Math.cos(a)*r,nz=L.z+Math.sin(a)*r,g=k.o.g;g.rotation.y=Math.atan2(nx-g.position.x,nz-g.position.z);g.position.set(nx,Math.max(0,Math.sin(t*3+i))*.5,nz);kidAnim(k,"Walking_A",{speed:1.4});});
   stepCeleb(dt);}
-// soccer: the player nearest-numbered by the field moves the ball for everyone; the kids chase it the same way on every screen
-function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()===MP.id;
-  for(const k of F.kids.slice(0,4)){const g=k.o.g,att=k.i<2,goalZ=k.team?z-l/2:z+l/2,ownZ=k.team?z+l/2:z-l/2;let tx=B.x,tz=B.z;if(!att){tx=x+(B.x-x)*.5;tz=ownZ+(B.z-ownZ)*.35;}
-    const v=new THREE.Vector3(tx-g.position.x,0,tz-g.position.z),d=v.length();g.position.y=0;if(d>.6){v.normalize();const sp=att?3.4:2.4;g.position.addScaledVector(v,Math.min(d-.5,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);kidAnim(k,"Walking_A",{speed:1.6});}else kidAnim(k,"Idle");
-    k.cool-=dt;if(mine&&k.cool<=0&&Math.hypot(B.x-g.position.x,B.z-g.position.z)<.8){k.cool=1;const a=Math.atan2((x+rnd(-2,2))-B.x,goalZ-B.z),sp=rnd(5,8);B.vx=Math.sin(a)*sp;B.vz=Math.cos(a)*sp;B.vy=rnd(0,2);}}
-  // me: walk or run into the ball to kick it
-  const dx=B.x-P.pos.x,dz=B.z-P.pos.z,d=Math.hypot(dx,dz);if(d<.75&&P.pos.y<.5&&(F.kickT||0)<t){F.kickT=t+.35;const sp=P.run?11:6;const vx=dx/d*sp+P.vel.x*.3,vz=dz/d*sp+P.vel.z*.3,vy=P.run?2.5:1;
-    if(mine){B.vx=vx;B.vz=vz;B.vy=vy;}else{B.vx=vx;B.vz=vz;share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),R2(vy)],b:[R2(B.x),R2(B.z)]});}}
-  if(mine){B.x+=B.vx*dt;B.z+=B.vz*dt;B.vy-=14*dt;B.y+=B.vy*dt;if(B.y<.22){B.y=.22;B.vy=Math.abs(B.vy)>1?-B.vy*.45:0;}const fr=Math.pow(B.y>.25?.9:.55,dt);B.vx*=fr;B.vz*=fr;
-    if(B.x<x-w/2+.2||B.x>x+w/2-.2){B.vx=-B.vx*.7;B.x=Math.max(x-w/2+.2,Math.min(x+w/2-.2,B.x));}
-    const inMouth=Math.abs(B.x-x)<2.4&&B.y<2;if(B.z<z-l/2||B.z>z+l/2){if(inMouth){const team=B.z<z?1:0;F.score[team]++;goal(team);B.x=x;B.z=z;B.vx=B.vz=B.vy=0;}else{B.vz=-B.vz*.7;B.z=Math.max(z-l/2+.2,Math.min(z+l/2-.2,B.z));}}
-    F.net-=dt;if(F.net<=0&&MP.ok&&Object.keys(MP.others).length){F.net=.25;share({k:"inv",f:"ball",a:[x,0,z],b:[R2(B.x),R2(B.y),R2(B.z),R2(B.vx),R2(B.vz)],s:F.score});}}
+// soccer (2026-11-27, Barbara: "make soccer more fun"): two teams, Red (shoots at the goal away from the playground) and Blue. Step onto the pitch
+// and you join a team (players on the pitch take turns Red, Blue, Red…; a coloured ring under everyone shows the teams, and a sign over each goal says
+// who scores there). Walk into the ball to dribble it, run into it to kick it hard, or stand by it and press T to shoot where you're looking. Each team
+// has a kid striker and a kid goalkeeper: keepers catch easy shots (hard ones get past them sometimes) and throw the ball out, and strikers pass to the
+// people on their team. A goal: a whistle, the crowd cheers, confetti, the ball sits in the net, then kick-off again. Whoever scores gets 5 coins; first
+// team to 5 wins the match (fireworks, 15 coins for everyone on the winning team) and a new match starts.
+// The player nearest-numbered by the field moves the ball for everyone; the kids chase it the same way on every screen.
+var SOC={gn:0,sv:0,lastBy:"",lastT:0,rest:0,pend:false,win:false,on:false,kr:null,my:null,myTeam:undefined};
+var TEAM=[{n:"Red",e:"🔴",c:0xe8463a},{n:"Blue",e:"🔵",c:0x3a7ae8}],SOC_WIN=5;
+function meName(){return MP.you||"@me";}
+function onPitch(p){const {x,z,w,l}=LUD;return Math.abs(p.x-x)<w/2+.8&&Math.abs(p.z-z)<l/2+.8&&p.y<1;}
+function pitchPeople(){const L=[];if(onPitch(P.pos)&&!P.inCar&&!P.swing&&!P.down)L.push({id:MP.id,me:true,pos:P.pos,name:meName()});
+  for(const id in MP.others){const o=MP.others[id];if(o.po!=="sit"&&!o.carColor&&!o.bo&&onPitch(o.g.position))L.push({id,pos:o.g.position,name:o.name||"",o});}
+  L.sort((a,b)=>a.id<b.id?-1:1);L.forEach((q,i)=>q.team=i%2);return L;}
+function scoreBoard(){const F=FUN;scene.remove(F.board);F.board=label(`${TEAM[0].e} ${TEAM[0].n} ${F.score[0]} – ${F.score[1]} ${TEAM[1].n} ${TEAM[1].e}  ·  first to ${SOC_WIN}`,0xffffff);F.board.scale.set(4.6,.62,1);F.board.position.set(LUD.x,3.2,LUD.z-LUD.l/2-1.5);scene.add(F.board);}
+// team rings under the kids, you and the other players on the pitch, and the signs over the goals (L = who is on the pitch, or null when nobody plays)
+function soccerMarks(L){const F=FUN;if(!F)return;
+  if(!SOC.kr){const ring=(a,b,c)=>{const m=new THREE.Mesh(new THREE.RingGeometry(a,b,28),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.85,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.y=.03;return m;};
+    SOC.kr=F.kids.slice(0,4).map(k=>{const m=ring(.42,.6,TEAM[k.team].c);k.o.g.add(m);return m;});SOC.my=ring(.44,.58,0xffffff);scene.add(SOC.my);
+    SOC.signs=[0,1].map(tm=>{const s=label(`${TEAM[tm].e} ${TEAM[tm].n} scores here`,TEAM[tm].c);s.scale.set(2.6,.5,1);s.position.set(LUD.x,2.55,LUD.z+(tm?-1:1)*LUD.l/2);scene.add(s);return s;});scoreBoard();}
+  SOC.kr.forEach(m=>m.visible=!!L);SOC.signs.forEach(s=>s.visible=!!L);
+  const me=L&&L.find(q=>q.me);SOC.my.visible=!!me;
+  if(me){SOC.my.material.color.setHex(TEAM[me.team].c);SOC.my.position.set(P.pos.x,P.pos.y+.03,P.pos.z);
+    if(SOC.myTeam!==me.team){SOC.myTeam=me.team;lawSay(`⚽ You're on the ${TEAM[me.team].e} ${TEAM[me.team].n} team! Shoot at the goal with your colour's sign. Walk into the ball to dribble, run to kick, T to shoot.`);}}
+  else SOC.myTeam=undefined;
+  for(const id in MP.others){const o=MP.others[id];if(!o.ring)continue;const q=L&&L.find(q=>q.id===id);o.ring.material.color.setHex(q?TEAM[q.team].c:0x7fd3ff);}}
+function kickBall(vx,vz,vy){const B=FUN.ball;if(SOC.rest||B.hold)return;B.vx=vx;B.vz=vz;B.vy=vy;socSound("kick");
+  if(fieldOwner()===MP.id){SOC.lastBy=meName();SOC.lastTm=SOC.myTeam;SOC.lastT=performance.now();}else share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),R2(vy)],b:[R2(B.x),R2(B.z)],tm:SOC.myTeam===undefined?-1:SOC.myTeam});}
+// a kid kicks (or a keeper throws): pass to someone on their team, or go for goal
+function kidKick(k,L,goalZ,thr){const B=FUN.ball,{x,z}=LUD,g=k.o.g,dist=q=>Math.hypot(q.pos.x-g.position.x,q.pos.z-g.position.z);
+  const mates=L.filter(q=>q.team===k.team&&dist(q)>2&&dist(q)<(thr?22:16));let tx,tz,sp,vy;
+  if(mates.length&&(thr||Math.random()<.55)){const q=pick(mates);tx=q.pos.x;tz=q.pos.z;sp=clamp(Math.hypot(tx-B.x,tz-B.z)*1.1+2,5,12);vy=thr?2.5:.4;}
+  else if(thr){tx=x+rnd(-3,3);tz=z;sp=9;vy=3;}
+  else{tx=x+rnd(-2.2,2.2);tz=goalZ;sp=rnd(6,10);vy=rnd(0,2);}
+  const a=Math.atan2(tx-B.x,tz-B.z);B.vx=Math.sin(a)*sp;B.vz=Math.cos(a)*sp;B.vy=vy;SOC.lastBy="";SOC.lastTm=undefined;SOC.lastT=performance.now();}
+var SHOOT_ACT={pos:new THREE.Vector3(),r:1.8,hidden:()=>!SOC.on||!!P.inCar||!!P.swing||!!P.sitting||P.down||!FUN||!!FUN.ball.hold||SOC.rest>0||P.pos.y>.6,label:"⚽ Shoot!",
+  run:()=>{const B=FUN.ball,f=cam.getWorldDirection(new THREE.Vector3());f.y=0;if(f.lengthSq()<1e-4)f.set(-Math.sin(look.yaw),0,-Math.cos(look.yaw));f.normalize();const ux=f.x,uz=f.z;kickBall(ux*17,uz*17,3.2);for(let i=0;i<8;i++)SPARK.emit(new THREE.Vector3(B.x,B.y,B.z),rnd3(2),C(0xffffff),.4,{grav:4});}};
+ACTS.push(SHOOT_ACT);
+function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()===MP.id,L=pitchPeople();soccerMarks(L);SOC.on=true;SHOOT_ACT.pos.set(B.x,0,B.z);
+  SOC.rest=Math.max(0,SOC.rest-dt);
+  for(const k of F.kids.slice(0,4)){const g=k.o.g,keeper=k.i>=2,goalZ=k.team?z-l/2:z+l/2,ownZ=k.team?z+l/2:z-l/2,inw=Math.sign(z-ownZ);
+    let tx=B.x,tz=B.z,sp=3.6;
+    if(keeper){tx=clamp(B.x,x-2.1,x+2.1);tz=ownZ+inw*.8;sp=Math.abs(B.z-ownZ)<7?4.4:2.4;}
+    else if(L.some(q=>q.team===k.team&&Math.hypot(q.pos.x-B.x,q.pos.z-B.z)<1.6)){tx=clamp(x+(B.x>x?-3:3),x-w/2+1,x+w/2-1);tz=clamp(B.z+inw*5,z-l/2+2,z+l/2-2);}   // a teammate has the ball: get open for a pass
+    if(SOC.rest){tx=x+(keeper?0:(k.team?1.5:-1.5));tz=keeper?ownZ+inw*.8:z-inw*2;sp=3;}   // after a goal everyone walks back to their places
+    if(B.hold===k){tx=g.position.x;tz=g.position.z;}
+    const v=new THREE.Vector3(tx-g.position.x,0,tz-g.position.z),d=v.length();g.position.y=0;
+    if(d>.3){v.normalize();g.position.addScaledVector(v,Math.min(d-.2,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);kidAnim(k,"Walking_A",{speed:sp>3?1.8:1.3});}
+    else{g.rotation.y=Math.atan2(B.x-g.position.x,B.z-g.position.z);if(k.act!=="Cheer"&&k.act!=="Interact")kidAnim(k,"Idle");}
+    k.cool-=dt;const bd=Math.hypot(B.x-g.position.x,B.z-g.position.z);
+    if(mine&&!SOC.rest&&!B.hold&&k.cool<=0&&bd<(keeper?1.15:.8)&&B.y<(keeper?1.9:.6)){k.cool=1;
+      if(keeper){const hard=Math.hypot(B.vx,B.vz)>9;if(!hard||Math.random()<.5){B.hold=k;B.holdT=1;B.vx=B.vz=B.vy=0;SOC.sv++;saved(k);}else k.cool=.8;}   // hard shots get past them half the time
+      else kidKick(k,L,goalZ,false);}}
+  // me: walk into the ball to dribble it along, run into it to kick it
+  const dx=B.x-P.pos.x,dz=B.z-P.pos.z,d=Math.hypot(dx,dz);
+  if(!SOC.rest&&!B.hold&&d<.75&&P.pos.y<.5&&!P.swing&&!P.inCar&&(F.kickT||0)<t){F.kickT=t+.3;const spd=Math.hypot(P.vel.x,P.vel.z);let ux=dx/(d||1),uz=dz/(d||1);
+    if(spd>.8){ux=P.vel.x/spd*.7+ux*.3;uz=P.vel.z/spd*.7+uz*.3;const n=Math.hypot(ux,uz)||1;ux/=n;uz/=n;}
+    const sp=P.run?11:Math.max(3,spd*1.3);kickBall(ux*sp,uz*sp,P.run?2.2:.3);}
+  if(mine){const now=performance.now();
+    if(B.hold){const g=B.hold.o.g;B.holdT-=dt;B.x=g.position.x+Math.sin(g.rotation.y)*.35;B.z=g.position.z+Math.cos(g.rotation.y)*.35;B.y=.9;B.vx=B.vz=B.vy=0;
+      if(B.holdT<=0){const k=B.hold;B.hold=null;B.y=1;kidKick(k,L,k.team?z-l/2:z+l/2,true);}}
+    else{B.x+=B.vx*dt;B.z+=B.vz*dt;B.vy-=14*dt;B.y+=B.vy*dt;if(B.y<.22){B.y=.22;B.vy=Math.abs(B.vy)>1?-B.vy*.45:0;}const fr=Math.pow(B.y>.25?.9:.55,dt);B.vx*=fr;B.vz*=fr;
+      if(B.x<x-w/2+.2||B.x>x+w/2-.2){B.vx=-B.vx*.7;B.x=clamp(B.x,x-w/2+.2,x+w/2-.2);}
+      const inMouth=Math.abs(B.x-x)<2.4&&B.y<2;
+      if(SOC.rest||SOC.pend){if(Math.abs(B.z-z)>l/2+.8){B.z=z+Math.sign(B.z-z)*(l/2+.8);B.vz=0;B.vx*=.5;}}   // the ball sits in the net
+      else if(B.z<z-l/2||B.z>z+l/2){if(inMouth){const team=B.z<z?1:0;let sc="",og="";
+          if(SOC.lastBy&&now-SOC.lastT<6000){const who=L.find(q=>q.name===SOC.lastBy),tm=SOC.lastTm!==undefined&&SOC.lastTm>=0?SOC.lastTm:who?who.team:team;if(tm!==team)og=SOC.lastBy;else sc=SOC.lastBy;}
+          F.score[team]++;SOC.gn++;SOC.pend=true;SOC.lastBy="";goal(team,sc,og);F.net=0;}
+        else{B.vz=-B.vz*.7;B.z=clamp(B.z,z-l/2+.2,z+l/2-.2);}}}
+    if(SOC.pend&&!SOC.rest){SOC.pend=false;B.x=x;B.z=z;B.y=.22;B.vx=B.vz=B.vy=0;if(SOC.win){SOC.win=false;F.score=[0,0];scoreBoard();}kickoff();F.net=0;}
+    F.net-=dt;if(F.net<=0&&MP.ok&&Object.keys(MP.others).length){F.net=.25;share({k:"inv",f:"ball",a:[x,0,z],b:[R2(B.x),R2(B.y),R2(B.z),R2(B.vx),R2(B.vz)],s:F.score,gn:SOC.gn,gt:SOC.gt|0,sc:SOC.sc||"",og:SOC.og||"",sv:SOC.sv});}}
   else if(B.net){const n=B.net;B.x+=(n[0]-B.x)*Math.min(1,dt*8);B.z+=(n[2]-B.z)*Math.min(1,dt*8);B.y=n[1];}
   B.m.position.set(B.x,B.y,B.z);B.m.rotation.x+=B.vz*dt*3;B.m.rotation.z-=B.vx*dt*3;}
-function goal(team){const F=FUN;F.board.material.map.dispose&&0;scene.remove(F.board);F.board=label(`Soccer: ${F.score[0]} – ${F.score[1]}`,0xffffff);F.board.scale.set(3.4,.62,1);F.board.position.set(LUD.x,3.2,LUD.z-LUD.l/2-1.5);scene.add(F.board);
-  if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){popNum(new THREE.Vector3(LUD.x,3,LUD.z),"⚽ GOAL!","spell");F.kids.forEach(k=>{if(k.team===team)kidAnim(k,"Cheer",{restart:true});});}}
+function kickoff(){if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){socSound("whistle");popNum(new THREE.Vector3(LUD.x,1.5,LUD.z),"Kick-off!","spell");}}
+function saved(k){if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){popNum(k.o.g.position.clone().add(new THREE.Vector3(0,2,0)),"🧤 Saved!","spell");kidAnim(k,"Interact",{restart:true,dur:.6});}}
+function confetti(p,c,n){for(let i=0;i<n;i++)SPARK.emit(p.clone(),new THREE.Vector3(rnd(-3,3),rnd(3,8),rnd(-3,3)),C(i%3===0?0xffe14a:i%3===1?c:0xffffff),1.6,{grav:5,drag:.6});}
+function goal(team,sc,og){const F=FUN;scoreBoard();SOC.gt=team;SOC.sc=sc||"";SOC.og=og||"";SOC.rest=2.4;const won=F.score[team]>=SOC_WIN;if(won){SOC.rest=5.5;SOC.win=true;}
+  if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)>60)return;
+  const me=sc&&sc===meName(),T=TEAM[team],line=`${TEAM[0].n} ${F.score[0]} – ${F.score[1]} ${TEAM[1].n}`,
+    who=og?(og===meName()?"Oops — you kicked it into your own goal!":`Oops — an own goal by ${og}!`):me?"You scored!":sc?`${sc} scored!`:`The ${T.n} kids scored!`;
+  popNum(new THREE.Vector3(LUD.x,3,LUD.z),"⚽ GOAL!","spell");lawSay(`⚽ GOAL for ${T.e} ${T.n}! ${who} ${line}`);
+  F.kids.forEach(k=>{if(k.team===team&&k.i<4)kidAnim(k,"Cheer",{restart:true});});
+  confetti(new THREE.Vector3(LUD.x,2,LUD.z+(team?-1:1)*LUD.l/2),T.c,50);socSound("goal");
+  if(me){COINS+=5;coinHud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),"+5 🪙 for your goal","spell");}
+  if(won){const mine=SOC.myTeam===team;setTimeout(()=>{lawSay(`🏆 ${T.e} ${T.n} wins the match, ${line}!${mine?" You won — +15 🪙":""} A new match starts in a moment.`);socSound("win");
+    for(let i=0;i<5;i++)setTimeout(()=>confetti(new THREE.Vector3(LUD.x+rnd(-6,6),7+rnd(0,3),LUD.z+rnd(-8,8)),T.c,60),i*400);if(mine){COINS+=15;coinHud();}},1300);}}
+// the field's sounds: a referee's whistle, a kick, and the crowd cheering
+function socSound(k){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),t=A.currentTime;
+  if(k==="kick"){const o=A.createOscillator(),g=A.createGain();o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(60,t+.12);g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+.15);return;}
+  const n=k==="win"?3:k==="goal"?1:2;for(let i=0;i<n;i++){const o=A.createOscillator(),g=A.createGain(),lfo=A.createOscillator(),lg=A.createGain(),s0=t+i*.42,len=i===n-1?.55:.28;o.frequency.value=2300;lfo.frequency.value=30;lg.gain.value=160;lfo.connect(lg);lg.connect(o.frequency);
+    g.gain.setValueAtTime(0,s0);g.gain.linearRampToValueAtTime(.06,s0+.02);g.gain.setValueAtTime(.06,s0+len-.05);g.gain.linearRampToValueAtTime(0,s0+len);o.connect(g);g.connect(A.destination);o.start(s0);lfo.start(s0);o.stop(s0+len+.02);lfo.stop(s0+len+.02);}
+  if(k==="goal"||k==="win"){const len=k==="win"?3:1.8,b=A.createBuffer(1,Math.floor(A.sampleRate*len),A.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++){const e=i/d.length;d[i]=(Math.random()*2-1)*Math.min(1,e*8)*(1-e);}
+    const src=A.createBufferSource();src.buffer=b;const f=A.createBiquadFilter();f.type="bandpass";f.frequency.value=1000;f.Q.value=.5;const g=A.createGain();g.gain.value=.22;src.connect(f);f.connect(g);g.connect(A.destination);src.start(t+.25);}}catch(e){}}
+// the swings (2026-11-27, Barbara: "I should be able to play on the swings"): T by a swing to sit on it. Hold forward (W) to swing higher, back (S) to
+// slow down, Space to jump off (let go at the front of the swing and you fly), T to get off. Other players see you swinging — the swing follows you on
+// their screens — and a kid who was on that swing hops off and waits.
+var SWING_L=1.9,SWING_DY=.5;
+function swingRider(j){if(!FUN)return null;const sw=FUN.swings[j].position;for(const id in MP.others){const o=MP.others[id],p=o.g.position;if(o.po==="sit"&&Math.abs(p.z-sw.z)<.4&&Math.abs(p.x-sw.x)<2.3&&p.y<1.8)return o;}return null;}
+var SWING_ACT={pos:new THREE.Vector3(),r:1.4,j:-1,hidden:()=>SWING_ACT.j<0||!!P.swing||!!P.inCar||!!P.sitting||!!P.climbing||P.down||!!(PETS&&PETS.riding),label:"🪁 Get on the swing",run:()=>swingOn(SWING_ACT.j)};
+ACTS.push(SWING_ACT);
+ACTS.push({get pos(){return P.pos;},r:5,hidden:()=>!P.swing,label:"🪁 Get off the swing",run:()=>swingOff(false)});
+function swingOn(j){if(j<0||!FUN)return;if(swingRider(j)){lawSay("Someone is already on that swing.");return;}P.swing={j,a:FUN.swings[j].rotation.z,w:0,pump:0};P.vel.set(0,0,0);G.firing=false;
+  lawSay("🪁 Hold W (forward) to swing higher, S to slow down. Space lets go — jump at the front and you fly! T to get off.");}
+function swingOff(jump){const s=P.swing;if(!s)return;P.swing=null;const sw=FUN.swings[s.j];
+  if(jump){const v=s.w*SWING_L;P.vel.set(Math.cos(s.a)*v*1.3,Math.sin(s.a)*v+3.5,0);P.dash=Math.min(1.2,.3+Math.abs(v)*.12);P.onGround=false;P.softLand=1;P.fallTop=undefined;if(Math.abs(v)>3)lawSay("🪁 Wheee!");}
+  else{P.pos.set(sw.position.x+2.3,0,sw.position.z);P.vel.set(0,0,0);}}
+function stepMySwing(dt){const s=P.swing;if(!s)return;if(P.down||P.inCar){P.swing=null;return;}const sw=FUN.swings[s.j],L=SWING_L;
+  s.w+=-9.8/L*Math.sin(s.a)*dt;
+  if(s.pump>.2){if(Math.abs(s.w)<.15&&Math.abs(s.a)<.08)s.w=.9;else s.w+=Math.sign(s.w)*1.8*s.pump*dt;}else if(s.pump<-.2)s.w*=Math.pow(.15,dt);
+  s.w*=Math.pow(.9,dt);s.a+=s.w*dt;if(Math.abs(s.a)>1.25){s.a=Math.sign(s.a)*1.25;s.w*=-.2;}
+  sw.rotation.z=s.a;P.pos.set(sw.position.x+Math.sin(s.a)*L,sw.position.y-Math.cos(s.a)*L-SWING_DY,sw.position.z);P.vel.set(0,0,0);P.onGround=true;P.fallTop=undefined;P.yaw=-Math.PI/2;
+  if(s.jump){s.jump=false;swingOff(true);}}
 // the snowball fight: the same throws on every screen (they come from the clock); when you're close, some come at you
 function stepSnowFight(dt,t){const F=FUN,{x,z}=LUD;F.kids.forEach((k,i)=>{const side=i%2,g=k.o.g,row=Math.floor(i/2);g.position.set(x-4+row*4+Math.sin(t*1.3+i)*.6,0,z+(side?5:-5));g.rotation.y=side?Math.PI:0;
     const per=2.6+i*.37,n=Math.floor((t+i*1.1)/per);if(k.n===undefined)k.n=n;if(n!==k.n){k.n=n;kidAnim(k,"PickUp",{restart:true,dur:.5});const me=Math.hypot(P.pos.x-x,P.pos.z-z)<14&&((n*7+i)%3===0);
@@ -3060,8 +3161,12 @@ function snowballFly(a,b,who,from){const m=new THREE.Mesh(new THREE.SphereGeomet
 function throwSnowball(){if(!started||P.down||P.inCar||snowAmt()<=.3||inRoom(P.pos))return;if(!cool("snowball",.6))return;const r=aimRay(0),h=firstHit(r),to=h&&h.distance<22?h.point.clone():r.ray.at(16,new THREE.Vector3());
   const a=P.pos.clone().add(new THREE.Vector3(0,1.5,0));snowballFly(a,to,"mine");share({k:"inv",f:"snowball",a:V3r(a),b:V3r(to),by:MP.you||"Someone"});}
 function funEv(ev,mine){funInit();if(ev.f==="snowball"){if(mine)return;snowballFly(V3(ev.a),V3(ev.b),"me",String(ev.by||"Someone").slice(0,16));return;}
-  const B=FUN.ball;if(ev.f==="ball"&&Array.isArray(ev.b)){if(fieldOwner()===MP.id)return;B.net=ev.b;if(Array.isArray(ev.s)&&(ev.s[0]!==FUN.score[0]||ev.s[1]!==FUN.score[1])){const team=ev.s[0]>FUN.score[0]?0:1;FUN.score=[ev.s[0]|0,ev.s[1]|0];goal(team);}return;}
-  if(ev.f==="kick"&&Array.isArray(ev.v)&&fieldOwner()===MP.id){B.vx=+ev.v[0]||0;B.vz=+ev.v[1]||0;B.vy=+ev.v[2]||0;}}
+  const B=FUN.ball;if(ev.f==="ball"&&Array.isArray(ev.b)){if(fieldOwner()===MP.id)return;B.net=ev.b;B.hold=null;
+    const gn=ev.gn|0,sv=ev.sv|0;if(!SOC.seen){SOC.seen=true;SOC.gn=gn;SOC.sv=sv;}   // joining mid-match: no cheering for old goals
+    if(gn>SOC.gn&&Array.isArray(ev.s)){SOC.gn=gn;FUN.score=[ev.s[0]|0,ev.s[1]|0];goal(ev.gt?1:0,String(ev.sc||"").slice(0,16),String(ev.og||"").slice(0,16));SOC.win=false;}
+    else if(Array.isArray(ev.s)&&(ev.s[0]!==FUN.score[0]||ev.s[1]!==FUN.score[1])){FUN.score=[ev.s[0]|0,ev.s[1]|0];scoreBoard();}
+    if(sv>SOC.sv){SOC.sv=sv;const bp=new THREE.Vector3(+ev.b[0]||0,0,+ev.b[2]||0);saved(FUN.kids.slice(2,4).sort((a,b)=>a.o.g.position.distanceTo(bp)-b.o.g.position.distanceTo(bp))[0]);}return;}
+  if(ev.f==="kick"&&Array.isArray(ev.v)&&fieldOwner()===MP.id&&!SOC.rest){B.hold=null;B.vx=clamp(+ev.v[0]||0,-20,20);B.vz=clamp(+ev.v[1]||0,-20,20);B.vy=clamp(+ev.v[2]||0,-2,6);SOC.lastBy=String(ev.by||"").slice(0,16);SOC.lastTm=ev.tm===0||ev.tm===1?ev.tm:undefined;SOC.lastT=performance.now();}}
 // your own snowmen on the field (shared; they melt when the snow goes)
 const SNOWMAN_ACT={pos:new THREE.Vector3()};
 // 2026-11-26 (Barbara: "you can create a snowman anywhere"): anywhere there is snow, outdoors, when nothing else is there to press T for
@@ -3090,7 +3195,7 @@ setInterval(()=>{if(!FUN)return;let best=null,bd=1.8;for(const c of FUN.celeb){c
 // tap a place name to go there, or click anywhere on the map. Not out of jail, and not while you're knocked down.
 const TRAVEL_SPOTS=[["📚 Library",83,23.5],["🏰 Town square",0,-3],["🏠 My house",null,null],["🛍️ Market",60,-5],["⚽ Ludus field",141,29],["🌲 Dark forest",-35,96],["⛏️ The mine",-12,-126],["🏟️ Arena",-135,8],["🎣 The lake",23,164],["⛽ Gas station",146,-10]];
 const MAPB={x0:-185,x1:195,z0:-185,z1:195};
-function travelTo(x,z,name){if(P.down)return;if(LAW.jailT>0){lawSay("🔒 No teleporting out of jail!");return;}if(P.inCar)exitCar();if(PETS&&PETS.riding)dismount();if(P.sitting)standUp();P.climbing=null;if(P.sleeping)endSleep(false,"");
+function travelTo(x,z,name){if(P.down)return;if(LAW.jailT>0){lawSay("🔒 No teleporting out of jail!");return;}if(P.inCar)exitCar();if(PETS&&PETS.riding)dismount();if(P.sitting)standUp();P.swing=null;P.climbing=null;if(P.sleeping)endSleep(false,"");
   let p=new THREE.Vector3(x,0,z);for(let k=0;k<30&&(isWater(p.x,p.z,false)||blockAt(new THREE.Vector3(p.x,.9,p.z)));k++)p.add(new THREE.Vector3(Math.cos(k)*1.5*(1+k/6),0,Math.sin(k)*1.5*(1+k/6)));
   for(let i=0;i<16;i++)PUFF.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.8),rnd(-.5,.5))),rnd3(1),C(0xbfd8ff).multiplyScalar(.6),.7,{drag:2});
   P.pos.copy(p);P.vel.set(0,0,0);P.fallTop=undefined;FX.stars(p.clone().add(new THREE.Vector3(0,1,0)),"air",5,1.4);if(PETS)PETS.list.forEach(q=>{if(q.mode==="follow"||q.mode==="fight")q.g.position.set(p.x+rnd(-2,2),0,p.z+rnd(-2,2));});
@@ -3210,5 +3315,5 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);s
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS,season:()=>SEASON?SEASON.name:"summer",holiday:()=>SEASON&&SEASON.hol?SEASON.hol.id:""};   // what the music (music.js) listens to
-window.__el={punch,animalHit,G,travelTo,toggleTravel,TRAVEL_SPOTS,FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={SOC,swingOn,swingOff,kickBall,pitchPeople,punch,animalHit,G,travelTo,toggleTravel,TRAVEL_SPOTS,FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
