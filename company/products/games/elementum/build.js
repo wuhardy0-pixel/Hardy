@@ -65,6 +65,8 @@ const FNS={
   pet:{icon:"🐾",name:"pet",what:"set it down: it comes alive and follows you around; press T to stroke it"},
   shovel:{icon:"🪏",name:"shovel",what:"hold it and click: dig a hole (in jail, dig your way out!)",hand:1},
   fuel:{icon:"⛽",name:"gas can",what:"hold it and click: fill it at the gas station, then pour it into a car's tank",hand:1},
+  trap:{icon:"🪤",name:"trap",what:"set it down: a monster that steps on it gets hurt and stuck"},
+  armor:{icon:"🛡️",name:"armour",what:"keep it in your bag and you wear it: things hurt you less (the heavier it is, the slower you go)"},
   bomb:{icon:"💣",name:"bomb",what:"hold it and click: throw it and it blows up — or set it down and press T",hand:1},
   take:{icon:"✨",name:"special thing",what:"hold it and click: take some and feel what it does",hand:1},   // what take and aura do is on the thing itself (ef)
   aura:{icon:"🌫️",name:"strange thing",what:"set it down: everyone near it feels what it does"},
@@ -72,7 +74,7 @@ const FNS={
 // what a brought-to-life thing can become: a real thing (it works like one), or a power — whichever it looks most like (Barbara, 2026-11-25:
 // "it should be made into whatever the resemblance is; if they are similar resemblance, pick sticks")
 const ITEMDO={cup:"set it down and drink from it",bowl:"set it down and eat from it",plate:"set it down and eat from it",vase:"set it down and put flowers in it",bucket:"set it down and drink from it",door:"set it down, then open and close it",stool:"set it down and sit on it",chair:"set it down and sit on it",table:"set it down at home",bench:"set it down and sit on it",bed:"set it down and sleep in it",shelf:"set it down and read a book",ladder:"set it down and climb it",doghouse:"set it down anywhere",wheelbarrow:"set it down anywhere",house:"hold it and click to build it, then walk in",car:"it's parked outside the library — get in and drive",cart:"set it down anywhere",boat:"it's at the boat dock — climb in and sail",chest:"set it down and open it",book:"hold it and click to read it",stairs:"set it down and walk up",horn:"hold it and click: soldiers come running"};
-const ONLYFN=["bounce","zap","freeze","speed","fly","wand","music","firework","maker","bubbles","water","sword","food","pet","bomb","fuel","shovel"];   // the other powers belong to a thing (a lamp lights up, a gate is a portal…)
+const ONLYFN=["bounce","zap","freeze","speed","fly","wand","music","firework","maker","bubbles","water","sword","food","pet","bomb","fuel","shovel","trap","armor"];   // the other powers belong to a thing (a lamp lights up, a gate is a portal…)
 const THINGS=ORDER.concat(ONLYFN),isThing=k=>THINGS.includes(k);
 const thingOf=k=>ITEMS[k]?{icon:ITEMS[k].icon,name:ITEMS[k].name,what:ITEMDO[k]||(FNS[ITEMFN[k]]||{}).what||"set it down anywhere"}:FNS[k];
 // what a named thing does to you (Barbara, 2026-11-25: "I made a container and named it drugs: it should be made into drugs and then have bad effects"):
@@ -86,13 +88,12 @@ const HARM=[[/^(drugs?|cocaine|heroin|meth|weed|marijuana|crack|opium)$/,{hp:-45
   [/^(beer|wine|alcohol|vodka|whisky|whiskey|rum|liquor)$/,{hp:-20,dizzy:20,slow:8,say:"Alcohol makes you dizzy and slow. It is bad for you."},"take"],[/^(cigarettes?|cigars?|vape|vapes|tobacco|smokes?)$/,{hp:-25,slow:15,say:"Smoking makes you cough and slow. It is bad for your lungs."},"take"],
   [/^(trash|garbage|rubbish|stink|stinky|gas|sewage|radiation|radioactive|pollution)$/,{hp:-15,slow:5,say:"Yuck! It is making you sick."},"aura"],[/^(bombs?|grenades?|dynamite|tnt|mine|explosives?)$/,null,"bomb"]];
 const GOOD=[[/^(medicine|pills?|antidote|bandages?|vitamins?|cure|tablets?)$/,{hp:40,say:"The medicine makes you feel better."},"take"],[/^(potions?|elixir)$/,{hp:25,speed:10,say:"The potion tingles all the way down to your toes."},"take"],
-  [/^(coffee|tea|soda|cola|coke|lemonade|juice|milk|milkshake|smoothie)$/,{hp:8,speed:12,say:"That gives you a little energy."},"take"],[/^(armor|armour|helmet|shield|vest)$/,{tough:30,say:"It protects you: things hurt you less."},"take"],
-  [/^(shoes?|boots?|sneakers|sandals|skates?)$/,{speed:25,say:"Your feet feel fast!"},"take"],[/^(campfire|fire|fireplace|bonfire|heater|oven|stove)$/,{hp:10,say:"It's warm and cosy here."},"aura"]];
+  [/^(coffee|tea|soda|cola|coke|lemonade|juice|milk|milkshake|smoothie)$/,{hp:8,speed:12,say:"That gives you a little energy."},"take"],[/^(shoes?|boots?|sneakers|sandals|skates?)$/,{speed:25,say:"Your feet feel fast!"},"take"],[/^(campfire|fire|fireplace|bonfire|heater|oven|stove)$/,{hp:10,say:"It's warm and cosy here."},"aura"]];
 const WORDS={cup:"cup mug glass teacup",bowl:"bowl pot pan",plate:"plate dish tray",vase:"vase flowerpot",bucket:"bucket pail basket",door:"door",stool:"stool",chair:"chair armchair throne seat",table:"table desk",bench:"bench sofa couch",bed:"bed cot hammock crib",shelf:"shelf bookshelf bookcase cupboard closet",
   ladder:"ladder",doghouse:"doghouse kennel birdhouse pethouse stable hutch coop",wheelbarrow:"wheelbarrow barrow",house:"house home hut castle tent cottage cabin mansion",car:"car truck bus train tank van jeep taxi ferrari",cart:"cart wagon",boat:"boat ship raft canoe yacht submarine",chest:"chest safe trunk",book:"book notebook diary",
   lamp:"lamp lantern torch candle light lighthouse",magnet:"magnet vacuum",stairs:"stairs staircase steps slide",healstone:"crystal gem diamond heart",computer:"computer laptop tv television phone tablet ipad robot",gate:"gate portal arch teleporter",horn:"horn trumpet",bounce:"trampoline spring ball",zap:"tower antenna cannon turret",
   freeze:"snowman ice freezer fridge",speed:"fan windmill",fly:"plane airplane rocket jetpack helicopter balloon kite wings spaceship ufo",wand:"wand staff gun pistol rifle blaster",music:"drum guitar piano bell violin flute radio speaker",firework:"firework fireworks",maker:"machine engine factory",bubbles:"bubbles bubble cloud fish octopus",
-  water:"fountain well tap pool sink",sword:"sword axe hammer club knife spear dagger pickaxe",shovel:"shovel spade trowel",food:"food cake pizza apple banana bread burger cookie candy sandwich fruit icecream donut pie cheese egg",fuel:"jerrycan gasoline petrol fuel diesel canister gascan",pet:"dog cat dragon dinosaur bird bear rabbit bunny horse cow pig monster doll person man girl boy animal pet unicorn snake turtle lion tiger penguin"};
+  water:"fountain well tap pool sink",sword:"sword axe hammer club knife spear dagger pickaxe",shovel:"shovel spade trowel",trap:"trap traps snare net cage spikes beartrap pit",armor:"armor armour helmet shield vest breastplate chainmail",food:"food cake pizza apple banana bread burger cookie candy sandwich fruit icecream donut pie cheese egg",fuel:"jerrycan gasoline petrol fuel diesel canister gascan",pet:"dog cat dragon dinosaur bird bear rabbit bunny horse cow pig monster doll person man girl boy animal pet unicorn snake turtle lion tiger penguin"};
 const HOLDS=["cup","bowl","plate","vase","bucket","chest","doghouse","house","book"];   // anything that could be full of it
 function nameOffline(nm,R){const W=String(nm).toLowerCase().replace(/[^a-z\s]/g," ").split(/\s+/).filter(Boolean);let N=null;
   // a gas holder is a gas can, not stinky gas (Barbara, 2026-11-25: "if the name is gas holder it should be that")
@@ -609,9 +610,8 @@ function onSide(e){const t=e.target.closest("button,li,[data-f]");if(!t||!S)retu
   if(t.dataset.stick!==undefined){drawStick(+t.dataset.stick);return;}
   if(t.id==="bSure"){const q=S.sure;if(q)become(q.c,q.parts,q.nm,true);return;}
   if(t.id==="bKeep"){S.sure=null;S.rep="";side();return;}
-  if(S.atk&&t.dataset.atkd!==undefined){S.atk.d=+t.dataset.atkd;S.rep=atkHtml();side();return;}
-  if(S.atk&&t.dataset.atks!==undefined){S.atk.s=+t.dataset.atks;S.rep=atkHtml();side();return;}
-  if(t.id==="bAtk"&&S.atk){const A=S.atk;S.atk=null;become(Object.assign({},A.c,{st:{d:A.d,s:A.s}}),A.parts,A.nm,A.sure);return;}
+  if(S.atk&&t.dataset.st){const [k,i]=t.dataset.st.split(":");if(STATS[k]){S.atk.st[k]=+i;S.rep=atkHtml();side();}return;}
+  if(t.id==="bAtk"&&S.atk){const A=S.atk;S.atk=null;become(Object.assign({},A.c,{st:Object.assign({},A.st)}),A.parts,A.nm,A.sure);return;}
   if(t.id==="bNew"){S.parts=[];S.sel=-1;S.nm="";changed();return;}
   if(t.id==="bTest"){runTest();return;}
   if(t.id==="bMake"){make();return;}
@@ -649,23 +649,36 @@ function alive(){if(!S.parts.length||S.busy)return;S.busy=true;S.rep="";S.sticks
 function sticksHtml(){const K=S.sticks;if(!K)return "";const nms=K.shown.map(c=>{const T=thingOf(c.as);return `${T.icon} <b>${esc(c.looks||T.name)}</b>`;});
   return `<div class="sticks"><p>${K.miss?`It doesn't look like a ${esc(K.miss)}. `:""}It looks like ${nms.slice(0,-1).join(", ")} <b>and</b> ${nms[nms.length-1]}! ${K.got<0?"Pick a stick — it decides.":""}</p><div class="sr">${K.deck.map((c,i)=>{const T=thingOf(c.as);return `<button class="stick ${K.got>=0?"up":""} ${K.got===i?"on":""}" data-stick="${i}" ${K.got>=0?"disabled":""} aria-label="Stick ${i+1}"><i>${K.got>=0?T.icon:""}</i></button>`;}).join("")}</div></div>`;}
 function drawStick(i){const K=S.sticks;if(!K||K.got>=0||!K.deck[i])return;K.got=i;side();const me=S;setTimeout(()=>{if(S!==me||S.sticks!==K)return;become(K.deck[i],K.parts,K.nm);},1100);}
-// attacks you can tune (Barbara, 2026-11-27: "if it's an attack you can set the stats, like damage, but then it costs more"): a wand, a sword or a bomb
-// comes to life with a choice of damage and speed; normal is free, stronger and faster cost denarii, paid when it's made
-const ATK_D=[{n:"Normal",m:1,c:0},{n:"Strong",m:1.5,c:10},{n:"Very strong",m:2,c:25},{n:"Mighty",m:3,c:60},{n:"Legendary",m:4,c:120}];
-const ATK_S=[{n:"Normal",m:1,c:0},{n:"Fast",m:1.5,c:15},{n:"Very fast",m:2,c:40}];
-const ATK_BASE={wand:{d:85,w:2.5,how:"magic bolt"},sword:{d:20,w:.45,how:"hit"},bomb:{d:70,w:10,how:"blast"}};
-const atkCost=st=>st?((ATK_D[st.d]||ATK_D[0]).c+(ATK_S[st.s]||ATK_S[0]).c):0;
-const atkMul=st=>({d:st?(ATK_D[st.d]||ATK_D[0]).m:1,s:st?(ATK_S[st.s]||ATK_S[0]).m:1});
-function atkHtml(){const A=S.atk,B=ATK_BASE[A.c.as],T=FNS[A.c.as],cost=atkCost(A),have=S.hooks.coins?S.hooks.coins():Infinity,f=v=>v>=10?Math.round(v):Math.round(v*100)/100;
-  const row=(L,key,show)=>`<div class="sr" style="flex-wrap:wrap;gap:6px;margin:4px 0 10px">${L.map((o,i)=>`<button data-atk${key}="${i}" style="${A[key]===i?"border-color:#ffd36a;background:#4a3a1a":""}">${o.n}<br><small>${show(o)} · ${o.c?o.c+" 🪙":"free"}</small></button>`).join("")}</div>`;
-  return `<p>${A.c.named?"It's":"It looks like"} a <b>${T.icon} ${esc(A.c.looks||A.nm||T.name)}</b> — an attack! Choose how strong and how fast it is. Stronger costs more.</p>
-    <p style="margin:6px 0 2px"><b>💥 Damage</b> (each ${B.how})</p>${row(ATK_D,"d",o=>f(B.d*o.m))}
-    <p style="margin:6px 0 2px"><b>⏱️ Speed</b> (wait between uses)</p>${row(ATK_S,"s",o=>f(B.w/o.m)+" s")}
+// things you can tune (Barbara, 2026-11-27: "if it's an attack you can set the stats, like damage, but then it costs more"; then "also range, and traps,
+// and armour and stuff stats"): a wand, sword, bomb, trap or armour comes to life with a choice for each of its stats; the first choice is free,
+// better ones cost denarii, paid when it's made. st on the thing = the chosen level of each stat.
+const STATS={
+  d:{icon:"💥",t:"Damage",L:[{n:"Normal",m:1,c:0},{n:"Strong",m:1.5,c:10},{n:"Very strong",m:2,c:25},{n:"Mighty",m:3,c:60},{n:"Legendary",m:4,c:120}]},
+  s:{icon:"⏱️",t:"Speed",L:[{n:"Normal",m:1,c:0},{n:"Fast",m:1.5,c:15},{n:"Very fast",m:2,c:40}]},
+  r:{icon:"🎯",t:"Range",L:[{n:"Normal",m:1,c:0},{n:"Long",m:1.5,c:15},{n:"Very long",m:2,c:35}]},
+  h:{icon:"🪤",t:"Holds them",L:[{n:"Short",m:1,c:0},{n:"Long",m:2,c:15},{n:"Very long",m:3,c:40}]},
+  p:{icon:"🛡️",t:"Protection",L:[{n:"Light",m:20,c:0},{n:"Good",m:35,c:15},{n:"Strong",m:50,c:40},{n:"Super",m:65,c:90}]},
+  w:{icon:"🪶",t:"Weight",L:[{n:"Heavy",m:.15,c:0},{n:"Normal",m:.05,c:15},{n:"Feather-light",m:0,c:35}]}};
+// what each stat means for each thing, as the player sees it
+const STAT_OF={
+  wand:{d:o=>85*o.m,s:o=>(2.5/o.m).toFixed(1)+" s wait",r:o=>40*o.m+" m"},
+  sword:{d:o=>20*o.m,s:o=>(.45/o.m).toFixed(2)+" s wait",r:o=>(2+(o.m-1)*2)+" m reach"},
+  bomb:{d:o=>70*o.m,s:o=>(10/o.m).toFixed(0)+" s wait",r:o=>Math.round(13*o.m)+" m throw"},
+  trap:{d:o=>30*o.m,h:o=>2*o.m+" s stuck",s:o=>(8/o.m).toFixed(1)+" s to reset"},
+  armor:{p:o=>`hurt ${o.m}% less`,w:o=>o.m?`${Math.round(o.m*100)}% slower`:"no slower"}};
+const ATK_BASE=STAT_OF;   // the things that have stats
+const atkCost=st=>st?Object.keys(STATS).reduce((t,k)=>t+((STATS[k].L[st[k]|0]||STATS[k].L[0]).c),0):0;
+const atkMul=st=>{const o={};for(const k in STATS)o[k]=(STATS[k].L[(st&&st[k])|0]||STATS[k].L[0]).m;return o;};
+const ATK_D=STATS.d.L,ATK_S=STATS.s.L;
+function statLine(as,st){const F=STAT_OF[as];return Object.keys(F).map(k=>`${STATS[k].icon} ${STATS[k].L[(st&&st[k])|0].n}`).join(", ");}
+function atkHtml(){const A=S.atk,F=STAT_OF[A.c.as],T=FNS[A.c.as],cost=atkCost(A.st),have=S.hooks.coins?S.hooks.coins():Infinity;
+  const row=k=>`<p style="margin:6px 0 2px"><b>${STATS[k].icon} ${STATS[k].t}</b></p><div class="sr" style="flex-wrap:wrap;gap:6px;margin:4px 0 8px">${STATS[k].L.map((o,i)=>`<button data-st="${k}:${i}" style="${(A.st[k]|0)===i?"border-color:#ffd36a;background:#4a3a1a":""}">${o.n}<br><small>${typeof F[k](o)==="number"?Math.round(F[k](o))+" damage":F[k](o)} · ${o.c?o.c+" 🪙":"free"}</small></button>`).join("")}</div>`;
+  return `<p>${A.c.named?"It's":"It looks like"} a <b>${T.icon} ${esc(A.c.looks||A.nm||T.name)}</b>! Choose its stats. Better ones cost more.</p>${Object.keys(F).map(row).join("")}
     <p>Total: <b>${cost?cost+" 🪙":"free"}</b> · you have ${have===Infinity?"?":have} 🪙</p><div class="row"><button class="go" id="bAtk" ${cost>have?"disabled":""}>✨ Make it${cost?` (${cost} 🪙)`:""}</button></div>${cost>have?`<p class="tip">You need ${cost-have} more denarii for that — pick something cheaper.</p>`:""}`;}
-function become(c,parts,nm,sure){if(ATK_BASE[c.as]&&!c.st){S.busy=false;S.sticks=null;S.atk={c,parts,nm,sure,d:0,s:0};S.rep=atkHtml();side();return;}const bad=badEf(c.ef),T=c.ef?Object.assign({},FNS[c.as],{icon:bad?"🤢":FNS[c.as].icon,name:c.looks||nm}):thingOf(c.as),isItem=!!ITEMS[c.as],hooks=S.hooks;
+function become(c,parts,nm,sure){if(ATK_BASE[c.as]&&!c.st){S.busy=false;S.sticks=null;S.atk={c,parts,nm,sure,st:{}};S.rep=atkHtml();side();return;}const bad=badEf(c.ef),T=c.ef?Object.assign({},FNS[c.as],{icon:bad?"🤢":FNS[c.as].icon,name:c.looks||nm}):thingOf(c.as),isItem=!!ITEMS[c.as],hooks=S.hooks;
   if(isItem&&!sure&&hooks.owns&&hooks.owns(c.as)){S.busy=false;S.sure={c,parts,nm};S.rep=`<p>${c.named?"It's":"It looks like"} a <b>${T.icon} ${esc(c.looks||T.name)}</b>! You already have a ${esc(T.name)} — this one would take its place.</p><div class="row"><button class="go" id="bSure">Yes, replace my old ${esc(T.name)}</button><button id="bKeep">No, keep my old one</button></div>`;side();return;}
-  const name=nm||c.looks||T.name,res={item:isItem?c.as:"invention",name,nm:name,fn:isItem?undefined:c.as,ef:c.ef||undefined,st:c.st&&(c.st.d||c.st.s)?{d:c.st.d,s:c.st.s}:undefined,exp:1,parts,thumb:snap(parts,96),order:null};S.busy=false;S.sure=null;S.sticks=null;S.atk=null;
-  if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! ${c.named?`You named it ${esc(nm)}, and it could be that, so it`:`${c.miss?`It doesn't look like a ${esc(c.miss)}. `:""}${c.looks?`It looks like a ${esc(c.looks)}, so it`:"Your "+esc(name)}`} became ${c.ef?"":"a "}<b>${T.icon} ${esc(T.name)}</b>: ${esc(T.what)}.${c.st&&(c.st.d||c.st.s)?` ${ATK_D[c.st.d].n} damage, ${ATK_S[c.st.s].n.toLowerCase()} speed${atkCost(c.st)?` — paid ${atkCost(c.st)} 🪙`:""}.`:""}${c.as==="car"||c.as==="boat"?"":" It's in your bag."}</p>`;side();}
+  const name=nm||c.looks||T.name,res={item:isItem?c.as:"invention",name,nm:name,fn:isItem?undefined:c.as,ef:c.ef||undefined,st:c.st?Object.assign({},c.st):undefined,exp:1,parts,thumb:snap(parts,96),order:null};S.busy=false;S.sure=null;S.sticks=null;S.atk=null;
+  if(hooks.made&&hooks.made(res)!==false)S.rep=`<p class="y">✨ It's alive! ${c.named?`You named it ${esc(nm)}, and it could be that, so it`:`${c.miss?`It doesn't look like a ${esc(c.miss)}. `:""}${c.looks?`It looks like a ${esc(c.looks)}, so it`:"Your "+esc(name)}`} became ${c.ef?"":"a "}<b>${T.icon} ${esc(T.name)}</b>: ${esc(T.what)}.${c.st?` ${statLine(c.as,c.st)}${atkCost(c.st)?` — paid ${atkCost(c.st)} 🪙`:""}.`:""}${c.as==="car"||c.as==="boat"?"":" It's in your bag."}</p>`;side();}
 function snapshot(){return snap(S.parts,96);}
 function snap(parts,px){try{const c=document.createElement("canvas");c.width=c.height=px||96;const r=new THREE.WebGLRenderer({canvas:c,antialias:true,preserveDrawingBuffer:true,alpha:true});const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x445566,1.2));
     const d=new THREE.DirectionalLight(0xffffff,.8);d.position.set(300,600,400);sc.add(d);const b=new THREE.Box3();parts.forEach(p=>{const m=meshOf(p);sc.add(m);b.union(new THREE.Box3().setFromObject(m));});
@@ -695,5 +708,5 @@ function drawIdeas(){const it=ITEMS[IDEAS.item],L=LV[it.level];let h=`<div class
   (DESIGNS[IDEAS.item]||[]).forEach(d=>{const key=IDEAS.item+"/"+d.name;if(!IDEAS.pics[key])IDEAS.pics[key]=snap(d.parts(),320);h+=`<div class="card"><img src="${IDEAS.pics[key]}" alt=""><h3>${esc(d.name)}</h3><p>${esc(IDEA_TEXT[d.name]||"")}</p>${IDEAS.hooks&&IDEAS.hooks.recipe?`<p style="font:12px system-ui;margin-top:6px;border-top:1px solid #cbb98f;padding-top:6px">${d.parts().map(q=>`<b>${esc(q.name||SNAME[q.shape])}</b> — ${MNAME[q.mat]||q.mat} ${SNAME[q.shape].toLowerCase()}, ${FIELDS[q.shape].filter(f=>n(q[f],0)>0).map(f=>`${(FNAME[f]||f).replace(/ \(.*/,"")} ${n(q[f],0)}`).join(", ")}; at ${n(q.x,0)}, ${n(q.y,0)}, ${n(q.z,0)}`).join("<br>")}</p>`:""}</div>`;});
   $("#ideas").innerHTML=h+`</div></div>`;}
 function closeIdeas(){const e=$("#ideas");if(!e||e.classList.contains("hidden"))return;e.classList.add("hidden");if(IDEAS.hooks&&IDEAS.hooks.onClose)IDEAS.hooks.onClose();}
-return {atkCost,atkMul,ATK_D,ATK_S,cleanEf,badEf,nameOffline,FNS,ITEMFN,THINGS,thingOf,resembles,lookOffline,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
+return {atkCost,atkMul,statLine,STAT_OF,ATK_D,ATK_S,cleanEf,badEf,nameOffline,FNS,ITEMFN,THINGS,thingOf,resembles,lookOffline,guessFn,snap,openIdeas,closeIdeas,ideasOpen:()=>!!$("#ideas")&&!$("#ideas").classList.contains("hidden"),DESIGNS,ITEMS,LV,ORDER,open,close,isOpen:()=>!!S,test,analyse,meshOf};
 })();

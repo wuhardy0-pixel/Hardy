@@ -4337,11 +4337,13 @@ ELEM_INVENT_THINGS = {
     "food": "food, fruit, a cake, pizza, sweet or plant to eat", "pet": "an animal, person, dinosaur, doll or creature (it comes alive and follows you)",
     "bomb": "a bomb, grenade, dynamite or mine (it blows up)",
     "fuel": "a gas can, fuel can, jerrycan or anything that holds gasoline (it carries fuel for a car)",
-    "shovel": "a shovel, spade or trowel (it digs holes)"}
+    "shovel": "a shovel, spade or trowel (it digs holes)",
+    "trap": "a trap, bear trap, snare, net, cage or spike pit (set down, it catches monsters that step on it)",
+    "armor": "armour, a helmet, a shield, a breastplate, chainmail or a vest (you wear it and get hurt less)"}
 # Barbara, 2026-11-25: "make the name, and if resemblance then make it into that object; for example I made a container and named it drugs: it should be
 # made into drugs and then have bad effects". A name can also make these two, whose effects come with the answer ("ef").
 ELEM_INVENT_NAMED = {
-    "take": "anything you eat, drink, swallow, breathe in, put on or use on yourself that changes how you feel: medicine, drugs, poison, coffee, soda, a pill, a potion, alcohol, a cigarette, armour, magic shoes",
+    "take": "anything you eat, drink, swallow, breathe in, put on or use on yourself that changes how you feel: medicine, drugs, poison, coffee, soda, a pill, a potion, alcohol, a cigarette, magic shoes",
     "aura": "anything that affects everyone near it: a campfire, trash, a stink, poison gas, a heater, something radioactive, a shrine"}
 
 def _invent_named(c):
