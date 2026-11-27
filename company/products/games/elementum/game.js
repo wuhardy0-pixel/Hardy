@@ -1722,7 +1722,7 @@ function stepMP(dt){for(const id in MP.others){const o=MP.others[id];o.g.positio
     if(o.rig){if(o.hp<=0){if(o.rig.fullName!=="Death_A")o.rig.full("Death_A",{once:true});}else if(o.rig.fullName==="Death_A")o.rig.clearFull();
       o.rig.root.position.y=o.po==="ride"?RIDE_Y:0;o.rig.base((o.po==="sit"||o.po==="ride")&&o.rig.clips.Sit_Chair_Idle?"Sit_Chair_Idle":o.po==="climb"||o.po==="sleep"||o.bo?"Idle":o.air?"Jump_Idle":o.sp>5?"Running_A":o.sp>.4?"Walking_A":"Idle");o.rig.update(dt);}}
   MP.t-=dt;if(MP.t>0||MP.busy||!started)return;MP.t=.15;MP.busy=true;
-  const sent=[];{let sz=0;while(WORLD.out.length&&sent.length<40&&sz<60000){const e=WORLD.out.shift();sz+=e.k==="key"&&e.val?JSON.stringify(e).length:200;sent.push(e);}}const it=held(),body={slot:(()=>{try{const v=localStorage.getItem("elementum.houseSlot."+MP.room);return v===null?undefined:+v;}catch(e){return undefined;}})(),ev:sent,since:WORLD.seq,wid:WORLD.wid,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:PETS&&PETS.riding?"ride":P.sitting||P.swing?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:(NEEDS&&NEEDS.bad.food?"F":"")+(NEEDS&&NEEDS.bad.water?"W":"")+(NEEDS&&NEEDS.bad.sleep?"Z":"")+(P.mightT>0?"S":"")+(P.shield>0?"B":"")+(P.invulnT>0?"H":""),held:itemInfo(it)?itemInfo(it).icon:"",hi:P.inCar?"":heldCode(it),hc:HAIR.c,fx:MP.fx};if(P.sleeping&&P.sleeping.spot)Object.assign(body,{x:P.sleeping.spot.x,y:P.sleeping.spot.y,z:P.sleeping.spot.z,yaw:P.sleeping.spot.r});
+  const sent=[];{let sz=0;while(WORLD.out.length&&sent.length<40&&sz<60000){const e=WORLD.out.shift();sz+=e.k==="key"&&e.val?JSON.stringify(e).length:200;sent.push(e);}}const it=held(),body={slot:(()=>{try{const v=localStorage.getItem("elementum.houseSlot."+MP.room);return v===null?undefined:+v;}catch(e){return undefined;}})(),ev:sent,since:WORLD.seq,wid:WORLD.wid,lock:MP.lockReq,room:MP.room,id:MP.id,x:P.pos.x,y:P.pos.y,z:P.pos.z,yaw:P.yaw,sp:P.speed,air:!P.onGround,car:P.inCar&&!P.inCar.boat?P.inCar.color:0,po:PETS&&PETS.riding?"ride":P.play?(P.play.climb?"climb":P.play.sitNow?"sit":""):P.sitting||P.swing?"sit":P.climbing?"climb":P.sleeping?"sleep":"",bo:P.inCar&&P.inCar.boat?1:0,hp:Math.round(P.hp),bf:(NEEDS&&NEEDS.bad.food?"F":"")+(NEEDS&&NEEDS.bad.water?"W":"")+(NEEDS&&NEEDS.bad.sleep?"Z":"")+(P.mightT>0?"S":"")+(P.shield>0?"B":"")+(P.invulnT>0?"H":""),held:itemInfo(it)?itemInfo(it).icon:"",hi:P.inCar?"":heldCode(it),hc:HAIR.c,fx:MP.fx};if(P.sleeping&&P.sleeping.spot)Object.assign(body,{x:P.sleeping.spot.x,y:P.sleeping.spot.y,z:P.sleeping.spot.z,yaw:P.sleeping.spot.r});
   fetch("/api/elementum/state",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(body)})
     .then(r=>r.ok?r.json():null).then(j=>{MP.busy=false;if(!j||!j.players){MP.ok=false;WORLD.out.unshift(...sent);return;}MP.ok=true;if(typeof j.born==="number"&&j.born>0)ROOMLIFE.born=j.born;
       if(body.room!==MP.room)return;   // you changed rooms while this was on its way: it's about the old room
@@ -1785,13 +1785,15 @@ function stepAreas(){const was=CAVE.in;CAVE.in=inCave(P.pos);if(CAVE.in){HEMI.in
 // Quaternius "Ultimate Monsters" (CC0, models/monsters/*.glb). They live outside the town walls and never come in. Walls stop their spells; they come back 25 s after you beat them.
 const QA={idle:"Idle",walk:"Walk",run:"Run",cast:"Weapon",hit:"HitReact",death:"Death",punch:"Punch"},KA={idle:"Idle",walk:"Walking_D_Skeletons",run:"Running_A",cast:"Spellcast_Shoot",hit:"Hit_A",death:"Death_A",punch:"1H_Melee_Attack_Chop"};
 const ENEMY_TYPES={
-  demon:{name:"Demon",url:"monsters/demon.glb",scale:.64,hp:180,spells:["ignis","imber"],drops:["cornu"],core:"carbo",home:[155,32],speed:2.4,keep:9,barY:2.3,anim:QA},
-  yeti:{name:"Yeti",url:"monsters/yeti.glb",scale:.7,hp:200,spells:["hasta","campus"],drops:["villus"],core:"nimbus",home:[-58,15],speed:2.2,keep:9,barY:2.3,anim:QA},
+  // 2026-11-27 (Barbara: "monsters should spawn outside the river, not inside on the soccer field"): every den is outside the moat now — the Demon's was
+  // on the Ludus field; the Yeti's, the Orc's and the Dino's were on the river's banks.
+  demon:{name:"Demon",url:"monsters/demon.glb",scale:.64,hp:180,spells:["ignis","imber"],drops:["cornu"],core:"carbo",home:[186,30],speed:2.4,keep:9,barY:2.3,anim:QA},
+  yeti:{name:"Yeti",url:"monsters/yeti.glb",scale:.7,hp:200,spells:["hasta","campus"],drops:["villus"],core:"nimbus",home:[-72,15],speed:2.2,keep:9,barY:2.3,anim:QA},
   king:{name:"Mushroom King",url:"monsters/mushroom_king.glb",scale:.6,hp:220,spells:["spinae","saxum"],drops:["sporae"],core:"silex",home:[-36,62],speed:1.8,keep:8,barY:2.4,anim:QA},
   ninja:{name:"Ninja",url:"monsters/ninja.glb",scale:.63,hp:160,spells:["sagittae","umbra"],drops:["pannus"],core:"aether",home:[56,-56],speed:3.2,keep:8,barY:2.3,anim:QA},
   frog:{name:"Frog",url:"monsters/frog.glb",scale:.72,hp:170,spells:["globus","fulmen"],drops:["gemma"],core:"electrum",home:[15,64],speed:2.6,keep:10,barY:2.3,anim:QA},
-  orc:{name:"Orc",url:"monsters/orc.glb",scale:.62,hp:240,spells:["motus","saxum"],drops:["dens"],core:"silex",home:[-62,-42],speed:2.3,keep:6,barY:2.4,anim:QA},
-  dino:{name:"Dino",url:"monsters/dino.glb",scale:.62,hp:210,spells:["draco","anulus"],drops:["squama"],core:"carbo",home:[172,-6],speed:2.8,keep:5,barY:2.4,anim:QA},
+  orc:{name:"Orc",url:"monsters/orc.glb",scale:.62,hp:240,spells:["motus","saxum"],drops:["dens"],core:"silex",home:[-72,-50],speed:2.3,keep:6,barY:2.4,anim:QA},
+  dino:{name:"Dino",url:"monsters/dino.glb",scale:.62,hp:210,spells:["draco","anulus"],drops:["squama"],core:"carbo",home:[182,-18],speed:2.8,keep:5,barY:2.4,anim:QA},
   monkroose:{name:"Monkroose",url:"monsters/monkroose.glb",scale:.7,hp:170,spells:["turbo","sagittae"],drops:["pluma"],core:"aether",home:[-8,-74],speed:3,keep:9,barY:2.3,anim:QA},
   shade:{name:"Blue Demon",url:"monsters/blue_demon.glb",scale:.7,hp:200,spells:["nox","tenebrae","radius"],drops:["cinis"],core:"electrum",home:[46,76],speed:2.5,keep:10,barY:2.3,anim:QA},
   // the graveyard to the far west (2026-11-22, "add more monsters"): KayKit's skeletons (CC0), four packs
@@ -1939,7 +1941,7 @@ function hurt(n){if(P.down||n<=0)return;if(P.sleeping)endSleep(false,"something 
   if(P.hp<=0&&LAW.wanted){P.hp=1;return;}
   if(P.hp<=0)fallDown();}
 function fallDown(why){if(P.down)return;if(P.sleeping)endSleep(false,"");P.hp=0;hud();P.down=true;toggleBag(false);const n=dropAll();$("#downMsg").textContent=(why?why+" ":"")+(n?`Everything you carried (${n} ${n===1?"stack":"stacks"}) is lying where you fell — go back for it within 5 minutes. Your coins and your chest are safe.`:"Health is back to full when you come back.");$("#down").classList.remove("hidden");if(document.exitPointerLock)document.exitPointerLock();}
-function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.swing=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=P.flipT=0;["food","water","sleep"].forEach(k=>NEEDS[k]=Math.max(NEEDS[k],60));$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
+function respawn(){if(P.inCar)exitCar();P.climbing=null;P.sitting=null;P.swing=null;P.play=null;P.fallTop=undefined;P.hp=P.maxHp;P.down=false;if(HOME.slept)P.pos.copy(HOME.door);else P.pos.set(0,0,0);P.vel.set(0,0,0);P.shield=P.shieldT=P.invulnT=P.buffT=P.slowT=P.regenT=P.toughT=P.strongT=P.jumpT=P.mightT=P.dizzyT=P.sickT=P.flipT=0;["food","water","sleep"].forEach(k=>NEEDS[k]=Math.max(NEEDS[k],60));$("#down").classList.add("hidden");select(SEL);if(held()&&held().t==="weapon")equip(held().id,held());hud();}
 function hud(){const w=WEAPONS[G.id];const c=CRYSTALS[G.crystal];const it=held(),f=itemInfo(it);
   $("#wep").classList.toggle("noweap",!(it&&it.t==="weapon"));
   if(it&&it.t==="weapon"){$("#wname").textContent=w.name;$("#ammo").textContent=`${G.ammo} / ${w.mag}`;$("#crys").textContent=`${c.name} crystal · ${c.el}`;$("#crys").style.color="#"+FX.HEX[c.el].toString(16).padStart(6,"0");}
@@ -1979,7 +1981,7 @@ $("#camBtn").onclick=()=>{camSide=-camSide;};
 // ---------------- movement + collision ----------------
 function moveInput(){let x=0,z=0;if(keys.KeyW||keys.ArrowUp)z-=1;if(keys.KeyS||keys.ArrowDown)z+=1;if(keys.KeyA||keys.ArrowLeft)x-=1;if(keys.KeyD||keys.ArrowRight)x+=1;
   if(stick.x||stick.y){x=stick.x;z=stick.y;}const l=Math.hypot(x,z);if(l>1){x/=l;z/=l;}return{x,z,l:Math.min(1,l)};}
-function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:needsInput(moveInput());if(P.flipT>0)inp=Object.assign({},inp,{x:-inp.x,z:-inp.z});/* something bad you took: every key goes the other way (Barbara, 2026-11-25: "the keys backward for bad effects") */if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}if(P.swing){P.swing.pump=-inp.z;if(jumpQ){P.swing.jump=true;jumpQ=false;}inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
+function step(dt){stepSleep();let inp=P.sleeping?{x:0,z:0,l:0}:needsInput(moveInput());if(P.flipT>0)inp=Object.assign({},inp,{x:-inp.x,z:-inp.z});/* something bad you took: every key goes the other way (Barbara, 2026-11-25: "the keys backward for bad effects") */if(P.sitting){if(inp.l>.3||jumpQ){standUp();jumpQ=false;}else inp={x:0,z:0,l:0};}if(P.swing||P.play){const q=P.swing||P.play;q.pump=-inp.z;if(jumpQ){q.jump=true;jumpQ=false;}inp={x:0,z:0,l:0};}P.run=!!(keys.ShiftLeft||keys.ShiftRight||runBtn);
   if(P.inCar)driveCar(dt,inp);else if(P.climbing)climbStep(dt,inp);else{   // driving replaces walking
   const s=Math.sin(look.yaw),c=Math.cos(look.yaw);const wx=inp.x*c+inp.z*s,wz=-inp.x*s+inp.z*c;   // forward = away from the camera
   const target=(PETS&&PETS.riding?(P.run?13:6.5):(P.run?RUN:WALK))*inp.l*(P.down?0:1)*(P.buffT>0?1.6:1)*(P.slowT>0?.55:1)*needsSpeed()*(P.pos.y<.6&&isWater(P.pos.x,P.pos.z,false)?.45:1);/* wading through the moat or the river is slow */const ax=P.onGround?18:6;
@@ -2029,7 +2031,7 @@ const _m4=new THREE.Matrix4(),_qa=new THREE.Quaternion(),_qb=new THREE.Quaternio
 function animRig(dt){const r=RIG;
   if(P.down)r.full("Death_A",{once:true});else if(r.fullName==="Death_A")r.clearFull();
   const fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw);const vf=P.vel.x*fx+P.vel.z*fz,vr=-P.vel.x*fz+P.vel.z*fx;
-  if(P.sitting||P.swing||(PETS&&PETS.riding))r.base("Sit_Chair_Idle");else if(!P.onGround)r.base("Jump_Idle");
+  if(P.sitting||P.swing||(P.play&&P.play.sitNow)||(PETS&&PETS.riding))r.base("Sit_Chair_Idle");else if(!P.onGround)r.base("Jump_Idle");
   else if(P.speed<.4)r.base("Idle");
   else if(Math.abs(vf)>=Math.abs(vr)*.8){if(vf>0)r.base(P.run?"Running_A":"Walking_A",{speed:P.run?P.speed/6:P.speed/3.4});else r.base("Walking_Backwards",{speed:P.speed/3});}
   else r.base(vr>0?"Running_Strafe_Right":"Running_Strafe_Left",{speed:Math.max(.7,P.speed/5.5)});
@@ -2615,6 +2617,7 @@ function invFx(ev,mine){const a=V3(ev.a||[0,0,0]);if(ev.f!=="ani"&&ev.f!=="tame"
   else if(ev.f==="ani"||ev.f==="tame"||ev.f==="bob"||ev.f==="adopt")wildEv(ev,mine);
   else if(ev.f==="pets")petsEv(ev,mine);
   else if(ev.f==="ball"||ev.f==="kick"||ev.f==="snowball")funEv(ev,mine);
+  else if(ev.f==="mg"||ev.f==="mgp"||ev.f==="saw")pgEv(ev);
   else if(ev.f==="splash"){for(let i=0;i<40;i++)SPARK.emit(a.clone().add(new THREE.Vector3(rnd(-.3,.3),1.2,rnd(-.3,.3))),new THREE.Vector3(rnd(-2,2),rnd(1,3),rnd(-2,2)),C(i%2?0x6ab8ff:0xdff1ff),.7,{grav:9});
     if(ev.u!==MP.id&&a.distanceTo(P.pos)<2.2)lawSay("💦 Splash! Someone poured water on you.");}
   else if(ev.f==="feel"){for(let k=0,n=Math.max(1,Math.min(20,ev.n|0));k<n;k++)setTimeout(()=>{const o=ev.u===MP.id?P:MP.others[ev.u]&&MP.others[ev.u].g.position?{pos:MP.others[ev.u].g.position}:null;if(!o||(k&&P.down&&ev.u===MP.id))return;const s=iconSprite(ev.b?(k%2?"💫":"🤢"):"✨");s.scale.setScalar(.34);s.position.copy(o.pos).add(new THREE.Vector3(rnd(-.35,.35),2.1,rnd(-.35,.35)));scene.add(s);tween(1.1,t=>{s.position.y+=.01;s.material.opacity=1-t;},()=>scene.remove(s));},k*1000);}
@@ -2805,7 +2808,7 @@ function adoptWild(an,temp){petsInit();if(!temp&&PETS.list.filter(p=>!p.temp).le
   const at=an.g.position.clone();invShow({f:"adopt",a:V3r(at),h:an.herd.i,j:an.j,d:worldDay()});
   const name=PET_NAMES[Math.floor(Math.random()*PET_NAMES.length)];const p=petMake({id:"p"+Math.random().toString(36).slice(2,9),kind:an.k,name,mode:"follow",x:at.x,z:at.z,temp:!!temp});p.g.rotation.y=an.g.rotation.y;
   if(!temp){petsSave();lawSay(`🐾 Meet ${name}, your ${an.K.name}! Press T by ${name} to give orders. C calls all your pets.`);}return p;}
-function mount(p){if(PETS.riding||P.inCar||P.down)return;PETS.riding=p;p.mode="ride";P.sitting=null;P.swing=null;P.climbing=null;lawSay(`🐴 You climb onto ${p.temp?"the horse":p.name}. Shift to gallop, T to get off.`);}
+function mount(p){if(PETS.riding||P.inCar||P.down)return;PETS.riding=p;p.mode="ride";P.sitting=null;P.swing=null;P.play=null;P.climbing=null;lawSay(`🐴 You climb onto ${p.temp?"the horse":p.name}. Shift to gallop, T to get off.`);}
 function dismount(){const p=PETS.riding;if(!p)return;PETS.riding=null;p.mode=p.temp?"follow":"stay";const s=new THREE.Vector3(Math.cos(P.yaw),0,-Math.sin(P.yaw));P.pos.addScaledVector(s,1.3);P.vel.set(0,0,0);petsSave();lawSay("You get off.");}
 function callPets(){petsInit();const L=PETS.list.filter(p=>p.mode!=="ride");if(!L.length)return;L.forEach(p=>p.mode="follow");petsSave();lawSay(`🐾 ${L.map(p=>p.name).join(", ")} — come!`);}
 function petOrders(p){const n=p.temp?`The ${p.K.name}`:p.name,o=[["👣 Follow me",()=>{p.mode="follow";petsSave();}],["✋ Stay here",()=>{p.mode="stay";petsSave();}],["🪑 Sit",()=>{p.mode="sit";petsSave();}]];
@@ -3000,7 +3003,7 @@ function funInit(){if(FUN)return;FUN={prints:[],pi:0,last:new Map(),kids:[],ball
   FUN.swings=[-.6,.6].map(dz=>{const g=new THREE.Group();g.position.set(x-5.2,2.6,pz+dz);scene.add(g);[-.22,.22].forEach(a=>{const r=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,1.9,4),LOOK.toon(0x333338));r.position.set(a,-.95,0);g.add(r);});const seat=LOOK.M(new THREE.BoxGeometry(.55,.06,.3),red,.01);seat.position.y=-1.9;g.add(seat);return g;});
   // slide: a ladder tower and a ramp
   {const t=LOOK.M(new THREE.BoxGeometry(1,.1,1),blue,.01);add(t,x,1.6,pz);[[-.45,-.45],[.45,-.45],[-.45,.45],[.45,.45]].forEach(([a,b])=>add(LOOK.M(new THREE.CylinderGeometry(.05,.05,1.6,6),wood,0),x+a,.8,pz+b));
-    const r=LOOK.M(new THREE.BoxGeometry(.7,.06,2.6),LOOK.toon(0xffc83a),.01);add(r,x,.85,pz+1.6).rotation.x=-.6;}
+    const r=LOOK.M(new THREE.BoxGeometry(.7,.06,2.6),LOOK.toon(0xffc83a),.01);add(r,x,.85,pz+1.6).rotation.x=.6;}
   // see-saw
   FUN.saw=LOOK.M(new THREE.BoxGeometry(3,.1,.3),red,.01);add(FUN.saw,x+5,.55,pz);add(LOOK.M(new THREE.ConeGeometry(.25,.5,4),wood,0),x+5,.25,pz);
   // the ball
@@ -3020,11 +3023,11 @@ function stepFun(dt){if(!SEASON)return;funInit();const F=FUN,sn=snowAmt(),w=SEAS
   const B=F.ball,near=Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<90;F.leaves.forEach(m=>m.visible=mode==="leaves");B.m.visible=mode!=="snow";
   for(const k of F.kids)k.o.g.visible=mode!=="home";
   F.snowmen.forEach(s=>s.g.visible=sn>.3);if(F.kidMen&&mode!=="snow")F.kidMen.forEach(g=>g.visible=false);
-  stepMySwing(dt);SOC.on=false;
+  stepMySwing(dt);pgInit();stepPlay(dt);SOC.on=false;
   if(!near){stepCeleb(dt);SWING_ACT.j=-1;if(SOC.kr)soccerMarks(null);return;}
   // the swings: you (or another player) riding one moves it; otherwise a kid swings on it on play days, or it slows to a stop
   SWING_ACT.j=-1;{let bd=1.4;F.swings.forEach((sw,j)=>{const d=Math.hypot(P.pos.x-sw.position.x,P.pos.z-sw.position.z);if(d<bd&&!(P.swing&&P.swing.j===j)&&!swingRider(j)){bd=d;SWING_ACT.j=j;SWING_ACT.pos.set(sw.position.x,0,sw.position.z);}});}
-  const swing=(i,on)=>{const sw=F.swings[i];if(P.swing&&P.swing.j===i)return;const o=swingRider(i);if(o){sw.rotation.z=Math.asin(clamp((o.g.position.x-sw.position.x)/SWING_L,-1,1));return;}sw.rotation.z=on?Math.sin(t*2.2+i)*.6:sw.rotation.z*.95;};F.saw.rotation.z=mode==="play"?Math.sin(t*1.3)*.25:0;
+  const swing=(i,on)=>{const sw=F.swings[i];if(P.swing&&P.swing.j===i)return;const o=swingRider(i);if(o){sw.rotation.z=Math.asin(clamp((o.g.position.x-sw.position.x)/SWING_L,-1,1));return;}sw.rotation.z=on?Math.sin(t*2.2+i)*.6:sw.rotation.z*.95;};stepPlayground(dt,t,mode);
   const busy=j=>(P.swing&&P.swing.j===j)||!!swingRider(j);
   if(mode==="play"){swing(0,!busy(0));swing(1,!busy(1));stepSoccer(dt,t);
     [4,5].forEach((ki,j)=>{const k=F.kids[ki],sw=F.swings[j];if(busy(j)){k.o.g.position.set(sw.position.x-.4,0,sw.position.z+(j?2:-2));k.o.g.rotation.y=j?Math.PI:0;kidAnim(k,"Idle");return;}k.o.g.position.set(sw.position.x+Math.sin(sw.rotation.z)*SWING_L,.5-Math.cos(sw.rotation.z)*SWING_L+1.85,sw.position.z);k.o.g.rotation.y=Math.PI/2;kidAnim(k,"Sit_Chair_Idle");});}
@@ -3044,7 +3047,7 @@ var SOC={gn:0,sv:0,lastBy:"",lastT:0,rest:0,pend:false,win:false,on:false,kr:nul
 var TEAM=[{n:"Red",e:"🔴",c:0xe8463a},{n:"Blue",e:"🔵",c:0x3a7ae8}],SOC_WIN=5;
 function meName(){return MP.you||"@me";}
 function onPitch(p){const {x,z,w,l}=LUD;return Math.abs(p.x-x)<w/2+.8&&Math.abs(p.z-z)<l/2+.8&&p.y<1;}
-function pitchPeople(){const L=[];if(onPitch(P.pos)&&!P.inCar&&!P.swing&&!P.down)L.push({id:MP.id,me:true,pos:P.pos,name:meName()});
+function pitchPeople(){const L=[];if(onPitch(P.pos)&&!P.inCar&&!P.swing&&!P.play&&!P.down)L.push({id:MP.id,me:true,pos:P.pos,name:meName()});
   for(const id in MP.others){const o=MP.others[id];if(o.po!=="sit"&&!o.carColor&&!o.bo&&onPitch(o.g.position))L.push({id,pos:o.g.position,name:o.name||"",o});}
   L.sort((a,b)=>a.id<b.id?-1:1);L.forEach((q,i)=>q.team=i%2);return L;}
 function scoreBoard(){const F=FUN;scene.remove(F.board);F.board=label(`${TEAM[0].e} ${TEAM[0].n} ${F.score[0]} – ${F.score[1]} ${TEAM[1].n} ${TEAM[1].e}  ·  first to ${SOC_WIN}`,0xffffff);F.board.scale.set(4.6,.62,1);F.board.position.set(LUD.x,3.2,LUD.z-LUD.l/2-1.5);scene.add(F.board);}
@@ -3068,7 +3071,7 @@ function kidKick(k,L,goalZ,thr){const B=FUN.ball,{x,z}=LUD,g=k.o.g,dist=q=>Math.
   else if(thr){tx=x+rnd(-3,3);tz=z;sp=9;vy=3;}
   else{tx=x+rnd(-2.2,2.2);tz=goalZ;sp=rnd(6,10);vy=rnd(0,2);}
   const a=Math.atan2(tx-B.x,tz-B.z);B.vx=Math.sin(a)*sp;B.vz=Math.cos(a)*sp;B.vy=vy;SOC.lastBy="";SOC.lastTm=undefined;SOC.lastT=performance.now();}
-var SHOOT_ACT={pos:new THREE.Vector3(),r:1.8,hidden:()=>!SOC.on||!!P.inCar||!!P.swing||!!P.sitting||P.down||!FUN||!!FUN.ball.hold||SOC.rest>0||P.pos.y>.6,label:"⚽ Shoot!",
+var SHOOT_ACT={pos:new THREE.Vector3(),r:1.8,hidden:()=>!SOC.on||!!P.inCar||!!P.swing||!!P.play||!!P.sitting||P.down||!FUN||!!FUN.ball.hold||SOC.rest>0||P.pos.y>.6,label:"⚽ Shoot!",
   run:()=>{const B=FUN.ball,f=cam.getWorldDirection(new THREE.Vector3());f.y=0;if(f.lengthSq()<1e-4)f.set(-Math.sin(look.yaw),0,-Math.cos(look.yaw));f.normalize();const ux=f.x,uz=f.z;kickBall(ux*17,uz*17,3.2);for(let i=0;i<8;i++)SPARK.emit(new THREE.Vector3(B.x,B.y,B.z),rnd3(2),C(0xffffff),.4,{grav:4});}};
 ACTS.push(SHOOT_ACT);
 function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()===MP.id,L=pitchPeople();soccerMarks(L);SOC.on=true;SHOOT_ACT.pos.set(B.x,0,B.z);
@@ -3088,7 +3091,7 @@ function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()==
       else kidKick(k,L,goalZ,false);}}
   // me: walk into the ball to dribble it along, run into it to kick it
   const dx=B.x-P.pos.x,dz=B.z-P.pos.z,d=Math.hypot(dx,dz);
-  if(!SOC.rest&&!B.hold&&d<.75&&P.pos.y<.5&&!P.swing&&!P.inCar&&(F.kickT||0)<t){F.kickT=t+.3;const spd=Math.hypot(P.vel.x,P.vel.z);let ux=dx/(d||1),uz=dz/(d||1);
+  if(!SOC.rest&&!B.hold&&d<.75&&P.pos.y<.5&&!P.swing&&!P.play&&!P.inCar&&(F.kickT||0)<t){F.kickT=t+.3;const spd=Math.hypot(P.vel.x,P.vel.z);let ux=dx/(d||1),uz=dz/(d||1);
     if(spd>.8){ux=P.vel.x/spd*.7+ux*.3;uz=P.vel.z/spd*.7+uz*.3;const n=Math.hypot(ux,uz)||1;ux/=n;uz/=n;}
     const sp=P.run?11:Math.max(3,spd*1.3);kickBall(ux*sp,uz*sp,P.run?2.2:.3);}
   if(mine){const now=performance.now();
@@ -3131,10 +3134,10 @@ function socSound(k){try{const A=hornSound.ctx||(hornSound.ctx=new (window.Audio
 // their screens — and a kid who was on that swing hops off and waits.
 var SWING_L=1.9,SWING_DY=.5;
 function swingRider(j){if(!FUN)return null;const sw=FUN.swings[j].position;for(const id in MP.others){const o=MP.others[id],p=o.g.position;if(o.po==="sit"&&Math.abs(p.z-sw.z)<.4&&Math.abs(p.x-sw.x)<2.3&&p.y<1.8)return o;}return null;}
-var SWING_ACT={pos:new THREE.Vector3(),r:1.4,j:-1,hidden:()=>SWING_ACT.j<0||!!P.swing||!!P.inCar||!!P.sitting||!!P.climbing||P.down||!!(PETS&&PETS.riding),label:"🪁 Get on the swing",run:()=>swingOn(SWING_ACT.j)};
+var SWING_ACT={pos:new THREE.Vector3(),r:1.4,j:-1,hidden:()=>SWING_ACT.j<0||!!P.swing||!!P.play||!!P.inCar||!!P.sitting||!!P.climbing||P.down||!!(PETS&&PETS.riding),label:"🪁 Get on the swing",run:()=>swingOn(SWING_ACT.j)};
 ACTS.push(SWING_ACT);
 ACTS.push({get pos(){return P.pos;},r:5,hidden:()=>!P.swing,label:"🪁 Get off the swing",run:()=>swingOff(false)});
-function swingOn(j){if(j<0||!FUN)return;if(swingRider(j)){lawSay("Someone is already on that swing.");return;}P.swing={j,a:FUN.swings[j].rotation.z,w:0,pump:0};P.vel.set(0,0,0);G.firing=false;
+function swingOn(j){if(j<0||!FUN||P.play)return;if(swingRider(j)){lawSay("Someone is already on that swing.");return;}P.swing={j,a:FUN.swings[j].rotation.z,w:0,pump:0};P.vel.set(0,0,0);G.firing=false;
   lawSay("🪁 Hold W (forward) to swing higher, S to slow down. Space lets go — jump at the front and you fly! T to get off.");}
 function swingOff(jump){const s=P.swing;if(!s)return;P.swing=null;const sw=FUN.swings[s.j];
   if(jump){const v=s.w*SWING_L;P.vel.set(Math.cos(s.a)*v*1.3,Math.sin(s.a)*v+3.5,0);P.dash=Math.min(1.2,.3+Math.abs(v)*.12);P.onGround=false;P.softLand=1;P.fallTop=undefined;if(Math.abs(v)>3)lawSay("🪁 Wheee!");}
@@ -3145,6 +3148,140 @@ function stepMySwing(dt){const s=P.swing;if(!s)return;if(P.down||P.inCar){P.swin
   s.w*=Math.pow(.9,dt);s.a+=s.w*dt;if(Math.abs(s.a)>1.25){s.a=Math.sign(s.a)*1.25;s.w*=-.2;}
   sw.rotation.z=s.a;P.pos.set(sw.position.x+Math.sin(s.a)*L,sw.position.y-Math.cos(s.a)*L-SWING_DY,sw.position.z);P.vel.set(0,0,0);P.onGround=true;P.fallTop=undefined;P.yaw=-Math.PI/2;
   if(s.jump){s.jump=false;swingOff(true);}}
+// the playground, all of it to play on (2026-11-27, Barbara: "other equipment too, and make the playground more fun with slides and stuff, all
+// interactive"). Next to the swings: the slide (T at its ladder: you climb up and whoosh down), the see-saw (T at an end to sit; Space pushes off when
+// your end is down — with a friend on the other end you take turns, alone a kid comes to play with you on play days), and south of them, towards the road:
+// a trampoline (just jump on — it bounces you, hold Space as you land to go higher), a merry-go-round (T to sit on it, hold W to spin it faster, S to
+// slow, Space to fly off — spin too long and you come off dizzy), two bouncy horses on springs (T to sit, hold W to rock), and a zip line (T at the
+// tower's ladder: climb up and zoom across; Space lets go). Everyone sees you play; the merry-go-round's spin is the same for the whole room, a push on
+// the see-saw goes to your friend, and the kids take turns on the slide and the trampoline.
+var PG=null;
+function pgInit(){if(PG||!FUN)return;const {x,z,l}=LUD,pz=z-l/2-5;
+  PG={slide:{x,z:pz},saw:{x:x+5,z:pz,a:.3,w:0,kidT:0},tr:{x:140,z:5.5,r:1.45},mg:{x:147,z:5.5,a:0,w:0,net:0,pushAcc:0,pushT:0},sp:[{x:152.5,z:6,r:0,w:0},{x:155,z:6,r:0,w:0}],
+    zip:{x0:138,x1:156,z:.5,y0:4.8,y1:3,back:0},lastVy:0,peak:0};
+  const add=(m,px,py,pz2,par)=>{m.position.set(px,py,pz2);(par||scene).add(m);return m;},M=(g,c)=>LOOK.M(g,LOOK.toon(c),.01),
+    cyl=(r,h,c)=>M(new THREE.CylinderGeometry(r,r,h,8),c),box=(a,b,c2,c)=>M(new THREE.BoxGeometry(a,b,c2),c);
+  // slide: rungs on the ladder side
+  for(let i=0;i<4;i++)add(box(.9,.05,.05,0x8a5a2e),x,.3+i*.4,pz-.5);
+  // see-saw: seats and handles on the board
+  [-1,1].forEach(e=>{add(box(.35,.08,.34,0x3a6ac8),e*1.4,.08,0,FUN.saw);add(cyl(.03,.4,0x9aa3ad),e*1.12,.25,0,FUN.saw);add(box(.04,.04,.34,0x9aa3ad),e*1.12,.45,0,FUN.saw);});
+  // trampoline: you can stand on it (an invisible block), a black mat in a blue ring on six legs
+  {const T=PG.tr;block(T.x,T.z,2.7,.55,2.7).material.visible=false;add(M(new THREE.CylinderGeometry(1.5,1.5,.04,28),0x222226),T.x,.56,T.z);
+    const ring=M(new THREE.TorusGeometry(1.55,.08,8,32),0x3a6ac8);ring.rotation.x=Math.PI/2;add(ring,T.x,.57,T.z);for(let i=0;i<6;i++){const a=i/6*Math.PI*2;add(cyl(.05,.55,0x9aa3ad),T.x+Math.cos(a)*1.5,.27,T.z+Math.sin(a)*1.5);}
+    const sg=signBoard("Trampoline — jump on!",0xffe08a);sg.scale.setScalar(.45);add(sg,T.x-2.2,1.8,T.z);sg.rotation.y=Math.PI/2;}
+  // merry-go-round: a turning disc with a pole, handle bars and four seats
+  {const G=PG.mg,g=new THREE.Group();g.position.set(G.x,0,G.z);scene.add(g);G.g=g;
+    const disc=new THREE.Mesh(new THREE.CylinderGeometry(1.8,1.8,.16,32),[LOOK.toon(0xffc83a),LOOK.toon(0xc8402a),LOOK.toon(0xffc83a)]);add(disc,0,.2,0,g);add(cyl(.07,1.3,0x9aa3ad),0,.9,0,g);add(M(new THREE.ConeGeometry(.25,.25,12),0xc8402a),0,1.65,0,g);
+    for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4,b=box(1.6,.05,.05,0x9aa3ad);b.rotation.y=-a;add(b,Math.cos(a)*.8,1.05,Math.sin(a)*.8,g);add(cyl(.03,.8,0x9aa3ad),Math.cos(a)*1.6,.68,Math.sin(a)*1.6,g);
+      const s=box(.42,.12,.4,[0x3a6ac8,0x4caf50,0xc8402a,0x8e44ad][i]);const sa=i*Math.PI/2;s.rotation.y=-sa;add(s,Math.cos(sa)*1.3,.4,Math.sin(sa)*1.3,g);}
+    const sg=signBoard("Merry-go-round",0xffe08a);sg.scale.setScalar(.45);add(sg,G.x,2.6,G.z-2.6);}
+  // bouncy horses on springs
+  PG.sp.forEach((S,i)=>{const g=new THREE.Group();g.position.set(S.x,0,S.z);scene.add(g);S.g=g;const col=i?0xff8fb0:0x6fd0ff;
+    for(let k=0;k<5;k++){const c=M(new THREE.TorusGeometry(.13,.025,6,14),0x9aa3ad);c.rotation.x=Math.PI/2;add(c,0,.08+k*.1,0,g);}
+    add(box(.8,.3,.3,col),0,.72,0,g);add(box(.26,.36,.24,col),.42,.95,0,g);add(box(.14,.12,.2,0xffffff),.55,.86,0,g);[-.07,.07].forEach(d=>add(box(.05,.12,.05,col),.36,1.18,d,g));
+    add(box(.04,.04,.4,0x9aa3ad),.3,1.02,0,g);add(box(.3,.06,.3,0x333338),-.05,.89,0,g);});
+  // zip line: a tower with a ladder, a cable down to a post, and the pulley you hang from
+  {const Z=PG.zip;[[-.6,-.6],[.6,-.6],[-.6,.6],[.6,.6]].forEach(([a,b])=>add(cyl(.08,2.8,0x8a5a2e),Z.x0+a,1.4,Z.z+b));add(box(1.5,.12,1.5,0x8a5a2e),Z.x0,2.8,Z.z);
+    for(let i=0;i<7;i++)add(box(.05,.05,1.1,0x8a5a2e),Z.x0-.68,.35+i*.4,Z.z);[[-.6,-.6],[-.6,.6],[.6,-.6]].forEach(([a,b])=>add(cyl(.03,1,0x8a5a2e),Z.x0+a,3.3,Z.z+b));
+    add(cyl(.09,2.4,0x9aa3ad),Z.x0+.6,4,Z.z+.6);add(cyl(.09,Z.y1+.6,0x9aa3ad),Z.x1+.3,(Z.y1+.6)/2,Z.z);
+    const a=new THREE.Vector3(Z.x0,Z.y0,Z.z),b=new THREE.Vector3(Z.x1+.3,Z.y1,Z.z),c=M(new THREE.CylinderGeometry(.02,.02,a.distanceTo(b),5),0x333338);c.position.copy(a).add(b).multiplyScalar(.5);c.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());scene.add(c);
+    Z.tr=new THREE.Group();scene.add(Z.tr);add(box(.22,.16,.12,0xc8402a),0,0,0,Z.tr);add(cyl(.02,.5,0x333338),0,-.32,0,Z.tr);const bar=box(.06,.06,.6,0x333338);add(bar,0,-.58,0,Z.tr);
+    const sg=signBoard("Zip line",0xffe08a);sg.scale.setScalar(.45);add(sg,Z.x0-1.6,2,Z.z+1.4);sg.rotation.y=Math.PI/2;}
+  // two more kids: one goes down the slide again and again, one bounces on the trampoline
+  for(let i=6;i<8;i++){const o=npc("villager.glb",x,pz+4,0);o.g.scale.setScalar(.72);FUN.kids.push({o,i,team:0,x,z:pz+4,cool:0,act:""});}}
+const zipY=x=>{const Z=PG.zip;return Z.y0+(Z.y1-Z.y0)*clamp((x-Z.x0)/(Z.x1-Z.x0),0,1);};
+// the slide's path, from the bottom of the ladder (u = seconds since you started climbing)
+function slidePos(u){const S=PG.slide,o={x:S.x,y:0,z:S.z,sit:false,climb:false,done:false};
+  if(u<1){o.climb=true;o.y=1.65*u;o.z=S.z-.75;}
+  else if(u<1.25){o.y=1.65;o.z=S.z-.75+(u-1)/.25*1.1;}
+  else if(u<2.15){const k=((u-1.25)/.9)**2;o.sit=true;o.z=S.z+.45+k*2.2;o.y=Math.max(-.2,1.62+(.14-1.62)*k-.4);}
+  else{o.done=true;o.z=S.z+3.2;}return o;}
+function pgRider(test){for(const id in MP.others){const o=MP.others[id];if(o.po==="sit"&&test(o.g.position))return o;}return null;}
+const sawRider=e=>pgRider(p=>Math.abs(p.z-PG.saw.z)<.5&&Math.abs(p.x-(PG.saw.x+e*1.4))<.5&&p.y<1.3);
+const springRider=i=>pgRider(p=>Math.hypot(p.x-PG.sp[i].x,p.z-PG.sp[i].z)<.6);
+const mgRiders=()=>Object.values(MP.others).filter(o=>o.po==="sit"&&Math.abs(Math.hypot(o.g.position.x-PG.mg.x,o.g.position.z-PG.mg.z)-1.3)<.45&&o.g.position.y<.8);
+const mgOwner=()=>{let best=null;const see=(id,x,z)=>{if(Math.hypot(x-PG.mg.x,z-PG.mg.z)<40&&(best===null||id<best))best=id;};see(MP.id,P.pos.x,P.pos.z);(MP.list||[]).forEach(q=>see(q.id,q.x,q.z));return best===null?MP.id:best;};
+const pgFree=()=>!P.play&&!P.swing&&!P.inCar&&!P.sitting&&!P.climbing&&!P.down&&!(PETS&&PETS.riding)&&!P.sleeping;
+function playOn(k,o){if(!PG||!pgFree())return;P.play=Object.assign({k,t:0,pump:0,spin:0},o||{});P.vel.set(0,0,0);G.firing=false;
+  lawSay({slide:"🛝 Up the ladder…",saw:"⚖️ Space pushes off when your end is down. T to get off.",merry:"🎠 Hold W to spin faster, S to slow down, Space to jump off. T to get off.",spring:"🐴 Hold W to rock and bounce! T to get off.",zip:"🪂 Up the tower… hold on! (Space lets go)"}[k]);}
+function playOff(jump){const s=P.play;if(!s)return;P.play=null;P.onGround=true;
+  if(s.k==="saw"){P.pos.set(PG.saw.x+s.e*2.1,0,PG.saw.z);}
+  else if(s.k==="merry"){const G=PG.mg,al=G.a+s.seat*Math.PI/2,ox=Math.cos(al),oz=Math.sin(al);
+    if(jump){const v=G.w*1.3;P.vel.set(-oz*v+ox*2.5,4,ox*v+oz*2.5);P.dash=Math.min(1.2,.3+Math.abs(v)*.15);P.onGround=false;P.softLand=1;if(Math.abs(v)>2.5)lawSay("🎠 Wheee!");}
+    else P.pos.set(G.x+ox*2.4,0,G.z+oz*2.4);
+    if(s.spin>4){P.dizzyT=Math.max(P.dizzyT||0,5);lawSay("😵 Whoa… everything is spinning!");}}
+  else if(s.k==="spring"){const S=PG.sp[s.i];P.pos.set(S.x,0,S.z+1);}
+  else if(s.k==="zip"){P.vel.set((s.v||0)*.6,0,0);P.dash=.4;P.onGround=false;P.softLand=1;P.fallTop=undefined;PG.zip.back=1;}
+  else if(s.k==="slide"){const o=slidePos(9);P.pos.set(o.x,0,o.z);}}
+function pgSound(k){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),t=A.currentTime,o=A.createOscillator(),g=A.createGain();
+  if(k==="boing"){o.type="sine";o.frequency.setValueAtTime(140,t);o.frequency.exponentialRampToValueAtTime(420,t+.18);g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);}
+  else if(k==="whee"){o.type="triangle";o.frequency.setValueAtTime(700,t);o.frequency.exponentialRampToValueAtTime(300,t+.6);g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.001,t+.65);}
+  else{o.type="square";o.frequency.setValueAtTime(90,t);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.12);}   // bump
+  o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+.7);}catch(e){}}
+// riding something: where you are each frame (after walking, so it wins)
+function stepPlay(dt){const s=P.play;if(!s||!PG)return;if(P.down||P.inCar){P.play=null;return;}s.t+=dt;P.vel.set(0,0,0);P.onGround=true;P.fallTop=undefined;s.sitNow=true;s.climb=false;
+  if(s.k==="slide"){const o=slidePos(s.t);if(o.done){P.play=null;P.pos.set(o.x,0,o.z);P.vel.set(0,0,6);P.dash=.25;pgSound("whee");return;}
+    s.sitNow=o.sit;s.climb=o.climb;P.pos.set(o.x,o.y,o.z);P.yaw=Math.PI;if(o.sit&&!s.wh){s.wh=1;pgSound("whee");}}
+  else if(s.k==="saw"){const W=PG.saw,e=s.e,p=sawRider(-e),kid=!p&&FUN.mode==="play";W.kid=kid?-e:0;
+    if(p&&p.id<MP.id){W.a=Math.asin(clamp((p.g.position.y+.25-.55)/(1.4*-e),-1,1));if(s.jump){s.jump=false;share({k:"inv",f:"saw",a:[W.x,0,W.z],e});}}   // your friend's screen runs it; your push goes to them
+    else{if(s.jump){s.jump=false;sawPush(e);}if(kid&&-e*W.a<-.2&&Math.abs(W.w)<.05){W.kidT+=dt;if(W.kidT>.7){W.kidT=0;sawPush(-e);}}
+      sawSim(dt,{[e]:1,[-e]:p||kid?1:0});}
+    P.pos.set(W.x+e*1.4*Math.cos(W.a),.55+e*1.4*Math.sin(W.a)-.25,W.z);P.yaw=e>0?Math.PI/2:-Math.PI/2;}
+  else if(s.k==="merry"){const G=PG.mg,mine=mgOwner()===MP.id;
+    if(s.pump>.2){const d=1.6*dt*s.pump;G.w=Math.min(3.6,G.w+d);if(!mine)G.pushAcc+=d;}else if(s.pump<-.2){const nw=G.w*Math.pow(.25,dt);if(!mine)G.pushAcc+=nw-G.w;G.w=nw;}
+    if(!mine&&G.pushAcc&&(G.pushT-=dt)<=0){G.pushT=.2;share({k:"inv",f:"mgp",a:[G.x,0,G.z],d:R2(G.pushAcc)});G.pushAcc=0;}
+    if(Math.abs(G.w)>2.2)s.spin+=dt;if(s.jump){s.jump=false;playOff(true);return;}
+    const al=G.a+s.seat*Math.PI/2,ox=Math.cos(al),oz=Math.sin(al);P.pos.set(G.x+ox*1.3,.02,G.z+oz*1.3);P.yaw=Math.atan2(-ox,-oz);}
+  else if(s.k==="spring"){const S=PG.sp[s.i];s.w+=-20*S.r*dt;if(s.pump>.2){if(Math.abs(s.w)<.2&&Math.abs(S.r)<.05)s.w=1.4;else s.w+=Math.sign(s.w)*2.4*dt;}
+    s.w*=Math.pow(.4,dt);S.r=clamp(S.r+s.w*dt,-.45,.45);if(Math.abs(S.r)>=.45)s.w*=-.3;S.g.rotation.z=S.r;
+    P.pos.set(S.x-.95*Math.sin(S.r),.95*Math.cos(S.r)-.45+Math.abs(Math.sin(S.r))*.1,S.z);P.yaw=-Math.PI/2;if(s.jump){s.jump=false;playOff(false);}}
+  else if(s.k==="zip"){const Z=PG.zip;s.sitNow=false;
+    if(s.t<1.4){s.climb=true;P.pos.set(Z.x0-.9,2.8*s.t/1.4,Z.z);P.yaw=-Math.PI/2;}
+    else if(s.t<1.7){P.pos.set(Z.x0-.9+(s.t-1.4)/.3*.9,2.8,Z.z);P.yaw=-Math.PI/2;}
+    else{s.v=Math.min(10,(s.v||0)+5*dt);s.d=(s.d||0)+s.v*dt;const px=Z.x0+s.d;P.onGround=false;P.softLand=1;Z.tr.position.set(px,zipY(px),Z.z);P.pos.set(px,zipY(px)-2,Z.z);P.yaw=-Math.PI/2;
+      if(!s.wh){s.wh=1;pgSound("whee");}if(px>=Z.x1-.4||s.jump){s.jump=false;if(px>=Z.x1-.4)pgSound("bump");playOff(true);}}}}
+function sawPush(e){const W=PG.saw;if(e*W.a<-.12){W.w=e*2.3;}}
+function sawSim(dt,wt){const W=PG.saw;W.w+=2.6*((wt[-1]||0)-(wt[1]||0))*dt;W.a+=W.w*dt;
+  if(Math.abs(W.a)>=.3){W.a=Math.sign(W.a)*.3;if(Math.abs(W.w)>.5){W.w=0;if(P.play&&P.play.k==="saw"&&P.play.e*W.a<0){shake(.12);pgSound("bump");}}else W.w=0;}}
+// the equipment moving on every screen: the merry-go-round turns (one player keeps everyone's spin the same), the see-saw, horses and pulley follow
+// whoever is riding them, and the kids play
+function stepPlayground(dt,t,mode){if(!PG)return;const F=FUN;F.mode=mode;
+  // merry-go-round
+  {const G=PG.mg,mine=mgOwner()===MP.id;G.a+=G.w*dt;G.w*=Math.pow(.88,dt);if(Math.abs(G.w)<.03)G.w=0;G.g.rotation.y=-G.a;
+    if(mine&&MP.ok&&(G.net-=dt)<=0&&Object.values(MP.others).some(o=>o.g.position.distanceTo(G.g.position)<60)){G.net=.3;share({k:"inv",f:"mg",a:[G.x,0,G.z],p:[R2(G.a),R2(G.w)]});}}
+  // see-saw (when you're not on it)
+  {const W=PG.saw;if(!(P.play&&P.play.k==="saw")){const r=sawRider(1),r2=sawRider(-1);if(r)W.a=Math.asin(clamp((r.g.position.y+.25-.55)/1.4,-1,1));else if(r2)W.a=Math.asin(clamp((r2.g.position.y+.25-.55)/-1.4,-1,1));else{W.a+=(.3-W.a)*Math.min(1,dt*2);W.w=0;}W.kid=0;}F.saw.rotation.z=W.a;}
+  // bouncy horses
+  PG.sp.forEach((S,i)=>{if(P.play&&P.play.k==="spring"&&P.play.i===i)return;const o=springRider(i);S.r=o?Math.asin(clamp((S.x-o.g.position.x)/.95,-1,1)):S.r*Math.pow(.2,dt);S.g.rotation.z=S.r;});
+  // the zip line's pulley: under whoever is riding, otherwise it rolls back to the tower
+  {const Z=PG.zip;if(!(P.play&&P.play.k==="zip"&&P.play.t>=1.7)){const o=Object.values(MP.others).find(o=>o.air&&Math.abs(o.g.position.z-Z.z)<.5&&o.g.position.x>Z.x0&&o.g.position.x<Z.x1+.5&&o.g.position.y>.6);
+    let px=o?o.g.position.x:Z.tr.position.x||Z.x0;if(!o)px=Math.max(Z.x0,px-(Z.back?4:0)*dt);if(px<=Z.x0)Z.back=0;Z.tr.position.set(px,zipY(px),Z.z);}}
+  // trampoline: land on it and it throws you back up (higher if you hold Space as you land)
+  {const T=PG.tr,d=Math.hypot(P.pos.x-T.x,P.pos.z-T.z);if(!P.play&&!P.swing&&!P.inCar&&d<T.r&&P.pos.y>.45&&P.pos.y<.75){
+      if(P.onGround){const vy=clamp(-PG.lastVy*.93+(keys.Space?4:0),6.5,18);P.vel.y=vy;P.onGround=false;P.softLand=1;PG.peak=P.pos.y;pgSound("boing");}}
+    if(!P.onGround){PG.lastVy=P.vel.y;if(PG.peak&&P.pos.y>PG.peak)PG.peak=P.pos.y;if(PG.peak&&P.vel.y<0&&P.pos.y<PG.peak-.05){if(PG.peak>3)popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),`🤸 ${PG.peak.toFixed(1)} m!`,"spell");PG.peak=0;}}}
+  // the kids: one on the slide, one on the trampoline (or on the other end of the see-saw with you), on play days
+  const k6=F.kids[6],k7=F.kids[7];if(!k6||!k7)return;
+  if(mode!=="play")return;
+  {const u=(t%7),S=PG.slide,g=k6.o.g;if(u<2.5){const k=u/2.5,A=k<.5?[S.x,S.z+3.2]:[S.x+1.3,S.z+1.2],B=k<.5?[S.x+1.3,S.z+1.2]:[S.x,S.z-.75],f=k<.5?k*2:(k-.5)*2;g.position.set(A[0]+(B[0]-A[0])*f,0,A[1]+(B[1]-A[1])*f);g.rotation.y=Math.atan2(B[0]-A[0],B[1]-A[1]);kidAnim(k6,"Walking_A",{speed:1.3});}
+    else{const o=slidePos(u-2.5);g.position.set(o.x,o.done?0:o.y+(o.sit?.12:0),o.z);g.rotation.y=0;kidAnim(k6,o.sit?"Sit_Chair_Idle":o.done&&u>5.2?"Cheer":"Idle");}}
+  {const W=PG.saw,g=k7.o.g;if(W.kid){g.position.set(W.x+W.kid*1.4*Math.cos(W.a),.55+W.kid*1.4*Math.sin(W.a)-.12,W.z);g.rotation.y=W.kid>0?-Math.PI/2:Math.PI/2;kidAnim(k7,"Sit_Chair_Idle");}
+    else{const T=PG.tr;g.position.set(T.x+.5,.56+Math.abs(Math.sin(t*2.6))*1.5,T.z-.3);g.rotation.y=t*.8;kidAnim(k7,k7.o.rig&&k7.o.rig.clips.Jump_Idle?"Jump_Idle":"Idle");}}}
+function pgEv(ev){pgInit();if(!PG)return;
+  if(ev.f==="mg"&&Array.isArray(ev.p)){if(mgOwner()===MP.id)return;const G=PG.mg,a=+ev.p[0]||0,w=+ev.p[1]||0;let d=a-G.a;d=Math.atan2(Math.sin(d),Math.cos(d));G.w=w;G.a+=Math.abs(d)>.6?d:d*.3;}
+  else if(ev.f==="mgp"){if(mgOwner()===MP.id)PG.mg.w=clamp(PG.mg.w+clamp(+ev.d||0,-4,4),0,3.6);}
+  else if(ev.f==="saw"&&(ev.e===1||ev.e===-1)){if(P.play&&P.play.k==="saw")sawPush(ev.e);}}
+// T to get on each thing
+ACTS.push({get pos(){return PG?new THREE.Vector3(PG.slide.x,0,PG.slide.z-1.05):new THREE.Vector3(0,-99,0);},r:1.2,hidden:()=>!PG||!pgFree(),label:"🛝 Climb up and slide down",run:()=>playOn("slide")});
+[-1,1].forEach(e=>ACTS.push({get pos(){return PG?new THREE.Vector3(PG.saw.x+e*1.9,0,PG.saw.z):new THREE.Vector3(0,-99,0);},r:1,hidden:()=>!PG||!pgFree()||!!sawRider(e),label:"⚖️ Sit on the see-saw",run:()=>playOn("saw",{e})}));
+ACTS.push({get pos(){return PG?new THREE.Vector3(PG.mg.x,0,PG.mg.z):new THREE.Vector3(0,-99,0);},r:2.6,hidden:()=>!PG||!pgFree(),label:"🎠 Get on the merry-go-round",
+  run:()=>{const G=PG.mg,taken=mgRiders().map(o=>Math.atan2(o.g.position.z-G.z,o.g.position.x-G.x));const me=Math.atan2(P.pos.z-G.z,P.pos.x-G.x);let best=-1,bd=9;
+    for(let i=0;i<4;i++){const al=G.a+i*Math.PI/2,dd=x=>Math.abs(Math.atan2(Math.sin(x),Math.cos(x)));if(taken.some(t=>dd(t-al)<.6))continue;if(dd(me-al)<bd){bd=dd(me-al);best=i;}}
+    if(best<0){lawSay("The merry-go-round is full!");return;}playOn("merry",{seat:best});}});
+[0,1].forEach(i=>ACTS.push({get pos(){return PG?new THREE.Vector3(PG.sp[i].x,0,PG.sp[i].z):new THREE.Vector3(0,-99,0);},r:1.2,hidden:()=>!PG||!pgFree()||!!springRider(i),label:"🐴 Ride the bouncy horse",run:()=>playOn("spring",{i,w:0})}));
+ACTS.push({get pos(){return PG?new THREE.Vector3(PG.zip.x0-1.2,0,PG.zip.z):new THREE.Vector3(0,-99,0);},r:1.3,hidden:()=>!PG||!pgFree(),label:"🪂 Climb up and ride the zip line",run:()=>playOn("zip")});
+ACTS.push({get pos(){return PG?new THREE.Vector3(PG.tr.x,0,PG.tr.z):new THREE.Vector3(0,-99,0);},r:2.4,hidden:()=>!PG||!pgFree()||P.pos.y>.4,label:"🤸 Hop onto the trampoline",run:()=>{P.pos.set(PG.tr.x,.6,PG.tr.z);P.vel.y=7;P.onGround=false;P.softLand=1;pgSound("boing");}});
+ACTS.push({get pos(){return P.pos;},r:5,hidden:()=>!P.play||P.play.k==="slide"||P.play.k==="zip",label:()=>P.play&&P.play.k==="merry"?"🎠 Get off the merry-go-round":P.play&&P.play.k==="saw"?"⚖️ Get off the see-saw":"🐴 Get off",run:()=>playOff(false)});
 // the snowball fight: the same throws on every screen (they come from the clock); when you're close, some come at you
 function stepSnowFight(dt,t){const F=FUN,{x,z}=LUD;F.kids.forEach((k,i)=>{const side=i%2,g=k.o.g,row=Math.floor(i/2);g.position.set(x-4+row*4+Math.sin(t*1.3+i)*.6,0,z+(side?5:-5));g.rotation.y=side?Math.PI:0;
     const per=2.6+i*.37,n=Math.floor((t+i*1.1)/per);if(k.n===undefined)k.n=n;if(n!==k.n){k.n=n;kidAnim(k,"PickUp",{restart:true,dur:.5});const me=Math.hypot(P.pos.x-x,P.pos.z-z)<14&&((n*7+i)%3===0);
@@ -3195,7 +3332,7 @@ setInterval(()=>{if(!FUN)return;let best=null,bd=1.8;for(const c of FUN.celeb){c
 // tap a place name to go there, or click anywhere on the map. Not out of jail, and not while you're knocked down.
 const TRAVEL_SPOTS=[["📚 Library",83,23.5],["🏰 Town square",0,-3],["🏠 My house",null,null],["🛍️ Market",60,-5],["⚽ Ludus field",141,29],["🌲 Dark forest",-35,96],["⛏️ The mine",-12,-126],["🏟️ Arena",-135,8],["🎣 The lake",23,164],["⛽ Gas station",146,-10]];
 const MAPB={x0:-185,x1:195,z0:-185,z1:195};
-function travelTo(x,z,name){if(P.down)return;if(LAW.jailT>0){lawSay("🔒 No teleporting out of jail!");return;}if(P.inCar)exitCar();if(PETS&&PETS.riding)dismount();if(P.sitting)standUp();P.swing=null;P.climbing=null;if(P.sleeping)endSleep(false,"");
+function travelTo(x,z,name){if(P.down)return;if(LAW.jailT>0){lawSay("🔒 No teleporting out of jail!");return;}if(P.inCar)exitCar();if(PETS&&PETS.riding)dismount();if(P.sitting)standUp();P.swing=null;P.play=null;P.climbing=null;if(P.sleeping)endSleep(false,"");
   let p=new THREE.Vector3(x,0,z);for(let k=0;k<30&&(isWater(p.x,p.z,false)||blockAt(new THREE.Vector3(p.x,.9,p.z)));k++)p.add(new THREE.Vector3(Math.cos(k)*1.5*(1+k/6),0,Math.sin(k)*1.5*(1+k/6)));
   for(let i=0;i<16;i++)PUFF.emit(P.pos.clone().add(new THREE.Vector3(rnd(-.5,.5),rnd(.2,1.8),rnd(-.5,.5))),rnd3(1),C(0xbfd8ff).multiplyScalar(.6),.7,{drag:2});
   P.pos.copy(p);P.vel.set(0,0,0);P.fallTop=undefined;FX.stars(p.clone().add(new THREE.Vector3(0,1,0)),"air",5,1.4);if(PETS)PETS.list.forEach(q=>{if(q.mode==="follow"||q.mode==="fight")q.g.position.set(p.x+rnd(-2,2),0,p.z+rnd(-2,2));});
@@ -3315,5 +3452,5 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);s
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS,season:()=>SEASON?SEASON.name:"summer",holiday:()=>SEASON&&SEASON.hol?SEASON.hol.id:""};   // what the music (music.js) listens to
-window.__el={SOC,swingOn,swingOff,kickBall,pitchPeople,punch,animalHit,G,travelTo,toggleTravel,TRAVEL_SPOTS,FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={PG:()=>PG,playOn,playOff,slidePos,SOC,swingOn,swingOff,kickBall,pitchPeople,punch,animalHit,G,travelTo,toggleTravel,TRAVEL_SPOTS,FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
