@@ -506,8 +506,9 @@ function stepPickups(dt){for(let i=PICKUPS.length-1;i>=0;i--){const d=PICKUPS[i]
 // ---------------- mining: crystal veins and iron rocks; shoot them to break them, they grow back ----------------
 const NODES=[];
 RNG=seedRnd(12);
+// 2026-11-27: the two fire-crystal rocks were in the middle of the soccer pitch and on the moat's bank; they sit by the Demon's den outside the moat now
 const NODE_SPOTS=[["ferrum",14,9],["ferrum",-16,-3],["ferrum",22,-15],["ferrum",-14,44],["ferrum",8,48],["ferrum",-44,-46],
-  ["carbo",150,28],["carbo",164,42],["nimbus",-50,6],["nimbus",-66,24],["silex",-28,56],["silex",-44,70],["aether",48,-48],["aether",64,-64],["electrum",6,58],["electrum",24,72]];
+  ["carbo",192,24],["carbo",190,40],["nimbus",-50,6],["nimbus",-66,24],["silex",-28,56],["silex",-44,70],["aether",48,-48],["aether",64,-64],["electrum",6,58],["electrum",24,72]];
 function makeNode(kind,x,z){for(let k=0;k<8&&BLOCKS.some(b=>Math.abs(x-b.x)<b.w/2+1.4&&Math.abs(z-b.z)<b.d/2+1.4);k++){x*=1.08;z*=1.08;}
   const g=new THREE.Group();g.position.set(x,0,z);const ore=kind==="ferrum";
   const rock=LOOK.M(new THREE.DodecahedronGeometry(.8),LOOK.toon(ore?0x7d7873:0x8f8a84),.02);rock.scale.set(1.25,.75,1.05);rock.position.y=.45;rock.rotation.y=RNG()*6;g.add(rock);
@@ -3066,13 +3067,14 @@ function kickBall(vx,vz,vy){const B=FUN.ball;if(SOC.rest||B.hold)return;B.vx=vx;
   if(fieldOwner()===MP.id){SOC.lastBy=meName();SOC.lastTm=SOC.myTeam;SOC.lastT=performance.now();}else share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),R2(vy)],b:[R2(B.x),R2(B.z)],tm:SOC.myTeam===undefined?-1:SOC.myTeam});}
 // a kid kicks (or a keeper throws): pass to someone on their team, or go for goal
 function kidKick(k,L,goalZ,thr){const B=FUN.ball,{x,z}=LUD,g=k.o.g,dist=q=>Math.hypot(q.pos.x-g.position.x,q.pos.z-g.position.z);
-  const mates=L.filter(q=>q.team===k.team&&dist(q)>2&&dist(q)<(thr?22:16));let tx,tz,sp,vy;
-  if(mates.length&&(thr||Math.random()<.55)){const q=pick(mates);tx=q.pos.x;tz=q.pos.z;sp=clamp(Math.hypot(tx-B.x,tz-B.z)*1.1+2,5,12);vy=thr?2.5:.4;}
+  const mates=L.filter(q=>q.team===k.team&&dist(q)>2&&dist(q)<(thr?24:16));let tx,tz,sp,vy;
+  if(thr&&!mates.length){const st=FUN.kids[k.team];if(st&&st!==k)mates.push({pos:st.o.g.position});}   // after a save the keeper throws it straight to a teammate
+  if(mates.length&&(thr||Math.random()<.55)){const q=thr?mates.sort((a,b)=>dist(a)-dist(b))[0]:pick(mates);tx=q.pos.x;tz=q.pos.z;sp=clamp(Math.hypot(tx-B.x,tz-B.z)*1.1+2,5,12);vy=thr?2.5:.4;}
   else if(thr){tx=x+rnd(-3,3);tz=z;sp=9;vy=3;}
   else{tx=x+rnd(-2.2,2.2);tz=goalZ;sp=rnd(6,10);vy=rnd(0,2);}
   const a=Math.atan2(tx-B.x,tz-B.z);B.vx=Math.sin(a)*sp;B.vz=Math.cos(a)*sp;B.vy=vy;SOC.lastBy="";SOC.lastTm=undefined;SOC.lastT=performance.now();}
 var SHOOT_ACT={pos:new THREE.Vector3(),r:1.8,hidden:()=>!SOC.on||!!P.inCar||!!P.swing||!!P.play||!!P.sitting||P.down||!FUN||!!FUN.ball.hold||SOC.rest>0||P.pos.y>.6,label:"⚽ Shoot!",
-  run:()=>{const B=FUN.ball,f=cam.getWorldDirection(new THREE.Vector3());f.y=0;if(f.lengthSq()<1e-4)f.set(-Math.sin(look.yaw),0,-Math.cos(look.yaw));f.normalize();const ux=f.x,uz=f.z;kickBall(ux*17,uz*17,3.2);for(let i=0;i<8;i++)SPARK.emit(new THREE.Vector3(B.x,B.y,B.z),rnd3(2),C(0xffffff),.4,{grav:4});}};
+  run:()=>{SOC.drib=false;SOC.noDrib=FUN.t+.6;const B=FUN.ball,f=cam.getWorldDirection(new THREE.Vector3());f.y=0;if(f.lengthSq()<1e-4)f.set(-Math.sin(look.yaw),0,-Math.cos(look.yaw));f.normalize();const ux=f.x,uz=f.z;kickBall(ux*17,uz*17,3.2);for(let i=0;i<8;i++)SPARK.emit(new THREE.Vector3(B.x,B.y,B.z),rnd3(2),C(0xffffff),.4,{grav:4});}};
 ACTS.push(SHOOT_ACT);
 function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()===MP.id,L=pitchPeople();soccerMarks(L);SOC.on=true;SHOOT_ACT.pos.set(B.x,0,B.z);
   SOC.rest=Math.max(0,SOC.rest-dt);
@@ -3086,14 +3088,20 @@ function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()==
     if(d>.3){v.normalize();g.position.addScaledVector(v,Math.min(d-.2,sp*dt));g.rotation.y=Math.atan2(v.x,v.z);kidAnim(k,"Walking_A",{speed:sp>3?1.8:1.3});}
     else{g.rotation.y=Math.atan2(B.x-g.position.x,B.z-g.position.z);if(k.act!=="Cheer"&&k.act!=="Interact")kidAnim(k,"Idle");}
     k.cool-=dt;const bd=Math.hypot(B.x-g.position.x,B.z-g.position.z);
-    if(mine&&!SOC.rest&&!B.hold&&k.cool<=0&&bd<(keeper?1.15:.8)&&B.y<(keeper?1.9:.6)){k.cool=1;
-      if(keeper){const hard=Math.hypot(B.vx,B.vz)>9;if(!hard||Math.random()<.5){B.hold=k;B.holdT=1;B.vx=B.vz=B.vy=0;SOC.sv++;saved(k);}else k.cool=.8;}   // hard shots get past them half the time
+    const human=SOC.lastBy&&performance.now()-SOC.lastT<700,mate=human&&SOC.lastTm===k.team;
+    if(mine&&!keeper&&human&&!mate&&k.cool<=0&&bd<.8&&Math.random()>.35){k.cool=.8;}   // someone is dribbling: a tackle only works sometimes
+    else if(mine&&!SOC.rest&&!B.hold&&k.cool<=0&&!(mate&&!keeper)&&bd<(keeper?1.15:.8)&&B.y<(keeper?1.9:.6)){k.cool=1;
+      if(keeper){const hard=Math.hypot(B.vx,B.vz)>9;if(!hard||Math.random()<.5){B.hold=k;B.holdT=.35;k.cool=1.6;B.vx=B.vz=B.vy=0;SOC.sv++;saved(k);}else k.cool=.8;}   // hard shots get past them half the time
       else kidKick(k,L,goalZ,false);}}
   // me: walk into the ball to dribble it along, run into it to kick it
   const dx=B.x-P.pos.x,dz=B.z-P.pos.z,d=Math.hypot(dx,dz);
-  if(!SOC.rest&&!B.hold&&d<.75&&P.pos.y<.5&&!P.swing&&!P.play&&!P.inCar&&(F.kickT||0)<t){F.kickT=t+.3;const spd=Math.hypot(P.vel.x,P.vel.z);let ux=dx/(d||1),uz=dz/(d||1);
-    if(spd>.8){ux=P.vel.x/spd*.7+ux*.3;uz=P.vel.z/spd*.7+uz*.3;const n=Math.hypot(ux,uz)||1;ux/=n;uz/=n;}
-    const sp=P.run?11:Math.max(3,spd*1.3);kickBall(ux*sp,uz*sp,P.run?2.2:.3);}
+  // dribbling (2026-11-27): close to the ball and moving, it stays at your feet, just in front of you; T shoots, V passes
+  {const spd=Math.hypot(P.vel.x,P.vel.z),can=!SOC.rest&&!B.hold&&P.pos.y<.5&&!P.swing&&!P.play&&!P.inCar&&!P.down&&onPitch(P.pos)&&B.y<.7&&(SOC.noDrib||0)<FUN.t;
+    SOC.drib=can&&d<(SOC.drib?1.3:.85);
+    if(SOC.drib&&spd>.4){const ux=P.vel.x/spd,uz=P.vel.z/spd,tx=P.pos.x+ux*.62,tz=P.pos.z+uz*.62,vx=clamp((tx-B.x)/.12,-16,16),vz=clamp((tz-B.z)/.12,-16,16);
+      if(mine){B.vx=vx;B.vz=vz;B.vy=0;SOC.lastBy=meName();SOC.lastTm=SOC.myTeam;SOC.lastT=performance.now();}
+      else{B.x+=(tx-B.x)*Math.min(1,dt*10);B.z+=(tz-B.z)*Math.min(1,dt*10);if((SOC.dribT=(SOC.dribT||0)-dt)<=0){SOC.dribT=.12;share({k:"inv",f:"kick",a:V3r(P.pos),v:[R2(vx),R2(vz),0],b:[R2(B.x),R2(B.z)],tm:SOC.myTeam===undefined?-1:SOC.myTeam});}}
+      if(!SOC.dribSaid){SOC.dribSaid=1;popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"⚽ Dribbling! T shoot · V pass","spell");}}}
   if(mine){const now=performance.now();
     if(B.hold){const g=B.hold.o.g;B.holdT-=dt;B.x=g.position.x+Math.sin(g.rotation.y)*.35;B.z=g.position.z+Math.cos(g.rotation.y)*.35;B.y=.9;B.vx=B.vz=B.vy=0;
       if(B.holdT<=0){const k=B.hold;B.hold=null;B.y=1;kidKick(k,L,k.team?z-l/2:z+l/2,true);}}
@@ -3107,7 +3115,7 @@ function stepSoccer(dt,t){const F=FUN,B=F.ball,{x,z,w,l}=LUD,mine=fieldOwner()==
         else{B.vz=-B.vz*.7;B.z=clamp(B.z,z-l/2+.2,z+l/2-.2);}}}
     if(SOC.pend&&!SOC.rest){SOC.pend=false;B.x=x;B.z=z;B.y=.22;B.vx=B.vz=B.vy=0;if(SOC.win){SOC.win=false;F.score=[0,0];scoreBoard();}kickoff();F.net=0;}
     F.net-=dt;if(F.net<=0&&MP.ok&&Object.keys(MP.others).length){F.net=.25;share({k:"inv",f:"ball",a:[x,0,z],b:[R2(B.x),R2(B.y),R2(B.z),R2(B.vx),R2(B.vz)],s:F.score,gn:SOC.gn,gt:SOC.gt|0,sc:SOC.sc||"",og:SOC.og||"",sv:SOC.sv});}}
-  else if(B.net){const n=B.net;B.x+=(n[0]-B.x)*Math.min(1,dt*8);B.z+=(n[2]-B.z)*Math.min(1,dt*8);B.y=n[1];}
+  else if(B.net&&!(SOC.drib&&Math.hypot(P.vel.x,P.vel.z)>.4)){const n=B.net;B.x+=(n[0]-B.x)*Math.min(1,dt*8);B.z+=(n[2]-B.z)*Math.min(1,dt*8);B.y=n[1];}
   B.m.position.set(B.x,B.y,B.z);B.m.rotation.x+=B.vz*dt*3;B.m.rotation.z-=B.vx*dt*3;}
 function kickoff(){if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){socSound("whistle");popNum(new THREE.Vector3(LUD.x,1.5,LUD.z),"Kick-off!","spell");}}
 function saved(k){if(Math.hypot(P.pos.x-LUD.x,P.pos.z-LUD.z)<50){popNum(k.o.g.position.clone().add(new THREE.Vector3(0,2,0)),"🧤 Saved!","spell");kidAnim(k,"Interact",{restart:true,dur:.6});}}
@@ -3122,6 +3130,27 @@ function goal(team,sc,og){const F=FUN;scoreBoard();SOC.gt=team;SOC.sc=sc||"";SOC
   if(me){COINS+=5;coinHud();popNum(P.pos.clone().add(new THREE.Vector3(0,2.3,0)),"+5 🪙 for your goal","spell");}
   if(won){const mine=SOC.myTeam===team;setTimeout(()=>{lawSay(`🏆 ${T.e} ${T.n} wins the match, ${line}!${mine?" You won — +15 🪙":""} A new match starts in a moment.`);socSound("win");
     for(let i=0;i<5;i++)setTimeout(()=>confetti(new THREE.Vector3(LUD.x+rnd(-6,6),7+rnd(0,3),LUD.z+rnd(-8,8)),T.c,60),i*400);if(mine){COINS+=15;coinHud();}},1300);}}
+// passing (V): to whoever on your team is most in the direction you're looking (a friend on the pitch, or your team's kids)
+function passBall(){if(!FUN||!SOC.on||SOC.myTeam===undefined)return;const B=FUN.ball,d=Math.hypot(B.x-P.pos.x,B.z-P.pos.z);if(d>1.8||SOC.rest||B.hold){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"Get to the ball first, then V to pass","spell");return;}
+  const f=cam.getWorldDirection(new THREE.Vector3());f.y=0;f.normalize();const cands=pitchPeople().filter(q=>!q.me&&q.team===SOC.myTeam).map(q=>q.pos).concat(FUN.kids.slice(0,4).filter(k=>k.team===SOC.myTeam).map(k=>Object.assign(k.o.g.position.clone(),{keeper:k.i>=2})));
+  let best=null,bs=-9;for(const p of cands){const vx=p.x-B.x,vz=p.z-B.z,l=Math.hypot(vx,vz);if(l<1.5||l>26)continue;const sc=(vx*f.x+vz*f.z)/l-l/60-(p.keeper?.8:0);if(sc>bs){bs=sc;best=p;}}
+  if(!best){popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"Nobody to pass to","spell");return;}
+  const vx=best.x-B.x,vz=best.z-B.z,l=Math.hypot(vx,vz),sp=clamp(l*1.15+2,5,14);SOC.drib=false;SOC.noDrib=FUN.t+.6;kickBall(vx/l*sp,vz/l*sp,.4);popNum(P.pos.clone().add(new THREE.Vector3(0,2.2,0)),"➡️ Pass!","spell");}
+// the keys (2026-11-27, Barbara: "add a menu to tell users what keys do what"): ⌨️ button or H; on the pitch a small soccer box shows its keys
+var KEYS_HTML=`<h3>⌨️ Keys</h3><div class="kc"><div><b>Moving</b><p><kbd>W A S D</kbd> walk<br><kbd>Shift</kbd> run<br><kbd>Space</kbd> jump<br>Mouse: look around</p>
+<b>Doing things</b><p><kbd>T</kbd> talk, use, sit, pick up — whatever the yellow button says<br><kbd>Click</kbd> or <kbd>F</kbd> punch / use what you hold<br><kbd>1</kbd>–<kbd>9</kbd> pick from your hotbar<br><kbd>R</kbd> reload · <kbd>Q</kbd> change crystal<br><kbd>G</kbd> drop what you hold<br><kbd>X</kbd> throw a snowball (snow only)</p></div>
+<div><b>⚽ Soccer</b><p>Walk to the ball: it stays at your feet (dribbling)<br><kbd>T</kbd> shoot where you look<br><kbd>V</kbd> pass to your team<br><kbd>Shift</kbd> sprint with the ball</p>
+<b>🛝 Playground</b><p><kbd>T</kbd> get on / off<br><kbd>W</kbd> swing, spin, rock harder · <kbd>S</kbd> slow down<br><kbd>Space</kbd> jump off / push the see-saw</p>
+<b>Menus</b><p><kbd>E</kbd> bag & forge · <kbd>P</kbd> orders · <kbd>M</kbd> rooms<br><kbd>C</kbd> call your pets · <kbd>H</kbd> this list · <kbd>Esc</kbd> pause</p></div></div><p class="kx">Press H or tap anywhere to close</p>`;
+function toggleKeys(on){let k=document.getElementById("keysBox");if(!k){k=document.createElement("div");k.id="keysBox";k.className="hidden";k.innerHTML=KEYS_HTML;k.addEventListener("click",()=>toggleKeys(false));["pointerdown","mousedown","touchstart"].forEach(t=>k.addEventListener(t,e=>e.stopPropagation()));document.body.appendChild(k);}
+  const show=on===undefined?k.classList.contains("hidden"):on;k.classList.toggle("hidden",!show);if(show&&document.pointerLockElement)document.exitPointerLock();}
+{const b=document.createElement("button");b.id="keysBtn";b.type="button";b.textContent="⌨️";b.title="Keys — what each key does (H)";b.style.cssText="position:fixed;left:10px;top:calc(46% + 192px);z-index:90;width:40px;height:40px;padding:0;margin:0;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.62);color:#fff;font-size:17px;line-height:1;cursor:pointer";
+  b.addEventListener("click",e=>{e.stopPropagation();toggleKeys();b.blur();});["pointerdown","mousedown","touchstart"].forEach(k=>b.addEventListener(k,e=>e.stopPropagation()));document.body.appendChild(b);}
+addEventListener("keydown",e=>{if(e.target&&e.target.matches&&e.target.matches("input,textarea"))return;if(designOpen())return;
+  if(e.code==="KeyH")toggleKeys();else if(e.key==="Escape"){const k=document.getElementById("keysBox");if(k&&!k.classList.contains("hidden")){toggleKeys(false);}}
+  else if(e.code==="KeyV"&&started&&!bagOpen)passBall();});
+setInterval(()=>{let h=document.getElementById("socHint");const on=started&&SOC.myTeam!==undefined;if(!h){if(!on)return;h=document.createElement("div");h.id="socHint";document.body.appendChild(h);}
+  if(on){const T=TEAM[SOC.myTeam];h.innerHTML=`<b style="color:#${T.c.toString(16).padStart(6,"0")}">${T.e} ${T.n} team</b> — shoot at the goal with the ${T.n} sign<br>Walk into the ball: <b>dribble</b> · <kbd>T</kbd> shoot · <kbd>V</kbd> pass · <kbd>Shift</kbd> sprint · <kbd>H</kbd> all keys`;}h.classList.toggle("hidden",!on);},400);
 // the field's sounds: a referee's whistle, a kick, and the crowd cheering
 function socSound(k){try{const A=hornSound.ctx||(hornSound.ctx=new (window.AudioContext||window.webkitAudioContext)()),t=A.currentTime;
   if(k==="kick"){const o=A.createOscillator(),g=A.createGain();o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(60,t+.12);g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(g);g.connect(A.destination);o.start(t);o.stop(t+.15);return;}
@@ -3452,5 +3481,5 @@ function stepInvent(dt){stepFeel(dt);stepNeeds(dt);stepWild(dt);stepSeason(dt);s
   lit.sort((a,b)=>a[0]-b[0]);INV_LIGHTS.forEach((l,i)=>{const q=lit[i];if(q){l.position.set(q[1].x,q[2]+.2,q[1].z);l.intensity=isNight()?2.2:.5;}else l.intensity=0;});}
 
 window.__world={P,ENEMIES,inArena,isNight,inTown,BLOCKS,season:()=>SEASON?SEASON.name:"summer",holiday:()=>SEASON&&SEASON.hol?SEASON.hol.id:""};   // what the music (music.js) listens to
-window.__el={PG:()=>PG,playOn,playOff,slidePos,SOC,swingOn,swingOff,kickBall,pitchPeople,punch,animalHit,G,travelTo,toggleTravel,TRAVEL_SPOTS,FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
+window.__el={passBall,toggleKeys,PG:()=>PG,playOn,playOff,slidePos,SOC,swingOn,swingOff,kickBall,pitchPeople,punch,animalHit,G,travelTo,toggleTravel,TRAVEL_SPOTS,FUN:()=>FUN,snowAmt,stepFun,throwSnowball,LUD,CELEB_ACT,SNOWMAN_ACT,NESTS:()=>NESTS,NEST_ACT,hatchEgg,HATCH:()=>HATCH,stepHatch,EGGS,PETS:()=>PETS,petsInit,stepPets,adoptWild,mount,dismount,callPets,petOrders,PET_ACT,myPetHouse,SEASON:()=>SEASON,yearDay,mdOf,holidayOn,GIFT_ACT,stepSeason,HOLIDAYS,WILD:()=>WILD,wildInit,stepWild,WILD_ACT,FISH,fishStart,fishPull,stepFeel,NEEDS,needUp,needsHud,stepNeeds,RIVER_ACT,HOLES,CLOCK,isNight,jail,dig,waterUse,nearWater,HOLDW,DIG,JAIL,LAW,stepNightMobs,offersNow:()=>OFFERS,feel,spikeChoices,spikedEat,GAS,stepInvent,inventUse,fnUse,fnOf,makeOwnCar,setHouseBuilt,placedAll,REMOTE_BOATS,WORLD,npcLead,climbStep,useThing,sitOn,standUp,USE_ACT,PLACE_ACT,PLACED,placeThing,inMoatZone,HORN,blowHorn,openIdeas,MOAT,isWater,onBridge,MYBOAT,makeBoat,landNear,MYCAR,REMOTE_CARS,carUse,carKeyApply,LOTS,ROOMLIFE,townAgeDays,townDay,stepTown,ordersFor,openOrders,ORDST,openBench,HOUSES,get MYHOUSE(){return MYHOUSE},bizClick,PACKS,packOwner,damage,startSleep,endSleep,ACTS,ask,get CUR_SHOP(){return CUR_SHOP},set CUR_SHOP(v){CUR_SHOP=v},CLOCK,ARENA,stormAt,inArena,CARS,enterCar,exitCar,driveCar,GAS,MKT,STOCKS,marketDay,mktQuestion,CAVE,FOREST,inCave,DAY,stepDay,BIZ,BIZ_AT,bizTry,stepBiz,JOB,jobStart,jobPay,ENEMIES,APT,ride,INTERIORS,LIBRARIAN,TEACHER,ASK,personNamed,problemSolved,CITY,CITIZENS,BUILDINGS,SPOTS,collapse,rebuild,buildingHurt,MERCHANT,COOK,dropOwn,WORLD,share,applyEv,applyKey,hitPlayer,LAW,PEOPLE,JAIL,MARKS,hurtPerson,jail,scorch,CONTEST,contestNew,contestAnswer,setBook,howToGet,canAdd,workNow,haggle,haggleBuy,haggleSell,get HAG(){return HAG},trainPlan,buildTraining,cottageState,newQuest,set QW(v){QW=v},HOUSES,TREES,VILLAGERS,QUESTS,toggleLock,setHouses,chopHit,questTurnIn,setRoom,toggleRoom,newRoom,joinRoom,drinkFortis,useAct,FOODS,CHEST,HOME,TRAIN,MP,inTraining,SPELLS,INV,addItem,select,useHeld,get SEL(){return SEL},castSpell,castAs,dropItem,PICKUPS,NODES,ENEMIES,mineHit,toggleBag,CRAFT,DRAWS,drawFor,get tray(){return tray},set tray(v){tray=v},forgeNow,get forgeMsg(){return forgeMsg},set forgeId(v){forgeId=v},get bagOpen(){return bagOpen},get RIG(){return RIG},get COINS(){return COINS},set COINS(v){COINS=v;coinHud();},sell,buy,get OFFERS(){return OFFERS},MATH,inTown,DSHOTS,P,G,look,keys,WEAPONS,DUMMIES,CRYSTALS,cycleCrystal,get started(){return started},start(){$("#startBtn").click();},jump(){jumpQ=true;},setStick(x,y){stick.x=x;stick.y=y;},fire,reload,equip,hurt,blocks:BLOCKS,scene,cam};
 })();
